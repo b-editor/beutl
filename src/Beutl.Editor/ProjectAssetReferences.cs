@@ -11,6 +11,7 @@ internal sealed class ProjectAssetReferences
     internal sealed record Use(IFileSource Source, Uri Uri, string[] Files)
     {
         internal HashSet<CoreObject> Documents { get; } = new(ReferenceEqualityComparer.Instance);
+        internal HashSet<Guid>? ElementIds { get; set; }
     }
 
     internal string[] Documents { get; private set; } = [];
@@ -23,7 +24,7 @@ internal sealed class ProjectAssetReferences
     // Capture on the editing thread. Each saved document gets its own visit so a source shared
     // through the same nested object in two documents is written to both files after a relink.
     internal static ProjectAssetReferences Capture(Project project, IEnumerable<CoreObject> otherEditors,
-        IEnumerable<ChangeOperation> history, CancellationToken token)
+        IEnumerable<ChangeOperation> history, CancellationToken token, bool includeElementIds = false)
     {
         var result = new ProjectAssetReferences();
         var documents = new HashSet<CoreObject>(ReferenceEqualityComparer.Instance) { project };
@@ -58,6 +59,22 @@ internal sealed class ProjectAssetReferences
 
         result.Documents = [.. documents.Select(document => document.Uri).OfType<Uri>()
             .Where(uri => uri.IsFile).Select(uri => uri.LocalPath).Distinct(StringComparer.Ordinal)];
+        if (includeElementIds)
+        {
+            // A document visit expands a shared object only once. Visit each element to
+            // attribute that object's sources to every element that saves it.
+            foreach (Element element in project.Items.OfType<Scene>().SelectMany(scene => scene.Children))
+            {
+                CoreSerializer.Visit(element, visit =>
+                {
+                    token.ThrowIfCancellationRequested();
+                    if (visit.Value is IFileSource source && result.Sources.TryGetValue(source, out Use? use))
+                        (use.ElementIds ??= []).Add(element.Id.Value);
+                    return false;
+                });
+            }
+        }
+
         CoreSerializer.Visit(otherEditors.ToArray(), visit =>
         {
             token.ThrowIfCancellationRequested();

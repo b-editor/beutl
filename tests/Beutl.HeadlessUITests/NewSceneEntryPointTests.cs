@@ -77,10 +77,10 @@ public class NewSceneEntryPointTests
             await MainViewExtension.Instance.RunAsync(mainViewModel, new ContextCommandExecution("main.createNewFile"));
 
             MenuItem fileNewScene = view.GetLogicalDescendants().OfType<MenuItem>()
-                .Single(item => Equals(item.Header, Strings.CreateNewScene));
+                .Single(item => Equals(item.Header, Strings.CreateSceneMenu));
             NativeMenu macFileMenu = FindMenuItem(NativeMenu.GetMenu(macWindow)!, Strings.File).Menu!;
             NativeMenu macNewMenu = FindMenuItem(macFileMenu, Strings.CreateNew).Menu!;
-            NativeMenuItem macNewScene = FindMenuItem(macNewMenu, Strings.CreateNewScene);
+            NativeMenuItem macNewScene = FindMenuItem(macNewMenu, Strings.CreateSceneMenu);
             TitleBreadcrumbBar breadcrumb = view.GetVisualDescendants().OfType<TitleBreadcrumbBar>().Single();
             var fileFlyout = (Flyout)breadcrumb.FindControl<Button>("FileButton")!.Flyout!;
             fileFlyout.ShowAt(breadcrumb);
@@ -137,10 +137,10 @@ public class NewSceneEntryPointTests
             HeadlessTestHelpers.Render();
 
             MenuItem fileNewScene = view.GetLogicalDescendants().OfType<MenuItem>()
-                .Single(item => Equals(item.Header, Strings.CreateNewScene));
+                .Single(item => Equals(item.Header, Strings.CreateSceneMenu));
             NativeMenu macFileMenu = FindMenuItem(NativeMenu.GetMenu(macWindow)!, Strings.File).Menu!;
             NativeMenu macNewMenu = FindMenuItem(macFileMenu, Strings.CreateNew).Menu!;
-            NativeMenuItem macNewScene = FindMenuItem(macNewMenu, Strings.CreateNewScene);
+            NativeMenuItem macNewScene = FindMenuItem(macNewMenu, Strings.CreateSceneMenu);
 
             Assert.Multiple(() =>
             {

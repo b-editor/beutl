@@ -38,11 +38,15 @@ internal sealed partial class RenderRequestExecutor
                 fragment.Inputs[0].EffectiveScale.IsUnbounded
                     ? ResolveInputCallerScale(description.InputDemand, 0, requestScale)
                     : null);
-            var results = new List<MaterializedRenderValue>(inputs.Count);
+            var results = new EffectRenderValues(inputs.Count);
+            IReadOnlyList<ClippedTextOccurrence> clipped = EffectRenderValues.GetClippedText(inputs);
+            int nextClipped = 0;
             try
             {
-                foreach (MaterializedRenderValue input in inputs)
+                for (int i = 0; i < inputs.Count; i++)
                 {
+                    results.CopyClippedTextAt(clipped, i, ref nextClipped);
+                    MaterializedRenderValue input = inputs[i];
                     Rect outputBounds = description.Bounds.TransformBounds(input.CompleteBounds);
                     if (outputBounds.Width == 0 || outputBounds.Height == 0)
                         continue;
@@ -95,6 +99,7 @@ internal sealed partial class RenderRequestExecutor
                     }
                 }
 
+                results.CopyClippedTextAt(clipped, inputs.Count, ref nextClipped);
                 return results;
             }
             catch

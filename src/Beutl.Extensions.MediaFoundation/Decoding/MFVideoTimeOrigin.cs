@@ -8,30 +8,33 @@ namespace Beutl.Extensions.MediaFoundation.Decoding;
 
 internal static class MFVideoTimeOrigin
 {
-    // MF reports MP4 video composition timestamps before the edit-list trim.
-    // A normal H.264 file can therefore have a nonzero video first-gap even
-    // though its audio already starts at zero. This returns when the first video
-    // frame is shown. This reads metadata, never the media payload.
-    public static long GetFirstVideoTime(string file, long firstVideoTimestamp)
+    // MF can leave the MP4 edit-list trim in its video timestamps or omit a leading
+    // empty edit. Use metadata to locate the first picture on the container timeline.
+    public static long GetFirstVideoTime(string file, long firstVideoTimestamp, out long omittedEmptyEditDelay)
     {
-        if (firstVideoTimestamp <= 0)
+        if (firstVideoTimestamp < 0)
+        {
+            omittedEmptyEditDelay = 0;
             return 0;
+        }
 
         try
         {
             using var stream = File.OpenRead(file);
-            return GetFirstVideoTime(stream, firstVideoTimestamp);
+            return GetFirstVideoTime(stream, firstVideoTimestamp, out omittedEmptyEditDelay);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
         {
             // Unavailable metadata keeps frame 0 at the first video frame.
+            omittedEmptyEditDelay = 0;
             return 0;
         }
     }
 
-    internal static long GetFirstVideoTime(Stream stream, long firstVideoTimestamp)
+    internal static long GetFirstVideoTime(Stream stream, long firstVideoTimestamp, out long omittedEmptyEditDelay)
     {
-        if (firstVideoTimestamp <= 0 || !stream.CanSeek || stream.Length < 8)
+        omittedEmptyEditDelay = 0;
+        if (firstVideoTimestamp < 0 || !stream.CanSeek || stream.Length < 8)
             return 0;
 
         FourCC firstType = (FourCC)ReadUInt32(stream, 4, stream.Length);
@@ -52,10 +55,7 @@ internal static class MFVideoTimeOrigin
                 return firstVideoTimestamp;
 
             Box mdhd = FindBox(stream, mdia.DataStart, mdia.End, FourCC.Mdhd) ?? throw new InvalidDataException();
-            uint headerVersion = ReadUInt32(stream, mdhd.DataStart, mdhd.End) >> 24;
-            if (headerVersion > 1)
-                return 0;
-            uint scale = ReadUInt32(stream, mdhd.DataStart + (headerVersion == 1 ? 20 : 12), mdhd.End);
+            uint scale = ReadTimeScale(stream, mdhd);
             if (scale == 0)
                 return 0;
 
@@ -68,6 +68,7 @@ internal static class MFVideoTimeOrigin
             if (count == 0 || count > (elst.End - entriesStart) / entrySize)
                 return 0;
             long? mediaStart = null;
+            Int128 emptyEditDuration = 0;
             for (uint i = 0; i < count; i++)
             {
                 long position = entriesStart + i * (long)entrySize;
@@ -80,7 +81,10 @@ internal static class MFVideoTimeOrigin
                 {
                     if (mediaStart.HasValue)
                         return 0; // A trailing gap is not a constant start offset.
-                    continue; // Only leading empty edits can be ignored.
+                    emptyEditDuration += version == 1
+                        ? ReadUInt64(stream, position, elst.End)
+                        : ReadUInt32(stream, position, elst.End);
+                    continue;
                 }
                 if (time < 0 || mediaStart.HasValue)
                     return 0; // Multiple media segments cannot be mapped by one offset.
@@ -90,7 +94,17 @@ internal static class MFVideoTimeOrigin
             if (mediaStart is not { } start)
                 return 0;
             long trim = checked((long)((Int128)start * TimeSpan.TicksPerSecond / scale));
-            return Math.Max(0, firstVideoTimestamp - trim);
+            long firstVideoTime = Math.Max(0, firstVideoTimestamp - trim);
+            if (emptyEditDuration == 0 || FindBox(stream, moov.DataStart, moov.End, FourCC.Mvhd) is not { } mvhd)
+                return firstVideoTime;
+
+            // Edit durations use the movie timescale, while media times use the track timescale.
+            uint movieScale = ReadTimeScale(stream, mvhd);
+            if (movieScale == 0)
+                return firstVideoTime;
+            long leadingDelay = checked((long)(emptyEditDuration * TimeSpan.TicksPerSecond / movieScale));
+            omittedEmptyEditDelay = Math.Max(0, leadingDelay - firstVideoTime);
+            return Math.Max(firstVideoTime, leadingDelay);
         }
         catch (Exception ex) when (ex is IOException or InvalidDataException or OverflowException)
         {
@@ -100,10 +114,17 @@ internal static class MFVideoTimeOrigin
         return 0;
     }
 
+    private static uint ReadTimeScale(Stream stream, Box header)
+    {
+        uint version = ReadUInt32(stream, header.DataStart, header.End) >> 24;
+        return version <= 1 ? ReadUInt32(stream, header.DataStart + (version == 1 ? 20 : 12), header.End) : 0;
+    }
+
     private enum FourCC : uint
     {
         Ftyp = 0x66747970,
         Moov = 0x6D6F6F76,
+        Mvhd = 0x6D766864,
         Mdat = 0x6D646174,
         Wide = 0x77696465,
         Free = 0x66726565,

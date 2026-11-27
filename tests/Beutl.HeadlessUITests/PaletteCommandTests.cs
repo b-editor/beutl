@@ -868,6 +868,68 @@ public class PaletteCommandTests
     }
 
     [AvaloniaTest]
+    public async Task Palette_paste_opens_the_timeline_and_uses_the_playhead()
+    {
+        EditViewModel editor = await OpenEditorForNewScene("palette-closed-timeline-paste");
+        Element copied = await AddRectAsync(editor, start: 0, length: 3, layer: 0);
+        TimelineTabViewModel timeline = editor.FindToolTab<TimelineTabViewModel>()!;
+        timeline.SelectElement(timeline.GetViewModelFor(copied)!);
+        timeline.ClickedFrame = MediaTime.FromSeconds(2);
+        CloseTimeline(editor);
+        SetPlayhead(editor, 1);
+        Assert.That(editor.GetRequiredService<IEditorSelection>().SelectedElements, Does.Contain(copied));
+
+        CommandPaletteViewModel palette = TestShell.MainViewModel.CommandPalette;
+        var view = new MainView { DataContext = TestShell.MainViewModel };
+        var window = new Window { Content = view, Width = 1100, Height = 700, RequestedThemeVariant = ThemeVariant.Dark };
+        try
+        {
+            window.Show();
+            ClipboardHelper.OverrideClipboard = window.Clipboard;
+            Assert.That(await editor.GetRequiredService<IElementClipboardService>().CopyAsync([copied]), Is.True);
+
+            palette.Open();
+            string opensTimeline = string.Format(Strings.CommandPalette_OpensToolTab, Strings.Timeline);
+            CommandPaletteItemViewModel paste = palette.FilteredCommands.Single(item => item.Command.Id == "timeline.paste");
+            Assert.Multiple(() =>
+            {
+                Assert.That(paste.IsEnabled, Is.True);
+                Assert.That(paste.CategoryName, Is.EqualTo(opensTimeline));
+                Assert.That(palette.FilteredCommands.Select(item => item.Command.Id), Does.Not.Contain("timeline.duplicate"),
+                    "Duplicate requires a timeline click even when a clip is selected.");
+            });
+
+            palette.Query.Value = Strings.Paste;
+            await CommandPaletteTestHost.UntilAsync(() => palette.FilteredCommands.All(item => item.Command.Id != "timeline.zoomIn"));
+            palette.SelectedCommand.Value = palette.FilteredCommands.Single(item => item.Command.Id == "timeline.paste");
+            var paletteView = view.FindDescendantOfType<CommandPaletteView>()!;
+            await CommandPaletteTestHost.UntilAsync(() => paletteView.Opacity == 1
+                && paletteView.GetVisualDescendants().OfType<Avalonia.Controls.TextBlock>()
+                    .Any(text => text.IsEffectivelyVisible && text.Text == opensTimeline));
+            HeadlessCapture.SaveIfRequested(paletteView, nameof(PaletteCommandTests), "closed-timeline-paste");
+            Assert.That(editor.FindToolTab<TimelineTabViewModel>(), Is.Null);
+
+            await palette.ExecuteSelectedAsync();
+            HeadlessTestHelpers.Settle();
+
+            Element pasted = editor.Scene.Children.Single(element => element != copied);
+            Assert.Multiple(() =>
+            {
+                Assert.That(editor.FindToolTab<TimelineTabViewModel>(), Is.Not.Null);
+                Assert.That(pasted.Start.Value, Is.EqualTo(MediaTime.FromSeconds(1)));
+                Assert.That(pasted.ZIndex.Value, Is.EqualTo(1));
+            });
+        }
+        finally
+        {
+            palette.Close();
+            ClipboardHelper.OverrideClipboard = null;
+            window.Close();
+            HeadlessTestHelpers.Settle();
+        }
+    }
+
+    [AvaloniaTest]
     public async Task Tool_commands_run_from_the_palette_with_their_tab_closed()
     {
         EditViewModel editor = await OpenEditorForNewScene("palette-closed-tab");

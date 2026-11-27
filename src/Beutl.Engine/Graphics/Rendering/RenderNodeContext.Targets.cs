@@ -383,7 +383,6 @@ public sealed partial class RenderNodeContext
             reference.ContributesValuesToTarget,
             canBeUsedAsValueInput: isValueReplayMap
                 && reference.CanBeUsedAsValueInput
-                && reference.ValueCardinality.Equals(RenderValueCardinality.Single)
                 && reference.ContributesValuesToTarget
                 && !RenderFragmentTargetDependency.HasExternalTargetDependency(reference),
             hasTargetEffects: isValueReplayMap ? reference.HasTargetEffects : true,

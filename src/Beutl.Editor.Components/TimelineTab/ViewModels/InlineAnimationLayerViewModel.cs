@@ -1,12 +1,12 @@
 ﻿using System.Text.Json.Nodes;
 using Avalonia;
 using Avalonia.Input;
-using Avalonia.Input.Platform;
 using Avalonia.Threading;
 using Beutl.Animation;
 using Beutl.Animation.Easings;
 using Beutl.Editor.Components.GraphEditorTab.ViewModels;
 using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Components.Services;
 using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.Logging;
@@ -61,7 +61,7 @@ public sealed class InlineAnimationLayerViewModel : IDisposable
             .DisposeWith(_disposables);
 
         CopyAllKeyFramesCommand = new ReactiveCommand()
-            .WithSubscribe(async () => await KeyFrameClipboardCommands.CopyAnimationAsync(Timeline.EditorContext.GetRequiredService<INotificationService>(), Property.Animation!, _logger))
+            .WithSubscribe(async () => await KeyFrameClipboardCommands.CopyAnimationAsync(Timeline.EditorContext, Property.Animation!, _logger))
             .DisposeWith(_disposables);
 
         PasteKeyFrameAtCurrentPositionCommand = new ReactiveCommand()
@@ -216,9 +216,9 @@ public sealed class InlineAnimationLayerViewModel : IDisposable
         history.Commit(CommandNames.DeleteAnimation);
     }
 
-    internal async Task PasteKeyFrameAtPositionAsync(MediaTime pointerPosition, IClipboard? clipboard = null)
+    internal async Task PasteKeyFrameAtPositionAsync(MediaTime pointerPosition, IClipboardGateway? clipboard = null)
     {
-        clipboard ??= ClipboardHelper.GetClipboard();
+        clipboard ??= AvaloniaClipboardGateway.Resolve(Timeline.EditorContext);
         if (_disposed || !IsEditable || clipboard == null || Property.Animation is not IKeyFrameAnimation animation) return;
 
         await KeyFrameClipboardCommands.PasteAtPositionAsync(Timeline.EditorContext.GetRequiredService<INotificationService>(),

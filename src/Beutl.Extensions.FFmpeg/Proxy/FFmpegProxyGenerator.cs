@@ -88,11 +88,10 @@ public sealed partial class FFmpegProxyGenerator(IProxyStore store, INotificatio
                 File.Delete(tempPath);
 
             using var frameProvider = new ReaderFrameProvider(reader, frameCount, job.Progress);
-            using var sampleProvider = new SilentSampleProvider();
             var controller = new FFmpegEncodingControllerProxy(tempPath, new FFmpegEncodingSettings());
             Configure(controller, reader.VideoInfo, proxySize, job.Preset);
 
-            await controller.Encode(frameProvider, sampleProvider, job.CancellationToken);
+            await controller.EncodeVideoOnly(frameProvider, job.CancellationToken);
 
             EnsureSourceUnchanged(store, job, sourcePath);
 

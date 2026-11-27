@@ -116,7 +116,7 @@
                                         <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="GraphEditor.RemoveAnimation"
                                                              Click="RemoveAnimationClick"
                                                              IsEnabled="{Binding CanRemoveAnimation.Value}"
-                                                             Text="{x:Static lang:Strings.RemoveAnimation}" />
+                                                             Text="{x:Static lang:CommandNames.DeleteAnimation}" />
                                     </ui:FAMenuFlyout>
                                 </Button.ContextFlyout>
                                 <Panel Width="18" Height="18">

@@ -1,7 +1,6 @@
-﻿using Avalonia.Input;
-using Avalonia.Input.Platform;
-using Beutl.Animation;
+﻿using Beutl.Animation;
 using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Components.Services;
 using Beutl.Editor.Services;
 using Beutl.Services;
 using Microsoft.Extensions.DependencyInjection;
@@ -39,9 +38,9 @@ public sealed partial class GraphEditorViewModel
             && ReferenceEquals(SelectedView.Value, channel);
     }
 
-    internal async Task<bool> CopySelectionAsync(IClipboard? clipboard = null)
+    internal async Task<bool> CopySelectionAsync(IClipboardGateway? clipboard = null)
     {
-        clipboard ??= ClipboardHelper.GetClipboard();
+        clipboard ??= AvaloniaClipboardGateway.Resolve(EditorContext);
         if (!IsClipboardContextActive || SelectedView.Value is not { } channel || clipboard == null) return false;
         var selected = channel.KeyFrames.Where(x => x.IsSelected.Value).Select(x => x.Model).ToArray();
         if (selected.Length == 0) return false;
@@ -54,16 +53,13 @@ public sealed partial class GraphEditorViewModel
                 copy.KeyFrames.Add((IKeyFrame)clone);
             }
             ObjectRegenerator.Regenerate(copy, out string json);
-            var data = new DataTransfer();
-            data.Add(DataTransferItem.CreateText(json));
-            data.Add(DataTransferItem.Create(BeutlDataFormats.KeyFrameSelection, json));
+            List<ClipboardEntry> entries = [new(BeutlClipboardFormats.Text, json), new(BeutlClipboardFormats.KeyFrameSelection, json)];
             if (selected.Length == 1)
             {
                 ObjectRegenerator.Regenerate(copy.KeyFrames[0], out string keyJson);
-                data.Add(DataTransferItem.Create(BeutlDataFormats.KeyFrame, keyJson));
+                entries.Add(new(BeutlClipboardFormats.KeyFrame, keyJson));
             }
-            await clipboard.SetDataAsync(data);
-            return true;
+            return await clipboard.SetAsync(entries);
         }
         catch (Exception ex)
         {
@@ -73,17 +69,17 @@ public sealed partial class GraphEditorViewModel
         }
     }
 
-    internal async Task PasteSelectionAsync(IClipboard? clipboard = null, IKeyFrame? target = null)
+    internal async Task PasteSelectionAsync(IClipboardGateway? clipboard = null, IKeyFrame? target = null)
     {
-        clipboard ??= ClipboardHelper.GetClipboard();
+        clipboard ??= AvaloniaClipboardGateway.Resolve(EditorContext);
         if (!IsClipboardContextActive || clipboard == null || SelectedView.Value == null) return;
         var canPaste = CapturePasteContext();
         MediaTime start = target?.KeyTime.Value ?? ConvertKeyTime(CurrentTime.Value);
         try
         {
-            string? json = await clipboard.TryGetValueAsync(BeutlDataFormats.KeyFrameSelection)
-                ?? await clipboard.TryGetValueAsync(BeutlDataFormats.KeyFrameAnimation)
-                ?? await clipboard.TryGetValueAsync(BeutlDataFormats.KeyFrame);
+            string? json = await clipboard.TryGetStringAsync(BeutlClipboardFormats.KeyFrameSelection)
+                ?? await clipboard.TryGetStringAsync(BeutlClipboardFormats.KeyFrameAnimation)
+                ?? await clipboard.TryGetStringAsync(BeutlClipboardFormats.KeyFrame);
             if (!canPaste()) return;
             PasteSelection(json, start, target);
         }

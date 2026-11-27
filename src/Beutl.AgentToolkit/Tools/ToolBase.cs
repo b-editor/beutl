@@ -43,4 +43,17 @@ public abstract class ToolBase
 
         return scene;
     }
+
+    protected static Action? CaptureLockedTransitionValidation(Scene scene)
+    {
+        Func<Scene, ToolError?>? check = Reconciler.CaptureLockedTransitionCheck(
+            scene, [.. scene.Children.Where(scene.IsElementLockedByUser)]);
+        if (check is null) return null;
+
+        return () =>
+        {
+            if (check(scene) is { } error)
+                throw new ReconcileException(error);
+        };
+    }
 }

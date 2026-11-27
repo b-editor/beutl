@@ -133,7 +133,8 @@
                 <ToggleButton x:Name="ThinkingToggle" Classes="agent-disclosure" HorizontalAlignment="Left"
                               IsChecked="{Binding IsExpanded, Mode=TwoWay}"
                               MinHeight="24" Padding="4,2" AutomationProperties.Name="{Binding Summary}">
-                    <StackPanel Orientation="Horizontal" Spacing="6">
+                    <StackPanel Orientation="Horizontal" Spacing="7">
+                        <icons:FluentIcon Classes="agent-status agent-disclosure-glyph" Icon="Lightbulb" VerticalAlignment="Center" />
                         <TextBlock Text="{Binding Summary}" Classes="agent-caption agent-disclosure-label" FontSize="12" VerticalAlignment="Center" />
                         <icons:FluentIcon Classes="agent-status agent-chevron agent-disclosure-glyph" />
                     </StackPanel>

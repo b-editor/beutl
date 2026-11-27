@@ -393,7 +393,7 @@ public sealed class AgentTabPhase5Tests
         {
             settingsWindow.Show();
             HeadlessTestHelpers.Render(5);
-            Assert.That(settingsModel.RuntimeSettings.ClaudeCodeStatus.Value, Does.Contain("2.0.9").And.Contain("2.1.0"));
+            Assert.That(settingsModel.RuntimeSettings.ClaudeCodeStatus.Value, Does.Contain("2.0.9").And.Contain("2.1.332"));
             Assert.That(settingsModel.RuntimeSettings.CodexStatus.Value, Does.Contain("0.165.0"));
             var notifications = page.FindControl<ToggleSwitch>("EnableAgentNotifications")!;
             var sound = page.FindControl<ToggleSwitch>("EnableAgentNotificationSound")!;

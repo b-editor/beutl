@@ -101,7 +101,7 @@ public sealed class HostedGitRepositoryServiceTests
         Assert.That(token.Token, Is.EqualTo(AccessToken));
         Assert.That(token.ToString(), Does.Not.Contain(AccessToken));
         await service.RevokeTokenAsync(id, Guid.Parse(TokenId));
-        await service.DeleteAsync(id);
+        await service.DeleteAsync(id, CancellationToken.None, owner);
         Assert.That(observed, Is.EqualTo(new[]
         {
             "GET /api/v3/repos", "POST /api/v3/repos", $"GET /api/v3/repos/{RepositoryId}",
@@ -169,6 +169,9 @@ public sealed class HostedGitRepositoryServiceTests
         var originalOwner = ApiTestAuthentication.SignIn(app, id: "original");
         ApiTestAuthentication.SignIn(app, id: "different");
         Assert.That((await Assert.ThrowsAsync<HostedGitApiException>(() => service.CreateAsync("Repository", Guid.NewGuid(), originalOwner)))!.Error,
+            Is.EqualTo(HostedGitError.AccountChanged));
+        Assert.That((await Assert.ThrowsAsync<HostedGitApiException>(
+                () => service.DeleteAsync(Guid.Parse(RepositoryId), CancellationToken.None, originalOwner)))!.Error,
             Is.EqualTo(HostedGitError.AccountChanged));
     }
 

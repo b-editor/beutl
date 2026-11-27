@@ -65,6 +65,7 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
     private readonly PlaybackSessionGuard _sessionGuard = new();
     private readonly ReactivePropertySlim<string?> _previewRenderError = new();
     private readonly ReactivePropertySlim<string?> _previewRenderWarning = new();
+    private readonly ReactivePropertySlim<bool> _isPreviewWorkingScaleClamped = new();
     private long _previewRenderStatusIssuedVersion;
     private long _previewRenderStatusAppliedVersion;
     // Serializes RestoreStoppedPreviewState so PlayInternal's finally and Pause()'s timeout path
@@ -231,6 +232,7 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
         PathEditor = new PathEditorViewModel(_editViewModel, this)
             .DisposeWith(_disposables);
         InitializeEditingStage();
+        InitializeEffectComparison();
         InitializePuppetPinEditor();
 
         IsCameraMode.Subscribe(isCameraMode =>
@@ -365,7 +367,7 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
             return;
         }
 
-        QueueRender();
+        QueueRender(coalesceSceneEdits: true);
     }
 
     // The preview only needs to re-render when an edit touches a currently visible frame.
@@ -399,6 +401,8 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
     public IReadOnlyReactiveProperty<string?> PreviewRenderError => _previewRenderError;
 
     public IReadOnlyReactiveProperty<string?> PreviewRenderWarning => _previewRenderWarning;
+
+    public IReadOnlyReactiveProperty<bool> IsPreviewWorkingScaleClamped => _isPreviewWorkingScaleClamped;
 
     IReadOnlyReactiveProperty<Ref<Bitmap>?> IPreviewPlayer.PreviewImage => PreviewImage;
 
@@ -899,6 +903,7 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
         // never disposed under the request holding its token. Pause then drains the compose and render
         // dispatchers, so the render thread cannot call OnNext on the subjects disposed below.
         renderCts?.Cancel();
+        EndEffectComparison();
         StopPuppetPinPlacement();
         SetSelectedPuppetPin(null);
         Disposing?.Invoke(this, EventArgs.Empty);

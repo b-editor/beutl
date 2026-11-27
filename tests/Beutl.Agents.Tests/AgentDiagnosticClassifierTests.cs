@@ -28,16 +28,16 @@ public sealed class AgentDiagnosticClassifierTests
     [Test]
     public void ProvidesTheDetectedAndMinimumVersionsForAnOutdatedProbe()
     {
-        var probe = new AgentProviderProbeResult(AgentProviderDescriptor.ClaudeCode, "claude", null, null, "2.1.0-beta.1");
+        var probe = new AgentProviderProbeResult(AgentProviderDescriptor.ClaudeCode, "claude", null, null, "2.1.332-beta.1");
         var diagnostic = AgentDiagnosticClassifier.FromProbe(probe);
         Assert.That(diagnostic, Is.Not.Null);
         Assert.Multiple(() =>
         {
             Assert.That(diagnostic!.Kind, Is.EqualTo(AgentDiagnosticKind.OutdatedCli));
-            Assert.That(diagnostic.CliVersion, Is.EqualTo("2.1.0-beta.1"));
-            Assert.That(diagnostic.MinimumVersion, Is.EqualTo(new Version(2, 1, 0)));
+            Assert.That(diagnostic.CliVersion, Is.EqualTo("2.1.332-beta.1"));
+            Assert.That(diagnostic.MinimumVersion, Is.EqualTo(new Version(2, 1, 332)));
             Assert.That(diagnostic.Command, Is.EqualTo("claude update"));
-            Assert.That(AgentDiagnosticClassifier.FromProbe(probe with { CliVersion = "2.1.0" }), Is.Null);
+            Assert.That(AgentDiagnosticClassifier.FromProbe(probe with { CliVersion = "2.1.332" }), Is.Null);
         });
     }
 }

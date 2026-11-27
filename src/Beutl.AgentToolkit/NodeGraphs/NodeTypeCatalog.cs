@@ -1,11 +1,14 @@
 ﻿using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using Beutl.AgentToolkit.Common;
+using Beutl.AgentToolkit.Schema;
+using Beutl.Editor.Services;
 using Beutl.NodeGraph;
 using Beutl.NodeGraph.Nodes;
 using Beutl.NodeGraph.Nodes.Group;
 using Beutl.NodeGraph.Nodes.Shaders;
 using Beutl.NodeGraph.Nodes.Utilities;
+using Beutl.Services;
 
 namespace Beutl.AgentToolkit.NodeGraphs;
 
@@ -31,10 +34,11 @@ public sealed record NodeMemberSummary(
 
 internal sealed record NodeTypeEntry(Type Type, string Name, string Discriminator, string DisplayName, string Category);
 
-// The node types the editor offers, as GraphNodeRegistry lists them.
+// The node types the editor offers, with the same category paths as its add-node menu.
 internal static class NodeTypeCatalog
 {
     private static readonly object s_lock = new();
+    private static readonly Lazy<LibraryService> s_defaultLibrary = new(TypeRegistration.CreateLibraryService);
 
     // What a node type's ports do that its members cannot say. Keyed by type, like the effect metadata of the schema.
     private static readonly Dictionary<Type, string[]> s_notes = new()
@@ -97,11 +101,16 @@ internal static class NodeTypeCatalog
         }
     }
 
-    public static IReadOnlyList<NodeTypeEntry> GetEntries()
+    public static IReadOnlyList<NodeTypeEntry> GetEntries(LibraryService? library = null)
     {
         EnsureBuiltInNodesRegistered();
+        return Collect(NodeMenuCatalog.GetItems(library ?? s_defaultLibrary.Value));
+    }
+
+    private static IReadOnlyList<NodeTypeEntry> Collect(IEnumerable<GraphNodeRegistry.BaseRegistryItem> items)
+    {
         var entries = new List<NodeTypeEntry>();
-        foreach (GraphNodeRegistry.BaseRegistryItem item in GraphNodeRegistry.GetRegistered())
+        foreach (GraphNodeRegistry.BaseRegistryItem item in items)
         {
             Collect(item, null, entries);
         }
@@ -110,10 +119,16 @@ internal static class NodeTypeCatalog
     }
 
     // A type by the name list_node_types gives it, its $type discriminator, or its full name.
-    public static NodeTypeEntry? Resolve(string token, out IReadOnlyList<NodeTypeEntry> candidates)
+    public static NodeTypeEntry? Resolve(string token, out IReadOnlyList<NodeTypeEntry> candidates,
+        IReadOnlyList<NodeTypeEntry>? entries = null)
     {
         string trimmed = token.Trim();
-        IReadOnlyList<NodeTypeEntry> entries = GetEntries();
+        if (entries == null)
+        {
+            EnsureBuiltInNodesRegistered();
+            entries = Collect(GraphNodeRegistry.GetRegistered());
+        }
+
         NodeTypeEntry[] matches = entries
             .Where(entry => string.Equals(entry.Name, trimmed, StringComparison.OrdinalIgnoreCase)
                             || string.Equals(entry.Discriminator, trimmed, StringComparison.Ordinal)

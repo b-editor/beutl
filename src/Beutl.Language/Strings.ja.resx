@@ -105,14 +105,26 @@
   <data name="CreateNewProject" xml:space="preserve">
     <value>プロジェクトを新規作成</value>
   </data>
+  <data name="CreateProjectMenu" xml:space="preserve">
+    <value>プロジェクト…</value>
+  </data>
   <data name="CreateNewScene" xml:space="preserve">
     <value>シーンを新規作成</value>
+  </data>
+  <data name="CreateSceneMenu" xml:space="preserve">
+    <value>シーン…</value>
+  </data>
+  <data name="CreateNewSceneMenu" xml:space="preserve">
+    <value>新規作成…</value>
   </data>
   <data name="Cut" xml:space="preserve">
     <value>カット</value>
   </data>
   <data name="Delete" xml:space="preserve">
     <value>削除</value>
+  </data>
+  <data name="DeleteWithConfirmation" xml:space="preserve">
+    <value>削除…</value>
   </data>
   <data name="DiscardChanges" xml:space="preserve">
     <value>変更を破棄</value>
@@ -171,6 +183,9 @@
   <data name="NewFolder" xml:space="preserve">
     <value>新しいフォルダー</value>
   </data>
+  <data name="CloudStorageNewFolderMenu" xml:space="preserve">
+    <value>新しいフォルダー…</value>
+  </data>
   <data name="Next" xml:space="preserve">
     <value>次へ</value>
   </data>
@@ -219,6 +234,9 @@
   <data name="Settings" xml:space="preserve">
     <value>設定</value>
   </data>
+  <data name="OpenSettingsMenu" xml:space="preserve">
+    <value>設定…</value>
+  </data>
   <data name="Properties" xml:space="preserve">
     <value>プロパティ</value>
   </data>
@@ -242,6 +260,9 @@
   </data>
   <data name="Remove" xml:space="preserve">
     <value>削除</value>
+  </data>
+  <data name="RemoveFromProjectMenu" xml:space="preserve">
+    <value>プロジェクトから除外…</value>
   </data>
   <data name="Size" xml:space="preserve">
     <value>サイズ</value>
@@ -393,6 +414,9 @@
   <data name="SceneSettings" xml:space="preserve">
     <value>シーン設定</value>
   </data>
+  <data name="TimelineSceneSettings" xml:space="preserve">
+    <value>シーン設定</value>
+  </data>
   <data name="Right" xml:space="preserve">
     <value>右</value>
   </data>
@@ -449,6 +473,9 @@
   </data>
   <data name="Rename" xml:space="preserve">
     <value>名前を変更</value>
+  </data>
+  <data name="RenameMenu" xml:space="preserve">
+    <value>名前を変更…</value>
   </data>
   <data name="FinishEditing" xml:space="preserve">
     <value>編集を終了する</value>
@@ -640,7 +667,7 @@
     <value>レイヤーの数</value>
   </data>
   <data name="ChangeColor" xml:space="preserve">
-    <value>色を変更</value>
+    <value>色を変更…</value>
   </data>
   <data name="EditAnimationInInlineView" xml:space="preserve">
     <value>インライン表示でアニメーションを編集</value>
@@ -684,23 +711,41 @@
   <data name="AddNode" xml:space="preserve">
     <value>ノードを追加</value>
   </data>
-  <data name="Change" xml:space="preserve">
-    <value>変更</value>
+  <data name="ChangeTransformType" xml:space="preserve">
+    <value>変換の種類を変更</value>
+  </data>
+  <data name="ReplaceEffectMenu" xml:space="preserve">
+    <value>エフェクトを置き換え…</value>
+  </data>
+  <data name="ReplaceObject" xml:space="preserve">
+    <value>オブジェクトを置き換え</value>
+  </data>
+  <data name="ReplaceObjectMenu" xml:space="preserve">
+    <value>オブジェクトを置き換え…</value>
   </data>
   <data name="Disconnect" xml:space="preserve">
     <value>切断</value>
   </data>
-  <data name="Initialize" xml:space="preserve">
-    <value>初期化</value>
+  <data name="CreateEmptyPath" xml:space="preserve">
+    <value>空のパスを作成</value>
+  </data>
+  <data name="ResetList" xml:space="preserve">
+    <value>リストをリセット</value>
+  </data>
+  <data name="ResetStroke" xml:space="preserve">
+    <value>ストロークをリセット</value>
   </data>
   <data name="ResetZoom" xml:space="preserve">
+    <value>拡大率をリセット</value>
+  </data>
+  <data name="ResetZoomMenu" xml:space="preserve">
     <value>拡大率をリセット</value>
   </data>
   <data name="RemoveAnimation" xml:space="preserve">
     <value>アニメーションを削除</value>
   </data>
   <data name="EditExpression" xml:space="preserve">
-    <value>式を編集</value>
+    <value>式を編集…</value>
   </data>
   <data name="RemoveExpression" xml:space="preserve">
     <value>式を削除</value>
@@ -739,10 +784,10 @@
     <value>詳細を表示</value>
   </data>
   <data name="SaveSelectedElementAsImage" xml:space="preserve">
-    <value>選択された要素を画像として保存</value>
+    <value>選択された要素を画像として保存…</value>
   </data>
   <data name="SaveFrameAsImage" xml:space="preserve">
-    <value>フレームを画像として保存</value>
+    <value>フレームを画像として保存…</value>
   </data>
   <data name="SaveImageScale" xml:space="preserve">
     <value>拡大率</value>
@@ -752,6 +797,9 @@
   </data>
   <data name="Move" xml:space="preserve">
     <value>移動</value>
+  </data>
+  <data name="CloudStorageMoveMenu" xml:space="preserve">
+    <value>移動…</value>
   </data>
   <data name="Hand" xml:space="preserve">
     <value>ハンド</value>
@@ -811,7 +859,7 @@
     <value>スタートアップタスクを実行中</value>
   </data>
   <data name="SaveAsImage" xml:space="preserve">
-    <value>画像として保存</value>
+    <value>画像として保存…</value>
   </data>
   <data name="CopyAsImage" xml:space="preserve">
     <value>画像としてコピー</value>
@@ -828,14 +876,8 @@
   <data name="Unlocked" xml:space="preserve">
     <value>未ロック</value>
   </data>
-  <data name="DeleteAll" xml:space="preserve">
-    <value>すべて削除</value>
-  </data>
   <data name="Lock" xml:space="preserve">
     <value>ロック</value>
-  </data>
-  <data name="Unlock" xml:space="preserve">
-    <value>ロック解除</value>
   </data>
   <data name="Solo" xml:space="preserve">
     <value>ソロ</value>
@@ -845,6 +887,18 @@
   </data>
   <data name="FrameCache" xml:space="preserve">
     <value>フレームキャッシュ</value>
+  </data>
+  <data name="DeleteAllCachedFrames" xml:space="preserve">
+    <value>キャッシュしたフレームをすべて削除</value>
+  </data>
+  <data name="DeleteCachedFrameRange" xml:space="preserve">
+    <value>キャッシュしたフレーム範囲を削除</value>
+  </data>
+  <data name="LockCachedFrameRange" xml:space="preserve">
+    <value>キャッシュしたフレーム範囲をロック</value>
+  </data>
+  <data name="UnlockCachedFrameRange" xml:space="preserve">
+    <value>キャッシュしたフレーム範囲のロックを解除</value>
   </data>
   <data name="RightClickToOperateCache" xml:space="preserve">
     <value>右クリックでキャッシュを操作</value>
@@ -894,6 +948,9 @@
   <data name="ColorPalette_NewPalette" xml:space="preserve">
     <value>新しいパレット</value>
   </data>
+  <data name="ColorPalette_NewPaletteMenu" xml:space="preserve">
+    <value>新しいパレット…</value>
+  </data>
   <data name="ColorPalette_NewPaletteName" xml:space="preserve">
     <value>パレット {0}</value>
   </data>
@@ -925,7 +982,7 @@
     <value>パレットに追加</value>
   </data>
   <data name="ColorPalette_AddToNewPalette" xml:space="preserve">
-    <value>新しいパレットに追加</value>
+    <value>新しいパレットに追加…</value>
   </data>
   <data name="ColorPalette_ReplaceWithCurrentColor" xml:space="preserve">
     <value>今の色に置き換え</value>
@@ -960,6 +1017,9 @@
   <data name="ImportSvgPath" xml:space="preserve">
     <value>SVGパスをインポート</value>
   </data>
+  <data name="ImportSvgPathMenu" xml:space="preserve">
+    <value>SVGパスをインポート…</value>
+  </data>
   <data name="ImportSvgPath_Description" xml:space="preserve">
     <value>現在の図形は上書きされます。</value>
   </data>
@@ -990,8 +1050,14 @@
   <data name="OpenProject" xml:space="preserve">
     <value>プロジェクトを開く</value>
   </data>
+  <data name="OpenProjectMenu" xml:space="preserve">
+    <value>プロジェクト…</value>
+  </data>
   <data name="OpenFile" xml:space="preserve">
     <value>ファイルを開く</value>
+  </data>
+  <data name="OpenFileMenu" xml:space="preserve">
+    <value>ファイル…</value>
   </data>
   <data name="Save_Description" xml:space="preserve">
     <value>現在のファイルを保存</value>
@@ -1161,6 +1227,9 @@
   <data name="Duplicate_ProjectNotSaved" xml:space="preserve">
     <value>要素を複製する前にプロジェクトを保存してください。</value>
   </data>
+  <data name="Duplicate_InvalidLayer" xml:space="preserve">
+    <value>すべての複製を配置できる、0 以上のレイヤー番号を指定してください。</value>
+  </data>
   <data name="Duplicate_IOFailed" xml:space="preserve">
     <value>複製した要素のディスクへの書き込みに失敗しました。</value>
   </data>
@@ -1325,6 +1394,12 @@ GetProperty&lt;T&gt;("path", time) または GetProperty&lt;T&gt;(guid, "propert
   <data name="Null" xml:space="preserve">
     <value>なし</value>
   </data>
+  <data name="ClearValue" xml:space="preserve">
+    <value>値をクリア</value>
+  </data>
+  <data name="ClearReference" xml:space="preserve">
+    <value>参照を解除</value>
+  </data>
   <data name="OpenInTab" xml:space="preserve">
     <value>タブで開く</value>
   </data>
@@ -1374,7 +1449,7 @@ GetProperty&lt;T&gt;("path", time) または GetProperty&lt;T&gt;(guid, "propert
     <value>既定のブラウザで開く</value>
   </data>
   <data name="Print" xml:space="preserve">
-    <value>印刷</value>
+    <value>印刷…</value>
   </data>
   <data name="WebBrowserActionFailed" xml:space="preserve">
     <value>ブラウザ操作を完了できませんでした。</value>
@@ -1431,10 +1506,40 @@ GetProperty&lt;T&gt;("path", time) または GetProperty&lt;T&gt;(guid, "propert
     <value>クリア</value>
   </data>
   <data name="ExportProject" xml:space="preserve">
-    <value>プロジェクトをエクスポート...</value>
+    <value>プロジェクトをエクスポート…</value>
+  </data>
+  <data name="ExportSubtitlesMenu" xml:space="preserve">
+    <value>字幕をエクスポート…</value>
+  </data>
+  <data name="ExportSubtitles" xml:space="preserve">
+    <value>字幕をエクスポート</value>
+  </data>
+  <data name="ExportSubtitles_Source" xml:space="preserve">
+    <value>エクスポートするクリップ</value>
+  </data>
+  <data name="ExportSubtitles_SelectedElements" xml:space="preserve">
+    <value>選択中の要素</value>
+  </data>
+  <data name="ExportSubtitles_Layers" xml:space="preserve">
+    <value>タイムラインのレイヤー</value>
+  </data>
+  <data name="ExportSubtitles_NoLayers" xml:space="preserve">
+    <value>クリップがあるレイヤーはありません。</value>
+  </data>
+  <data name="ExportSubtitles_Format" xml:space="preserve">
+    <value>ファイル形式</value>
+  </data>
+  <data name="ExportSubtitles_SelectSource" xml:space="preserve">
+    <value>書き出すクリップまたはレイヤーを選択してください。</value>
+  </data>
+  <data name="ExportSubtitles_NoText" xml:space="preserve">
+    <value>テキストクリップが見つかりませんでした。</value>
+  </data>
+  <data name="ExportSubtitles_SkippedClips" xml:space="preserve">
+    <value>テキストのないクリップを {0} 件スキップしました。</value>
   </data>
   <data name="ImportProject" xml:space="preserve">
-    <value>プロジェクトをインポート...</value>
+    <value>プロジェクトをインポート…</value>
   </data>
   <data name="ImportMedia" xml:space="preserve">
     <value>メディアをインポート…</value>
@@ -1469,8 +1574,11 @@ GetProperty&lt;T&gt;("path", time) または GetProperty&lt;T&gt;(guid, "propert
   <data name="Tutorials" xml:space="preserve">
     <value>チュートリアル</value>
   </data>
+  <data name="TutorialsMenu" xml:space="preserve">
+    <value>チュートリアル…</value>
+  </data>
   <data name="BpmGrid" xml:space="preserve">
-    <value>BPMグリッド</value>
+    <value>BPMグリッド…</value>
   </data>
   <data name="ShowBpmGrid" xml:space="preserve">
     <value>BPMグリッドを表示</value>
@@ -1514,6 +1622,9 @@ GetProperty&lt;T&gt;("path", time) または GetProperty&lt;T&gt;(guid, "propert
   <data name="SaveAsTemplate" xml:space="preserve">
     <value>テンプレートとして保存</value>
   </data>
+  <data name="SaveAsTemplateMenu" xml:space="preserve">
+    <value>テンプレートとして保存…</value>
+  </data>
   <data name="ApplyTemplate" xml:space="preserve">
     <value>テンプレートを適用</value>
   </data>
@@ -1531,6 +1642,36 @@ GetProperty&lt;T&gt;("path", time) または GetProperty&lt;T&gt;(guid, "propert
   </data>
   <data name="EnterTemplateName" xml:space="preserve">
     <value>テンプレート名を入力</value>
+  </data>
+  <data name="TemplateInvalidName" xml:space="preserve">
+    <value>テンプレートには有効なファイル名を指定してください。</value>
+  </data>
+  <data name="TemplateInvalidId" xml:space="preserve">
+    <value>有効な ID を指定してください。</value>
+  </data>
+  <data name="TemplateObjectSaveFailed" xml:space="preserve">
+    <value>オブジェクトをテンプレートとして保存できませんでした。</value>
+  </data>
+  <data name="TemplateNotFound" xml:space="preserve">
+    <value>テンプレート「{0}」が見つかりませんでした。</value>
+  </data>
+  <data name="TemplateInstantiationFailed" xml:space="preserve">
+    <value>テンプレート「{0}」からオブジェクトを作成できませんでした。</value>
+  </data>
+  <data name="TemplateObjectAmbiguous" xml:space="preserve">
+    <value>シーンドキュメント内に ID「{0}」を持つオブジェクトが複数あります。</value>
+  </data>
+  <data name="TemplateObjectNotFound" xml:space="preserve">
+    <value>シーンドキュメント内に ID「{0}」を持つオブジェクトがありません。</value>
+  </data>
+  <data name="TemplateTypeMismatch" xml:space="preserve">
+    <value>プロパティ「{1}」には型「{2}」が必要です。型「{0}」のテンプレートは適用できません。</value>
+  </data>
+  <data name="TemplateIndexOutOfRange" xml:space="preserve">
+    <value>「{1}」には 0 から {0} までのインデックスを指定してください。</value>
+  </data>
+  <data name="TemplateInvalidProperty" xml:space="preserve">
+    <value>「{0}」にテンプレートを適用するには、置き換えるオブジェクトプロパティ、またはオブジェクトのリストと挿入位置を指定してください。</value>
   </data>
   <data name="Preset_YouTube_1080p60" xml:space="preserve">
     <value>YouTube 1080p 60fps</value>
@@ -1582,6 +1723,9 @@ GetProperty&lt;T&gt;("path", time) または GetProperty&lt;T&gt;(guid, "propert
   </data>
   <data name="CommandPalette_MenuCategory" xml:space="preserve">
     <value>メニュー</value>
+  </data>
+  <data name="CommandPalette_OpensToolTab" xml:space="preserve">
+    <value>{0}を開く</value>
   </data>
   <data name="CommandPalette_InputPlaceholder" xml:space="preserve">
     <value>値を入力…</value>
@@ -1725,7 +1869,7 @@ GetProperty&lt;T&gt;("path", time) または GetProperty&lt;T&gt;(guid, "propert
     <value>選択項目を削除</value>
   </data>
   <data name="ProxyDeleteProjectProxies" xml:space="preserve">
-    <value>プロジェクトのプロキシを削除</value>
+    <value>プロジェクトのプロキシを削除…</value>
   </data>
   <data name="ProxyDeleteProjectProxiesConfirmationFormat" xml:space="preserve">
     <value>プロキシはマシン全体で共有されるキャッシュに保存されます。このプロジェクトで使用している {0} 個のプロキシファイルを削除すると、同じソースファイルを参照する他のすべてのプロジェクトからも削除され、再生成が必要になります。続行しますか？</value>
@@ -2480,6 +2624,9 @@ GetProperty&lt;T&gt;("path", time) または GetProperty&lt;T&gt;(guid, "propert
   <data name="VersionControl_Restore" xml:space="preserve">
     <value>復元</value>
   </data>
+  <data name="VersionControl_RestoreMenu" xml:space="preserve">
+    <value>復元…</value>
+  </data>
   <data name="VersionControl_RestoreToNewBranch" xml:space="preserve">
     <value>新しいブランチに復元…</value>
   </data>
@@ -2883,6 +3030,12 @@ GetProperty&lt;T&gt;("path", time) または GetProperty&lt;T&gt;(guid, "propert
   <data name="AiSubtitle_CaptionsFile" xml:space="preserve">
     <value>字幕ファイル</value>
   </data>
+  <data name="SubtitleFile_UnsupportedFormat" xml:space="preserve">
+    <value>SRT、ASS、WebVTT のいずれかのファイルを選択してください。</value>
+  </data>
+  <data name="SubtitleFile_UnsupportedTemplate" xml:space="preserve">
+    <value>テキストオブジェクトを含むテンプレートを指定してください。</value>
+  </data>
   <data name="SubtitleFile_CouldNotRead" xml:space="preserve">
     <value>{0} から字幕を読み取れませんでした。</value>
   </data>
@@ -2906,6 +3059,9 @@ GetProperty&lt;T&gt;("path", time) または GetProperty&lt;T&gt;(guid, "propert
   </data>
   <data name="WebDownloadMedia" xml:space="preserve">
     <value>ファイルをダウンロード</value>
+  </data>
+  <data name="WebDownloadMediaMenu" xml:space="preserve">
+    <value>ファイルをダウンロード…</value>
   </data>
   <data name="WebDownloadProject" xml:space="preserve">
     <value>プロジェクトディレクトリ</value>
@@ -2956,7 +3112,7 @@ GetProperty&lt;T&gt;("path", time) または GetProperty&lt;T&gt;(guid, "propert
     <value>「{0}」をブックマークに追加しました。</value>
   </data>
   <data name="BrowserSettings" xml:space="preserve">
-    <value>検索・プライバシー</value>
+    <value>検索・プライバシー…</value>
   </data>
   <data name="BrowserRetry" xml:space="preserve">
     <value>再ダウンロード</value>
@@ -2999,6 +3155,9 @@ GetProperty&lt;T&gt;("path", time) または GetProperty&lt;T&gt;(guid, "propert
   </data>
   <data name="BrowserFind" xml:space="preserve">
     <value>ページ内検索</value>
+  </data>
+  <data name="BrowserFindMenu" xml:space="preserve">
+    <value>ページ内検索…</value>
   </data>
   <data name="BrowserFindNext" xml:space="preserve">
     <value>次の一致</value>
@@ -3155,6 +3314,9 @@ GetProperty&lt;T&gt;("path", time) または GetProperty&lt;T&gt;(guid, "propert
   <data name="CloudStorageDownload" xml:space="preserve">
     <value>ダウンロード</value>
   </data>
+  <data name="CloudStorageDownloadMenu" xml:space="preserve">
+    <value>ダウンロード…</value>
+  </data>
   <data name="CloudStorageCopyLink" xml:space="preserve">
     <value>リンクをコピー</value>
   </data>
@@ -3241,6 +3403,9 @@ GetProperty&lt;T&gt;("path", time) または GetProperty&lt;T&gt;(guid, "propert
   </data>
   <data name="DeleteFromDisk" xml:space="preserve">
     <value>ディスクから完全に削除</value>
+  </data>
+  <data name="DeleteFromDiskMenu" xml:space="preserve">
+    <value>ディスクから完全に削除…</value>
   </data>
   <data name="AiVideoEditing" xml:space="preserve">
     <value>動画編集</value>
@@ -3515,6 +3680,9 @@ GetProperty&lt;T&gt;("path", time) または GetProperty&lt;T&gt;(guid, "propert
   <data name="GraphVelocity" xml:space="preserve">
     <value>キーフレーム速度</value>
   </data>
+  <data name="GraphVelocityMenu" xml:space="preserve">
+    <value>キーフレーム速度…</value>
+  </data>
   <data name="GraphIncoming" xml:space="preserve">
     <value>入る速度</value>
   </data>
@@ -3544,6 +3712,9 @@ GetProperty&lt;T&gt;("path", time) または GetProperty&lt;T&gt;(guid, "propert
   </data>
   <data name="GraphScaleValues" xml:space="preserve">
     <value>値をスケール</value>
+  </data>
+  <data name="GraphScaleValuesMenu" xml:space="preserve">
+    <value>値をスケール…</value>
   </data>
   <data name="GraphScaleFactor" xml:space="preserve">
     <value>倍率</value>
@@ -3788,6 +3959,24 @@ GetProperty&lt;T&gt;("path", time) または GetProperty&lt;T&gt;(guid, "propert
   <data name="TogglePreviewCheckerboard_Description" xml:space="preserve">
     <value>プレビューの透明な部分を、黒ではなく市松模様の上に表示します。</value>
   </data>
+  <data name="CompareFilterEffect" xml:space="preserve">
+    <value>フィルターエフェクトを比較</value>
+  </data>
+  <data name="CompareFilterEffect_Description" xml:space="preserve">
+    <value>現在のフレームを、指定したフィルターエフェクトの適用前後で比較します。</value>
+  </data>
+  <data name="ChooseFilterEffectToCompare" xml:space="preserve">
+    <value>プロパティエディターで比較するフィルターエフェクトを選択してください。</value>
+  </data>
+  <data name="EffectComparisonBefore" xml:space="preserve">
+    <value>適用前: {0}</value>
+  </data>
+  <data name="EffectComparisonAfter" xml:space="preserve">
+    <value>適用後</value>
+  </data>
+  <data name="EffectComparisonDivider" xml:space="preserve">
+    <value>エフェクト比較の境界線</value>
+  </data>
   <data name="PreviewZoom" xml:space="preserve">
     <value>プレビューの拡大率</value>
   </data>
@@ -3847,6 +4036,9 @@ GetProperty&lt;T&gt;("path", time) または GetProperty&lt;T&gt;(guid, "propert
   </data>
   <data name="AutoSplitBySilence" xml:space="preserve">
     <value>無音区間で自動分割</value>
+  </data>
+  <data name="AutoSplitBySilenceMenu" xml:space="preserve">
+    <value>無音区間で自動分割…</value>
   </data>
   <data name="SilenceSplit_Threshold" xml:space="preserve">
     <value>閾値（dB）</value>
@@ -4058,6 +4250,15 @@ GetProperty&lt;T&gt;("path", time) または GetProperty&lt;T&gt;(guid, "propert
   <data name="HostedGit_CloneRepositoryMenu" xml:space="preserve">
     <value>リポジトリからクローン…</value>
   </data>
+  <data name="HostedGit_DeleteRepository" xml:space="preserve">
+    <value>リモートリポジトリを削除</value>
+  </data>
+  <data name="HostedGit_DeleteRepositoryMenu" xml:space="preserve">
+    <value>リモートリポジトリを削除…</value>
+  </data>
+  <data name="HostedGit_DeletingRepository" xml:space="preserve">
+    <value>リポジトリを削除しています…</value>
+  </data>
   <data name="HostedGit_BeutlRepositories" xml:space="preserve">
     <value>Beutl リポジトリ</value>
   </data>
@@ -4066,6 +4267,9 @@ GetProperty&lt;T&gt;("path", time) または GetProperty&lt;T&gt;(guid, "propert
   </data>
   <data name="HostedGit_Clone" xml:space="preserve">
     <value>クローン</value>
+  </data>
+  <data name="HostedGit_CloneMenu" xml:space="preserve">
+    <value>クローン…</value>
   </data>
   <data name="HostedGit_ClonedProject" xml:space="preserve">
     <value>ローカルコピー</value>

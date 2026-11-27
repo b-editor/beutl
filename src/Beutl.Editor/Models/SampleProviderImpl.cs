@@ -5,6 +5,7 @@ using Beutl.Audio.Composing;
 using Beutl.Configuration;
 using Beutl.Extensibility;
 using Beutl.Logging;
+using Beutl.Media;
 using Beutl.ProjectSystem;
 using Microsoft.Extensions.Logging;
 
@@ -18,6 +19,7 @@ public sealed class SampleProviderImpl : ISampleProvider, IDisposable
     private readonly long _sampleRate;
     private readonly AudioChannelMatrix? _matrix;
     private readonly Subject<MediaTime> _progress;
+    private readonly MediaTime _sceneDuration;
     private readonly long _sampleCount;
     private readonly Channel<AudioBuffer> _channel;
     private readonly CancellationTokenSource _cts = new();
@@ -45,7 +47,8 @@ public sealed class SampleProviderImpl : ISampleProvider, IDisposable
         _progress = progress;
         _chunkSize = (int)sampleRate;
         // Fixed at the start, so a duration edited during the export cannot end the samples early.
-        _sampleCount = FrameProviderImpl.ToFrameCount(scene.Duration.Value, new Rational(sampleRate));
+        _sceneDuration = scene.Duration.Value;
+        _sampleCount = FrameProviderImpl.ToFrameCount(_sceneDuration, new Rational(sampleRate));
 
         int bufferSize = Preferences.Default.Get("Output.SampleBufferSize", 3);
         _channel = Channel.CreateBounded<AudioBuffer>(
@@ -170,8 +173,10 @@ public sealed class SampleProviderImpl : ISampleProvider, IDisposable
 
     private AudioBuffer ComposeCore(long offset, int length)
     {
-        AudioBuffer buffer = _composer.Compose(new(_scene.FromWindowTime(MediaTime.FromSamples(offset, (int)_sampleRate)),
-            MediaTime.FromSeconds(1)))
+        MediaTime sceneStart = _scene.Start.Value;
+        AudioBuffer buffer = _composer.ComposePlayback(
+            new TimeRange(sceneStart + MediaTime.FromSamples(offset, (int)_sampleRate), MediaTime.FromSeconds(1)),
+            sceneStart + _sceneDuration)
                      ?? throw new InvalidOperationException("composer.Composeがnullを返しました。");
         if (_matrix != null)
         {

@@ -146,13 +146,8 @@ internal sealed partial class RenderRequestExecutor
                     "An allocated render value's physical device bounds must contain its semantic bounds.",
                     nameof(physicalDeviceBounds));
             }
-            // allowPreviewDrop states whether this materialization may be given up under allocation
-            // pressure. A device-budget refusal is not pressure - no allocator this session can reach will
-            // ever attach the buffer - so the render intent decides it instead: the session drops the
-            // contribution under Preview and still fails naming the limit under Delivery.
-            RenderTargetLease? lease = allowPreviewDrop || _targets.ExceedsBufferBudget(deviceBounds.Size)
-                ? _targets.TryAcquire(deviceBounds.Size)
-                : _targets.Acquire(deviceBounds.Size);
+            // The session applies the preview fallback to both budget refusals and eligible allocator refusals.
+            RenderTargetLease? lease = _targets.TryAcquire(deviceBounds.Size, allowPreviewDrop: allowPreviewDrop);
             if (lease is null)
                 throw new PreviewAllocationDropException();
             _intermediateTargetAcquisitions++;

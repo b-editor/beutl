@@ -4,7 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Editor.Components.Helpers;
 
-// Where an element goes when no timeline is open to say where it was clicked: at the playhead, on
+// Where an element goes when there is no timeline click to place it: at the playhead, on
 // the layer above everything showing there, like a drop on the player.
 internal static class PlayheadPlacement
 {

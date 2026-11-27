@@ -21,6 +21,7 @@ using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Shapes;
+using Beutl.Language;
 using Beutl.Media;
 using Beutl.PropertyAdapters;
 using Beutl.Services;
@@ -371,6 +372,36 @@ public sealed class PickerToggleTests
         finally
         {
             window.Close();
+        }
+    }
+
+    [AvaloniaTest]
+    public void Object_editor_menu_marks_replacement_that_needs_a_picker()
+    {
+        AssertReplaceLabel<Drawable>(new RectShape(), Strings.ReplaceObjectMenu);
+        AssertReplaceLabel(new RectShape(), Strings.ReplaceObject);
+
+        static void AssertReplaceLabel<T>(T value, string label) where T : CoreObject
+        {
+            var property = new SimpleProperty<T>(value);
+            property.SetAttributes("Value", []);
+            using var viewModel = new CoreObjectEditorViewModel<T>(
+                new SimplePropertyAdapter<T>(property, value));
+            viewModel.Accept(new ServiceVisitor());
+            var editor = new CoreObjectEditor { DataContext = viewModel };
+            Window window = Show(editor);
+            try
+            {
+                ToggleButton toggle = editor.FindControl<ToggleButton>("expandToggle")!;
+                var menu = (FAMenuFlyout)toggle.ContextFlyout!;
+                menu.ShowAt(toggle);
+                HeadlessTestHelpers.Render();
+                Assert.That(menu.Items.OfType<FAMenuFlyoutItem>().First().Text, Is.EqualTo(label));
+            }
+            finally
+            {
+                window.Close();
+            }
         }
     }
 

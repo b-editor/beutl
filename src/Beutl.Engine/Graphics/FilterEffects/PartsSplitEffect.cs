@@ -35,9 +35,8 @@ public partial class PartsSplitEffect : FilterEffect
                         continue;
                     }
 
-                    context.Targets.RemoveAt(i);
                     int inserted = newTargets.Count;
-                    context.Targets.InsertRange(i, newTargets);
+                    context.Targets.ReplaceAt(i, newTargets);
                     i += inserted - 1;
                 }
                 catch

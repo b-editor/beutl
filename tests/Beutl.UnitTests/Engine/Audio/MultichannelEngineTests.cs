@@ -1,4 +1,5 @@
-﻿using System.Collections.Immutable;
+﻿using System.Collections;
+using System.Collections.Immutable;
 using System.Reflection;
 using Beutl.Audio;
 using Beutl.Audio.Composing;
@@ -271,8 +272,13 @@ public class MultichannelEngineTests
         using var composer = new Composer { ChannelLayout = AudioChannelLayout.Surround51 };
         using var wrong = new AudioBuffer(Rate, 2, 32);
         var method = typeof(Composer).GetMethod("MixBuffers", BindingFlags.Instance | BindingFlags.NonPublic)!;
-        var error = Assert.Throws<TargetInvocationException>(() => method.Invoke(composer, [new List<AudioBuffer> { wrong }]));
-        Assert.That(error!.InnerException, Is.TypeOf<InvalidOperationException>());
+        Type listType = method.GetParameters()[0].ParameterType;
+        Type inputType = listType.GetGenericArguments()[0];
+        var inputs = (IList)Activator.CreateInstance(listType)!;
+        inputs.Add(Activator.CreateInstance(inputType, wrong, null, 0));
+        var error = Assert.Throws<TargetInvocationException>(() => method.Invoke(composer, [inputs, wrong.SampleCount]));
+        Assert.That(error!.InnerException, Is.TypeOf<InvalidOperationException>()
+            .And.Property(nameof(Exception.Message)).EqualTo("Audio buffer channel count does not match the composer layout."));
     }
 
     [TestCase(1)]

@@ -11,12 +11,21 @@ namespace Beutl.Editor.Components.PropertyEditors.ViewModels;
 public sealed class FilterEffectEditorViewModel : GroupableEditorViewModel<FilterEffect, FilterEffectGroup, FallbackFilterEffect>, IPresenterEditorViewModel
 {
     private readonly ReactivePropertySlim<IEditorSelection?> _selection = new();
+    private readonly ReactivePropertySlim<IEffectComparisonSelection?> _comparisonSelection = new();
 
     public FilterEffectEditorViewModel(IPropertyAdapter<FilterEffect?> property)
         : base(property)
     {
         _selection.DisposeWith(Disposables);
+        _comparisonSelection.DisposeWith(Disposables);
         CanSelectEffect = Value.CombineLatest(_selection, (value, selection) => value is IEditingHandleProvider && selection != null)
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(Disposables);
+        CanCompareEffect = _comparisonSelection
+            .Select(selection => selection?.IsSelectingEffectForComparison ?? Observable.Return(false))
+            .Switch()
+            .CombineLatest(Value, (selecting, value) => selecting && value is not null
+                && _comparisonSelection.Value?.CanCompareEffect(value) == true)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
@@ -49,6 +58,8 @@ public sealed class FilterEffectEditorViewModel : GroupableEditorViewModel<Filte
     // Whether the effect has editing handles, which the preview shows while it is selected, and can be selected here.
     public ReadOnlyReactivePropertySlim<bool> CanSelectEffect { get; }
 
+    internal ReadOnlyReactivePropertySlim<bool> CanCompareEffect { get; }
+
     void ITargetPickerViewModel.SetTarget(CoreObject? target) => SetTarget(target as FilterEffect);
 
     public override void Accept(IPropertyEditorContextVisitor visitor)
@@ -56,6 +67,13 @@ public sealed class FilterEffectEditorViewModel : GroupableEditorViewModel<Filte
         base.Accept(visitor);
         // The copy that stands for several elements is in no scene, so selecting its effect would select nothing shown.
         _selection.Value = EditsSeveralElements ? null : this.GetService<IEditorSelection>();
+        _comparisonSelection.Value = EditsSeveralElements ? null : this.GetService<IEffectComparisonSelection>();
+    }
+
+    internal void ChooseComparisonEffect()
+    {
+        if (!IsDisposed && Value.Value is { } effect)
+            _comparisonSelection.Value?.TryChooseComparisonEffect(effect);
     }
 
     public void SelectEffect()

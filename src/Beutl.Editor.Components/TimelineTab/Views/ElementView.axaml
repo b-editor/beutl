@@ -115,7 +115,7 @@
                 <ui:FAMenuFlyoutItem x:Name="autoSplitBySilence"
                                      usage:UsageTracking.Feature="Timeline.AutoSplitBySilence"
                                      Click="AutoSplitBySilence_Click"
-                                     Text="{x:Static lang:Strings.AutoSplitBySilence}">
+                                     Text="{x:Static lang:Strings.AutoSplitBySilenceMenu}">
                     <ui:FAMenuFlyoutItem.IconSource>
                         <icons:FluentIconSource Icon="Cut" />
                     </ui:FAMenuFlyoutItem.IconSource>
@@ -165,7 +165,7 @@
                                      Click="Rename_Click"
                                      InputGesture="{h:GetCommandGesture timeline.rename,
                                                                       ExtensionType={x:Type p:TimelineTabExtension}}"
-                                     Text="{x:Static lang:Strings.Rename}">
+                                     Text="{x:Static lang:Strings.RenameMenu}">
                     <ui:FAMenuFlyoutItem.IconSource>
                         <icons:FluentIconSource Icon="Rename" />
                     </ui:FAMenuFlyoutItem.IconSource>
@@ -208,7 +208,7 @@
                 <ui:FAMenuFlyoutSeparator />
                 <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="Timeline.SaveAsTemplate"
                                      Click="SaveAsTemplate_Click"
-                                     Text="{x:Static lang:Strings.SaveAsTemplate}">
+                                     Text="{x:Static lang:Strings.SaveAsTemplateMenu}">
                     <ui:FAMenuFlyoutItem.IconSource>
                         <icons:FluentIconSource Icon="DocumentCopy" />
                     </ui:FAMenuFlyoutItem.IconSource>

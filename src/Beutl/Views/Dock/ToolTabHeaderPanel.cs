@@ -1,8 +1,10 @@
 ﻿using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
 using Beutl.ViewModels.Dock;
+using Dock.Avalonia.Controls;
 
 namespace Beutl.Views.Dock;
 
@@ -17,6 +19,20 @@ public sealed class ToolTabHeaderPanel : Panel
     {
         AddHandler(PointerPressedEvent, OnInteraction, RoutingStrategies.Tunnel);
         AddHandler(GotFocusEvent, OnInteraction, RoutingStrategies.Bubble);
+
+        DragDrop.SetAllowDrop(this, true);
+        AddHandler(DragDrop.DragEnterEvent, OnDragHover);
+        AddHandler(DragDrop.DragOverEvent, OnDragHover);
+        AddHandler(DragDrop.DropEvent, (_, e) => e.DragEffects = DragDropEffects.None);
+    }
+
+    private static void OnDragHover(object? sender, DragEventArgs e)
+    {
+        e.DragEffects = DragDropEffects.None;
+        if ((e.Source as Visual)?.FindAncestorOfType<ToolTabStripItem>(includeSelf: true) is { IsSelected: false } tab)
+        {
+            tab.SetCurrentValue(ToolTabStripItem.IsSelectedProperty, true);
+        }
     }
 
     private void OnInteraction(object? sender, RoutedEventArgs args)

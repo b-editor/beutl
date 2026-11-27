@@ -1,6 +1,9 @@
-﻿using Avalonia.Input;
+﻿using System.Globalization;
+using Avalonia.Input;
+using Avalonia.Threading;
 using Beutl.Api.Services;
 using Beutl.Services.PrimitiveImpls;
+using Beutl.Services.StartupTasks;
 using Beutl.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -8,6 +11,9 @@ namespace Beutl.Services;
 
 public sealed class CommandPaletteService
 {
+    private static readonly Lazy<Dictionary<(Type ExtensionType, string CommandId), PaletteSearchText>> s_englishCommands =
+        new(() => ReadEnglish(BuildEnglishCommandLookup));
+
     private readonly ContextCommandManager _commandManager;
     private readonly ICommandPaletteHandlerProvider _handlerProvider;
     private readonly Func<MenuBarViewModel?> _menuBarAccessor;
@@ -40,7 +46,7 @@ public sealed class CommandPaletteService
         EditorTabItem? activeTab = _editorService.SelectedTabItem.Value;
         IEditorContext? activeContext = activeTab?.Context.Value;
         Type? activeEditorExtensionType = activeTab?.Extension.Value?.GetType();
-        EditViewModel? activeEditor = activeTab?.Context.Value as EditViewModel;
+        EditViewModel? activeEditor = activeContext as EditViewModel;
         var extensionStateChanges = new Dictionary<ExtensionId, IObservable<Unit>>();
         IReadOnlyList<ExtensionDescriptor> extensionDescriptors = _extensionProvider.GetDescriptors<ViewExtension>();
 
@@ -60,26 +66,16 @@ public sealed class CommandPaletteService
                 continue;
             }
 
-            // 開いていない ToolTab のコマンドはハンドラーを解決できないため除外する。
-            if (entry.Definition.Scope == ContextCommandScope.Context
-                && typeof(ToolTabExtension).IsAssignableFrom(entry.ExtensionType)
-                && (activeEditor is null || activeEditor.DockHost.FindToolContext(entry.ExtensionType) is null))
-            {
-                continue;
-            }
-
             string displayName = string.IsNullOrEmpty(entry.Definition.DisplayName)
                 ? entry.Definition.Id
                 : entry.Definition.DisplayName!;
             string category = ResolveCategoryName(entry.ExtensionType);
+            PaletteSearchText englishSearchText = s_englishCommands.Value.GetValueOrDefault((entry.ExtensionType, commandId));
             KeyGesture? gesture = ContextCommandManager.CurrentGestures(entry).FirstOrDefault();
 
             if (entry.Definition.Scope == ContextCommandScope.Extension)
             {
-                string extensionTypeName = entry.ExtensionType.AssemblyQualifiedName
-                    ?? entry.ExtensionType.FullName ?? entry.ExtensionType.Name;
-                ExtensionDescriptor? descriptor = extensionDescriptors
-                    .FirstOrDefault(i => i.TypeName == extensionTypeName);
+                ExtensionDescriptor? descriptor = FindDescriptor(extensionDescriptors, entry.ExtensionType);
                 if (descriptor is null
                     || !_extensionProvider.TryAcquire<ViewExtension>(descriptor.Id, out var lease))
                 {
@@ -113,26 +109,50 @@ public sealed class CommandPaletteService
                     CanExecute: () => CanExecuteExtension(id, extensionDefinition, editorContext),
                     ExecuteAsync: interaction => ExecuteExtensionAsync(id, extensionDefinition, editorContext, interaction))
                 {
+                    EnglishSearchText = englishSearchText,
                     StateChanged = extensionStateChanged
                 });
                 continue;
             }
 
-            // スナップショット時に解決したハンドラーを Execute / CanExecute / StateChanged 全てで共有し、
-            // 列挙時と実行時で別インスタンスへ向くケースを防ぐ。タブ切替時は RebuildSnapshot で再列挙される。
-            // ランタイムでハンドラーを解決できないコマンドはパレットから実行する手段がないため
-            // 列挙対象から除外する。
-            object? snapshotContext = _handlerProvider.Resolve(entry.ExtensionType);
             ContextCommandDefinition definition = entry.Definition;
-            if (snapshotContext is null || !definition.HasHandler)
+            if (!definition.HasHandler)
             {
                 continue;
             }
 
-            object context = snapshotContext;
+            bool isToolCommand = typeof(ToolTabExtension).IsAssignableFrom(entry.ExtensionType);
+            if (isToolCommand && activeEditor is null)
+            {
+                continue;
+            }
+
+            // An open tab's handler is shared by execution, enablement and state notifications.
+            object? context = _handlerProvider.Resolve(entry.ExtensionType);
+            if (context is null)
+            {
+                if (isToolCommand && definition.CanOpenToolTab && activeEditor is not null
+                    && FindDescriptor(extensionDescriptors, entry.ExtensionType) is { } descriptor)
+                {
+                    ExtensionId id = descriptor.Id;
+                    result.Add(new PaletteCommand(
+                        Id: commandId,
+                        DisplayName: displayName,
+                        Description: definition.Description,
+                        CategoryName: string.Format(Strings.CommandPalette_OpensToolTab, category),
+                        KeyGesture: gesture,
+                        CanExecute: () => IsActiveEditor(activeEditor),
+                        ExecuteAsync: interaction => ExecuteClosedToolAsync(id, definition, activeEditor, interaction))
+                    {
+                        EnglishSearchText = englishSearchText
+                    });
+                }
+
+                continue;
+            }
+
             Extension? owner = FindExtension(entry.ExtensionType);
-            IObservable<System.Reactive.Unit>? stateChanged =
-                (context as IContextCommandStateNotifier)?.CanExecuteChanged;
+            IObservable<Unit>? stateChanged = (context as IContextCommandStateNotifier)?.CanExecuteChanged;
 
             result.Add(new PaletteCommand(
                 Id: entry.Definition.Id,
@@ -142,15 +162,9 @@ public sealed class CommandPaletteService
                 KeyGesture: gesture,
                 CanExecute: () => Guard(owner, () => definition.CanRun(context, CreateExecution(commandId, activeContext, null))),
                 ExecuteAsync: interaction => Guard(owner, () =>
-                {
-                    // スロットル窓や状態変化で表示と実行可否がずれる可能性があるため、
-                    // 実行直前にもう一度 CanExecute を確認してから Execute する。
-                    var execution = CreateExecution(commandId, activeContext, interaction);
-                    return definition.CanRun(context, execution)
-                        ? definition.RunAsync(context, execution)
-                        : Task.CompletedTask;
-                }))
+                    RunIfEnabledAsync(definition, context, CreateExecution(commandId, activeContext, interaction))))
             {
+                EnglishSearchText = englishSearchText,
                 StateChanged = stateChanged
             });
         }
@@ -159,6 +173,89 @@ public sealed class CommandPaletteService
 
         return result;
     }
+
+    private static Dictionary<(Type ExtensionType, string CommandId), PaletteSearchText> BuildEnglishCommandLookup()
+    {
+        // Built-in catalogs read their labels when enumerated, so cache their English text once.
+        var texts = new Dictionary<(Type, string), PaletteSearchText>();
+        foreach (Extension extension in LoadPrimitiveExtensionTask.PrimitiveExtensions)
+        {
+            IEnumerable<ContextCommandDefinition> definitions = extension switch
+            {
+                ViewExtension view => view.ContextCommands,
+                ToolWindowExtension toolWindow => toolWindow.ContextCommands,
+                _ => []
+            };
+
+            foreach (ContextCommandDefinition definition in definitions)
+            {
+                texts[(extension.GetType(), definition.Id)] = new PaletteSearchText(
+                    definition.DisplayName, definition.Description, extension.DisplayName);
+            }
+        }
+
+        return texts;
+    }
+
+    private static T ReadEnglish<T>(Func<T> read)
+    {
+        CultureInfo previousCulture = CultureInfo.CurrentUICulture;
+        try
+        {
+            // Beutl's neutral resources are in English.
+            CultureInfo.CurrentUICulture = CultureInfo.InvariantCulture;
+            return read();
+        }
+        finally
+        {
+            CultureInfo.CurrentUICulture = previousCulture;
+        }
+    }
+
+    private static ExtensionDescriptor? FindDescriptor(IReadOnlyList<ExtensionDescriptor> descriptors, Type extensionType)
+    {
+        string typeName = extensionType.AssemblyQualifiedName ?? extensionType.FullName ?? extensionType.Name;
+        return descriptors.FirstOrDefault(descriptor => descriptor.TypeName == typeName);
+    }
+
+    private bool IsActiveEditor(EditViewModel editor)
+        => !editor.IsDisposingOrDisposed && ReferenceEquals(_editorService.SelectedTabItem.Value?.Context.Value, editor);
+
+    private async Task ExecuteClosedToolAsync(
+        ExtensionId id, ContextCommandDefinition definition, EditViewModel editor, IContextCommandInteraction? interaction)
+    {
+        if (!IsActiveEditor(editor) || !_extensionProvider.TryAcquire<ToolTabExtension>(id, out var lease))
+            return;
+
+        using (lease)
+        {
+            ToolTabExtension extension = lease.Extension;
+            await ExtensionGuard.CallAsync(extension, Notifications, async () =>
+            {
+                Type extensionType = extension.GetType();
+                IToolContext? context = editor.DockHost.FindToolContext(extensionType);
+                if (context is null)
+                {
+                    if (!editor.DockHost.OpenToolTabFromExtension(extension, target: null))
+                        return;
+
+                    // Let the new view attach before commands that ask it to scroll or fit.
+                    await Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.Loaded);
+                    if (!IsActiveEditor(editor) || interaction?.CancellationToken.IsCancellationRequested == true)
+                        return;
+
+                    context = editor.DockHost.FindToolContext(extensionType);
+                }
+
+                if (context is not null)
+                    await RunIfEnabledAsync(definition, context, CreateExecution(definition.Id, editor, interaction));
+            });
+        }
+    }
+
+    // The palette's snapshot can lag behind state changes, so check again before running the handler.
+    private static Task RunIfEnabledAsync(ContextCommandDefinition definition, object? context, ContextCommandExecution execution)
+        => definition.CanRun(context, execution) ? definition.RunAsync(context, execution) : Task.CompletedTask;
 
     private IObservable<Unit> ObserveExtensionState(ExtensionId id, IEditorContext? editorContext)
     {
@@ -225,11 +322,7 @@ public sealed class CommandPaletteService
         using (lease)
         {
             var execution = CreateExecution(definition.Id, editorContext, interaction);
-            await ExtensionGuard.CallAsync(lease.Extension, Notifications, async () =>
-            {
-                if (definition.CanRun(null, execution))
-                    await definition.RunAsync(null, execution);
-            });
+            await ExtensionGuard.CallAsync(lease.Extension, Notifications, () => RunIfEnabledAsync(definition, null, execution));
         }
     }
 
@@ -273,6 +366,13 @@ public sealed class CommandPaletteService
         }
 
         string category = Strings.CommandPalette_MenuCategory;
+        Dictionary<string, PaletteSearchText> englishCommands = ReadEnglish(() =>
+        {
+            string englishCategory = Strings.CommandPalette_MenuCategory;
+            return menuBar.EnumeratePaletteCommands().ToDictionary(
+                command => command.Id,
+                command => new PaletteSearchText(command.DisplayName, null, englishCategory));
+        });
 
         foreach (MenuBarViewModel.PaletteMenuCommand menuCommand in menuBar.EnumeratePaletteCommands())
         {
@@ -284,7 +384,10 @@ public sealed class CommandPaletteService
                 CategoryName: category,
                 KeyGesture: null,
                 CanExecute: () => command.CanExecute(null),
-                ExecuteAsync: _ => MenuBarViewModel.ExecuteCommandAsync(command)));
+                ExecuteAsync: _ => MenuBarViewModel.ExecuteCommandAsync(command))
+            {
+                EnglishSearchText = englishCommands.GetValueOrDefault(menuCommand.Id)
+            });
         }
     }
 }

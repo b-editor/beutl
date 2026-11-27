@@ -11,7 +11,11 @@ public sealed record PaletteCommand(
     Func<bool> CanExecute,
     Func<IContextCommandInteraction?, Task> ExecuteAsync)
 {
+    internal PaletteSearchText EnglishSearchText { get; init; }
+
     // ハンドラーが状態変化を通知できる場合の observable。
     // パレット側でこれを購読し、通知時に CanExecute を再評価する。
     public IObservable<Unit>? StateChanged { get; init; }
 }
+
+internal readonly record struct PaletteSearchText(string? DisplayName, string? Description, string? CategoryName);

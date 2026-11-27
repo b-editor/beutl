@@ -142,6 +142,10 @@ public sealed class LimiterNode : AudioNode
         return LimiterParameters.GetLatencySamples(Lookahead, sampleRate);
     }
 
+    // Animated lookahead still uses its existing drain budget, but does not participate in mixer alignment.
+    internal override bool HasFixedLatency(int sampleRate)
+        => !AnimationSampler.IsAnimated(Lookahead) && base.HasFixedLatency(sampleRate);
+
     public override int GetDrainLatencySamples(int sampleRate)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(sampleRate);

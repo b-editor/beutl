@@ -45,6 +45,7 @@ public sealed partial class MainViewModel : BasePageViewModel
     private readonly VersionControlCoordinator _versionControlCoordinator;
     private readonly ExtensionProvider _extensionProvider;
     private readonly CaptionCatalog _captionCatalog;
+    internal CaptionDocumentSerializer CaptionSerializer => _captionCatalog.Serializer;
     private readonly AiJobResultRegistry _aiJobResultHandlers;
     private readonly AgentHostEndpoint _agentHostEndpoint;
     private readonly AgentRuntimeManager _agentRuntimeManager;

@@ -8,6 +8,9 @@ public abstract partial class TextureSource : EngineObject
 {
     public partial class Resource
     {
+        /// <summary>Gets whether this source has drawable or image content to supply.</summary>
+        internal virtual bool HasContent => true;
+
         /// <summary>
         /// Resolves the texture for a 3D surface. <paramref name="surfaceDensity"/> is the surface's device-px-per-logical-unit
         /// density; re-rasterizable sources should rasterize at this density to stay crisp. Default <c>1f</c>.

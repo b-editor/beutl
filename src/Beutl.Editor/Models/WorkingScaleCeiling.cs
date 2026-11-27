@@ -9,6 +9,6 @@ public static class WorkingScaleCeiling
     /// <summary>Preview ceiling: <c>2 * outputScale</c>.</summary>
     public static float Preview(float outputScale) => 2f * outputScale;
 
-    /// <summary>Export ceiling: none (positive infinity). Per-buffer allocatability is bounded separately.</summary>
+    /// <summary>Export ceiling: none (positive infinity). Allocation enforces per-buffer dimensions and total live bytes.</summary>
     public static float Export() => float.PositiveInfinity;
 }

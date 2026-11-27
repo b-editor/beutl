@@ -49,8 +49,10 @@ public sealed class MainMenuBuilderTests
             (int menuCount, int nativeCount) = (menu.Count, nativeMenu.Count);
             Assert.Multiple(() =>
             {
-                Assert.That(Describe(menu), Does.Contain((Strings.Settings, (ICommand)menuBar.ShowSettings)));
-                Assert.That(Describe(nativeMenu), Does.Not.Contain((Strings.Settings, (ICommand)menuBar.ShowSettings)));
+                Assert.That(Describe(menu), Does.Contain((Strings.OpenSettingsMenu, (ICommand)menuBar.ShowSettings)));
+                Assert.That(Describe(nativeMenu), Does.Not.Contain((Strings.OpenSettingsMenu, (ICommand)menuBar.ShowSettings)));
+                Assert.That(Describe(menu), Does.Contain((Strings.CreateProjectMenu, (ICommand)menuBar.CreateNewProject)));
+                Assert.That(Describe(menu), Does.Contain((Strings.CreateSceneMenu, (ICommand)menuBar.NewScene)));
                 Assert.That(Describe(nativeMenu), Does.Contain(("recent.scene", (ICommand)menuBar.OpenRecentFile)));
                 foreach (ICommand command in new ICommand[] { menuBar.SwitchEditor, menuBar.OpenToolTab, menuBar.OpenToolWindow })
                     Assert.That(Describe(nativeMenu).Select(entry => entry.Command), Does.Contain(command), "Extension entries");
@@ -83,6 +85,42 @@ public sealed class MainMenuBuilderTests
             Assert.That(Describe(menu), Is.EqualTo(Describe(viewModel.MenuItems, true)));
             Assert.That(Describe(nativeMenu), Is.EqualTo(Describe(viewModel.MenuItems, false)));
         });
+    }
+
+    [AvaloniaTest]
+    public async Task Help_menu_shows_the_about_command_only_in_the_window()
+    {
+        await TestReset.ResetShellAsync();
+        MainViewModel viewModel = TestShell.MainViewModel;
+        var view = new MainView { DataContext = viewModel };
+        var macWindow = new MacWindow { DataContext = viewModel };
+        var window = new Window { Content = view, Width = 1000, Height = 680 };
+        try
+        {
+            window.Show();
+            Menu menu = view.FindControl<Menu>("MenuBar")!;
+            menu.IsVisible = true;
+            MenuItem help = menu.Items.OfType<MenuItem>().Single(item => Equals(item.Header, Strings.Help));
+            help.Open();
+            HeadlessTestHelpers.Render(3);
+            MenuItem about = help.Items.OfType<MenuItem>()
+                .Single(item => ReferenceEquals(item.Command, viewModel.MenuBar.ShowInformation));
+            Assert.That(help.IsSubMenuOpen, Is.True);
+            HeadlessCapture.SaveIfRequested(about, nameof(MainMenuBuilderTests), "help-menu");
+
+            NativeMenuItem nativeHelp = NativeMenu.GetMenu(macWindow)!.Items.OfType<NativeMenuItem>()
+                .Single(item => item.Header == Strings.Help);
+            Assert.That(about.Header, Is.EqualTo(Strings.AboutBeutl));
+            Assert.That(nativeHelp.Menu!.Items.OfType<NativeMenuItem>().Select(item => item.Command),
+                Does.Not.Contain(viewModel.MenuBar.ShowInformation));
+        }
+        finally
+        {
+            macWindow.DataContext = null;
+            macWindow.Close();
+            view.DataContext = null;
+            window.Close();
+        }
     }
 
     [AvaloniaTest]
@@ -181,7 +219,21 @@ public sealed class MainMenuBuilderTests
             file.Open();
             HeadlessTestHelpers.Render(3);
             Assert.That((import.IsEffectivelyEnabled, nativeImport.IsEnabled), Is.EqualTo((true, true)));
-            HeadlessCapture.SaveIfRequested(window, nameof(MainMenuBuilderTests), "file-menu-import-media");
+            if (HeadlessCapture.IsRequested)
+            {
+                CaptureMenu(file, "file");
+                CaptureMenu(file.Items.OfType<MenuItem>().Single(item => Equals(item.Header, Strings.CreateNew)), "file-create-new");
+                file.Close();
+
+                foreach ((string header, string name) in new[] { (Strings.Edit, "edit"), (Strings.View, "view"), (Strings.Scene, "scene") })
+                {
+                    MenuItem item = menu.Items.OfType<MenuItem>().Single(item => Equals(item.Header, header));
+                    CaptureMenu(item, name);
+                    item.Close();
+                }
+
+                file.Open();
+            }
 
             await TestShell.Editor.CloseTabItem(TestShell.Editor.SelectedTabItem.Value!, saveChanges: false);
             HeadlessTestHelpers.Settle();
@@ -194,6 +246,14 @@ public sealed class MainMenuBuilderTests
             view.DataContext = null;
             window.Close();
             await TestReset.ResetShellAsync();
+        }
+
+        static void CaptureMenu(MenuItem item, string name)
+        {
+            item.Open();
+            HeadlessTestHelpers.Render(5);
+            HeadlessCapture.SaveIfRequested(item.Items.OfType<MenuItem>().First(child => child.IsVisible),
+                nameof(MainMenuBuilderTests), name);
         }
     }
 
@@ -278,7 +338,7 @@ public sealed class MainMenuBuilderTests
         using (Assert.EnterMultipleScope())
         {
             Assert.That(shortcuts.Select(group => group.Key),
-                Is.EquivalentTo(new[] { typeof(MainViewExtension), typeof(SceneEditorExtension) }));
+                Is.EquivalentTo(new[] { typeof(MainViewExtension), typeof(SceneEditorExtension), typeof(TimelineTabExtension) }));
             foreach (var group in shortcuts)
             {
                 string[] commands = [.. group.Select(item => item.GestureCommand!).Distinct()];
@@ -508,18 +568,27 @@ public sealed class MainMenuBuilderTests
 
                 MenuItem[] tops = [.. inWindow.OfType<MenuItem>()];
                 Assert.That(tops.Select(item => item.Header), Does.Not.Contain(Strings.Window));
-                Assert.That(tops.Single(item => Equals(item.Header, Strings.Edit)).Items.OfType<MenuItem>().Select(item => item.Header),
-                    Is.EqualTo(new[] { Strings.Undo, Strings.Redo }));
-                Assert.That(tops.Single(item => Equals(item.Header, Strings.Edit)).Items.OfType<MenuItem>().First().Command, Is.SameAs(menuBar.Undo));
+                MenuItem[] editItems = [.. tops.Single(item => Equals(item.Header, Strings.Edit)).Items.OfType<MenuItem>()];
+                Assert.That(editItems.Select(item => item.Header), Is.EqualTo(new[]
+                {
+                    Strings.Undo, Strings.Redo, Strings.Cut, Strings.Copy, Strings.Paste, Strings.Delete, Strings.SelectAll
+                }));
+                Assert.That(editItems[0].Command, Is.SameAs(menuBar.Undo));
+                Assert.That(editItems[1].Command, Is.SameAs(menuBar.Redo));
+                Assert.That(editItems.Skip(2).Select(item => ((FocusedEditCommand)item.Command!).Fallback), Is.EqualTo(new ICommand[]
+                {
+                    menuBar.CutLayer, menuBar.CopyLayer, menuBar.PasteLayer, menuBar.DeleteLayer, menuBar.SelectAll
+                }));
+                Assert.That(editItems.All(item => item.HotKey is null), Is.True);
                 MenuItem fullScreen = tops.Single(item => Equals(item.Header, Strings.View)).Items.OfType<MenuItem>()
                     .Single(item => Equals(item.Header, Strings.ToggleFullScreen));
                 Assert.That(fullScreen.Command, Is.SameAs(menuBar.ToggleFullScreen));
 
                 MenuItem newScene = tops.Single(item => Equals(item.Header, Strings.Scene)).Items.OfType<MenuItem>()
-                    .Single(item => Equals(item.Header, Strings.CreateNew));
+                    .Single(item => Equals(item.Header, Strings.CreateNewSceneMenu));
                 Assert.That(tops.Single(item => Equals(item.Header, Strings.Scene)).Items.OfType<MenuItem>()
-                    .Select(item => item.Header), Does.Contain(Strings.Element));
-                NativeMenuItem nativeNewScene = NativeEntry(native, Strings.Scene, Strings.CreateNew);
+                    .Select(item => item.Header), Does.Not.Contain(Strings.Element));
+                NativeMenuItem nativeNewScene = NativeEntry(native, Strings.Scene, Strings.CreateNewSceneMenu);
                 KeyGesture gesture = GetCommandGestureExtension.GetKeyGesture(typeof(MainViewExtension), "main.createNewFile")!;
                 Assert.That(gesture, Is.Not.Null);
                 Assert.That(newScene.Command, Is.SameAs(menuBar.NewScene));
@@ -642,10 +711,13 @@ public sealed class MainMenuBuilderTests
         try
         {
             HeadlessTestHelpers.Settle();
-            MenuItem undo = view.FindControl<Menu>("MenuBar")!.Items.OfType<MenuItem>().Single(item => Equals(item.Header, Strings.Edit))
-                .Items.OfType<MenuItem>().Single(item => Equals(item.Header, Strings.Undo));
-            NativeMenuItem nativeUndo = NativeMenu.GetMenu(macWindow)!.Items.OfType<NativeMenuItem>().Single(item => item.Header == Strings.Edit)
-                .Menu!.Items.OfType<NativeMenuItem>().Single(item => item.Header == Strings.Undo);
+            MenuItem edit = view.FindControl<Menu>("MenuBar")!.Items.OfType<MenuItem>().Single(item => Equals(item.Header, Strings.Edit));
+            MenuItem undo = edit.Items.OfType<MenuItem>().Single(item => Equals(item.Header, Strings.Undo));
+            MenuItem copy = edit.Items.OfType<MenuItem>().Single(item => Equals(item.Header, Strings.Copy));
+            NativeMenu nativeEdit = NativeMenu.GetMenu(macWindow)!.Items.OfType<NativeMenuItem>()
+                .Single(item => item.Header == Strings.Edit).Menu!;
+            NativeMenuItem nativeUndo = nativeEdit.Items.OfType<NativeMenuItem>().Single(item => item.Header == Strings.Undo);
+            NativeMenuItem nativeCopy = nativeEdit.Items.OfType<NativeMenuItem>().Single(item => item.Header == Strings.Copy);
             MenuItem marker = view.FindControl<Menu>("MenuBar")!.Items.OfType<MenuItem>().Single(item => Equals(item.Header, Strings.Scene))
                 .Items.OfType<MenuItem>().Single(item => Equals(item.Header, Strings.Markers))
                 .Items.OfType<MenuItem>().Single(item => Equals(item.Header, Strings.ToggleMarker));
@@ -653,26 +725,33 @@ public sealed class MainMenuBuilderTests
                 .Menu!.Items.OfType<NativeMenuItem>().Single(item => item.Header == Strings.Markers)
                 .Menu!.Items.OfType<NativeMenuItem>().Single(item => item.Header == Strings.ToggleMarker);
             Assert.That(nativeUndo.Gesture, Is.Null, "No command is registered yet.");
+            Assert.That(copy.InputGesture, Is.Null, "No timeline command is registered yet.");
             Assert.That(marker.InputGesture, Is.Null, "No scene command is registered yet.");
 
             commands.Register(MainViewExtension.Instance);
             commands.Register(SceneEditorExtension.Instance);
+            commands.Register(TimelineTabExtension.Instance);
             HeadlessTestHelpers.Settle();
             ContextCommandEntry entry = commands.GetDefinitions<MainViewExtension>().Single(command => command.Definition.Id == "main.undo");
             ContextCommandEntry markerEntry = commands.GetDefinitions<SceneEditorExtension>()
                 .Single(command => command.Definition.Id == "editor.toggleMarker");
+            ContextCommandEntry copyEntry = commands.GetDefinitions<TimelineTabExtension>()
+                .Single(command => command.Definition.Id == "timeline.copy");
             KeyGesture? registered = ContextCommandManager.CurrentGestures(entry).First();
             Assert.Multiple(() =>
             {
                 Assert.That(registered, Is.Not.Null);
                 Assert.That(undo.InputGesture, Is.EqualTo(registered));
                 Assert.That(nativeUndo.Gesture, Is.EqualTo(registered));
+                Assert.That(copy.InputGesture, Is.EqualTo(ContextCommandManager.CurrentGestures(copyEntry).First()));
                 Assert.That(marker.InputGesture, Is.EqualTo(ContextCommandManager.CurrentGestures(markerEntry).First()));
                 Assert.That(nativeMarker.Gesture, Is.Null);
             });
 
             var moved = new KeyGesture(Key.U, KeyModifiers.Alt | KeyModifiers.Shift);
             commands.ChangeKeyGesture(entry, moved, ContextCommandManager.CurrentPlatform);
+            var copyMoved = new KeyGesture(Key.F9);
+            commands.ChangeKeyGesture(copyEntry, copyMoved, ContextCommandManager.CurrentPlatform);
             var markerMoved = new KeyGesture(Key.M, KeyModifiers.Control | KeyModifiers.Shift);
             commands.ChangeKeyGesture(markerEntry, markerMoved, ContextCommandManager.CurrentPlatform);
             HeadlessTestHelpers.Settle();
@@ -681,6 +760,9 @@ public sealed class MainMenuBuilderTests
                 Assert.That(undo.InputGesture, Is.EqualTo(moved));
                 Assert.That(nativeUndo.Gesture, Is.EqualTo(moved));
                 Assert.That(((FocusedEditCommand)nativeUndo.Command!).ShownGesture, Is.EqualTo(moved));
+                Assert.That(copy.InputGesture, Is.EqualTo(copyMoved));
+                Assert.That(copy.HotKey, Is.Null);
+                Assert.That(nativeCopy.Gesture, Is.EqualTo(FocusedEditCommand.GetKeyGesture(StandardEditAction.Copy)));
                 Assert.That(marker.InputGesture, Is.EqualTo(markerMoved));
                 Assert.That(nativeMarker.Gesture, Is.Null, "AppKit must leave this key with the focused control.");
             });
@@ -705,16 +787,18 @@ public sealed class MainMenuBuilderTests
     private static IEnumerable<(string? Header, ICommand? Command)> Describe(IEnumerable items)
         => items.Cast<object>().SelectMany(item => item switch
         {
-            MenuItem m => Describe(m.Items).Prepend(((string?)m.Header, m.Command)),
+            MenuItem m => Describe(m.Items).Prepend(((string?)m.Header, Unwrap(m.Command))),
             NativeMenuItemSeparator => [(null, null)],
-            NativeMenuItem n => Describe(n.Menu?.Items ?? []).Prepend((n.Header, n.Command switch
-            {
-                FocusedEditCommand edit => edit.Fallback,
-                MainMenuBuilder.DialogGuardedCommand guarded => guarded.InnerCommand,
-                _ => n.Command
-            })),
+            NativeMenuItem n => Describe(n.Menu?.Items ?? []).Prepend((n.Header, Unwrap(n.Command))),
             _ => [(null, null)]
         });
+
+    private static ICommand? Unwrap(ICommand? command) => command switch
+    {
+        FocusedEditCommand edit => edit.Fallback,
+        MainMenuBuilder.DialogGuardedCommand guarded => guarded.InnerCommand,
+        _ => command
+    };
 
     private sealed class SampleToolWindowExtension : ToolWindowExtension
     {

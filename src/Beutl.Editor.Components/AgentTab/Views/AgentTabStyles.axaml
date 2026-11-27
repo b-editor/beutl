@@ -230,4 +230,10 @@
     <Style Selector="ToggleButton.agent-disclosure:pointerover views|AgentShimmerTextBlock">
         <Setter Property="MutedBrush" Value="{DynamicResource TextFillColorPrimaryBrush}" />
     </Style>
+    <Style Selector="Button#ScrollToBottomButton:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource SolidBackgroundFillColorTertiaryBrush}" />
+    </Style>
+    <Style Selector="Button#ScrollToBottomButton:pressed /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource SolidBackgroundFillColorBaseBrush}" />
+    </Style>
 </Styles>

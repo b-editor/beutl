@@ -23,14 +23,14 @@ public sealed class AgentBinaryLocatorTests
             });
 
             DateTime originalTimestamp = File.GetLastWriteTimeUtc(path);
-            WriteVersion("2.1.0");
+            WriteVersion("2.1.332");
             File.SetLastWriteTimeUtc(path, originalTimestamp);
             Assert.That((await locator.ProbeAsync(provider)).CliVersion, Is.EqualTo("2.0.9"));
             File.SetLastWriteTimeUtc(path, originalTimestamp.AddSeconds(3));
             var supported = await locator.ProbeAsync(provider);
             Assert.Multiple(() =>
             {
-                Assert.That(supported.CliVersion, Is.EqualTo("2.1.0"));
+                Assert.That(supported.CliVersion, Is.EqualTo("2.1.332"));
                 Assert.That(supported.IsOutdated, Is.False);
             });
             Assert.That((await new AgentBinaryLocator(probeVersions: false).ProbeAsync(provider)).CliVersion, Is.Null);

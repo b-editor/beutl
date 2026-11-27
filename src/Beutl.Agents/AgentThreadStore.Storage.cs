@@ -20,17 +20,21 @@ public sealed partial class AgentThreadStore
 
     private static string TimelinePath(string directory, Guid id) => Path.Combine(directory, $"{id:N}.jsonl");
 
+    private const UnixFileMode PrivateFileMode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
+    private const UnixFileMode PrivateDirectoryMode = PrivateFileMode | UnixFileMode.UserExecute;
+
     internal static async Task<FileStream> LockAsync(string directory, CancellationToken cancellationToken)
     {
-        Directory.CreateDirectory(directory);
+        CreatePrivateDirectory(directory);
         string path = Path.Combine(directory, ".lock");
+        var options = CreatePrivateFileOptions(FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
         var deadline = DateTime.UtcNow.AddSeconds(10);
         while (true)
         {
             cancellationToken.ThrowIfCancellationRequested();
             try
             {
-                return new FileStream(path, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+                return new FileStream(path, options);
             }
             catch (IOException) when (DateTime.UtcNow < deadline)
             {
@@ -41,13 +45,34 @@ public sealed partial class AgentThreadStore
 
     internal static async Task WriteJsonAtomicAsync<T>(string path, T value, CancellationToken cancellationToken)
     {
+        if (Path.GetDirectoryName(path) is { Length: > 0 } directory)
+            CreatePrivateDirectory(directory);
         using var output = new StagedOutputFile(path);
-        var options = new FileStreamOptions { Mode = FileMode.CreateNew, Access = FileAccess.Write, Options = FileOptions.Asynchronous };
-        if (!OperatingSystem.IsWindows())
-            options.UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
+        var options = CreatePrivateFileOptions(FileMode.CreateNew, FileAccess.Write, FileShare.None, FileOptions.Asynchronous);
         await using (var stream = new FileStream(output.TemporaryPath, options))
             await JsonSerializer.SerializeAsync(stream, value, AgentJson.Options, cancellationToken).ConfigureAwait(false);
         output.Commit(cancellationToken);
+    }
+
+    private static void CreatePrivateDirectory(string directory)
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            Directory.CreateDirectory(directory);
+            return;
+        }
+        if (Path.GetDirectoryName(directory) is { Length: > 0 } parent && !Directory.Exists(parent))
+            Directory.CreateDirectory(parent, PrivateDirectoryMode);
+        Directory.CreateDirectory(directory, PrivateDirectoryMode);
+    }
+
+    private static FileStreamOptions CreatePrivateFileOptions(
+        FileMode mode, FileAccess access, FileShare share, FileOptions options = FileOptions.None)
+    {
+        var result = new FileStreamOptions { Mode = mode, Access = access, Share = share, Options = options };
+        if (!OperatingSystem.IsWindows())
+            result.UnixCreateMode = PrivateFileMode;
+        return result;
     }
 
     private static async Task<List<AgentThreadMetadata>> ReadIndexAsync(string directory, CancellationToken cancellationToken)
@@ -67,19 +92,29 @@ public sealed partial class AgentThreadStore
     private static async Task WriteTimelineAsync(
         string path, IEnumerable<AgentTimelineEvent> entries, CancellationToken cancellationToken)
     {
-        await using var stream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.None);
-        foreach (var entry in entries)
+        if (Path.GetDirectoryName(path) is { Length: > 0 } directory)
+            CreatePrivateDirectory(directory);
+        using var output = new StagedOutputFile(path);
+        var options = CreatePrivateFileOptions(FileMode.CreateNew, FileAccess.Write, FileShare.None, FileOptions.Asynchronous);
+        await using (var stream = new FileStream(output.TemporaryPath, options))
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            await JsonSerializer.SerializeAsync<AgentTimelineEvent>(stream, entry, AgentJson.Options, cancellationToken)
-                .ConfigureAwait(false);
-            stream.WriteByte((byte)'\n');
+            foreach (var entry in entries)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                await JsonSerializer.SerializeAsync<AgentTimelineEvent>(stream, entry, AgentJson.Options, cancellationToken)
+                    .ConfigureAwait(false);
+                stream.WriteByte((byte)'\n');
+            }
         }
+        output.Commit(cancellationToken);
     }
 
     private static async Task AppendTimelineFileAsync(string directory, AgentTimelineEvent entry, CancellationToken cancellationToken)
     {
-        await using var stream = new FileStream(TimelinePath(directory, entry.ThreadId), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.Read);
+        CreatePrivateDirectory(directory);
+        string path = TimelinePath(directory, entry.ThreadId);
+        var options = CreatePrivateFileOptions(FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.Read, FileOptions.Asynchronous);
+        await using var stream = new FileStream(path, options);
         RepairIncompleteLine(stream);
         byte[] json = JsonSerializer.SerializeToUtf8Bytes(entry, AgentJson.Options);
         cancellationToken.ThrowIfCancellationRequested();

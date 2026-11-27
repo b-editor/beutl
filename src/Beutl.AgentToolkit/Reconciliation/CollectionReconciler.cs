@@ -275,21 +275,29 @@ public static class CollectionReconciler
 
     private static IEnumerable<(Guid Id, string? Type)> EnumerateIds(JsonNode? node)
     {
+        foreach ((Guid id, JsonObject obj) in EnumerateObjectsWithIds(node))
+        {
+            string? type = obj.TryGetPropertyValue("$type", out JsonNode? typeNode)
+                ? typeNode?.GetValue<string>()
+                : null;
+            yield return (id, type);
+        }
+    }
+
+    internal static IEnumerable<(Guid Id, JsonObject Object)> EnumerateObjectsWithIds(JsonNode? node)
+    {
         if (node is JsonObject obj)
         {
             if (TryGetId(obj, out Guid id))
             {
-                string? type = obj.TryGetPropertyValue("$type", out JsonNode? typeNode)
-                    ? typeNode?.GetValue<string>()
-                    : null;
-                yield return (id, type);
+                yield return (id, obj);
             }
 
             foreach (JsonNode? child in obj.Select(pair => pair.Value).ToArray())
             {
-                foreach ((Guid childId, string? childType) in EnumerateIds(child))
+                foreach (var entry in EnumerateObjectsWithIds(child))
                 {
-                    yield return (childId, childType);
+                    yield return entry;
                 }
             }
         }
@@ -297,9 +305,9 @@ public static class CollectionReconciler
         {
             foreach (JsonNode? child in array.ToArray())
             {
-                foreach ((Guid childId, string? childType) in EnumerateIds(child))
+                foreach (var entry in EnumerateObjectsWithIds(child))
                 {
-                    yield return (childId, childType);
+                    yield return entry;
                 }
             }
         }

@@ -1,6 +1,5 @@
 ﻿using System.Text.Json.Nodes;
 using Avalonia;
-using Avalonia.Input.Platform;
 using Avalonia.Media;
 using Beutl.Animation;
 using Beutl.Editor;
@@ -290,14 +289,14 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
             await Parent.Parent.CopySelectionAsync();
             return;
         }
-        await KeyFrameClipboardCommands.CopyAsync(Model, BeutlDataFormats.KeyFrame, ex =>
+        await KeyFrameClipboardCommands.CopyAsync(Parent.Parent.EditorContext, Model, BeutlClipboardFormats.KeyFrame, ex =>
         {
             _logger.LogError(ex, "Failed to copy keyframe");
             Parent.Parent.EditorContext.GetRequiredService<INotificationService>().ShowError(Strings.Copy, MessageStrings.FailedToCopyKeyframe);
         });
     }
 
-    internal Task PasteAsync(IClipboard? clipboard = null) => Parent.Parent.PasteSelectionAsync(clipboard, Model);
+    internal Task PasteAsync(IClipboardGateway? clipboard = null) => Parent.Parent.PasteSelectionAsync(clipboard, Model);
 
     private void Remove() => Parent.Parent.DeleteKeyFrames(RemovedKeys());
 

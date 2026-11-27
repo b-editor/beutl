@@ -2,6 +2,7 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Beutl.AgentToolkit.Common;
+using Beutl.AgentToolkit.Tools;
 using Beutl.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -204,7 +205,9 @@ public sealed class LiveMcpBroker
         bool hasInstanceId = arguments is not null && arguments.TryGetValue(InstanceIdArgument, out id);
         if (!hasInstanceId)
         {
-            if (arguments is not null && arguments.ContainsKey(AgentHostSceneRouting.SceneIdArgument))
+            // remove_scene takes a project member's ID directly in both hosts.
+            if (arguments is not null && arguments.ContainsKey(AgentHostSceneRouting.SceneIdArgument)
+                && request.Name != SceneTools.RemoveSceneToolName)
                 return SceneWithoutInstance();
             if (!IsLocalTool(context.Server, request.Name))
                 return LiveOnly(request.Name);

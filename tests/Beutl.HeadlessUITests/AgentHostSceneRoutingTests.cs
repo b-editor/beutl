@@ -1,4 +1,5 @@
-﻿using System.Text.Json;
+﻿using System.Collections.Immutable;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using Avalonia.Controls;
 using Avalonia.Headless;
@@ -46,7 +47,10 @@ public sealed class AgentHostSceneRoutingTests
             string[] sceneTools =
             [
                 "apply_edit", "read_document", "undo", "render_still", "add_scene", "save_project",
-                "split_elements", "slip_elements", "ripple_delete", "ripple_trim", "close_gap"
+                "split_elements", "slip_elements", "ripple_delete", "ripple_trim", "close_gap",
+                "duplicate_elements", "roll_elements", "slide_elements",
+                "split_on_silence", "find_gaps", "close_all_gaps", "save_object_template", "apply_object_template",
+                "import_subtitles", "list_subtitles", "export_subtitles"
             ];
             foreach (string name in sceneTools)
             {
@@ -114,10 +118,209 @@ public sealed class AgentHostSceneRoutingTests
         Assert.That(undo["applied"]!.AsArray(), Has.Count.EqualTo(1));
         Assert.That(second.Children.Single(), Is.SameAs(clip));
         Assert.That(clip.Length.Value, Is.EqualTo(MediaTime.FromSeconds(4)));
+
+        seed["patch"] = new JsonObject
+        {
+            ["Elements"] = new JsonArray(new JsonObject
+            {
+                ["$type"] = "[Beutl.ProjectSystem]:Element",
+                ["Start"] = "00:00:04.5",
+                ["Length"] = "00:00:00.5"
+            })
+        };
+        Success(await client.CallToolAsync("apply_edit", seed));
+        Element follower = second.Children.Single(element => element != clip);
+        var gapArgs = Target(second.Id.Value);
+        JsonObject gap = Success(await client.CallToolAsync("find_gaps", gapArgs))["gaps"]!.AsArray().Single()!.AsObject();
+        Assert.That(gap["startSeconds"]!.GetValue<double>(), Is.EqualTo(4));
+        Assert.That(gap["endSeconds"]!.GetValue<double>(), Is.EqualTo(4.5));
+        Assert.That(Success(await client.CallToolAsync("close_all_gaps", gapArgs))["closedGapCount"]!.GetValue<int>(), Is.EqualTo(1));
+        Assert.That(follower.Start.Value, Is.EqualTo(MediaTime.FromSeconds(4)));
+        undo = Success(await client.CallToolAsync("undo", gapArgs));
+        Assert.That(undo["applied"]!.AsArray(), Has.Count.EqualTo(1));
+        Assert.That(follower.Start.Value, Is.EqualTo(MediaTime.FromSeconds(4.5)));
+
+        clip.AddObject(new SceneSound { ReferencedScene = { Value = first } });
+        var silence = Target(second.Id.Value);
+        silence["elementIds"] = new[] { clip.Id.Value.ToString() };
+        silence["mode"] = "delete_silence";
+        Assert.That(Success(await client.CallToolAsync("split_on_silence", silence))["changed"]!.GetValue<bool>(), Is.True);
+        Assert.That(second.Children.Single(), Is.SameAs(follower));
+        undo = Success(await client.CallToolAsync("undo", gapArgs));
+        Assert.That(undo["applied"]!.AsArray(), Has.Count.EqualTo(1));
+        Assert.That(second.Children, Does.Contain(clip));
         Assert.That(SelectedScene(), Is.SameAs(first));
         JsonObject status = Success(await client.CallToolAsync("read_operation_status"));
         Assert.That(status["hasActiveSession"]!.GetValue<bool>(), Is.False,
             "A new request must not inherit a previous call's scene binding.");
+    }
+
+    [AvaloniaTest]
+    public async Task Subtitle_tools_use_the_background_scene_and_its_undo_history()
+    {
+        (Scene first, Scene second, string directory) = await CreateScenesAsync();
+        string path = Path.Combine(directory, "captions.srt");
+        await File.WriteAllTextAsync(path, """
+            1
+            00:00:01,234 --> 00:00:01,800
+            On the second scene
+
+            2
+            00:00:01,500 --> 00:00:02,456
+            Overlapping caption
+            """);
+        second.Layers.Add(new TimelineLayer { ZIndex = { Value = 0 }, IsLocked = { Value = true } });
+
+        await using var host = CreateHost();
+        await host.StartAsync();
+        await using McpClient client = await ConnectAsync(host);
+        var import = Target(second.Id.Value);
+        import["path"] = path;
+        AssertError(await client.CallToolAsync("import_subtitles", new Dictionary<string, object?> { ["path"] = path }),
+            ErrorCode.ValidationRejected);
+        string[] ids = Success(await client.CallToolAsync("import_subtitles", import))["createdElementIds"]!
+            .AsArray().Select(item => item!.GetValue<string>()).ToArray();
+        JsonArray cues = Success(await client.CallToolAsync("list_subtitles", Target(second.Id.Value)))["cues"]!.AsArray();
+        JsonArray firstCues = Success(await client.CallToolAsync("list_subtitles", Target(first.Id.Value)))["cues"]!.AsArray();
+        Assert.Multiple(() =>
+        {
+            Assert.That(cues.Select(cue => cue!["elementId"]!.GetValue<string>()), Is.EqualTo(ids));
+            Assert.That(cues.Select(cue => cue!["layer"]!.GetValue<int>()), Is.EqualTo(new[] { 1, 2 }));
+            Assert.That(cues[0]!["text"]!.GetValue<string>(), Is.EqualTo("On the second scene"));
+            Assert.That(cues[0]!["startSeconds"]!.GetValue<double>(), Is.EqualTo(1.234).Within(0.000001));
+            Assert.That(firstCues, Is.Empty);
+            Assert.That(SelectedScene(), Is.SameAs(first));
+        });
+
+        string outputPath = Path.Combine(directory, "captions.vtt");
+        var export = Target(first.Id.Value);
+        export["outputPath"] = outputPath;
+        export["elementIds"] = ids;
+        AssertError(await client.CallToolAsync("export_subtitles", export), ErrorCode.StaleHandle);
+        Assert.That(File.Exists(outputPath), Is.False);
+        export["sceneId"] = second.Id.Value.ToString();
+        Assert.That(Success(await client.CallToolAsync("export_subtitles", export))["cueCount"]!.GetValue<int>(), Is.EqualTo(2));
+        Assert.That(await File.ReadAllTextAsync(outputPath), Does.Contain("00:00:01.234 --> 00:00:01.800"));
+
+        JsonObject undone = Success(await client.CallToolAsync("undo", Target(second.Id.Value)));
+        Assert.Multiple(() =>
+        {
+            Assert.That(undone["applied"]!.AsArray(), Has.Count.EqualTo(1));
+            Assert.That(second.Children, Is.Empty);
+            Assert.That(second.IsLayerLocked(0), Is.True);
+            Assert.That(first.Children, Is.Empty);
+            Assert.That(SelectedScene(), Is.SameAs(first));
+        });
+    }
+
+    [AvaloniaTest]
+    public async Task Object_templates_can_be_saved_and_applied_in_a_background_scene()
+    {
+        (Scene first, Scene second, _) = await CreateScenesAsync();
+        var sourceBrush = new SolidColorBrush(Colors.Lime);
+        var originalBrush = new SolidColorBrush(Colors.Red);
+        AddRectangle(first, new SolidColorBrush(Colors.Blue));
+        AddRectangle(second, sourceBrush);
+        RectShape source = second.Children.Single().Objects.OfType<RectShape>().Single();
+        var target = new RectShape { Fill = { Value = originalBrush } };
+        second.Children.Single().AddObject(target);
+
+        await using var host = CreateHost();
+        await host.StartAsync();
+        await using McpClient client = await ConnectAsync(host);
+
+        var save = Target(first.Id.Value);
+        save["objectId"] = sourceBrush.Id.Value.ToString();
+        save["name"] = "Background brush";
+        AssertError(await client.CallToolAsync("save_object_template", save), ErrorCode.StaleHandle);
+
+        save["sceneId"] = second.Id.Value.ToString();
+        string templateId = Success(await client.CallToolAsync("save_object_template", save))["templateId"]!.GetValue<string>();
+        JsonObject listed = Success(await client.CallToolAsync("list_templates",
+            new Dictionary<string, object?> { ["baseType"] = "Brush" }));
+        Assert.That(listed["templates"]!.AsArray().Any(item => item!["templateId"]!.GetValue<string>() == templateId), Is.True);
+
+        var apply = Target(second.Id.Value);
+        apply["templateId"] = templateId;
+        apply["objectId"] = target.Id.Value.ToString();
+        apply["propertyName"] = nameof(target.Fill);
+        JsonObject applied = Success(await client.CallToolAsync("apply_object_template", apply));
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied["objectId"]!.GetValue<string>(), Is.EqualTo(target.Fill.Value!.Id.Value.ToString()));
+            Assert.That(((SolidColorBrush)target.Fill.Value!).Color.Value, Is.EqualTo(Colors.Lime));
+            Assert.That(source.Fill.Value, Is.SameAs(sourceBrush));
+            Assert.That(SelectedScene(), Is.SameAs(first));
+        });
+
+        JsonObject undone = Success(await client.CallToolAsync("undo", Target(second.Id.Value)));
+        Assert.That(undone["applied"]!.AsArray(), Has.Count.EqualTo(1));
+        Assert.That(target.Fill.Value, Is.SameAs(originalBrush));
+        Assert.That(SelectedScene(), Is.SameAs(first));
+    }
+
+    [AvaloniaTest]
+    public async Task Grouped_timeline_edits_use_the_background_scenes_undo_history()
+    {
+        (Scene first, Scene second, _) = await CreateScenesAsync();
+        if (TestShell.Editor.TryGetTabItem(second, out var secondTab))
+            await TestShell.Editor.CloseTabItem(secondTab, saveChanges: false);
+
+        Element[] clips =
+        [
+            AddClip(0, 1, 0), AddClip(1, 2, 0), AddClip(3, 2, 0),
+            AddClip(0, 1, 1), AddClip(1, 2, 1), AddClip(3, 2, 1)
+        ];
+        var group = ImmutableHashSet.Create(clips[1].Id.Value, clips[4].Id.Value);
+        second.Groups.Add(group);
+        string anchor = clips[1].Id.Value.ToString();
+        TimeRange[] before = clips.Select(element => element.Range).ToArray();
+        await using var host = CreateHost();
+        await host.StartAsync();
+        await using McpClient client = await ConnectAsync(host);
+
+        (string Tool, (string Key, object Value)[] Arguments, int AffectedCount)[] edits =
+        [
+            ("duplicate_elements", [("elementIds", new[] { anchor }), ("timeSeconds", 0), ("layer", 2)], 2),
+            ("ripple_trim", [("elementId", anchor), ("edge", "end"), ("timeSeconds", 2.5), ("includeLinked", true)], 4),
+            ("roll_elements", [("elementId", anchor), ("edge", "end"), ("deltaSeconds", 0.5)], 4),
+            ("slide_elements", [("elementIds", new[] { anchor }), ("deltaSeconds", 0.5)], 6)
+        ];
+        foreach (var (tool, arguments, affectedCount) in edits)
+        {
+            var request = Target(second.Id.Value);
+            foreach (var (key, value) in arguments) request[key] = value;
+
+            JsonObject edit = Success(await client.CallToolAsync(tool, request));
+            Assert.That(edit["changed"]!.GetValue<bool>(), Is.True, tool);
+            string resultKey = tool == "duplicate_elements" ? "createdElementIds" : "changedElementIds";
+            Assert.That(edit[resultKey]!.AsArray(), Has.Count.EqualTo(affectedCount), tool);
+            if (tool == "duplicate_elements")
+                Assert.That(second.Groups, Has.Count.EqualTo(2));
+            else
+                Assert.That(clips[4].Range, Is.Not.EqualTo(before[4]), tool);
+
+            JsonObject undo = Success(await client.CallToolAsync("undo", Target(second.Id.Value)));
+            Assert.That(undo["applied"]!.AsArray(), Has.Count.EqualTo(1), tool);
+            Assert.That(undo["undoCount"]!.GetValue<int>(), Is.Zero, tool);
+            Assert.That(second.Children, Is.EquivalentTo(clips), tool);
+            Assert.That(clips.Select(element => element.Range), Is.EqualTo(before), tool);
+            Assert.That(second.Groups.Single(), Is.EqualTo(group));
+            Assert.That(SelectedScene(), Is.SameAs(first));
+        }
+
+        Element AddClip(double start, double length, int layer)
+        {
+            var element = new Element
+            {
+                Start = { Value = MediaTime.FromSeconds(start) },
+                Length = { Value = MediaTime.FromSeconds(length) },
+                ZIndex = { Value = layer }
+            };
+            element.Uri = new Uri(second.Uri!, $"{element.Id.Value:N}.belm");
+            second.Children.Add(element);
+            return element;
+        }
     }
 
     [AvaloniaTest]

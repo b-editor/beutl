@@ -33,7 +33,7 @@ public sealed record AgentCustomProviderConfig(
 public sealed record AgentProviderProbeResult(
     AgentProviderDescriptor Provider, string? ExecutablePath, string? SearchPath, string? Error, string? CliVersion = null)
 {
-    private static readonly Version s_minimumClaudeCodeVersion = new(2, 1, 0);
+    private static readonly Version s_minimumClaudeCodeVersion = new(2, 1, 332);
 
     public bool IsAvailable => ExecutablePath != null;
     public Version? MinimumVersion => Provider.Kind == AgentProviderKind.ClaudeCode ? s_minimumClaudeCodeVersion : null;

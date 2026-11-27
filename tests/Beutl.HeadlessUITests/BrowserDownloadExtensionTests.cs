@@ -53,7 +53,7 @@ public sealed class BrowserDownloadExtensionTests
         };
 
         var menu = (FAMenuFlyout)browser.View.FindControl<Button>("BrowserMenuButton")!.Flyout!;
-        var download = menu.Items.OfType<FAMenuFlyoutItem>().Single(item => item.Text == Beutl.Language.Strings.WebDownloadMedia);
+        var download = menu.Items.OfType<FAMenuFlyoutItem>().Single(item => item.Text == Beutl.Language.Strings.WebDownloadMediaMenu);
         download.RaiseEvent(new RoutedEventArgs(FAMenuFlyoutItem.ClickEvent));
         download.RaiseEvent(new RoutedEventArgs(FAMenuFlyoutItem.ClickEvent));
         Assert.That(requests, Is.EqualTo(new[] { ((IEditorContext)browser.Context, currentVideo, (string?)null) }));

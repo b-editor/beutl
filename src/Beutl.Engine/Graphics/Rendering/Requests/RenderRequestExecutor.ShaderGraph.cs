@@ -44,7 +44,9 @@ internal sealed partial class RenderRequestExecutor
             IReadOnlyList<MaterializedRenderValue> inputs = Materialize(fragment.Inputs[0], currentTarget,
                 fragment.Inputs[0].EffectiveScale.IsUnbounded ? scale : null);
             Rect referenceBounds = inputs.Aggregate(Rect.Empty, (bounds, input) => bounds.Union(input.CompleteBounds));
-            var results = new List<MaterializedRenderValue>();
+            var results = new EffectRenderValues(inputs.Count);
+            IReadOnlyList<ClippedTextOccurrence> clipped = EffectRenderValues.GetClippedText(inputs);
+            int nextClipped = 0;
             var externals = new IReadOnlyList<MaterializedRenderValue>[fragment.Inputs.Length - 1];
             var externalValues = new List<MaterializedRenderValue>();
             try
@@ -55,8 +57,10 @@ internal sealed partial class RenderRequestExecutor
                     externals[index] = Materialize(external, currentTarget, external.EffectiveScale.IsUnbounded ? scale : null);
                 }
 
-                foreach (MaterializedRenderValue input in inputs)
+                for (int i = 0; i < inputs.Count; i++)
                 {
+                    results.CopyClippedTextAt(clipped, i, ref nextClipped);
+                    MaterializedRenderValue input = inputs[i];
                     Rect bounds = graph.TransformBounds(input.CompleteBounds, referenceBounds);
                     Rect required = ResolveFragmentRequirement(fragment, bounds);
                     if (bounds.Width == 0 || bounds.Height == 0 || required.Width == 0 || required.Height == 0)
@@ -125,6 +129,7 @@ internal sealed partial class RenderRequestExecutor
                             ReleaseUnpublished(output);
                     }
                 }
+                results.CopyClippedTextAt(clipped, inputs.Count, ref nextClipped);
                 return results;
             }
             catch

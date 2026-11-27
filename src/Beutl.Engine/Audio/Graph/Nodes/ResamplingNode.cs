@@ -63,6 +63,8 @@ public sealed class ResamplingNode : AudioNode, IAudioSampleRateConversionNode
         return AudioLatency.ScaleSampleCount(base.GetTotalLatencySamples(SourceSampleRate), SourceSampleRate, sampleRate);
     }
 
+    internal override bool HasFixedLatency(int sampleRate) => base.HasFixedLatency(SourceSampleRate);
+
     public override int GetDrainLatencySamples(int sampleRate)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(sampleRate);

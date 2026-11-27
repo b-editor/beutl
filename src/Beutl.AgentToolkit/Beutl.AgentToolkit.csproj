@@ -8,6 +8,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="Beutl" />
     <InternalsVisibleTo Include="Beutl.AgentToolkit.Tests" />
   </ItemGroup>
 

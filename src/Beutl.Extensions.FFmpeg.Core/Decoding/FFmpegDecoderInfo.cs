@@ -107,6 +107,7 @@ public sealed class FFmpegDecoderInfo : IDecoderInfo
             ThreadCount = _settings.ThreadCount.Value,
             Acceleration = (int)_settings.Acceleration.Value,
             Deinterlace = options.Deinterlace.Normalize(),
+            VideoThumbnailHeight = options.VideoThumbnailHeight,
         };
 
         // Nothing uses a reader the worker opens after the time limit, so close it rather than leave its decoder

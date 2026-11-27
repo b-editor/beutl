@@ -132,7 +132,7 @@
                     <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="NodeGraph.Rename"
                                          Click="RenameClick"
                                          IsEnabled="{Binding CanEdit.Value}"
-                                         Text="{x:Static lang:Strings.Rename}">
+                                         Text="{x:Static lang:Strings.RenameMenu}">
                         <ui:FAMenuFlyoutItem.IconSource>
                             <icons:FluentIconSource Icon="Rename" />
                         </ui:FAMenuFlyoutItem.IconSource>
@@ -141,7 +141,7 @@
                                          Text="{x:Static lang:CommandNames.ResetNodeSize}" />
                 </ui:FAMenuFlyout>
             </Border.ContextFlyout>
-            <Grid ColumnDefinitions="Auto,Auto,*,Auto">
+            <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto">
                 <ToggleButton x:Name="expandToggle"
                               Width="30"
                               Padding="5"
@@ -164,7 +164,21 @@
                            Text="{Binding NodeName.Value}"
                            TextTrimming="CharacterEllipsis" />
 
-                <Button Grid.Column="3"
+                <Button x:Name="editInFrameButton"
+                        Grid.Column="3"
+                        Padding="0"
+                        AutomationProperties.Name="{x:Static lang:Strings.EditInFrame}"
+                        Classes="size-24x24"
+                        Click="EditInFrameClick"
+                        IsEnabled="{Binding CanEdit.Value}"
+                        IsVisible="{Binding HasEditingStage}"
+                        Theme="{StaticResource TransparentButton}"
+                        ToolTip.Tip="{x:Static lang:Strings.EditInFrame}">
+                    <icons:FluentIcon Icon="MyLocation" />
+                </Button>
+
+                <Button x:Name="openGroupButton"
+                        Grid.Column="4"
                         usage:UsageTracking.Feature="NodeGraph.OpenNode"
                         Click="OpenNodeClick"
                         IsVisible="{Binding IsGroup}"

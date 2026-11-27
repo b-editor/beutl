@@ -16,7 +16,7 @@ internal sealed class RenderRequestOwner : IDisposable
 
     public bool IsCleanedUp { get; private set; }
 
-    public string? PreviewWarning { get; private set; }
+    public PreviewRenderDiagnostics PreviewDiagnostics { get; private set; }
 
     public RenderRequestResourceRegistry ResourceRegistry { get; } = new();
 
@@ -59,7 +59,14 @@ internal sealed class RenderRequestOwner : IDisposable
         }
     }
 
-    public void RecordPreviewWarning(string message) => PreviewWarning ??= message;
+    public void RecordPreviewWarning(string message)
+    {
+        if (PreviewDiagnostics.Warning is null)
+            PreviewDiagnostics = PreviewDiagnostics with { Warning = message };
+    }
+
+    public void RecordPreviewWorkingScaleClamp()
+        => PreviewDiagnostics = PreviewDiagnostics with { IsWorkingScaleClamped = true };
 
     public void Cleanup()
     {

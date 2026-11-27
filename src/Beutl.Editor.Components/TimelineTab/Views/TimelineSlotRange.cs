@@ -13,12 +13,13 @@ internal static class TimelineSlotRange
         int buffer,
         double contentWidth = double.NaN,
         double contentOffsetX = 0,
-        bool allowOutOfRange = false)
+        bool allowOutOfRange = false,
+        double? layoutWidth = null)
     {
         if (count <= 0)
             return (0, -1);
 
-        double width = visual.Bounds.Width;
+        double width = layoutWidth ?? visual.Bounds.Width;
         double height = visual.Bounds.Height;
         if (width <= 0 || height <= 0)
             return (0, -1);
@@ -33,13 +34,11 @@ internal static class TimelineSlotRange
 
         if (scrollViewer != null)
         {
-            var topLeft = visual.TranslatePoint(visual.Bounds.TopLeft, scrollViewer);
-            var bottomRight = visual.TranslatePoint(visual.Bounds.BottomRight, scrollViewer);
-            if (topLeft.HasValue && bottomRight.HasValue)
+            var topLeft = visual.TranslatePoint(default, scrollViewer);
+            if (topLeft.HasValue)
             {
-                var translatedBounds = new Rect(topLeft.Value, bottomRight.Value);
-                minX = Math.Max(0, -translatedBounds.Left);
-                maxX = Math.Min(width, scrollViewer.Viewport.Width - translatedBounds.Left);
+                minX = Math.Max(0, -topLeft.Value.X);
+                maxX = Math.Min(width, scrollViewer.Viewport.Width - topLeft.Value.X);
             }
         }
 

@@ -16,8 +16,7 @@ internal static class LimiterParameters
     public const float MaxReleaseMs = 5000f;
     public const float DefaultReleaseMs = 50f;
 
-    // Lookahead defaults to 0 ms so the effect is sample-accurate / A/V-synchronized out of the box
-    // (Beutl's inline audio graph has no plugin-delay-compensation).
+    // Lookahead defaults to 0 ms so the effect is sample-accurate / A/V-synchronized out of the box.
     public const float MinLookaheadMs = 0f;
     public const float MaxLookaheadMs = 20f;
     public const float DefaultLookaheadMs = 0f;

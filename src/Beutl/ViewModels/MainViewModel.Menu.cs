@@ -51,11 +51,11 @@ public sealed partial class MainViewModel : IContextCommandStateNotifier
                     Icon = Icon.New,
                     Items =
                     [
-                        new(Strings.CreateNewProject)
+                        new(Strings.CreateProjectMenu)
                         {
                             Command = MenuBar.CreateNewProject, GestureCommand = "main.createNewProject"
                         },
-                        new(Strings.CreateNewScene) { Command = MenuBar.NewScene, GestureCommand = "main.createNewFile" },
+                        new(Strings.CreateSceneMenu) { Command = MenuBar.NewScene, GestureCommand = "main.createNewFile" },
                     ]
                 },
                 MainMenuItem.Separator,
@@ -64,8 +64,8 @@ public sealed partial class MainViewModel : IContextCommandStateNotifier
                     Icon = Icon.Open,
                     Items =
                     [
-                        new(Strings.Project) { Command = MenuBar.OpenProject, GestureCommand = "main.openProject" },
-                        new(Strings.File) { Command = MenuBar.OpenFile, GestureCommand = "main.openFile" },
+                        new(Strings.OpenProjectMenu) { Command = MenuBar.OpenProject, GestureCommand = "main.openProject" },
+                        new(Strings.OpenFileMenu) { Command = MenuBar.OpenFile, GestureCommand = "main.openFile" },
                     ]
                 },
                 new(Strings.ImportMedia) { Command = MenuBar.ImportMedia, Icon = Icon.ArrowImport },
@@ -81,6 +81,7 @@ public sealed partial class MainViewModel : IContextCommandStateNotifier
                 new(ProjectAssetsStrings.MenuLabel) { Command = MenuBar.OrganizeProjectAssets },
                 new(Strings.ExportProject) { Command = MenuBar.ExportProject, Icon = Icon.ArrowExport },
                 new(Strings.ImportProject) { Command = MenuBar.ImportProject, Icon = Icon.ArrowImport },
+                new(Strings.ExportSubtitlesMenu) { Command = MenuBar.ExportSubtitles, Icon = Icon.ArrowExport },
                 MainMenuItem.Separator,
                 new(Strings.RecentFiles)
                 {
@@ -91,7 +92,7 @@ public sealed partial class MainViewModel : IContextCommandStateNotifier
                     Items = CreateRecentItems(MenuBar.RecentProjectItems, MenuBar.OpenRecentProject)
                 },
                 MainMenuItem.Separator,
-                new(Strings.Settings)
+                new(Strings.OpenSettingsMenu)
                 {
                     Command = MenuBar.ShowSettings, GestureCommand = MainViewExtension.ShowSettingsCommandId, IsInWindowOnly = true
                 },
@@ -111,20 +112,36 @@ public sealed partial class MainViewModel : IContextCommandStateNotifier
                 {
                     Command = MenuBar.Redo, GestureCommand = "main.redo", Icon = Icon.ArrowRedo, EditAction = StandardEditAction.Redo
                 },
-                new(null) { IsInNativeMenuOnly = true },
-                new(Strings.Cut) { Command = MenuBar.CutLayer, EditAction = StandardEditAction.Cut, IsInNativeMenuOnly = true },
-                new(Strings.Copy) { Command = MenuBar.CopyLayer, EditAction = StandardEditAction.Copy, IsInNativeMenuOnly = true },
-                new(Strings.Paste) { Command = MenuBar.PasteLayer, EditAction = StandardEditAction.Paste, IsInNativeMenuOnly = true },
+                MainMenuItem.Separator,
+                new(Strings.Cut)
+                {
+                    Command = MenuBar.CutLayer, EditAction = StandardEditAction.Cut,
+                    GestureCommand = "timeline.cut", InWindowGestureExtensionType = typeof(TimelineTabExtension)
+                },
+                new(Strings.Copy)
+                {
+                    Command = MenuBar.CopyLayer, EditAction = StandardEditAction.Copy,
+                    GestureCommand = "timeline.copy", InWindowGestureExtensionType = typeof(TimelineTabExtension)
+                },
+                new(Strings.Paste)
+                {
+                    Command = MenuBar.PasteLayer, EditAction = StandardEditAction.Paste,
+                    GestureCommand = "timeline.paste", InWindowGestureExtensionType = typeof(TimelineTabExtension)
+                },
                 new(Strings.Delete)
                 {
                     Command = MenuBar.DeleteLayer,
                     EditAction = StandardEditAction.Delete,
-                    IsInNativeMenuOnly = true,
+                    GestureCommand = "timeline.delete", InWindowGestureExtensionType = typeof(TimelineTabExtension),
                     EditActionAvailability = (
                         () => _editorService.SelectedTabItem.Value?.Context.Value is not { IsEnabled.Value: false },
                         EditorAvailabilityChanges)
                 },
-                new(Strings.SelectAll) { Command = MenuBar.SelectAll, EditAction = StandardEditAction.SelectAll, IsInNativeMenuOnly = true },
+                new(Strings.SelectAll)
+                {
+                    Command = MenuBar.SelectAll, EditAction = StandardEditAction.SelectAll,
+                    GestureCommand = "timeline.selectAll", InWindowGestureExtensionType = typeof(TimelineTabExtension)
+                },
             ]
         },
         new(Strings.View) { Items = CreateViewMenuItems() },
@@ -132,25 +149,13 @@ public sealed partial class MainViewModel : IContextCommandStateNotifier
         {
             Items =
             [
-                new(Strings.CreateNew) { Command = MenuBar.NewScene, GestureCommand = "main.createNewFile" },
-                new(Strings.Remove) { Command = MenuBar.RemoveFromProject },
+                new(Strings.CreateNewSceneMenu) { Command = MenuBar.NewScene, GestureCommand = "main.createNewFile" },
+                new(Strings.RemoveFromProjectMenu) { Command = MenuBar.RemoveFromProject },
                 new(Strings.SceneSettings) { Command = MenuBar.ShowSceneSettings },
                 new(MissingMediaStrings.Title) { Command = MenuBar.RelinkMedia },
                 new(UndisplayableDataStrings.Title) { Command = MenuBar.ShowUndisplayableData },
                 MainMenuItem.Separator,
                 .. CreateSceneMarkerAndPlaybackMenus(),
-                new(null) { IsInWindowOnly = true },
-                new(Strings.Element)
-                {
-                    IsInWindowOnly = true,
-                    Items =
-                    [
-                        new(Strings.Delete) { Command = MenuBar.DeleteLayer },
-                        new(Strings.Cut) { Command = MenuBar.CutLayer },
-                        new(Strings.Copy) { Command = MenuBar.CopyLayer },
-                        new(Strings.Paste) { Command = MenuBar.PasteLayer },
-                    ]
-                },
             ]
         },
         new(Strings.Window)
@@ -166,14 +171,14 @@ public sealed partial class MainViewModel : IContextCommandStateNotifier
         {
             Items =
             [
-                new(Strings.Tutorials) { Command = MenuBar.ShowTutorials, GestureCommand = "main.showTutorials" },
+                new(Strings.TutorialsMenu) { Command = MenuBar.ShowTutorials, GestureCommand = "main.showTutorials" },
                 MainMenuItem.Separator,
-                new("GC.Collect") { Command = MenuBar.CollectGarbage, IsVisible = UnderDebugger },
-                new("Monitor KeyModifier") { Command = MenuBar.MonitorKeyModifiers, IsVisible = UnderDebugger },
+                new("Collect Garbage") { Command = MenuBar.CollectGarbage, IsVisible = UnderDebugger },
+                new("Monitor Key Modifiers") { Command = MenuBar.MonitorKeyModifiers, IsVisible = UnderDebugger },
                 new("Throw Unhandled Exception") { Command = MenuBar.ThrowUnhandledException, IsVisible = UnderDebugger },
-                new("Start Window Capture") { Command = MenuBar.StartWindowCapture, IsVisible = UnderDebugger },
+                new("Start Window Capture…") { Command = MenuBar.StartWindowCapture, IsVisible = UnderDebugger },
                 new("Stop Window Capture") { Command = MenuBar.StopWindowCapture, IsVisible = UnderDebugger },
-                new(Strings.Info) { Command = MenuBar.ShowInformation },
+                new(Strings.AboutBeutl) { Command = MenuBar.ShowInformation, IsInWindowOnly = true },
             ]
         },
     ];

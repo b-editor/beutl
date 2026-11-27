@@ -5,6 +5,7 @@ using Beutl.Configuration;
 using Beutl.Editor;
 using Beutl.Editor.VersionControl;
 using Beutl.Logging;
+using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Beutl.Services;
 using Beutl.ViewModels;
@@ -214,6 +215,21 @@ public sealed partial class EditorService
         result = TabItems.FirstOrDefault(i => i.Context.Value?.Object == obj);
 
         return result != null;
+    }
+
+    internal async ValueTask<SceneRemovalResult> RemoveSceneFromProjectAsync(
+        ProjectService projects, Project project, Scene scene, CancellationToken cancellationToken)
+    {
+        Dispatcher.UIThread.VerifyAccess();
+        using var write = await BeginProjectFileWriteAsync(cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (projects.CurrentTransition is not null || !ReferenceEquals(projects.CurrentProject.Value, project))
+            return SceneRemovalResult.SceneNotFound;
+
+        bool dirty = TryGetTabItem(scene, out var tab)
+                     && tab.Context.Value is EditViewModel editor
+                     && (editor.IsDisposingOrDisposed || editor.HasUnsavedSceneChanges);
+        return ProjectPersistence.RemoveScene(project, scene, dirty, persist: true);
     }
 
     public void ActivateTabItem(CoreObject obj)

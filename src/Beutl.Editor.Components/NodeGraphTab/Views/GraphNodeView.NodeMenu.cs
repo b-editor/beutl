@@ -11,6 +11,9 @@ namespace Beutl.Editor.Components.NodeGraphTab.Views;
 
 public partial class GraphNodeView
 {
+    private void EditInFrameClick(object? sender, RoutedEventArgs e)
+        => (DataContext as GraphNodeViewModel)?.EditInFrame();
+
     private void OpenNodeClick(object? sender, RoutedEventArgs e)
     {
         if (DataContext is GraphNodeViewModel { GraphNode: GroupNode groupNode }

@@ -23,7 +23,8 @@ internal sealed class SceneFileImporter(
     DecoderRegistry? decoders = null,
     ObjectTemplateService? templates = null,
     INotificationService? notifications = null,
-    Func<bool>? hasFileSourceOverride = null)
+    Func<bool>? hasFileSourceOverride = null,
+    IEditorContext? editor = null)
 {
     private static readonly MediaTime s_defaultLength = MediaTime.FromSeconds(5);
 
@@ -51,7 +52,7 @@ internal sealed class SceneFileImporter(
             {
                 IReadOnlyList<CaptionTemplate> choices = CaptionFileImport.GetTemplates(templates);
                 captionTemplate = choices.Count == 1 ? choices[0] : await chooseCaptionTemplate(choices);
-                if (captionTemplate is null) return null;
+                if (captionTemplate is null || editor?.IsEnabled.Value == false) return null;
             }
             else
             {

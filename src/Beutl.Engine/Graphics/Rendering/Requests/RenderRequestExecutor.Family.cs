@@ -268,6 +268,9 @@ internal sealed partial class RenderRequestExecutor
             throw new FamilyExecutionException(bodyFailure);
         if (cleanupFailure is not null)
             throw new FamilyExecutionException(cleanupFailure);
+
+        if (request.Regions.IsPreviewWorkingScaleClamped && !state.PreviewAllocationDropObserved)
+            request.Request.Options.Owner.RecordPreviewWorkingScaleClamp();
     }
 
     private static void ValidateFamilyForExecution(CompiledRenderRequest request)

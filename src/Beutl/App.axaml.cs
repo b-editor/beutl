@@ -4,8 +4,6 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Beutl.AgentHost;
 using Beutl.Editor.Components.AgentTab;
-using Beutl.Editor.Components.FileBrowserTab.Services;
-using Beutl.Media.Decoding;
 #if DEBUG
 using Avalonia.Diagnostics;
 #endif
@@ -14,16 +12,20 @@ using Avalonia.Markup.Xaml;
 using Avalonia.Platform;
 using Avalonia.Styling;
 using Avalonia.Threading;
+using Beutl.Api;
 using Beutl.Api.Services;
 using Beutl.Configuration;
+using Beutl.Controls;
 using Beutl.Controls.NativeContextMenu;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Controls.Styling;
+using Beutl.Editor.Components.FileBrowserTab.Services;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.PropertyEditors.Services;
 using Beutl.Graphics.Backend;
 using Beutl.Helpers;
 using Beutl.Logging;
+using Beutl.Media.Decoding;
 using Beutl.NodeGraph.Composition;
 using Beutl.NodeGraph.Nodes;
 using Beutl.Pages;
@@ -271,7 +273,7 @@ public sealed class App : Application
             if (request is RepositoryOpenRequest repository)
                 await main.RepositoryClone.OpenAsync(mainWindow, repository, token);
             else if (request is PackageInstallRequest package)
-                await OpenPackageAsync(package, desktop, mainWindow, main, token);
+                await OpenPackageAsync(package, desktop.Windows, mainWindow, main, main._beutlClients, token);
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested)
         {
@@ -288,22 +290,24 @@ public sealed class App : Application
         }
     }
 
-    private async Task OpenPackageAsync(PackageInstallRequest request,
-        IClassicDesktopStyleApplicationLifetime desktop, Window mainWindow, MainViewModel main, CancellationToken token)
+    internal static async Task OpenPackageAsync(PackageInstallRequest request,
+        IReadOnlyList<Window> windows, Window mainWindow, MainViewModel main,
+        BeutlApiApplication clients, CancellationToken token)
     {
-        var package = await main._beutlClients.GetResource<DiscoverService>()
-            .GetPackage(request.PackageName, token);
+        var package = await clients.GetResource<DiscoverService>().GetPackage(request.PackageName, token);
         token.ThrowIfCancellationRequested();
 
-        ExtensionsPage? page = desktop.Windows.OfType<ExtensionsPage>().FirstOrDefault();
+        ExtensionsPage? page = windows.OfType<ExtensionsPage>().FirstOrDefault();
         if (page == null)
         {
-            var viewModel = new ExtensionsPageViewModel(main._beutlClients, main.EditorService, main.ProjectService);
-            page = new ExtensionsPage { DataContext = viewModel };
-            HostServices.SetFrom(page, _appServices);
-            page.Closed += (_, _) => viewModel.Dispose();
-            page.OpenPackage(package, request.Version);
-            _ = page.ShowDialog(mainWindow);
+            var viewModel = new ExtensionsPageViewModel(clients, main.EditorService, main.ProjectService);
+            if (ToolWindowLauncher.CreateWindow(viewModel.Extension, viewModel, mainWindow, ControlNotifications.GetOrDefault(mainWindow))
+                is ExtensionsPage created)
+            {
+                created.Closed += (_, _) => viewModel.Dispose();
+                created.OpenPackage(package, request.Version);
+                _ = created.ShowDialog(mainWindow);
+            }
         }
         else
         {
@@ -380,7 +384,7 @@ public sealed class App : Application
     // follows the key map after that.
     private void ShowSettingsGestureInApplicationMenu()
     {
-        if (NativeMenu.GetMenu(this)?.Items.OfType<NativeMenuItem>().FirstOrDefault(item => item.Header == Strings.Settings) is not { } settings)
+        if (NativeMenu.GetMenu(this)?.Items.OfType<NativeMenuItem>().FirstOrDefault(item => item.Header == Strings.OpenSettingsMenu) is not { } settings)
             return;
 
         void Show() => settings.Gesture = GetCommandGestureExtension.GetKeyGesture(

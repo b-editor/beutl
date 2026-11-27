@@ -97,8 +97,7 @@ public partial class DelayAnimationEffect : FilterEffect
             executor.Flush(false);
 
             int replacementCount = singleTargets.Count;
-            effectContext.Targets.RemoveAt(i);
-            effectContext.Targets.InsertRange(i, singleTargets);
+            effectContext.Targets.ReplaceAt(i, singleTargets);
             i += replacementCount - 1;
         }
     }
@@ -254,7 +253,8 @@ public partial class DelayAnimationEffect : FilterEffect
                  childEffect, cache: DelayedResources,
                  disableResourceShare: DisableResourceShare,
                  conditions: _conditions),
-                ApplyDelayed);
+                ApplyDelayed,
+                CustomFilterEffectOptions.AcceptsMaterializedTargets);
         }
     }
 }
@@ -264,7 +264,8 @@ internal static class DelayAnimationOrdering
     internal static float ComputeTargetRanks(DelayAnimationOrder order, int seed, EffectTargets targets, Span<float> ranks,
         TextAnimationUnit unit = TextAnimationUnit.Characters)
     {
-        if (targets.Any(static target => target.TextPart.HasValue))
+        if ((!ReadsBounds(order) && targets.ClippedText.Count > 0)
+            || targets.Any(static target => target.TextPart.HasValue))
         {
             return TextAnimationOrdering.ComputeUnitRanks(order, seed, unit, targets, ranks);
         }
