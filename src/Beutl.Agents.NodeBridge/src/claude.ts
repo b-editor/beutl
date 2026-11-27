@@ -2,9 +2,23 @@ import { query, type CanUseTool, type McpServerConfig, type Options, type Query,
 import { randomUUID } from "node:crypto";
 import { isAbsolute, normalize } from "node:path";
 import { ProviderProcess } from "./process.js";
-import { type Adapter, type AdapterHost, type BackgroundStopResult, type ComposerSuggestion, type ModelDescriptor, type PermissionMode, type Question, type Turn, type TurnRequest, type TurnResult, contentOutputs, formatPrompt, planStatus, record, withTimeout } from "./protocol.js";
+import { type Adapter, type AdapterHost, type BackgroundStopResult, type CompactionResult, type ComposerSuggestion, type ModelDescriptor, type PermissionMode, type Question, type Turn, type TurnRequest, type TurnResult, contentOutputs, formatPrompt, planStatus, record, withTimeout } from "./protocol.js";
 
 const readTools = new Set(["Read", "Glob", "Grep", "LS"]);
+
+function fallbackContextWindow(model?: string): number {
+    return /\[1m\]|(?:opus|sonnet)-4-[6-9]\b|(?:opus|sonnet|fable|mythos)-5\b|haiku-5-5\b|mythos-preview/i.test(model ?? "")
+        ? 1_000_000 : 200_000;
+}
+
+function claudeTokenUsage(usage?: { input_tokens?: number; output_tokens?: number;
+    cache_read_input_tokens?: number | null; cache_creation_input_tokens?: number | null }) {
+    const cachedInputTokens = usage?.cache_read_input_tokens ?? undefined;
+    // Fresh input, cache reads, and cache writes all occupy the context window.
+    const inputTokens = usage?.input_tokens === undefined ? undefined
+        : usage.input_tokens + (cachedInputTokens ?? 0) + (usage.cache_creation_input_tokens ?? 0);
+    return { inputTokens, outputTokens: usage?.output_tokens, cachedInputTokens };
+}
 
 function sameExecutable(a: string, b: string): boolean {
     const left = normalize(a);
@@ -19,6 +33,7 @@ export class ClaudeAdapter implements Adapter {
     private input?: ClaudeTurnInput;
     private mode: PermissionMode;
     private skillNames = new Map<string, string>();
+    private readonly contextWindows = new Map<string, number>();
 
     constructor(private readonly host: AdapterHost) {
         this.sessionId = host.options.externalSessionId;
@@ -48,6 +63,7 @@ export class ClaudeAdapter implements Adapter {
                     isSecondary: !isProviderDefault && index++ >= 4,
                     isProviderDefault,
                     resolvedModelId: model.resolvedModel,
+                    contextWindowTokens: fallbackContextWindow(model.resolvedModel ?? model.value),
                 };
             });
         });
@@ -76,17 +92,30 @@ export class ClaudeAdapter implements Adapter {
     }
 
     async run(turn: Turn): Promise<TurnResult> {
+        return this.runCore(turn);
+    }
+
+    async compact(turn: Turn): Promise<CompactionResult> {
+        if (!this.sessionId) return { status: "unsupported" };
+        let compacted = false;
+        const result = await this.runCore(turn, () => { compacted = true; });
+        return result.status === "completed" && !compacted ? { status: "unsupported" } : result;
+    }
+
+    private async runCore(turn: Turn, onManualCompact?: () => void): Promise<TurnResult> {
         const input = this.input = new ClaudeTurnInput(turn);
-        input.push(this.formatPrompt(turn.request));
+        input.push(onManualCompact ? "/compact" : this.formatPrompt(turn.request));
         const closeInput = () => input.close();
         turn.signal.addEventListener("abort", closeInput, { once: true });
-        const translate = this.events = new ClaudeEvents(turn);
+        const translate = this.events = new ClaudeEvents(turn, model => this.contextWindows.get(model ?? "") ?? fallbackContextWindow(model),
+            onManualCompact);
         try {
             turn.signal.throwIfAborted();
             const messages = this.active = query({ prompt: input, options: this.options(turn) });
             for await (const message of messages) {
                 if (message.type === "system" && message.subtype === "init") {
                     this.saveSession(message.session_id);
+                    translate.model ??= message.model;
                     turn.reportUsage({ model: message.model });
                     this.publishSuggestions(suggestions(await messages.supportedCommands().catch(() => []),
                         message.slash_commands, message.skills));
@@ -97,16 +126,38 @@ export class ClaudeAdapter implements Adapter {
                     this.saveSession(message.session_id);
                     if (turn.signal.aborted) return { status: "cancelled" };
                     if (!input.includesAllSteers(message)) continue;
+                    const models = Object.entries(message.modelUsage ?? {});
+                    for (const [model, usage] of models) {
+                        if (usage.contextWindow > 0) this.contextWindows.set(model, usage.contextWindow);
+                    }
                     if (message.subtype === "success" && !message.is_error) {
-                        const usage = message.usage;
-                        const cachedInputTokens = usage?.cache_read_input_tokens ?? undefined;
-                        // Claude reports fresh input separately from cache reads and writes.
-                        const inputTokens = usage?.input_tokens === undefined ? undefined
-                            : usage.input_tokens + (cachedInputTokens ?? 0) + (usage.cache_creation_input_tokens ?? 0);
-                        turn.reportUsage({
-                            inputTokens, outputTokens: usage?.output_tokens, cachedInputTokens,
-                            model: translate.model ?? Object.keys(message.modelUsage ?? {})[0],
-                        });
+                        const model = translate.model ?? models[0]?.[0];
+                        const totals = claudeTokenUsage(message.usage);
+                        const modelUsage = models.find(([key]) => key === model)?.[1]
+                            ?? (models.length === 1 ? models[0][1] : undefined);
+                        const window = this.contextWindows.get(model ?? "") ?? fallbackContextWindow(model);
+                        if (turn.contextUsage) {
+                            const usage = turn.contextUsage;
+                            // A compaction boundary reports the old window. Ask the session for the new size.
+                            const current = usage.usedTokens === undefined && typeof messages.getContextUsage === "function"
+                                ? await withTimeout(messages.getContextUsage({ detail: "summary" }), 1800,
+                                    "Claude Code did not report context usage.").catch(() => undefined)
+                                : undefined;
+                            turn.reportContextUsage(current
+                                ? { ...claudeTokenUsage(current.apiUsage ?? undefined), usedTokens: current.totalTokens,
+                                    contextWindowTokens: current.maxTokens > 0 ? current.maxTokens : window }
+                                : { ...usage, contextWindowTokens: window });
+                        } else if (!onManualCompact && (message.num_turns === 1 || message.num_turns === undefined)) {
+                            const counts = modelUsage ? claudeTokenUsage({
+                                input_tokens: modelUsage.inputTokens, output_tokens: modelUsage.outputTokens,
+                                cache_read_input_tokens: modelUsage.cacheReadInputTokens,
+                                cache_creation_input_tokens: modelUsage.cacheCreationInputTokens,
+                            }) : totals;
+                            if (counts.inputTokens !== undefined)
+                                turn.reportContextUsage({ ...counts, usedTokens: counts.inputTokens + (counts.outputTokens ?? 0),
+                                    contextWindowTokens: window });
+                        }
+                        turn.reportUsage({ ...totals, model });
                         turn.durationMs = message.duration_ms;
                         return { status: "completed" };
                     }
@@ -384,7 +435,16 @@ class ClaudeEvents {
     private readonly tasks = new Map<string, string>();
     private readonly finishedTasks = new Set<string>();
 
-    constructor(private readonly turn: Turn) {}
+    constructor(private readonly turn: Turn, private readonly contextWindow: (model?: string) => number,
+        private readonly onManualCompact?: () => void) {}
+
+    private reportContext(usage: Parameters<typeof claudeTokenUsage>[0], model?: string): void {
+        this.model = model || this.model;
+        const counts = claudeTokenUsage(usage);
+        if (this.onManualCompact || counts.inputTokens === undefined) return;
+        this.turn.reportContextUsage({ ...counts, usedTokens: counts.inputTokens + (counts.outputTokens ?? 0),
+            contextWindowTokens: this.contextWindow(this.model) });
+    }
 
     runningTaskId(toolCallId: string): string | undefined {
         if (this.finishedTasks.has(toolCallId)) return undefined;
@@ -401,6 +461,7 @@ class ClaudeEvents {
             const parentToolCallId = parent ?? undefined;
             if (event.type === "message_start") {
                 this.messageIds.set(parent, event.message.id);
+                if (!parent) this.reportContext(event.message.usage, event.message.model);
             } else if (event.type === "content_block_delta") {
                 if (event.delta.type === "text_delta") {
                     const id = this.messageIds.get(parent) ?? "";
@@ -412,7 +473,7 @@ class ClaudeEvents {
             }
         } else if (message.type === "assistant") {
             const parent = message.parent_tool_use_id;
-            if (!parent && message.message.model) this.model = message.message.model;
+            if (!parent) this.reportContext(message.message.usage, message.message.model);
             const parentToolCallId = parent ?? undefined;
             for (const block of message.message.content) {
                 if (block.type === "text") {
@@ -462,6 +523,8 @@ class ClaudeEvents {
             if (message.subtype === "status" && message.status === "compacting")
                 emit({ type: "turnPhaseChanged", phase: "compacting" });
             else if (message.subtype === "compact_boundary") {
+                if (message.compact_metadata.trigger === "manual") this.onManualCompact?.();
+                this.turn.reportContextUsage({ contextWindowTokens: this.contextWindow(this.model) });
                 emit({ type: "contextCompacted" });
                 emit({ type: "turnPhaseChanged", phase: "thinking" });
             } else if (message.subtype === "status" && message.status === null)

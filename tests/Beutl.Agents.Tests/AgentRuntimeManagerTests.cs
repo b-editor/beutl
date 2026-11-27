@@ -5,6 +5,55 @@ namespace Beutl.Agents.Tests;
 public sealed class AgentRuntimeManagerTests
 {
     [Test]
+    public async Task SwitchingProvidersHandsOffOnlyBoundedConversationAfterTheLastClear()
+    {
+        var directory = Directory.CreateTempSubdirectory("beutl-agent-handoff-");
+        try
+        {
+            var bridge = new PermissionBridge();
+            var store = new AgentThreadStore(directory.FullName);
+            await using var runtime = new AgentRuntimeManager(bridge, store);
+            var codex = AgentProviderDescriptor.Codex with { Command = Environment.ProcessPath! };
+            var claude = AgentProviderDescriptor.ClaudeCode with { Command = Environment.ProcessPath! };
+            string project = Path.Combine(directory.FullName, "project.beutl");
+            var thread = await runtime.CreateThreadAsync(project, codex, "Opening", AgentPermissionMode.FullAccess);
+            await runtime.RunTurnAsync(project, thread.Id, codex, "discard this earlier instruction", []);
+            await runtime.ClearContextAsync(project, thread.Id);
+            var turn = await runtime.RunTurnAsync(project, thread.Id, codex, "Keep the title in the safe area", []);
+            await store.AppendAsync(project, new AgentAssistantMessageCompleted(thread.Id, turn.TurnId, DateTimeOffset.UtcNow,
+                "The updated title stays in the safe area. " + new string('a', 2_000)));
+            var (switched, change) = await runtime.SetProviderAsync(project, thread.Id, claude.Id, "sonnet", "high");
+            Assert.Multiple(() =>
+            {
+                Assert.That(switched.ExternalSessionId, Is.Null);
+                Assert.That(switched.RestorePreviousMessages, Is.True);
+                Assert.That(switched.Model, Is.EqualTo("sonnet"));
+                Assert.That(switched.ReasoningEffort, Is.EqualTo("high"));
+                Assert.That(change, Is.TypeOf<AgentThreadProviderChanged>());
+            });
+            await runtime.RunTurnAsync(project, thread.Id, claude, "Continue with the opening", []);
+            var handoff = bridge.LastRequest!.PreviousMessages!;
+            Assert.Multiple(() =>
+            {
+                Assert.That(bridge.Closed.Count, Is.EqualTo(2));
+                Assert.That(bridge.LastOpen, Is.Not.Null);
+                Assert.That(bridge.LastOpen!.Provider, Is.EqualTo(AgentProviderKind.ClaudeCode));
+                Assert.That(bridge.LastOpen.ExternalSessionId, Is.Null);
+                Assert.That(handoff.Select(message => message.Role), Is.EqualTo(new[] { "user", "assistant" }));
+                Assert.That(handoff[0].Text, Is.EqualTo("Keep the title in the safe area"));
+                Assert.That(handoff[1].Text, Does.StartWith("The updated title").And.EndsWith("…"));
+                Assert.That(handoff[1].Text, Has.Length.LessThanOrEqualTo(600));
+            });
+            await runtime.RunTurnAsync(project, thread.Id, claude, "Another turn", []);
+            Assert.That(bridge.LastRequest!.PreviousMessages, Is.Null);
+        }
+        finally
+        {
+            directory.Delete(recursive: true);
+        }
+    }
+
+    [Test]
     public async Task SuppliesRetainedConversationOnceAfterRewindAndRecordsWallClockMetrics()
     {
         var directory = Directory.CreateTempSubdirectory("beutl-agent-retry-");
@@ -100,6 +149,7 @@ public sealed class AgentRuntimeManagerTests
         public List<AgentPermissionDecision> Decisions { get; } = [];
         public AgentSessionOpenRequest? LastOpen { get; private set; }
         public AgentTurnRequest? LastRequest { get; private set; }
+        public List<Guid> Closed { get; } = [];
 
         public Task<AgentWorkerHealth> PingAsync(CancellationToken cancellationToken = default) => throw new NotSupportedException();
 
@@ -135,7 +185,11 @@ public sealed class AgentRuntimeManagerTests
         public Task<bool> SteerTurnAsync(AgentTurnRequest request, CancellationToken cancellationToken = default) => Task.FromResult(false);
         public Task CancelTurnAsync(Guid threadId, Guid turnId, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task SetPermissionModeAsync(Guid threadId, AgentPermissionMode mode, CancellationToken cancellationToken = default) => Task.CompletedTask;
-        public Task CloseSessionAsync(Guid threadId, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task CloseSessionAsync(Guid threadId, CancellationToken cancellationToken = default)
+        {
+            Closed.Add(threadId);
+            return Task.CompletedTask;
+        }
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }
 }

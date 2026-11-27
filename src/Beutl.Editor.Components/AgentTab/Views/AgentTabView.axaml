@@ -66,8 +66,12 @@
                                     HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Padding="6,4" MinHeight="36"
                                     AutomationProperties.Name="{Binding Thread.Title}">
                                 <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="9">
-                                    <icons:FluentIcon Icon="Chat" FontSize="14" VerticalAlignment="Center"
-                                                      Foreground="{DynamicResource TextFillColorTertiaryBrush}" />
+                                    <Panel VerticalAlignment="Center">
+                                        <icons:FluentIcon Icon="Chat" FontSize="14" IsVisible="{Binding !Thread.IsPinned}"
+                                                          Foreground="{DynamicResource TextFillColorTertiaryBrush}" />
+                                        <icons:FluentIcon Icon="Pin" FontSize="14" IsVisible="{Binding Thread.IsPinned}"
+                                                          Foreground="{DynamicResource TextFillColorTertiaryBrush}" />
+                                    </Panel>
                                     <StackPanel Grid.Column="1" Spacing="1" VerticalAlignment="Center">
                                         <TextBlock Text="{Binding Thread.Title}" FontSize="13" TextTrimming="CharacterEllipsis"
                                                    Foreground="{DynamicResource TextFillColorPrimaryBrush}" />

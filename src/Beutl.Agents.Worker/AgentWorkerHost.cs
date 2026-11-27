@@ -43,7 +43,7 @@ internal sealed class AgentWorkerHost
             return null;
         }
         if (method is not ("ping" or "models/list" or "suggestions/list" or "session/open" or "session/close"
-            or "session/setMode" or "turn/run" or "turn/steer" or "turn/cancel" or "turn/stopTask"))
+            or "session/setMode" or "turn/run" or "turn/compact" or "turn/steer" or "turn/cancel" or "turn/stopTask"))
             throw new AgentRpcException(-32601, $"Unknown worker method {method}.");
 
         Task<EmbeddedNode> start;

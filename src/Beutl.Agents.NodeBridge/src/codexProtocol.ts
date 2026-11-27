@@ -19,6 +19,7 @@ interface CodexModel {
     supportedReasoningEfforts: { reasoningEffort: string }[];
     defaultReasoningEffort?: string;
     isDefault?: boolean;
+    contextWindow?: number | null;
 }
 
 export interface CodexTurn {
@@ -32,6 +33,7 @@ export interface CodexTokenCounts {
     inputTokens: number;
     outputTokens: number;
     cachedInputTokens: number;
+    totalTokens?: number;
 }
 
 interface TurnRef { threadId: string; turnId: string }
@@ -75,7 +77,9 @@ type Notifications = {
     "item/fileChange/outputDelta": ItemRef & { delta: string };
     "item/mcpToolCall/progress": ItemRef & { message: string };
     "turn/plan/updated": TurnRef & { plan: { step: string; status: string }[]; explanation?: string | null };
-    "thread/tokenUsage/updated": TurnRef & { tokenUsage: { total: CodexTokenCounts; last: CodexTokenCounts } };
+    "thread/tokenUsage/updated": TurnRef & {
+        tokenUsage: { total: CodexTokenCounts; last: CodexTokenCounts; modelContextWindow?: number | null };
+    };
     "thread/compacted": TurnRef;
     "model/rerouted": TurnRef & { toModel: string };
     "error": TurnRef & { error: { message: string }; willRetry: boolean };
@@ -98,6 +102,7 @@ interface Requests {
     initialize: [{ clientInfo: { name: string; title: string; version: string }; capabilities: { experimentalApi: boolean; requestAttestation: boolean } }, unknown];
     "thread/start": [ThreadOptions, { thread: { id: string }; model?: string }];
     "thread/resume": [ThreadOptions & { threadId: string; excludeTurns: boolean }, { thread: { id: string }; model?: string }];
+    "thread/compact/start": [{ threadId: string }, object];
     "model/list": [{ cursor?: string; includeHidden: boolean }, { data: CodexModel[]; nextCursor?: string | null }];
     "skills/list": [{ cwds: string[] }, { data: { skills: CodexSkill[] }[] }];
     "turn/start": [{
@@ -114,6 +119,12 @@ interface Frame {
     params?: unknown;
     result?: unknown;
     error?: { code: number; message: string };
+}
+
+export class CodexRpcError extends Error {
+    constructor(readonly code: number, message: string) {
+        super(message);
+    }
 }
 
 export class CodexRpc {
@@ -144,7 +155,7 @@ export class CodexRpc {
                     }
                 } else if (frame.id !== undefined) {
                     const request = this.pending.get(frame.id);
-                    if (frame.error) request?.reject(new Error(frame.error.message));
+                    if (frame.error) request?.reject(new CodexRpcError(frame.error.code, frame.error.message));
                     else request?.resolve(frame.result);
                 }
             } catch (error) {

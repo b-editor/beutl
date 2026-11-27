@@ -7,7 +7,8 @@ internal sealed class AgentQueuedMessage(
     IReadOnlyList<AgentUserAttachment> attachments, string[] providerSkills, IReadOnlyList<AgentContextMention>? mentions)
 {
     public IEditorContext Editor { get; } = editor;
-    public AgentProviderDescriptor Provider { get; } = provider;
+    private string[] _providerSkills = providerSkills;
+    public AgentProviderDescriptor Provider { get; private set; } = provider;
     public string Text { get; } = text;
     public string Preview { get; } = text.Split(['\r', '\n'], 2)[0];
     public bool IncludeSceneContext { get; } = includeSceneContext;
@@ -17,9 +18,16 @@ internal sealed class AgentQueuedMessage(
 
     public AgentTurnRequest CreateRequest(Guid threadId, Guid turnId) => new(threadId, turnId, Text)
     {
-        ProviderSkills = providerSkills.Length > 0 ? providerSkills : null,
+        ProviderSkills = _providerSkills.Length > 0 ? _providerSkills : null,
         Attachments = attachments.Count > 0 ? attachments : null,
         IncludeSceneContext = IncludeSceneContext,
         Mentions = Mentions
     };
+
+    public void SetProvider(AgentProviderDescriptor descriptor)
+    {
+        if (Provider.Id != descriptor.Id)
+            _providerSkills = [];
+        Provider = descriptor;
+    }
 }

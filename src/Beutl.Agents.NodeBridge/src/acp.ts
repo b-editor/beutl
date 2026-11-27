@@ -182,6 +182,9 @@ export class AcpAdapter implements Adapter {
                     cachedInputTokens: result.usage?.cachedReadTokens ?? undefined,
                     model: this.config("model")?.currentValue ?? this.legacyModels?.currentModelId ?? this.configuredModel,
                 });
+                if (result.usage && turn.contextUsage)
+                    turn.reportContextUsage({ ...turn.contextUsage, inputTokens: result.usage.inputTokens,
+                        outputTokens: result.usage.outputTokens, cachedInputTokens: result.usage.cachedReadTokens ?? undefined });
             }
             return { status: result.stopReason === "cancelled" ? "cancelled" : "completed" };
         } finally {
@@ -269,6 +272,9 @@ export class AcpAdapter implements Adapter {
         const turn = this.active;
         if (!turn) return;
         switch (update.sessionUpdate) {
+            case "usage_update":
+                turn.reportContextUsage({ usedTokens: update.used, contextWindowTokens: update.size });
+                break;
             case "agent_message_chunk":
                 if (update.content.type !== "text") break;
                 if (this.messageId !== (update.messageId ?? undefined)) this.completeMessage();

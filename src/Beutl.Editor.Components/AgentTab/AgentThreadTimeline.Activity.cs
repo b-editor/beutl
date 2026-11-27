@@ -8,13 +8,19 @@ internal sealed partial class AgentThreadTimeline
 {
     private readonly Dictionary<(Guid? TurnId, string? ParentId), AgentReasoningItem> _reasoning = [];
     private Guid? _activityTurn;
+    private DateTimeOffset _activityStartedAt;
     private DateTimeOffset _phaseSince;
     private AgentTurnPhase _phase;
     private string? _phaseTool;
-    private readonly AgentTimelineDividerItem _compacting = new(null, AgentStrings.CompactingContext, Icon.ArrowMinimize, animate: true);
-
     public bool IsCompacting => _phase == AgentTurnPhase.Compacting;
-    public AgentTimelineDividerItem? ActiveCompaction => IsCompacting ? _compacting : null;
+    public Icon LiveStatusIcon => _phase switch
+    {
+        AgentTurnPhase.RunningTool => Icon.Wrench,
+        AgentTurnPhase.Responding => Icon.Chat,
+        AgentTurnPhase.Compacting => Icon.ArrowMinimize,
+        AgentTurnPhase.Retrying => Icon.ArrowSync,
+        _ => Icon.BrainCircuit
+    };
 
     public string LiveStatus => _phase switch
     {
@@ -33,6 +39,8 @@ internal sealed partial class AgentThreadTimeline
     {
         if (_phase == AgentTurnPhase.Thinking)
             Notify(nameof(LiveStatus));
+        if (_activityTurn is { } turnId && _turnHeaders.TryGetValue(turnId, out var header))
+            header.RefreshElapsed();
     }
 
     private void ClearActivity()
@@ -50,7 +58,7 @@ internal sealed partial class AgentThreadTimeline
             return;
         _activityTurn = entry.TurnId;
         _phase = AgentTurnPhase.Thinking;
-        _phaseSince = entry.Timestamp;
+        _activityStartedAt = _phaseSince = entry.Timestamp;
         _phaseTool = null;
         NotifyPhase();
     }
@@ -70,8 +78,8 @@ internal sealed partial class AgentThreadTimeline
     private void NotifyPhase()
     {
         Notify(nameof(LiveStatus));
+        Notify(nameof(LiveStatusIcon));
         Notify(nameof(IsCompacting));
-        Notify(nameof(ActiveCompaction));
     }
 
     private void RecordReasoning(AgentReasoningDelta entry, AgentToolItem? parent)
@@ -101,6 +109,8 @@ internal sealed partial class AgentThreadTimeline
             FinishReasoning(entry, parentId);
         if (parentId is not null || tool.Parent is not null || tool.IsBackgroundWork)
             return;
+        if (entry is AgentToolCallStarted)
+            ClearReplyCandidate(entry);
         if (tool.IsInProgress)
             ChangePhase(entry, AgentTurnPhase.RunningTool, tool.ToolName);
         else if (_phase == AgentTurnPhase.RunningTool)
@@ -121,8 +131,8 @@ internal sealed partial class AgentThreadTimeline
     {
         foreach (var scope in _reasoning.Keys.Where(scope => scope.TurnId == entry.TurnId).ToArray())
             FinishReasoning(entry, scope.ParentId);
-        foreach (var message in _messages.Values.Where(item => item.TurnId == entry.TurnId && !item.CanCopy))
-            message.Finish();
+        if (entry.TurnId is { } turnId && _turnHeaders.TryGetValue(turnId, out var header) && header.IsRunning)
+            header.Finish(entry);
         if (_activityTurn == entry.TurnId)
         {
             _activityTurn = null;

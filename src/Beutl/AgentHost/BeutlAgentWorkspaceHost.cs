@@ -74,7 +74,9 @@ internal sealed partial class BeutlAgentWorkspaceHost(
         var context = await Dispatcher.UIThread.InvokeAsync(
             () => CaptureContext(edit, projectPath, includeSceneContext, attachments, mentions),
             DispatcherPriority.Normal, cancellationToken);
-        IReadOnlyList<McpServerSpec> servers = await GetMcpServersAsync(request, callbacks, cancellationToken);
+        IReadOnlyList<McpServerSpec> servers = await GetMcpServersAsync(request.ThreadId,
+            message => callbacks.Timeline(new AgentErrorNotice(request.ThreadId, request.TurnId, DateTimeOffset.UtcNow, message)),
+            cancellationToken);
         var turn = await Dispatcher.UIThread.InvokeAsync(() =>
         {
             EnsureEditorAvailable(edit);
@@ -122,6 +124,13 @@ internal sealed partial class BeutlAgentWorkspaceHost(
             Context = context,
             BundledSkills = ResolveBundledSkills(request.Text)
         }, cancellationToken);
+    }
+
+    public async Task<AgentThreadMetadata> CompactContextAsync(
+        string projectPath, Guid threadId, AgentProviderDescriptor provider, AgentTurnCallbacks callbacks, CancellationToken cancellationToken)
+    {
+        var servers = await GetMcpServersAsync(threadId, null, cancellationToken);
+        return await runtime.CompactContextAsync(projectPath, threadId, provider, servers, callbacks, cancellationToken);
     }
 
     internal static IReadOnlyList<AgentSkillInstruction>? ResolveBundledSkills(string text)
@@ -185,17 +194,17 @@ internal sealed partial class BeutlAgentWorkspaceHost(
     }
 
     private async Task<IReadOnlyList<McpServerSpec>> GetMcpServersAsync(
-        AgentTurnRequest request, AgentTurnCallbacks callbacks, CancellationToken cancellationToken)
+        Guid threadId, Action<string>? report, CancellationToken cancellationToken)
     {
         string? commandOverride = config.StdioCommand.Value?.Trim();
         var server = string.IsNullOrEmpty(commandOverride) ? AgentToolkitMcpServerLocator.ResolveDefault() : new(commandOverride, []);
         if (server is null)
         {
-            callbacks.Timeline(new AgentErrorNotice(request.ThreadId, request.TurnId, DateTimeOffset.UtcNow, AgentStrings.McpLauncherMissing));
+            report?.Invoke(AgentStrings.McpLauncherMissing);
             return [];
         }
 
-        if (!endpoint.IsRunning)
+        if (report is not null && !endpoint.IsRunning)
         {
             // Startup is shared with the shell. A slow endpoint should not hold up the agent process.
             try
@@ -205,7 +214,7 @@ internal sealed partial class BeutlAgentWorkspaceHost(
             catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
             {
                 s_logger.LogWarning(ex, "The live MCP endpoint was not ready when the agent turn began.");
-                callbacks.Timeline(new AgentErrorNotice(request.ThreadId, request.TurnId, DateTimeOffset.UtcNow, AgentStrings.McpNotReady));
+                report(AgentStrings.McpNotReady);
             }
         }
 
@@ -216,7 +225,7 @@ internal sealed partial class BeutlAgentWorkspaceHost(
         return [new StdioMcpServerSpec("beutl", server.Command, arguments, new Dictionary<string, string>
         {
             ["BEUTL_HOME"] = beutlHome,
-            [AgentHostPeerClient.AgentThreadEnvironmentVariable] = request.ThreadId.ToString("D")
+            [AgentHostPeerClient.AgentThreadEnvironmentVariable] = threadId.ToString("D")
         })];
     }
 

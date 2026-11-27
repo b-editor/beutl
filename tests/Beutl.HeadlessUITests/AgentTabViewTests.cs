@@ -44,7 +44,9 @@ public sealed class AgentTabViewTests
         string styles = File.ReadAllText(Path.Combine(directory!.FullName,
             "src", "Beutl.Editor.Components", "AgentTab", "Views", "AgentTabStyles.axaml"));
         Assert.That(styles, Does.Not.Match(@"#[0-9A-Fa-f]{6,8}\b"));
-        Assert.That(styles, Does.Not.Contain("<ControlTheme"));
+        Assert.That(styles, Does.Contain("ToggleButton.agent-disclosure"));
+        Assert.That(System.Text.RegularExpressions.Regex.Matches(styles, "<ControlTheme\\b"), Has.Count.EqualTo(1));
+        Assert.That(styles, Does.Contain("x:Key=\"AgentDisclosureToggleTheme\""));
     }
 
     [AvaloniaTest]
@@ -138,7 +140,7 @@ public sealed class AgentTabViewTests
             Click(window, open);
             await HeadlessTestHelpers.WaitUntilAsync(() => viewModel.SelectedThread?.Id == opening.Id && viewModel.CanManage);
             Assert.That(providerPicker.IsEnabled, Is.True);
-            Assert.That(ToolTip.GetTip(providerPicker), Is.EqualTo(AgentStrings.ProviderLocked));
+            Assert.That(ToolTip.GetTip(providerPicker), Is.EqualTo(viewModel.ProviderStatusLabel));
 
             var overflow = bar.GetVisualDescendants().OfType<Button>()
                 .Single(button => AutomationProperties.GetName(button) == AgentStrings.ThreadActions);

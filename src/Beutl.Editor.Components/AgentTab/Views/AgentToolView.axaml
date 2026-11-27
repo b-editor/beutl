@@ -4,19 +4,12 @@
              xmlns:conv="using:Avalonia.Data.Converters"
              xmlns:icons="using:FluentIcons.Avalonia.Fluent"
              xmlns:lang="using:Beutl.Language"
-             xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:views="using:Beutl.Editor.Components.AgentTab.Views"
              xmlns:vm="using:Beutl.Editor.Components.AgentTab.ViewModels"
              x:DataType="vm:AgentToolItem">
     <UserControl.Resources>
         <DataTemplate x:Key="ToolStatus" x:DataType="vm:AgentToolItem">
-            <Panel Width="14" Height="14" VerticalAlignment="Center">
-                <ui:FAProgressRing IsVisible="{Binding IsRunning}" IsActive="{Binding IsRunning}"
-                                   Width="13" Height="13" MinWidth="0" MinHeight="0"
-                                   Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}" />
-                <icons:FluentIcon Icon="{Binding StatusIcon}" Classes="agent-status" Classes.success="{Binding IsSuccessful}"
-                                  Classes.failure="{Binding IsFailed}" IsVisible="{Binding !IsRunning}" />
-            </Panel>
+            <icons:FluentIcon Icon="{Binding ToolIcon}" Classes="agent-status agent-disclosure-glyph" VerticalAlignment="Center" />
         </DataTemplate>
         <DataTemplate x:Key="ToolDetails" x:DataType="vm:AgentToolItem">
             <StackPanel Spacing="7">
@@ -47,22 +40,24 @@
         </DataTemplate>
     </UserControl.DataTemplates>
     <StackPanel Spacing="4">
-        <ToggleButton x:Name="ToolToggle" Theme="{StaticResource TransparentToggleButton}" IsVisible="{Binding !IsBackgroundWork}"
+        <ToggleButton x:Name="ToolToggle" Classes="agent-disclosure" IsVisible="{Binding !IsBackgroundWork}"
                       HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" MinHeight="26" Padding="4,3"
                       IsHitTestVisible="{Binding CanExpand}" Focusable="{Binding CanExpand}"
                       AutomationProperties.Name="{Binding ToolName}" AutomationProperties.HelpText="{Binding Status}" ToolTip.Tip="{Binding Status}">
-            <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto" ColumnSpacing="6">
+            <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto,Auto" ColumnSpacing="6">
                 <ContentControl Content="{Binding}" ContentTemplate="{StaticResource ToolStatus}" />
-                <TextBlock Grid.Column="1" VerticalAlignment="Center" Text="{Binding ToolName}" MaxWidth="145" MaxLines="1"
-                           TextTrimming="CharacterEllipsis" FontFamily="monospace" FontSize="12.5" FontWeight="Medium" />
+                <views:AgentShimmerTextBlock Grid.Column="1" IsLive="{Binding IsInProgress}" VerticalAlignment="Center" Text="{Binding ToolName}"
+                                             MaxWidth="145" MaxLines="1" TextTrimming="CharacterEllipsis" FontFamily="monospace"
+                                             FontSize="12.5" FontWeight="Medium" />
                 <Border Grid.Column="2" CornerRadius="4" Padding="5,1" Background="{DynamicResource SubtleFillColorSecondaryBrush}"
                         VerticalAlignment="Center" IsVisible="{Binding ServerName, Converter={x:Static conv:StringConverters.IsNotNullOrEmpty}}">
-                    <TextBlock Text="{Binding ServerName}" Classes="agent-caption" MaxWidth="68" TextTrimming="CharacterEllipsis" />
+                    <TextBlock Text="{Binding ServerName}" Classes="agent-caption agent-disclosure-label" MaxWidth="68" TextTrimming="CharacterEllipsis" />
                 </Border>
-                <TextBlock Grid.Column="3" Classes="agent-caption" VerticalAlignment="Center" Text="{Binding ActivitySummary}"
+                <TextBlock Grid.Column="3" Classes="agent-caption agent-disclosure-label" VerticalAlignment="Center" Text="{Binding ActivitySummary}"
                            FontSize="12" MaxLines="1" TextTrimming="CharacterEllipsis" />
-                <icons:FluentIcon Grid.Column="4" Classes="agent-chevron" IsVisible="{Binding CanExpand}"
-                                  Foreground="{DynamicResource TextFillColorTertiaryBrush}" />
+                <TextBlock Grid.Column="4" Classes="agent-caption agent-disclosure-label" VerticalAlignment="Center" Text="{Binding Status}"
+                           IsVisible="{Binding IsFailed}" />
+                <icons:FluentIcon Grid.Column="5" Classes="agent-status agent-chevron agent-disclosure-glyph" IsVisible="{Binding CanExpand}" />
             </Grid>
         </ToggleButton>
 
@@ -73,8 +68,9 @@
                 <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="8" Margin="4,0" ToolTip.Tip="{Binding Title}">
                     <ContentControl Content="{Binding}" ContentTemplate="{StaticResource ToolStatus}" />
                     <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
-                        <TextBlock Text="{Binding Title}" FontSize="12.5" TextTrimming="CharacterEllipsis"
-                                   Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                        <views:AgentShimmerTextBlock Text="{Binding Title}" IsLive="{Binding IsInProgress}"
+                                                     FontSize="12.5" TextTrimming="CharacterEllipsis"
+                                                     MutedBrush="{DynamicResource TextFillColorSecondaryBrush}" />
                         <Grid ColumnDefinitions="Auto,*" ColumnSpacing="6">
                             <TextBlock Text="{Binding WorkKindLabel}" Classes="agent-caption" MaxWidth="112" TextTrimming="CharacterEllipsis" />
                             <TextBlock Grid.Column="1" Text="{Binding WorkPreview}" Classes="agent-caption" TextTrimming="CharacterEllipsis"
@@ -116,9 +112,8 @@
             </ItemsControl.ItemTemplate>
         </ItemsControl>
 
-        <Border IsVisible="{Binding !!#ToolToggle.IsChecked}" Margin="9,0,0,2" Padding="9,6" CornerRadius="6"
-                Background="{DynamicResource ControlAltFillColorSecondaryBrush}"
-                BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" BorderThickness="2,0,0,0">
+        <Border IsVisible="{Binding !!#ToolToggle.IsChecked}" Margin="9,0,0,2" Padding="9,6"
+                CornerRadius="{DynamicResource ControlCornerRadius}" Background="{DynamicResource ControlAltFillColorSecondaryBrush}">
             <ContentControl Content="{Binding}" ContentTemplate="{StaticResource ToolDetails}" IsVisible="{Binding !IsBackgroundWork}" />
         </Border>
     </StackPanel>

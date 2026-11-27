@@ -5,6 +5,65 @@ namespace Beutl.Agents.Tests;
 public sealed class AgentThreadStoreTests
 {
     [Test]
+    public async Task OrganizesThreadsAndSearchesPersistedTitlesAndMessageBodies()
+    {
+        var directory = Directory.CreateTempSubdirectory("beutl-agent-organization-");
+        try
+        {
+            string project = Path.Combine(directory.FullName, "project.beutl");
+            var store = new AgentThreadStore(directory.FullName);
+            var opening = await store.CreateAsync(project, "codex", "Opening", AgentPermissionMode.Auto);
+            var titleOnly = await store.CreateAsync(project, "claude", "Needle reference", AgentPermissionMode.Auto);
+            var archived = await store.CreateAsync(project, "claude", "Old cuts", AgentPermissionMode.Auto);
+            var now = DateTimeOffset.UtcNow;
+            var turn = Guid.NewGuid();
+            await store.AppendAsync(project, new AgentUserMessage(opening.Id, turn, now, "Review the first scene"));
+            await store.AppendAsync(project, new AgentAssistantMessageCompleted(opening.Id, turn, now,
+                new string('a', 80) + " The NEEDLE\n  is in the second scene. " + new string('b', 130)));
+            await store.AppendAsync(project, new AgentTurnCompleted(opening.Id, turn, now));
+            await store.AppendAsync(project, new AgentUserMessage(archived.Id, turn, now, "Imported needle footage"));
+            await store.SetPinnedAsync(project, opening.Id, true);
+            await store.SetArchivedAsync(project, archived.Id, true);
+
+            var reopened = new AgentThreadStore(directory.FullName);
+            var listed = await reopened.ListAsync(project);
+            Assert.Multiple(() =>
+            {
+                Assert.That(listed[0].Id, Is.EqualTo(opening.Id));
+                Assert.That(listed[0].IsPinned, Is.True);
+                Assert.That(listed[0].IsUnread, Is.True);
+                Assert.That(listed.Single(thread => thread.Id == archived.Id).IsArchived, Is.True);
+                var legacy = listed.Single(thread => thread.Id == titleOnly.Id);
+                Assert.That(legacy.LastReadAt, Is.Null);
+                Assert.That(legacy.IsPinned, Is.False);
+                Assert.That(legacy.IsArchived, Is.False);
+                Assert.That(legacy.IsUnread, Is.False);
+            });
+
+            var search = await reopened.SearchThreadsAsync(project, "  needle ", false);
+            Assert.Multiple(() =>
+            {
+                Assert.That(search.Select(hit => hit.Thread.Id), Is.EqualTo(new[] { opening.Id, titleOnly.Id }));
+                Assert.That(search[0].MatchSnippet, Does.StartWith("…").And.Contain("NEEDLE is in the second scene").And.EndWith("…"));
+                Assert.That(search[0].MatchSnippet, Has.Length.LessThanOrEqualTo(130));
+                Assert.That(search[1].MatchSnippet, Is.Null);
+            });
+            Assert.That((await reopened.SearchThreadsAsync(project, "needle", true)).Select(hit => hit.Thread.Id),
+                Does.Contain(archived.Id));
+
+            var read = await reopened.MarkReadAsync(project, opening.Id);
+            var persisted = (await store.GetAsync(project, opening.Id))!;
+            Assert.That(persisted.LastReadAt, Is.EqualTo(read.LastReadAt));
+            Assert.That(persisted.IsUnread, Is.False);
+            Assert.That(read.UpdatedAt, Is.EqualTo(listed[0].UpdatedAt));
+        }
+        finally
+        {
+            directory.Delete(recursive: true);
+        }
+    }
+
+    [Test]
     public async Task PersistsSentAttachmentsTurnMetricsAndCheckpointChangesWithLegacyDefaults()
     {
         var directory = Directory.CreateTempSubdirectory("beutl-agent-phase3-store-");

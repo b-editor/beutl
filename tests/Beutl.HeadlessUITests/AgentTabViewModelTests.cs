@@ -31,14 +31,14 @@ public sealed class AgentTabViewModelTests
             workspace.Bridge.Emit(new AgentAssistantTextDelta(thread, turn, now, "Hello", "message"));
             firstChunk.SetResult();
             await continued.Task.WaitAsync(ct);
-            workspace.Bridge.Emit(new AgentAssistantTextDelta(thread, turn, now, " **world**", "message"));
-            workspace.Bridge.Emit(new AgentAssistantMessageCompleted(thread, turn, now, "Hello **world**", "message"));
             workspace.Bridge.Emit(new AgentToolCallUpdated(thread, turn, now, "tool", AgentToolStatus.Running));
             workspace.Bridge.Emit(new AgentToolCallStarted(thread, turn, now, "tool", "render_still", "beutl"));
             workspace.Bridge.Emit(new AgentToolCallCompleted(thread, turn, now, "tool", AgentToolStatus.Completed,
                 [new AgentToolOutput("text", "Rendered")]));
             workspace.Bridge.Emit(new AgentPlanUpdated(thread, turn, now, [new AgentPlanStep("Inspect the scene", AgentPlanStepStatus.InProgress)]));
             workspace.Bridge.Emit(new AgentPlanUpdated(thread, turn, now, [new AgentPlanStep("Inspect the scene", AgentPlanStepStatus.Completed)]));
+            workspace.Bridge.Emit(new AgentAssistantTextDelta(thread, turn, now, " **world**", "message"));
+            workspace.Bridge.Emit(new AgentAssistantMessageCompleted(thread, turn, now, "Hello **world**", "message"));
         };
 
         viewModel.Prompt = "Describe this frame";
@@ -559,6 +559,7 @@ internal sealed class AgentTabTestBridge : IAgentRuntimeBridge
     public Func<AgentTurnRequest, CancellationToken, Task>? Script { get; set; }
     public bool SupportsSteer { get; set; } = true;
     public Func<Guid, Guid, string, AgentBackgroundStopResult>? StopTask { get; set; }
+    public Func<Guid, Guid, CancellationToken, Task<AgentCompactionResult>>? Compact { get; set; }
     public AgentSessionOpenRequest? OpenedSession { get; private set; }
     public Func<AgentModelListRequest, IReadOnlyList<AgentModelDescriptor>>? ModelCatalog { get; set; }
     public Func<AgentComposerSuggestionRequest, IReadOnlyList<AgentComposerSuggestion>>? SuggestionCatalog { get; set; }
@@ -625,6 +626,8 @@ internal sealed class AgentTabTestBridge : IAgentRuntimeBridge
     public Task<AgentBackgroundStopResult> StopBackgroundTaskAsync(
         Guid threadId, Guid turnId, string toolCallId, CancellationToken cancellationToken = default)
         => Task.FromResult(StopTask?.Invoke(threadId, turnId, toolCallId) ?? AgentBackgroundStopResult.Unsupported);
+    public Task<AgentCompactionResult> CompactContextAsync(Guid threadId, Guid turnId, CancellationToken cancellationToken = default)
+        => Compact?.Invoke(threadId, turnId, cancellationToken) ?? Task.FromResult(new AgentCompactionResult(AgentCompactionStatus.Unsupported));
     public Task CancelTurnAsync(Guid threadId, Guid turnId, CancellationToken cancellationToken = default) => Task.CompletedTask;
     public Task SetPermissionModeAsync(Guid threadId, AgentPermissionMode mode, CancellationToken cancellationToken = default) => Task.CompletedTask;
     public Task CloseSessionAsync(Guid threadId, CancellationToken cancellationToken = default) => Task.CompletedTask;

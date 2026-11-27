@@ -18,6 +18,8 @@ public sealed record AgentSessionOpenRequest(
 
 public sealed record AgentSessionInfo(string? ExternalSessionId);
 public enum AgentBackgroundStopResult { Unavailable, Requested, Unsupported }
+public enum AgentCompactionStatus { Completed, Unsupported, Failed, Cancelled }
+public sealed record AgentCompactionResult(AgentCompactionStatus Status, string? Error = null);
 
 public sealed record AgentSkillInstruction(string Name, string Instructions);
 public sealed record AgentConversationMessage(string Role, string Text);
@@ -45,6 +47,8 @@ public interface IAgentRuntimeBridge : IAsyncDisposable
         AgentComposerSuggestionRequest request, CancellationToken cancellationToken = default);
     Task<AgentSessionInfo> OpenSessionAsync(AgentSessionOpenRequest request, CancellationToken cancellationToken = default);
     Task<AgentTurnSummary> RunTurnAsync(AgentTurnRequest request, CancellationToken cancellationToken = default);
+    Task<AgentCompactionResult> CompactContextAsync(Guid threadId, Guid turnId, CancellationToken cancellationToken = default)
+        => Task.FromResult(new AgentCompactionResult(AgentCompactionStatus.Unsupported));
     Task<bool> SteerTurnAsync(AgentTurnRequest request, CancellationToken cancellationToken = default);
     Task<AgentBackgroundStopResult> StopBackgroundTaskAsync(
         Guid threadId, Guid turnId, string toolCallId, CancellationToken cancellationToken = default)

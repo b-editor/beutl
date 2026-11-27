@@ -579,4 +579,61 @@
   <data name="ContextCompacted" xml:space="preserve">
     <value>コンテキストを圧縮しました</value>
   </data>
+  <data name="ContextMeterSummary" xml:space="preserve">
+    <value>コンテキスト · {0} / {1}（{2}）</value>
+  </data>
+  <data name="CompactContext" xml:space="preserve">
+    <value>コンテキストを圧縮</value>
+  </data>
+  <data name="ClearContext" xml:space="preserve">
+    <value>コンテキストをクリア</value>
+  </data>
+  <data name="ContextCleared" xml:space="preserve">
+    <value>コンテキストをクリアしました</value>
+  </data>
+  <data name="ProviderChangeNotice" xml:space="preserve">
+    <value>プロバイダ変更 · {0} → {1}</value>
+  </data>
+  <data name="PinThread" xml:space="preserve">
+    <value>スレッドをピン留め</value>
+  </data>
+  <data name="UnpinThread" xml:space="preserve">
+    <value>ピン留めを解除</value>
+  </data>
+  <data name="ArchiveThread" xml:space="preserve">
+    <value>スレッドをアーカイブ</value>
+  </data>
+  <data name="UnarchiveThread" xml:space="preserve">
+    <value>アーカイブを解除</value>
+  </data>
+  <data name="ShowArchivedThreads" xml:space="preserve">
+    <value>アーカイブを表示</value>
+  </data>
+  <data name="ArchivedThread" xml:space="preserve">
+    <value>アーカイブ済み</value>
+  </data>
+  <data name="UnreadThread" xml:space="preserve">
+    <value>未読</value>
+  </data>
+  <data name="RegenerateThreadTitle" xml:space="preserve">
+    <value>タイトルを再生成</value>
+  </data>
+  <data name="ForkThread" xml:space="preserve">
+    <value>スレッドを分岐</value>
+  </data>
+  <data name="CompactionFailed" xml:space="preserve">
+    <value>コンテキストを圧縮できませんでした。</value>
+  </data>
+  <data name="ToolGroupCommands" xml:space="preserve">
+    <value>{0} 件のコマンドを実行しました</value>
+  </data>
+  <data name="ToolGroupMixed" xml:space="preserve">
+    <value>コマンド {0} 件・ツール {1} 件</value>
+  </data>
+  <data name="ToolGroupTools" xml:space="preserve">
+    <value>{0} 件のツールを実行しました</value>
+  </data>
+  <data name="ToolGroupFailures" xml:space="preserve">
+    <value>一部失敗</value>
+  </data>
 </root>

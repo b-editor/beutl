@@ -1,6 +1,6 @@
-import { CodexRpc, type CodexNotification, type CodexRequest, type CodexInput, type CodexItem, type CodexSkill, type CodexTokenCounts, type CodexTurn } from "./codexProtocol.js";
+import { CodexRpc, CodexRpcError, type CodexNotification, type CodexRequest, type CodexInput, type CodexItem, type CodexSkill, type CodexTokenCounts, type CodexTurn } from "./codexProtocol.js";
 import { ProviderProcess } from "./process.js";
-import { type Adapter, type AdapterHost, type ComposerSuggestion, type Decision, type ModelDescriptor, type Permission, type PermissionMode, type ToolStatus, type Turn, type TurnRequest, type TurnResult, contentOutputs, formatPrompt, planStatus, withTimeout } from "./protocol.js";
+import { type Adapter, type AdapterHost, type CompactionResult, type ComposerSuggestion, type ContextUsage, type Decision, type ModelDescriptor, type Permission, type PermissionMode, type ToolStatus, type Turn, type TurnRequest, type TurnResult, contentOutputs, formatPrompt, planStatus, withTimeout } from "./protocol.js";
 
 function tomlString(value: string): string {
     return JSON.stringify(value).replace(/\x7f/g, "\\u007f");
@@ -32,7 +32,7 @@ function approvalOptions(choices?: unknown[] | null): Permission["options"] {
 
 interface ActiveTurn {
     turn: Turn;
-    started: Promise<{ turn: CodexTurn }>;
+    started: Promise<{ turn: CodexTurn } | undefined>;
     finished: PromiseWithResolvers<TurnResult>;
     externalId?: string;
     childThreads: Map<string, string>;
@@ -40,6 +40,7 @@ interface ActiveTurn {
     startedCollab: Set<string>;
     usageBaseline?: CodexTokenCounts;
     hasCompactionItems?: boolean;
+    usageAtCompactionStart?: ContextUsage;
 }
 
 function tokenDifference(total: CodexTokenCounts, baseline: CodexTokenCounts): CodexTokenCounts {
@@ -63,6 +64,7 @@ export class CodexAdapter implements Adapter {
     private threadId?: string;
     private model?: string;
     private tokenTotal?: CodexTokenCounts;
+    private contextWindow?: number;
     private active?: ActiveTurn;
     private skills?: Promise<CodexSkill[]>;
     private mode: PermissionMode;
@@ -103,6 +105,7 @@ export class CodexAdapter implements Adapter {
                     defaultReasoningEffort: model.defaultReasoningEffort,
                     isSecondary: models.length >= 4,
                     isProviderDefault: model.isDefault,
+                    contextWindowTokens: model.contextWindow ?? undefined,
                 });
             }
             if (!response.nextCursor || response.nextCursor === cursor || models.length >= 100)
@@ -177,7 +180,8 @@ export class CodexAdapter implements Adapter {
         const { rpc, threadId } = this;
         if (!rpc || !threadId) throw new Error("Codex thread is closed.");
         const { approvalPolicy, sandboxPolicy } = this.policy();
-        const started = this.createInput(turn, rpc).then(input => {
+        return await this.runCore(turn, async () => {
+            const input = await this.createInput(turn, rpc);
             turn.signal.throwIfAborted();
             return rpc.request("turn/start", {
                 threadId,
@@ -189,10 +193,31 @@ export class CodexAdapter implements Adapter {
                 sandboxPolicy,
             });
         });
-        const active: ActiveTurn = this.active = { turn, started, finished: Promise.withResolvers<TurnResult>(),
+    }
+
+    async compact(turn: Turn): Promise<CompactionResult> {
+        const { rpc, threadId } = this;
+        if (!rpc || !threadId) throw new Error("Codex thread is closed.");
+        try {
+            return await this.runCore(turn, async () => {
+                turn.signal.throwIfAborted();
+                await rpc.request("thread/compact/start", { threadId });
+                // The RPC acknowledges the command; turn notifications identify its execution.
+                return undefined;
+            });
+        } catch (error) {
+            if (error instanceof CodexRpcError && (error.code === -32601
+                || /\b(?:(?:unknown|unsupported|unrecognized) (?:method|variant)|method not found)\b/i.test(error.message)))
+                return { status: "unsupported" };
+            throw error;
+        }
+    }
+
+    private async runCore(turn: Turn, start: () => Promise<{ turn: CodexTurn } | undefined>): Promise<TurnResult> {
+        const active: ActiveTurn = this.active = { turn, started: Promise.resolve().then(start), finished: Promise.withResolvers<TurnResult>(),
             childThreads: new Map(), collabParents: new Map(), startedCollab: new Set() };
         try {
-            const identify = started.then(response => { active.externalId ??= response.turn.id; });
+            const identify = active.started.then(response => { active.externalId ??= response?.turn.id; });
             const [, result] = await Promise.all([identify, active.finished.promise]);
             return result;
         } finally {
@@ -204,8 +229,8 @@ export class CodexAdapter implements Adapter {
         const { rpc, threadId, active } = this;
         if (!rpc || !threadId || active?.turn !== turn) return false;
         try {
-            const expectedTurnId = active.externalId ?? (await active.started).turn.id;
-            if (this.active !== active || turn.signal.aborted) return false;
+            const expectedTurnId = active.externalId ?? (await active.started)?.turn.id;
+            if (!expectedTurnId || this.active !== active || turn.signal.aborted) return false;
             await withTimeout(rpc.request("turn/steer", {
                 threadId, expectedTurnId, input: [{ type: "text", text: formatPrompt(request), text_elements: [] }],
             }), 4000, "Codex did not acknowledge the steer request.");
@@ -219,8 +244,8 @@ export class CodexAdapter implements Adapter {
     async cancel(): Promise<void> {
         const active = this.active;
         if (!this.rpc || !this.threadId || !active) return;
-        const turnId = active.externalId ?? (await active.started).turn.id;
-        await this.rpc.request("turn/interrupt", { threadId: this.threadId, turnId });
+        const turnId = active.externalId ?? (await active.started)?.turn.id ?? active.externalId;
+        if (turnId) await this.rpc.request("turn/interrupt", { threadId: this.threadId, turnId });
     }
 
     async close(): Promise<void> {
@@ -288,13 +313,20 @@ export class CodexAdapter implements Adapter {
         if (!params?.threadId) return;
         const root = params.threadId === this.threadId;
         if (root && notification.method === "thread/tokenUsage/updated") {
-            const { tokenUsage: { total, last }, turnId } = notification.params;
+            const { tokenUsage: { total, last, modelContextWindow }, turnId } = notification.params;
             const previous = this.tokenTotal;
             this.tokenTotal = total;
+            this.contextWindow = modelContextWindow ?? this.contextWindow;
             // On resume, Codex may replay an older turn's cumulative usage.
             if (active?.externalId === turnId) {
                 const baseline = active.usageBaseline ??= previous ?? tokenDifference(total, last);
                 active.turn.reportUsage(tokenDifference(total, baseline));
+                // The cumulative totals bill all model calls. Only the last call fills the current window.
+                active.turn.reportContextUsage({
+                    usedTokens: last.totalTokens ?? last.inputTokens + last.outputTokens,
+                    contextWindowTokens: this.contextWindow, inputTokens: last.inputTokens,
+                    outputTokens: last.outputTokens, cachedInputTokens: last.cachedInputTokens,
+                });
             }
             return;
         }
@@ -354,6 +386,7 @@ export class CodexAdapter implements Adapter {
                 break;
             case "thread/compacted":
                 if (root && !active.hasCompactionItems) {
+                    if (!turn.contextUsage) turn.reportContextUsage({ contextWindowTokens: this.contextWindow });
                     turn.emit({ type: "contextCompacted" });
                     turn.emit({ type: "turnPhaseChanged", phase: "thinking" });
                 }
@@ -381,9 +414,13 @@ export class CodexAdapter implements Adapter {
         switch (item.type) {
             case "contextCompaction":
                 if (!parentToolCallId) {
-                    active.hasCompactionItems = true;
-                    if (finished)
+                    if (!finished && !active.hasCompactionItems) active.usageAtCompactionStart = turn.contextUsage;
+                    if (finished) {
+                        if (turn.contextUsage === active.usageAtCompactionStart)
+                            turn.reportContextUsage({ contextWindowTokens: this.contextWindow });
                         turn.emit({ type: "contextCompacted" });
+                    }
+                    active.hasCompactionItems = true;
                     turn.emit({ type: "turnPhaseChanged", phase: finished ? "thinking" : "compacting" });
                 }
                 break;

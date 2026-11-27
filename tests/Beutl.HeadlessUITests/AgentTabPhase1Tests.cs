@@ -17,7 +17,6 @@ using Beutl.Extensibility;
 using Beutl.Language;
 using Beutl.ProjectSystem;
 using Beutl.Testing.Headless;
-using FluentAvalonia.UI.Controls;
 using Moq;
 
 namespace Beutl.HeadlessUITests;
@@ -158,14 +157,15 @@ public sealed class AgentTabPhase1Tests
             Assert.That(picker.IsOpen, Is.True);
             var matches = bar.FindControl<ItemsControl>("ThreadMatches")!;
             var previousRow = Action(matches, first.Title);
-            await HeadlessTestHelpers.WaitUntilAsync(() => previousRow.GetVisualDescendants().OfType<FAProgressRing>().Any(ring => ring.IsVisible && ring.IsActive));
+            await HeadlessTestHelpers.WaitUntilAsync(() => previousRow.GetVisualDescendants().OfType<Control>()
+                .Any(control => control.Name == "ThreadRunningIndicator" && control.IsEffectivelyVisible));
             Assert.That(model.FilteredThreads.Single(row => row.Thread.Id == first.Id).CanDelete, Is.False);
             Capture(view, window, "phase1-thread-switcher-running");
 
             ask.SetResult();
-            await HeadlessTestHelpers.WaitUntilAsync(() => previousRow.GetVisualDescendants().OfType<Control>()
+            await HeadlessTestHelpers.WaitUntilAsync(() => Action(matches, first.Title).GetVisualDescendants().OfType<Control>()
                 .Any(control => control.IsEffectivelyVisible && AutomationProperties.GetName(control) == AgentStrings.ThreadNeedsAttention));
-            Click(previousRow);
+            Click(Action(matches, first.Title));
             await HeadlessTestHelpers.WaitUntilAsync(() => model.SelectedThread?.Id == first.Id && model.HasActivePermission);
             model.ActivePermission!.Respond(AgentPermissionDecision.AllowOnce);
             await firstRun.WaitAsync(s_timeout);

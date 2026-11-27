@@ -23,6 +23,12 @@ internal sealed partial class AgentThreadBar : UserControl
             viewModel.ThreadSearch = null;
     }
 
+    private void OnThreadPickerClosed(object? sender, EventArgs e)
+    {
+        if (DataContext is AgentTabViewModel viewModel)
+            viewModel.CancelThreadBodySearch();
+    }
+
     private async void OnThreadPickerOpened(object? sender, EventArgs e)
     {
         ThreadSearchBox.Focus();
@@ -43,6 +49,18 @@ internal sealed partial class AgentThreadBar : UserControl
     private void OnBeginRename(object? sender, RoutedEventArgs e) => ShowThreadAction(sender, rename: true);
 
     private void OnBeginDelete(object? sender, RoutedEventArgs e) => ShowThreadAction(sender, rename: false);
+
+    private async void OnToggleRowPin(object? sender, RoutedEventArgs e)
+    {
+        if (sender is MenuItem { DataContext: AgentThreadRow row } && DataContext is AgentTabViewModel viewModel)
+            await viewModel.SetPinnedAsync(row.Thread);
+    }
+
+    private async void OnToggleRowArchive(object? sender, RoutedEventArgs e)
+    {
+        if (sender is MenuItem { DataContext: AgentThreadRow row } && DataContext is AgentTabViewModel viewModel)
+            await viewModel.SetArchivedAsync(row.Thread);
+    }
 
     private void ShowThreadAction(object? sender, bool rename)
     {

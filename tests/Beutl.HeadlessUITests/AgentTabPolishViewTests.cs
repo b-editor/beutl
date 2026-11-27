@@ -60,7 +60,7 @@ public sealed class AgentTabPolishViewTests
             var list = composer.FindControl<ListBox>("SuggestionsList")!;
             composer.FocusPrompt();
             window.KeyTextInput("/");
-            await HeadlessTestHelpers.WaitUntilAsync(() => popup.IsOpen && list.ItemCount == 4);
+            await HeadlessTestHelpers.WaitUntilAsync(() => popup.IsOpen && list.ItemCount == 5);
             HeadlessTestHelpers.Render(4);
             var composerCard = composer.FindControl<Border>("ComposerCard")!;
             Assert.That(list.TranslatePoint(default, window)!.Value.Y, Is.LessThan(composerCard.TranslatePoint(default, window)!.Value.Y));

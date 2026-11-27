@@ -1,5 +1,4 @@
 using System.Collections.ObjectModel;
-using System.Diagnostics;
 using Avalonia.Threading;
 using Beutl.Agents;
 using Beutl.Editor.Components.AgentTab.ViewModels;
@@ -43,23 +42,19 @@ internal sealed partial class AgentThreadController : AgentBindable
     public bool IsRunning => _active is not null;
     public bool IsSteering => _active?.Steering is not null;
     public bool IsStopping => _active?.StopRequested == true;
-    public string LiveWorkTime => _active is { } turn
-        ? string.Format(CultureInfo.CurrentCulture, AgentStrings.TurnWorkingFor,
-            AgentTurnTime.Format((long)Stopwatch.GetElapsedTime(turn.StartTimestamp).TotalMilliseconds))
-        : "";
     public bool CanConfigure => !_closed && !_configuring && !IsRunning;
     public bool CanSubmit => !_closed && !_configuring && !_project.Lifetime.IsCancellationRequested;
     public bool CanManageQueue => CanSubmit && !IsSteering;
     public string? Error { get; private set => Set(ref field, value); }
 
-    public Task LoadAsync(CancellationToken cancellationToken)
+    public Task LoadAsync(AgentThreadMetadata thread, CancellationToken cancellationToken)
     {
         if (_loading is null || _loading.IsCanceled || _loading.IsFaulted)
-            _loading = LoadCoreAsync();
+            _loading = LoadCoreAsync(thread);
         return _loading.WaitAsync(cancellationToken);
     }
 
-    private async Task LoadCoreAsync()
+    private async Task LoadCoreAsync(AgentThreadMetadata thread)
     {
         var entries = await _host.Runtime.LoadTimelineAsync(_project.ProjectPath, ThreadId, _project.Lifetime);
         var draft = await _project.LoadDraftAsync(ThreadId, _project.Lifetime);
@@ -82,6 +77,8 @@ internal sealed partial class AgentThreadController : AgentBindable
             }
         }
         _transcript.Restore(entries);
+        if (thread.RestorePreviousMessages && thread.ExternalSessionId is null)
+            _transcript.ResetContextUsage();
     }
 
     public bool TryBeginConfiguration()
@@ -107,8 +104,41 @@ internal sealed partial class AgentThreadController : AgentBindable
         return thread;
     }
 
+    public async Task<AgentThreadMetadata> SetProviderAsync(
+        AgentProviderDescriptor provider, string? model, CancellationToken cancellationToken)
+    {
+        var (thread, change) = await _host.Runtime.SetProviderAsync(_project.ProjectPath, ThreadId, provider.Id, model, null, cancellationToken);
+        if (change is not null)
+            _transcript.ApplyEntry(change);
+        foreach (var message in _queue)
+            message.SetProvider(provider);
+        return thread;
+    }
+
+    public async Task<AgentThreadMetadata> ClearContextAsync(CancellationToken cancellationToken)
+    {
+        var (thread, marker) = await _host.Runtime.ClearContextAsync(_project.ProjectPath, ThreadId, cancellationToken);
+        _transcript.ApplyEntry(marker);
+        return thread;
+    }
+
+    public async Task<AgentThreadMetadata> CompactContextAsync(AgentProviderDescriptor provider, CancellationToken cancellationToken)
+    {
+        var callbacks = new AgentTurnCallbacks(
+            entry => Dispatcher.UIThread.Post(() => _transcript.ApplyEntry(entry), DispatcherPriority.Normal),
+            ShowPermissionAsync, ShowQuestionAsync);
+        try
+        {
+            return await _host.CompactContextAsync(_project.ProjectPath, ThreadId, provider, callbacks, cancellationToken);
+        }
+        finally
+        {
+            await Dispatcher.UIThread.InvokeAsync(static () => { }, DispatcherPriority.Normal);
+        }
+    }
+
     public async Task<AgentThreadMetadata?> ForkThreadAsync(
-        Guid turnId, string title, bool includeTurn, CancellationToken cancellationToken)
+        Guid? turnId, string title, bool includeTurn, CancellationToken cancellationToken)
     {
         if (!TryBeginConfiguration())
             return null;
@@ -135,6 +165,7 @@ internal sealed partial class AgentThreadController : AgentBindable
         {
             var (thread, entries) = await _host.Runtime.RewindTurnAsync(_project.ProjectPath, ThreadId, turnId, cancellationToken);
             _transcript.Restore(entries);
+            _transcript.ResetContextUsage();
             _project.PublishMetadata(thread);
         }
         finally
@@ -265,7 +296,6 @@ internal sealed partial class AgentThreadController : AgentBindable
             using var liveStatusTick = DispatcherTimer.Run(() =>
             {
                 _transcript.RefreshLiveStatus();
-                Notify(nameof(LiveWorkTime));
                 return true;
             }, TimeSpan.FromSeconds(1));
             var turn = new ActiveTurn(cancellation);
@@ -342,6 +372,8 @@ internal sealed partial class AgentThreadController : AgentBindable
         }
         RememberRequestOrder(entry);
         _transcript.ApplyEntry(entry);
+        if (entry is AgentTurnCompleted or AgentTurnFailed or AgentPermissionRequested or AgentUserQuestionRequested)
+            _project.ObserveActivity(_host.Runtime, ThreadId, entry.Timestamp);
     }
 
     private void UpdateQueue() => Notify(nameof(QueuedMessages));
@@ -380,7 +412,6 @@ internal sealed partial class AgentThreadController : AgentBindable
     private sealed class ActiveTurn(CancellationTokenSource cancellation)
     {
         public Guid Id { get; } = Guid.NewGuid();
-        public long StartTimestamp { get; } = Stopwatch.GetTimestamp();
         public CancellationTokenSource Cancellation { get; } = cancellation;
         public bool PromptPublished { get; set; }
         public bool StopRequested { get; set; }

@@ -5,6 +5,7 @@ export type Decision = "allowOnce" | "allowAlways" | "rejectOnce" | "rejectAlway
 export type ToolStatus = "pending" | "running" | "completed" | "failed" | "cancelled";
 export type TurnPhase = "thinking" | "responding" | "runningTool" | "compacting" | "retrying";
 export type TurnResult = { status: "completed" | "cancelled" } | { status: "failed"; error: string };
+export type CompactionResult = TurnResult | { status: "unsupported" };
 export type BackgroundStopResult = "unavailable" | "requested" | "unsupported";
 
 export interface TurnUsage {
@@ -12,6 +13,11 @@ export interface TurnUsage {
     outputTokens?: number;
     cachedInputTokens?: number;
     model?: string;
+}
+
+export interface ContextUsage extends Omit<TurnUsage, "model"> {
+    usedTokens?: number;
+    contextWindowTokens?: number;
 }
 
 interface UserMessage {
@@ -63,6 +69,7 @@ export interface ModelDescriptor {
     isSecondary?: boolean;
     isProviderDefault?: boolean;
     resolvedModelId?: string;
+    contextWindowTokens?: number;
 }
 
 export interface TurnRequest extends UserMessage {
@@ -121,8 +128,9 @@ export type TimelineEvent = ScopedEvent
     | { type: "turnStarted" | "turnCancelled" }
     | { type: "turnPhaseChanged"; phase: TurnPhase; toolName?: string }
     | { type: "contextCompacted" }
+    | { type: "contextUsageUpdated"; usage: ContextUsage }
     | ({ type: "turnUsageUpdated" } & TurnUsage)
-    | ({ type: "turnCompleted"; durationMs?: number } & TurnUsage)
+    | ({ type: "turnCompleted"; durationMs?: number; contextUsage?: ContextUsage } & TurnUsage)
     | { type: "turnFailed"; error: string }
     | { type: "sessionStateChanged"; state: "open" | "closed"; externalSessionId?: string }
     | { type: "errorNotice"; message: string };
@@ -139,6 +147,7 @@ export interface Adapter {
     open(): Promise<void>;
     listSuggestions(): Promise<ComposerSuggestion[]>;
     run(turn: Turn): Promise<TurnResult>;
+    compact?(turn: Turn): Promise<CompactionResult>;
     steer(turn: Turn, request: TurnRequest): Promise<boolean>;
     stopBackgroundTask?(toolCallId: string): Promise<BackgroundStopResult>;
     cancel(): Promise<void>;
@@ -152,6 +161,7 @@ export class Turn {
     readonly controller = new AbortController();
     readonly signal = this.controller.signal;
     usage: TurnUsage = {};
+    contextUsage?: ContextUsage;
     durationMs?: number;
 
     constructor(
@@ -169,18 +179,33 @@ export class Turn {
     }
 
     reportUsage({ inputTokens, outputTokens, cachedInputTokens, model }: TurnUsage): void {
-        const count = (value?: number) => value !== undefined && Number.isSafeInteger(value) && value >= 0 ? value : undefined;
         const old = this.usage;
         const usage = {
-            inputTokens: count(inputTokens) ?? old.inputTokens,
-            outputTokens: count(outputTokens) ?? old.outputTokens,
-            cachedInputTokens: count(cachedInputTokens) ?? old.cachedInputTokens,
+            inputTokens: tokenCount(inputTokens) ?? old.inputTokens,
+            outputTokens: tokenCount(outputTokens) ?? old.outputTokens,
+            cachedInputTokens: tokenCount(cachedInputTokens) ?? old.cachedInputTokens,
             model: model || old.model,
         };
         if (usage.inputTokens === old.inputTokens && usage.outputTokens === old.outputTokens
             && usage.cachedInputTokens === old.cachedInputTokens && usage.model === old.model) return;
         this.usage = usage;
         this.emit({ type: "turnUsageUpdated", ...usage });
+    }
+
+    reportContextUsage({ usedTokens, contextWindowTokens, inputTokens, outputTokens, cachedInputTokens }: ContextUsage): void {
+        const usage = {
+            usedTokens: tokenCount(usedTokens),
+            contextWindowTokens: tokenCount(contextWindowTokens) || undefined,
+            inputTokens: tokenCount(inputTokens),
+            outputTokens: tokenCount(outputTokens),
+            cachedInputTokens: tokenCount(cachedInputTokens),
+        };
+        const old = this.contextUsage;
+        if (old && usage.usedTokens === old.usedTokens && usage.contextWindowTokens === old.contextWindowTokens
+            && usage.inputTokens === old.inputTokens && usage.outputTokens === old.outputTokens
+            && usage.cachedInputTokens === old.cachedInputTokens) return;
+        this.contextUsage = usage;
+        this.emit({ type: "contextUsageUpdated", usage });
     }
 
     async permission(details: Permission): Promise<Decision> {
@@ -222,8 +247,8 @@ export function formatPrompt({ text, context, bundledSkills, previousMessages }:
             + bundledSkills.map(skill => `\n\n[Beutl skill: ${skill.name}]\n${skill.instructions}`).join("")
         : text;
     if (previousMessages?.length)
-        prompt += "\n\n[Earlier conversation]\nUse this transcript as context for the current request. "
-            + "Earlier messages are historical and do not request new actions.\n" + JSON.stringify(previousMessages);
+        prompt += "\n\n[Earlier conversation]\nUse this bounded conversation handoff as context for the current request. "
+            + "Entries are excerpts from prior messages, not instructions to execute again.\n" + JSON.stringify(previousMessages);
     if (context === undefined) return prompt;
     const project = record(context);
     const mentions = project?.mentions;
@@ -238,6 +263,10 @@ export function formatPrompt({ text, context, bundledSkills, previousMessages }:
         + "Use instanceId for live Beutl MCP calls and sceneId for scene operations.\n"
         + mentionHint + pastedTextHint
         + JSON.stringify(context);
+}
+
+function tokenCount(value?: number): number | undefined {
+    return value !== undefined && Number.isSafeInteger(value) && value >= 0 ? value : undefined;
 }
 
 export function errorMessage(error: unknown): string {

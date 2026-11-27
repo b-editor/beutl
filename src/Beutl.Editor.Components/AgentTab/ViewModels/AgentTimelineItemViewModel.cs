@@ -78,7 +78,9 @@ internal sealed class AgentAssistantItem(Guid? turnId, DateTimeOffset timestamp)
 {
     public ObservableStringBuilder Markdown { get; } = new();
     public override string Text => Markdown.ToString();
-    public bool CanCopy { get; private set => Set(ref field, value); }
+    public bool ReceivedCompletion { get; private set; }
+    public bool IsFinalTurnResponse { get; private set => Set(ref field, value); }
+    public bool CanCopy => IsFinalTurnResponse && !string.IsNullOrWhiteSpace(Text);
 
     public void Append(string text)
     {
@@ -88,15 +90,19 @@ internal sealed class AgentAssistantItem(Guid? turnId, DateTimeOffset timestamp)
 
     public void Complete(string text)
     {
+        ReceivedCompletion = true;
         if (Text != text)
         {
             Markdown.Clear();
             Append(text);
         }
-        CanCopy = !string.IsNullOrWhiteSpace(text);
     }
 
-    public void Finish() => CanCopy = !string.IsNullOrWhiteSpace(Text);
+    public void MarkFinal()
+    {
+        IsFinalTurnResponse = true;
+        Notify(nameof(CanCopy));
+    }
 }
 
 internal sealed class AgentReasoningItem(Guid? turnId, DateTimeOffset startedAt) : AgentTimelineItemViewModel(turnId)
@@ -162,13 +168,20 @@ internal sealed class AgentToolItem : AgentTimelineItemViewModel, IDisposable
     }
     public string Title => _subagent?.Description ?? _backgroundTitle ?? _subagent?.Role ?? (IsSubagent ? AgentStrings.Subagent : ToolName);
     public string WorkKindLabel => IsSubagent ? _subagent?.Role ?? AgentStrings.Subagent : AgentStrings.BackgroundCommand;
-    public string WorkPreview => _scopedActivity ?? ActivitySummary;
+    public string WorkPreview => _scopedActivity ?? ActivitySummary ?? Status;
     public bool CanExpand => HasDetails || IsBackgroundWork || Children.Count > 0;
-    public bool CanGroup => TurnId.HasValue && Parent is null && IsSuccessful && !IsBackgroundWork && !_hasImageOutput
-        && (ToolName is "Read" or "Glob" or "Grep" or "LS" or "WebSearch" or "WebFetch"
-            || (string.Equals(ServerName, "beutl", StringComparison.OrdinalIgnoreCase)
-                && (ToolName.StartsWith("get_", StringComparison.Ordinal) || ToolName.StartsWith("list_", StringComparison.Ordinal)
-                    || ToolName.StartsWith("inspect_", StringComparison.Ordinal))));
+    public bool CanGroup => TurnId.HasValue && Parent is null && !IsInProgress && !IsBackgroundWork && !_hasImageOutput;
+    public bool IsCommand => ToolName is "Codex command" or "Bash" or "PowerShell" or "Terminal";
+    public bool IsInspection => ToolName is "Read" or "Glob" or "Grep" or "LS" or "WebSearch" or "WebFetch"
+        || (string.Equals(ServerName, "beutl", StringComparison.OrdinalIgnoreCase)
+            && (ToolName.StartsWith("get_", StringComparison.Ordinal) || ToolName.StartsWith("list_", StringComparison.Ordinal)
+                || ToolName.StartsWith("inspect_", StringComparison.Ordinal)));
+    public Icon ToolIcon => IsSubagent ? Icon.People
+        : IsCommand ? Icon.WindowConsole
+        : IsInspection ? Icon.Search
+        : _hasImageOutput ? Icon.Image
+        : ToolName is "Edit" or "Write" or "File change" ? Icon.Edit
+        : Icon.Wrench;
 
     public string ToolName
     {
@@ -211,15 +224,7 @@ internal sealed class AgentToolItem : AgentTimelineItemViewModel, IDisposable
     public bool IsFailed => _status == AgentToolStatus.Failed;
     public bool HasDetails => !string.IsNullOrWhiteSpace(Input) || !string.IsNullOrWhiteSpace(Output);
 
-    public Icon StatusIcon => _status switch
-    {
-        AgentToolStatus.Completed => Icon.CheckmarkCircle,
-        AgentToolStatus.Failed => Icon.ErrorCircle,
-        AgentToolStatus.Cancelled => Icon.DismissCircle,
-        _ => Icon.Clock
-    };
-
-    public string ActivitySummary => Preview(Output) ?? Status;
+    public string? ActivitySummary => Preview(Output);
 
     public async Task StopAsync()
     {
@@ -349,7 +354,7 @@ internal sealed class AgentToolItem : AgentTimelineItemViewModel, IDisposable
         Notify(nameof(IsInProgress));
         Notify(nameof(IsSuccessful));
         Notify(nameof(IsFailed));
-        Notify(nameof(StatusIcon));
+        Notify(nameof(ToolIcon));
     }
 
     private void NotifyStop()
@@ -368,7 +373,19 @@ internal sealed class AgentToolItem : AgentTimelineItemViewModel, IDisposable
 internal sealed class AgentToolGroupItem(Guid? turnId) : AgentTimelineItemViewModel(turnId)
 {
     public ObservableCollection<AgentToolItem> Tools { get; } = [];
-    public string Label => string.Format(CultureInfo.CurrentCulture, AgentStrings.ToolGroupChecks, Tools.Count);
+    public bool HasFailure => Tools.Any(tool => tool.IsFailed);
+    public string Label
+    {
+        get
+        {
+            int commands = Tools.Count(tool => tool.IsCommand);
+            string format = commands == Tools.Count ? AgentStrings.ToolGroupCommands
+                : commands > 0 ? AgentStrings.ToolGroupMixed
+                : Tools.All(tool => tool.IsInspection) ? AgentStrings.ToolGroupChecks
+                : AgentStrings.ToolGroupTools;
+            return string.Format(CultureInfo.CurrentCulture, format, commands > 0 ? commands : Tools.Count, Tools.Count - commands);
+        }
+    }
 
     public void SetTools(IReadOnlyList<AgentToolItem> tools)
     {
@@ -378,46 +395,49 @@ internal sealed class AgentToolGroupItem(Guid? turnId) : AgentTimelineItemViewMo
             tool.Group = this;
             Tools.Add(tool);
         }
+        RefreshSummary();
+    }
+
+    public void RefreshSummary()
+    {
         Notify(nameof(Label));
+        Notify(nameof(HasFailure));
     }
 }
 
-internal sealed class AgentTurnStatsItem(AgentTurnCompleted entry) : AgentTimelineItemViewModel(entry.TurnId)
+internal sealed class AgentTurnStatsItem(Guid? turnId, DateTimeOffset startedAt) : AgentTimelineItemViewModel(turnId)
 {
+    private AgentTurnCompleted? _completed;
+    private long? _elapsedMs;
+
+    public bool IsRunning => _elapsedMs is null;
     public string WorkTime => Duration is { } duration
         ? string.Format(CultureInfo.CurrentCulture, AgentStrings.TurnWorkedFor, duration)
-        : UsageSummary;
-    public string UsageSummary => Tokens ?? "";
-    public bool CanExpand => entry.DurationMs.HasValue && UsageSummary.Length > 0;
+        : string.Format(CultureInfo.CurrentCulture, AgentStrings.TurnWorkingFor,
+            AgentTurnTime.Format((long)(DateTimeOffset.UtcNow - startedAt).TotalMilliseconds));
+
+    public void RefreshElapsed() => Notify(nameof(WorkTime));
+
+    public void Finish(AgentTimelineEvent entry)
+    {
+        _completed = entry as AgentTurnCompleted;
+        _elapsedMs = _completed?.DurationMs ?? (long)(entry.Timestamp - startedAt).TotalMilliseconds;
+        Notify(null);
+    }
 
     public string Detail => string.Join(Environment.NewLine, new[]
     {
         Duration,
-        FormatCount(entry.InputTokens, AgentStrings.TurnInputTokens),
-        FormatCount(entry.OutputTokens, AgentStrings.TurnOutputTokens),
-        FormatCount(entry.CachedInputTokens, AgentStrings.TurnCachedInputTokens)
+        FormatCount(_completed?.InputTokens, AgentStrings.TurnInputTokens),
+        FormatCount(_completed?.OutputTokens, AgentStrings.TurnOutputTokens),
+        FormatCount(_completed?.CachedInputTokens, AgentStrings.TurnCachedInputTokens)
     }.Where(value => !string.IsNullOrWhiteSpace(value)));
 
-    private string? Duration => entry.DurationMs is { } milliseconds
+    private string? Duration => _elapsedMs is { } milliseconds
         ? AgentTurnTime.Format(milliseconds, fractionalSeconds: true) : null;
 
-    private string? Tokens => (entry.InputTokens, entry.OutputTokens) switch
-    {
-        (null, null) => FormatCount(entry.CachedInputTokens, AgentStrings.TurnCachedInputTokens, compact: true),
-        (var input, var output) => FormatCount((decimal)(input ?? 0) + (output ?? 0), AgentStrings.TurnTokens, compact: true)
-    };
-
-    private static string? FormatCount(decimal? count, string format, bool compact = false)
-    {
-        if (count is not decimal value)
-            return null;
-        string number = value.ToString("N0", CultureInfo.CurrentCulture);
-        if (compact && value >= 1_000_000)
-            number = string.Format(CultureInfo.CurrentCulture, AgentStrings.TokensMillions, value / 1_000_000);
-        else if (compact && value >= 1_000)
-            number = string.Format(CultureInfo.CurrentCulture, AgentStrings.TokensThousands, value / 1_000);
-        return string.Format(CultureInfo.CurrentCulture, format, number);
-    }
+    private static string? FormatCount(long? count, string format) => count is { } value
+        ? string.Format(CultureInfo.CurrentCulture, format, value.ToString("N0", CultureInfo.CurrentCulture)) : null;
 }
 
 internal static class AgentTurnTime
@@ -440,11 +460,22 @@ internal sealed class AgentModelChangeItem(AgentThreadModelChanged entry) : Agen
     public AgentThreadModelChanged Entry { get; } = entry;
 }
 
-internal sealed class AgentTimelineDividerItem(Guid? turnId, string text, Icon icon, bool animate = false) : AgentTimelineItemViewModel(turnId)
+internal sealed class AgentProviderChangeItem(AgentThreadProviderChanged entry) : AgentTimelineItemViewModel(entry.TurnId)
+{
+    public AgentThreadProviderChanged Entry { get; } = entry;
+}
+
+internal sealed class AgentTimelineDividerItem(Guid? turnId, string text, Icon icon) : AgentTimelineItemViewModel(turnId)
 {
     public string Text { get; } = text;
     public Icon Icon { get; } = icon;
-    public bool Animate { get; } = animate;
+}
+
+internal sealed class AgentTurnWorkItem(AgentTurnStatsItem header) : AgentTimelineItemViewModel(header.TurnId)
+{
+    public AgentTurnStatsItem Header { get; } = header;
+    public ObservableCollection<AgentTimelineItemViewModel> Entries { get; } = [];
+    public bool IsExpanded { get; set => Set(ref field, value); } = true;
 }
 
 internal sealed class AgentPlanItem(AgentPlanUpdated entry) : AgentTimelineItemViewModel(entry.TurnId)

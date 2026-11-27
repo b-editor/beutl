@@ -3,7 +3,7 @@ import { isAbsolute } from "node:path";
 import { AcpAdapter } from "./acp.js";
 import { ClaudeAdapter } from "./claude.js";
 import { CodexAdapter } from "./codex.js";
-import { type Adapter, type AdapterHost, type BackgroundStopResult, type ComposerSuggestion, type ModelDescriptor, type ModelListOptions, type PermissionMode, type RequestHost, type SessionOptions, type SuggestionListOptions, type TimelineEvent, type TurnRequest, type TurnResult, Turn, errorMessage, withTimeout } from "./protocol.js";
+import { type Adapter, type AdapterHost, type BackgroundStopResult, type CompactionResult, type ComposerSuggestion, type ModelDescriptor, type ModelListOptions, type PermissionMode, type RequestHost, type SessionOptions, type SuggestionListOptions, type TimelineEvent, type TurnRequest, type TurnResult, Turn, errorMessage, withTimeout } from "./protocol.js";
 
 type Command =
     | { method: "ping" | "shutdown" }
@@ -13,6 +13,7 @@ type Command =
     | { method: "session/setMode"; params: { threadId: string; mode: PermissionMode } }
     | { method: "session/close"; params: { threadId: string } }
     | { method: "turn/run"; params: TurnRequest }
+    | { method: "turn/compact"; params: Pick<TurnRequest, "threadId" | "turnId"> }
     | { method: "turn/steer"; params: TurnRequest }
     | { method: "turn/stopTask"; params: { threadId: string; turnId: string; toolCallId: string } }
     | { method: "turn/cancel"; params: { threadId: string; turnId: string } };
@@ -65,6 +66,11 @@ export async function handleCommand(commandJson: string): Promise<string> {
             const session = sessions.get(command.params.threadId);
             if (!session) throw new Error("The agent session is closed.");
             return JSON.stringify({ turnId: command.params.turnId, ...await session.run(command.params) });
+        }
+        case "turn/compact": {
+            const session = sessions.get(command.params.threadId);
+            if (!session) throw new Error("The agent session is closed.");
+            return JSON.stringify(await session.run({ ...command.params, text: "/compact" }, true));
         }
         case "turn/steer":
             return JSON.stringify({ steered: await sessions.get(command.params.threadId)?.steer(command.params) ?? false });
@@ -152,7 +158,8 @@ async function openSession(options: SessionOptions): Promise<Session> {
             if (existing.closing) throw new Error("The agent session is closing.");
             return existing;
         }
-        options = { ...options, externalSessionId: existing.externalId ?? options.externalSessionId };
+        if (existing.provider === options.provider && existing.executablePath === options.executablePath)
+            options = { ...options, externalSessionId: existing.externalId ?? options.externalSessionId };
         await existing.close();
     }
     if (shuttingDown) throw new Error("The agent bridge is shutting down.");
@@ -171,7 +178,7 @@ async function openSession(options: SessionOptions): Promise<Session> {
 interface ActiveTurn {
     turn: Turn;
     stopped: PromiseWithResolvers<TurnResult>;
-    running?: Promise<TurnResult>;
+    running?: Promise<CompactionResult>;
     cancellation?: Promise<void>;
     steering?: Promise<boolean>;
     finishing?: boolean;
@@ -211,6 +218,9 @@ class Session {
         this.ready = this.open();
     }
 
+    get provider() { return this.options.provider; }
+    get executablePath() { return this.options.executablePath; }
+
     matches(options: SessionOptions): boolean {
         const config = ({ externalSessionId, permissionMode, model, reasoningEffort, ...rest }: SessionOptions) =>
             JSON.stringify({
@@ -245,20 +255,25 @@ class Session {
         this.emit({ type: "sessionStateChanged", state: "open", externalSessionId: this.externalId });
     }
 
-    async run(request: TurnRequest): Promise<TurnResult> {
+    async run(request: TurnRequest, compact = false): Promise<CompactionResult> {
         await this.ready;
         if (this.closing) throw new Error("The agent session is closing.");
         if (this.active) throw new Error("An agent turn is already running.");
         const turn = new Turn(request, event => {
-            if (this.active?.turn === turn) this.emit(event, request.turnId);
+            if (this.active?.turn === turn && (!compact || event.type === "contextUsageUpdated"))
+                this.emit(event, request.turnId);
         }, requestHost);
         const active: ActiveTurn = this.active = { turn, stopped: Promise.withResolvers<TurnResult>() };
-        turn.emit({ type: "turnStarted" });
-        turn.recordPrompt(request);
+        if (!compact) {
+            turn.emit({ type: "turnStarted" });
+            turn.recordPrompt(request);
+        }
 
-        let result: TurnResult;
+        let result: CompactionResult;
         try {
-            active.running = this.adapter.run(turn);
+            active.running = compact
+                ? this.adapter.compact?.(turn) ?? Promise.resolve({ status: "unsupported" })
+                : this.adapter.run(turn);
             result = await Promise.race([active.running, active.stopped.promise]);
         } catch (error) {
             result = turn.signal.aborted ? { status: "cancelled" } : { status: "failed", error: errorMessage(error) };
@@ -268,7 +283,8 @@ class Session {
         if (active.cancellation) result = { status: "cancelled" };
 
         switch (result.status) {
-            case "completed": turn.emit({ type: "turnCompleted", durationMs: turn.durationMs, ...turn.usage }); break;
+            case "completed": turn.emit({ type: "turnCompleted", durationMs: turn.durationMs,
+                contextUsage: turn.contextUsage, ...turn.usage }); break;
             case "failed": turn.emit({ type: "turnFailed", error: result.error }); break;
             case "cancelled": turn.emit({ type: "turnCancelled" }); break;
         }

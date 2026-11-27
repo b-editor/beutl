@@ -79,6 +79,10 @@ internal sealed partial class AgentTabViewModel
         {
             await SaveThreadModelAsync(modelId, null);
         }
+        else
+        {
+            await ConfigureThreadAsync((controller, ct) => controller.SetProviderAsync(row.Provider.Descriptor, modelId, ct));
+        }
     }
 
     internal async Task ChooseEffortAsync(AgentEffortRow row)
@@ -180,6 +184,7 @@ internal sealed partial class AgentTabViewModel
         Notify(nameof(ShortModelName));
         Notify(nameof(ReasoningEffortLabel));
         Notify(nameof(ModelButtonLabel));
+        NotifyContextMeter();
 
         string? activeProviderId = _pickerProviderId ?? SelectedProvider?.Descriptor.Id;
         ModelProviders = Providers.OrderBy(provider => provider.Descriptor.Kind switch
@@ -237,8 +242,7 @@ internal sealed partial class AgentTabViewModel
         string? modelId = EffectiveModel.Id;
         bool isSelected = provider.Descriptor.Id == SelectedProvider?.Descriptor.Id
             && (model.Id == (modelId ?? "") || (modelId is not null && modelId == model.ResolvedModelId));
-        return new AgentModelRow(provider, model, isSelected,
-            _selectedThread is null || provider.Descriptor.Id == _selectedThread.ProviderId);
+        return new AgentModelRow(provider, model, isSelected, provider.IsAvailable);
     }
 
     private static bool MatchesSearch(AgentModelDescriptor model, string search) =>

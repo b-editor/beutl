@@ -13,7 +13,21 @@ public sealed record AgentThreadMetadata(
     string? Model = null,
     string? ExternalSessionId = null,
     string? ReasoningEffort = null,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] bool RestorePreviousMessages = false);
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] bool RestorePreviousMessages = false,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] bool IsPinned = false,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] bool IsArchived = false,
+    DateTimeOffset? LastReadAt = null,
+    DateTimeOffset? LastActivityAt = null)
+{
+    [JsonIgnore]
+    public bool IsUnread => LastActivityAt is { } activity && (LastReadAt is null || activity > LastReadAt);
+}
+
+public sealed record AgentThreadSearchHit(AgentThreadMetadata Thread, string? MatchSnippet);
+
+public sealed record AgentContextUsage(
+    long? UsedTokens = null, long? ContextWindowTokens = null,
+    long? InputTokens = null, long? OutputTokens = null, long? CachedInputTokens = null);
 
 public enum AgentTurnStatus { Running, Completed, Failed, Cancelled }
 public enum AgentTurnPhase { Thinking, Responding, RunningTool, Compacting, Retrying }
@@ -48,8 +62,13 @@ public sealed record AgentUserAttachment(string Path, string Label, string? Medi
 [JsonDerivedType(typeof(AgentTurnStarted), "turnStarted")]
 [JsonDerivedType(typeof(AgentTurnPhaseChanged), "turnPhaseChanged")]
 [JsonDerivedType(typeof(AgentTurnUsageUpdated), "turnUsageUpdated")]
+[JsonDerivedType(typeof(AgentContextUsageUpdated), "contextUsageUpdated")]
 [JsonDerivedType(typeof(AgentContextCompacted), "contextCompacted")]
+[JsonDerivedType(typeof(AgentCompactionStarted), "compactionStarted")]
+[JsonDerivedType(typeof(AgentCompactionCompleted), "compactionCompleted")]
+[JsonDerivedType(typeof(AgentContextCleared), "contextCleared")]
 [JsonDerivedType(typeof(AgentThreadModelChanged), "threadModelChanged")]
+[JsonDerivedType(typeof(AgentThreadProviderChanged), "threadProviderChanged")]
 [JsonDerivedType(typeof(AgentTurnCompleted), "turnCompleted")]
 [JsonDerivedType(typeof(AgentTurnFailed), "turnFailed")]
 [JsonDerivedType(typeof(AgentTurnCancelled), "turnCancelled")]
@@ -99,7 +118,8 @@ public sealed record AgentPermissionRequested(
     : AgentTimelineEvent(ThreadId, TurnId, Timestamp);
 
 public sealed record AgentPermissionResolved(
-    Guid ThreadId, Guid? TurnId, DateTimeOffset Timestamp, string RequestId, AgentPermissionDecision Decision)
+    Guid ThreadId, Guid? TurnId, DateTimeOffset Timestamp, string RequestId, AgentPermissionDecision Decision,
+    bool? WasPresented = null)
     : AgentTimelineEvent(ThreadId, TurnId, Timestamp);
 
 public sealed record AgentUserQuestionRequested(
@@ -129,14 +149,33 @@ public sealed record AgentTurnUsageUpdated(
 public sealed record AgentContextCompacted(Guid ThreadId, Guid? TurnId, DateTimeOffset Timestamp)
     : AgentTimelineEvent(ThreadId, TurnId, Timestamp);
 
+public sealed record AgentContextUsageUpdated(Guid ThreadId, Guid? TurnId, DateTimeOffset Timestamp, AgentContextUsage Usage)
+    : AgentTimelineEvent(ThreadId, TurnId, Timestamp);
+
+public sealed record AgentCompactionStarted(Guid ThreadId, Guid? TurnId, DateTimeOffset Timestamp)
+    : AgentTimelineEvent(ThreadId, TurnId, Timestamp);
+
+public sealed record AgentCompactionCompleted(
+    Guid ThreadId, Guid? TurnId, DateTimeOffset Timestamp, bool UsedHandoff = false, bool Succeeded = true,
+    AgentContextUsage? ContextUsage = null)
+    : AgentTimelineEvent(ThreadId, TurnId, Timestamp);
+
+public sealed record AgentContextCleared(Guid ThreadId, Guid? TurnId, DateTimeOffset Timestamp)
+    : AgentTimelineEvent(ThreadId, TurnId, Timestamp);
+
 public sealed record AgentThreadModelChanged(
     Guid ThreadId, Guid? TurnId, DateTimeOffset Timestamp, string ProviderId,
     string? PreviousModel, string? Model, string? PreviousEffort, string? Effort)
     : AgentTimelineEvent(ThreadId, TurnId, Timestamp);
 
+public sealed record AgentThreadProviderChanged(
+    Guid ThreadId, Guid? TurnId, DateTimeOffset Timestamp, string PreviousProviderId, string ProviderId)
+    : AgentTimelineEvent(ThreadId, TurnId, Timestamp);
+
 public sealed record AgentTurnCompleted(
     Guid ThreadId, Guid? TurnId, DateTimeOffset Timestamp, long? DurationMs = null,
-    long? InputTokens = null, long? OutputTokens = null, long? CachedInputTokens = null, string? Model = null)
+    long? InputTokens = null, long? OutputTokens = null, long? CachedInputTokens = null, string? Model = null,
+    AgentContextUsage? ContextUsage = null)
     : AgentTimelineEvent(ThreadId, TurnId, Timestamp);
 
 public sealed record AgentTurnFailed(Guid ThreadId, Guid? TurnId, DateTimeOffset Timestamp, string Error)

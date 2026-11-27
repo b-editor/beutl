@@ -40,21 +40,29 @@ public sealed class WorkerAgentRuntimeBridge(string? workerDirectory = null, ILo
         => AgentJson.Read<AgentSessionInfo>(
             await GetWorker(cancellationToken).Rpc.RequestAsync("session/open", AgentJson.ToElement(request), cancellationToken).ConfigureAwait(false));
 
-    public async Task<AgentTurnSummary> RunTurnAsync(AgentTurnRequest request, CancellationToken cancellationToken = default)
+    public Task<AgentTurnSummary> RunTurnAsync(AgentTurnRequest request, CancellationToken cancellationToken = default)
+        => RunTurnOperationAsync<AgentTurnSummary>("turn/run", AgentJson.ToElement(request), request.ThreadId, request.TurnId, cancellationToken);
+
+    public Task<AgentCompactionResult> CompactContextAsync(Guid threadId, Guid turnId, CancellationToken cancellationToken = default)
+        => RunTurnOperationAsync<AgentCompactionResult>("turn/compact", AgentJson.ToElement(new { threadId, turnId }),
+            threadId, turnId, cancellationToken);
+
+    private async Task<T> RunTurnOperationAsync<T>(
+        string method, JsonElement parameters, Guid threadId, Guid turnId, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         var worker = GetRunningWorker() ?? throw new AgentWorkerDisconnectedException("Open the agent session before starting a turn.");
-        var running = worker.Rpc.RequestAsync("turn/run", AgentJson.ToElement(request), CancellationToken.None);
+        var running = worker.Rpc.RequestAsync(method, parameters, CancellationToken.None);
         try
         {
-            return AgentJson.Read<AgentTurnSummary>(await running.WaitAsync(cancellationToken).ConfigureAwait(false));
+            return AgentJson.Read<T>(await running.WaitAsync(cancellationToken).ConfigureAwait(false));
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             using var timeout = new CancellationTokenSource(s_shutdownTimeout);
             try
             {
-                await worker.Rpc.RequestAsync("turn/cancel", AgentJson.ToElement(new { request.ThreadId, request.TurnId }), timeout.Token)
+                await worker.Rpc.RequestAsync("turn/cancel", AgentJson.ToElement(new { threadId, turnId }), timeout.Token)
                     .ConfigureAwait(false);
                 await running.WaitAsync(timeout.Token).ConfigureAwait(false);
             }

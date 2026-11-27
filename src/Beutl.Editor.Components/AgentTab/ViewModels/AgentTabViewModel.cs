@@ -54,6 +54,7 @@ internal sealed partial class AgentTabViewModel : AgentBindable, IToolContext
         Timeline = new ReadOnlyObservableCollection<AgentTimelineItemViewModel>(_timeline);
         _sessions.StateChanged += OnThreadStateChanged;
         _sessions.MetadataChanged += OnThreadMetadataChanged;
+        _sessions.ActivityChanged += OnThreadActivityChanged;
         _sessions.FlushingDrafts += FlushDraft;
         _draftTimer.Tick += OnDraftTimerTick;
         _providerProbe.DisposeWith(_subscriptions);
@@ -121,16 +122,7 @@ internal sealed partial class AgentTabViewModel : AgentBindable, IToolContext
     public bool ProviderIsAvailable => SelectedProvider?.IsAvailable == true;
     public string ProviderStatusLabel => SelectedProvider is { } provider
         ? $"{provider.Name} · {provider.Availability}" : AgentStrings.NoProvider;
-    public string ProviderTooltip
-    {
-        get
-        {
-            string? error = SelectedProvider?.Error;
-            if (_selectedThread is null)
-                return error ?? ProviderStatusLabel;
-            return error is null ? AgentStrings.ProviderLocked : $"{AgentStrings.ProviderLocked}\n{error}";
-        }
-    }
+    public string ProviderTooltip => SelectedProvider?.Error ?? ProviderStatusLabel;
 
     public AgentPermissionChoiceItem SelectedPermissionMode => _permissionMode;
 
@@ -184,8 +176,9 @@ internal sealed partial class AgentTabViewModel : AgentBindable, IToolContext
     public bool CanChooseModel => CanConfigure && SelectedProvider is not null;
     public AgentComposerSendKey ComposerSendKey => _host.ComposerSendKey;
     private bool HasPromptContent => !string.IsNullOrWhiteSpace(Prompt) || _attachments.Any(item => item.IsPastedText);
+    private bool HasContextCommand => ContextCommand(Prompt) is not null;
     private bool CanSubmitPrompt => CanManage && ShowComposer && (_controller?.CanSubmit ?? true)
-        && SelectedProvider?.IsAvailable == true && HasPromptContent;
+        && (HasContextCommand ? CanManageContext : SelectedProvider?.IsAvailable == true && HasPromptContent);
     private bool SendSteers => IsRunning && _host.SteerOnSend;
     public bool CanSend => CanSubmitPrompt && (!SendSteers || CanPromoteQueuedMessage);
     public bool CanSendAlternate => IsRunning && CanSubmitPrompt && (SendSteers || CanPromoteQueuedMessage);
@@ -219,7 +212,7 @@ internal sealed partial class AgentTabViewModel : AgentBindable, IToolContext
 
         var threads = await list;
         var thread = _restoreNewThread ? null
-            : threads.FirstOrDefault(thread => thread.Id == _restoredThreadId) ?? threads.FirstOrDefault();
+            : threads.FirstOrDefault(thread => thread.Id == _restoredThreadId) ?? threads.FirstOrDefault(thread => !thread.IsArchived);
         ReplaceThreads(threads);
         await LoadThreadAsync(thread, ct);
     });
@@ -230,6 +223,7 @@ internal sealed partial class AgentTabViewModel : AgentBindable, IToolContext
         foreach (var thread in threads)
             _threads.Add(thread);
         UpdateThreadRows();
+        StartThreadBodySearch();
     }
 
     public async Task RefreshThreadsAsync()
@@ -274,6 +268,8 @@ internal sealed partial class AgentTabViewModel : AgentBindable, IToolContext
         if (_draftLoaded && thread?.Id == _selectedThread?.Id)
         {
             ApplyThread(thread, preserveDraft: true);
+            if (thread is not null)
+                await _sessions.MarkReadAsync(_host.Runtime, thread.Id, ct);
             return;
         }
 
@@ -281,7 +277,7 @@ internal sealed partial class AgentTabViewModel : AgentBindable, IToolContext
             await SaveDraftAsync();
         var controller = thread is null ? null : _sessions.GetOrCreate(_host, thread.Id);
         if (controller is not null)
-            await controller.LoadAsync(ct);
+            await controller.LoadAsync(thread!, ct);
         var draft = await _sessions.LoadDraftAsync(thread?.Id, ct);
         ct.ThrowIfCancellationRequested();
         if (controller is not null && _sessions.Find(controller.ThreadId) != controller)
@@ -290,16 +286,21 @@ internal sealed partial class AgentTabViewModel : AgentBindable, IToolContext
             await _sessions.SaveDraftAsync(null, null);
 
         AttachController(controller);
-        ApplyThread(thread);
+        ApplyThread(thread is null ? null : _threads.FirstOrDefault(item => item.Id == thread.Id) ?? thread);
         await RestoreDraftAsync(draft.Draft, ct);
+        if (thread is not null)
+            await _sessions.MarkReadAsync(_host.Runtime, thread.Id, ct);
     }
 
     private void ApplyThread(AgentThreadMetadata? thread, bool preserveDraft = false)
     {
         bool selectionChanged = _selectedThread?.Id != thread?.Id;
+        bool providerChanged = _selectedThread?.ProviderId != thread?.ProviderId;
         _selectedThread = thread;
         if (thread is not null)
         {
+            if (providerChanged)
+                _pickerProviderId = thread.ProviderId;
             UpdateProviderSelection();
             _permissionMode = PermissionModes.First(item => item.Mode == thread.PermissionMode);
         }
@@ -320,6 +321,8 @@ internal sealed partial class AgentTabViewModel : AgentBindable, IToolContext
         }
         Notify(nameof(SelectedThread));
         Notify(nameof(ThreadTitle));
+        Notify(nameof(ThreadPinLabel));
+        Notify(nameof(ThreadArchiveLabel));
         Notify(nameof(ProviderTooltip));
         Notify(nameof(SelectedPermissionMode));
         NotifyAvailability();
@@ -453,6 +456,12 @@ internal sealed partial class AgentTabViewModel : AgentBindable, IToolContext
 
     private async Task SubmitAsync(bool steer)
     {
+        if (ContextCommand(Prompt) is { } command)
+        {
+            Prompt = null;
+            await (command == "/compact" ? CompactContextAsync() : ClearContextAsync());
+            return;
+        }
         if (SelectedProvider is not { } selected)
             return;
 
@@ -465,24 +474,29 @@ internal sealed partial class AgentTabViewModel : AgentBindable, IToolContext
             await ManageAsync(async ct =>
             {
                 var model = EffectiveModel;
-                var thread = await _host.Runtime.CreateThreadAsync(_projectPath, selected.Descriptor, MakeTitle(text),
+                var thread = await _host.Runtime.CreateThreadAsync(_projectPath, selected.Descriptor, MakeTitle(text) ?? AgentStrings.NewThread,
                     _permissionMode.Mode, model.Id, ct, model.Effort);
+                ReplaceThread(thread);
                 await LoadThreadAsync(thread, ct, sendingDraft: true);
                 IncludeSceneContext = message.IncludeSceneContext;
-                ReplaceThread(thread);
             });
-            if (_controller is null || _disposed)
-                return;
+        }
+        else if (_selectedThread is { } thread && IsPlaceholderTitle(thread.Title) && MakeTitle(text) is { } title)
+        {
+            await RenameThreadAsync(thread, title);
         }
 
+        if (_disposed || _controller is not { CanSubmit: true } controller || SelectedProvider is not { IsAvailable: true } currentProvider)
+            return;
+        message.SetProvider(currentProvider.Descriptor);
         Prompt = null;
         RestoreAcceptedMentions(null);
         ResetPromptHistory();
         ClearAttachments();
         if (steer)
-            await _controller.SteerAsync(message);
+            await controller.SteerAsync(message);
         else
-            await _controller.SubmitAsync(message);
+            await controller.SubmitAsync(message);
     }
 
     public Task StopAsync() => _controller?.StopAsync() ?? Task.CompletedTask;
@@ -516,7 +530,9 @@ internal sealed partial class AgentTabViewModel : AgentBindable, IToolContext
         _ = SaveDraftAsync();
         _sessions.StateChanged -= OnThreadStateChanged;
         _sessions.MetadataChanged -= OnThreadMetadataChanged;
+        _sessions.ActivityChanged -= OnThreadActivityChanged;
         _sessions.FlushingDrafts -= FlushDraft;
+        CancelThreadBodySearch();
         _lifetime.Cancel();
         _lifetime.Dispose();
         _subscriptions.Dispose();
@@ -583,6 +599,7 @@ internal sealed partial class AgentTabViewModel : AgentBindable, IToolContext
         Notify(nameof(CanConfigure));
         Notify(nameof(CanActOnMessages));
         Notify(nameof(CanChooseModel));
+        Notify(nameof(CanManageContext));
         NotifySendActions();
         Notify(nameof(IsRunning));
         Notify(nameof(ShowEmptyState));
@@ -608,11 +625,6 @@ internal sealed partial class AgentTabViewModel : AgentBindable, IToolContext
             callback();
     }, DispatcherPriority.Normal);
 
-    private static string MakeTitle(string text)
-    {
-        string firstLine = text.Split(['\r', '\n'], 2)[0].Trim();
-        return firstLine.Length <= 60 ? firstLine : firstLine[..60] + "…";
-    }
 }
 
 internal sealed record AgentProviderChoice(AgentProviderDescriptor Descriptor, bool IsAvailable, string? Error)

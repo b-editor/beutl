@@ -290,8 +290,102 @@ public sealed class WorkerAgentRuntimeBridgeTests
                 Assert.That(completed.OutputTokens, Is.EqualTo(100));
                 Assert.That(completed.CachedInputTokens, Is.EqualTo(170));
                 Assert.That(completed.Model, Is.EqualTo("gpt-6.2-sol"));
+                Assert.That(completed.ContextUsage, Is.EqualTo(new AgentContextUsage(160, 250_000, 100, 60, 50)));
+                Assert.That(entries.OfType<AgentContextUsageUpdated>().Select(entry => entry.Usage.UsedTokens), Does.Contain(240L));
             });
         }
+    }
+
+    [TestCase("phase4 usage", 150_000)]
+    [TestCase("phase4 usage fallback", 200_000)]
+    public async Task ClaudeMeasuresTheLatestAssistantRequestAndUpdatesTheWindowFromModelUsage(string text, int window)
+    {
+        await using var bridge = new WorkerAgentRuntimeBridge();
+        var entries = Capture(bridge);
+        var session = Session(AgentProviderKind.ClaudeCode, "claude");
+        await bridge.OpenSessionAsync(session, _timeout.Token);
+        var result = await bridge.RunTurnAsync(Turn(session, text), _timeout.Token);
+        Assert.That(result.Status, Is.EqualTo(AgentTurnStatus.Completed), result.Error);
+        var completed = entries.OfType<AgentTurnCompleted>().Single();
+        Assert.Multiple(() =>
+        {
+            Assert.That(entries.OfType<AgentContextUsageUpdated>().First().Usage.ContextWindowTokens, Is.EqualTo(200_000));
+            Assert.That(completed.ContextUsage, Is.EqualTo(new AgentContextUsage(118_000, window, 113_000, 5_000, 20_000)));
+            Assert.That(completed.InputTokens, Is.EqualTo(237_000));
+        });
+
+        Guid compactId = Guid.NewGuid();
+        Assert.That((await bridge.CompactContextAsync(session.ThreadId, compactId, _timeout.Token)).Status,
+            Is.EqualTo(AgentCompactionStatus.Completed));
+        Assert.That(entries.OfType<AgentUserMessage>().Count(), Is.EqualTo(1));
+        Assert.That(entries.OfType<AgentContextUsageUpdated>().Last().Usage,
+            Is.EqualTo(new AgentContextUsage(20_000, 150_000, 18_000, 2_000, 3_000)));
+        Assert.That(ReadMockLog(), Does.Contain("claude /compact").And.Contain("claude get_context_usage"));
+    }
+
+    [Test]
+    public async Task AcpPublishesTheLiveWindowAndReportedTokenBreakdown()
+    {
+        await using var bridge = new WorkerAgentRuntimeBridge();
+        var entries = Capture(bridge);
+        var session = Session(AgentProviderKind.Acp, "acp");
+        await bridge.OpenSessionAsync(session, _timeout.Token);
+        var result = await bridge.RunTurnAsync(Turn(session, "phase4 usage"), _timeout.Token);
+        Assert.That(result.Status, Is.EqualTo(AgentTurnStatus.Completed), result.Error);
+        Assert.That(entries.OfType<AgentContextUsageUpdated>().First().Usage, Is.EqualTo(new AgentContextUsage(80_000, 100_000)));
+        Assert.That(entries.OfType<AgentTurnCompleted>().Single().ContextUsage,
+            Is.EqualTo(new AgentContextUsage(80_000, 100_000, 75_000, 5_000, 28_000)));
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task CompactsCodexOrHandsOffThenClearsTheExternalSession(bool unsupported)
+    {
+        var store = new AgentThreadStore(_directory.FullName);
+        await using var runtime = new AgentRuntimeManager(new WorkerAgentRuntimeBridge(), store);
+        var session = Session(AgentProviderKind.Codex, "codex");
+        var environment = new Dictionary<string, string>(session.Environment!);
+        if (unsupported)
+            environment["BEUTL_MOCK_UNSUPPORTED_COMPACT"] = "1";
+        var provider = AgentProviderDescriptor.Codex with
+        {
+            Command = session.ExecutablePath, Arguments = session.Arguments, Environment = environment
+        };
+        string project = Path.Combine(_directory.FullName, "project.beutl");
+        var ct = _timeout.Token;
+        var thread = await runtime.CreateThreadAsync(project, provider, "Cut", cancellationToken: ct);
+        var first = await runtime.RunTurnAsync(project, thread.Id, provider, "phase3 metrics", session.McpServers, cancellationToken: ct);
+        Assert.That(first.Status, Is.EqualTo(AgentTurnStatus.Completed));
+        var compacted = await runtime.CompactContextAsync(project, thread.Id, provider, session.McpServers, cancellationToken: ct);
+        var entries = await new AgentThreadStore(_directory.FullName).ReadTimelineAsync(project, thread.Id, ct);
+        var marker = entries.OfType<AgentCompactionCompleted>().Single();
+        Assert.Multiple(() =>
+        {
+            Assert.That(entries.OfType<AgentCompactionStarted>().Single().TurnId, Is.EqualTo(marker.TurnId));
+            Assert.That(entries.OfType<AgentUserMessage>().Single().Text, Is.EqualTo("phase3 metrics"));
+            Assert.That(entries.OfType<AgentTurnCompleted>().Single().ContextUsage?.UsedTokens, Is.EqualTo(160));
+            Assert.That(marker.UsedHandoff, Is.EqualTo(unsupported));
+            Assert.That(marker.ContextUsage?.UsedTokens, Is.EqualTo(unsupported ? (long?)null : 50));
+            Assert.That(compacted.ExternalSessionId, Is.EqualTo(unsupported ? null : "codex-saved-session"));
+            Assert.That(ReadMockLog(), Does.Contain("thread/compact/start"));
+        });
+
+        if (unsupported)
+        {
+            await runtime.RunTurnAsync(project, thread.Id, provider, "phase4 handoff before clearing", session.McpServers, cancellationToken: ct);
+            Assert.That(ReadMockLog().Single(line => line.StartsWith("handoff=")), Does.Contain("phase3 metrics"));
+        }
+        var (cleared, divider) = await runtime.ClearContextAsync(project, thread.Id, ct);
+        Assert.That(cleared.ExternalSessionId, Is.Null);
+        Assert.That(cleared.RestorePreviousMessages, Is.False);
+        Assert.That((await store.ReadTimelineAsync(project, thread.Id, ct)).Last(), Is.EqualTo(divider));
+        await runtime.RunTurnAsync(project, thread.Id, provider, "phase4 handoff after clearing", session.McpServers, cancellationToken: ct);
+        Assert.Multiple(() =>
+        {
+            Assert.That(ReadMockLog().Last(line => line.StartsWith("handoff=")), Is.EqualTo("handoff=\"phase4 handoff after clearing\""));
+            Assert.That(ReadMockLog().Count(line => line == "thread/start"), Is.EqualTo(unsupported ? 3 : 2));
+            Assert.That(ReadMockLog(), Does.Not.Contain("thread/resume"));
+        });
     }
 
     [Test]

@@ -104,6 +104,12 @@ function acp(frame) {
             assert.equal(params.sessionId, sessionId);
             const prompt = params.prompt[0].text;
             active = { id, waitForPermission: prompt === "permission pending" };
+            if (prompt === "phase4 usage") {
+                update({ sessionUpdate: "usage_update", used: 80_000, size: 100_000 });
+                reply(id, { stopReason: "end_turn", usage: { inputTokens: 75_000, outputTokens: 5_000,
+                    totalTokens: 80_000, cachedReadTokens: 28_000 } });
+                break;
+            }
             if (captureMentionPrompt(prompt)) {
                 reply(id, { stopReason: "end_turn" });
                 break;
@@ -225,6 +231,24 @@ function codex(frame) {
                 ] }] });
             }
             break;
+        case "thread/compact/start": {
+            assert.equal(params.threadId, sessionId);
+            mark(method);
+            if (process.env.BEUTL_MOCK_UNSUPPORTED_COMPACT === "1") {
+                send({ id, error: { code: -32600, message: "Invalid request: unknown variant 'thread/compact/start'" } });
+                break;
+            }
+            reply(id, {});
+            active = { turn: { id: "external-turn-" + ++turnNumber, status: "inProgress" } };
+            notify("turn/started", { turn: active.turn });
+            const item = { type: "contextCompaction", id: "manual-compaction" };
+            notify("item/started", { item });
+            notify("item/completed", { item });
+            const last = { inputTokens: 40, cachedInputTokens: 10, outputTokens: 10, totalTokens: 50 };
+            notify("thread/tokenUsage/updated", { tokenUsage: { total: last, last, modelContextWindow: 250_000 } });
+            notify("turn/completed", { turn: { ...active.turn, status: "completed" } });
+            break;
+        }
         case "turn/start": {
             assert.equal(params.threadId, sessionId);
             assert.equal(params.approvalPolicy, "on-request");
@@ -246,17 +270,22 @@ function codex(frame) {
                 notify("error", { error: { message: "Reconnecting" }, willRetry: true });
                 notify("model/rerouted", { toModel: "gpt-6.2-sol" });
                 const previousTurns = turnNumber - 1;
-                const first = { inputTokens: 200, outputTokens: 40, cachedInputTokens: 120 };
-                const second = { inputTokens: 100, outputTokens: 60, cachedInputTokens: 50 };
+                const first = { inputTokens: 200, outputTokens: 40, cachedInputTokens: 120, totalTokens: 240 };
+                const second = { inputTokens: 100, outputTokens: 60, cachedInputTokens: 50, totalTokens: 160 };
                 notify("thread/tokenUsage/updated", { tokenUsage: {
                     total: { inputTokens: previousTurns * 300 + 200, outputTokens: previousTurns * 100 + 40, cachedInputTokens: previousTurns * 170 + 120 },
-                    last: first,
+                    last: first, modelContextWindow: 250_000,
                 } });
                 notify("thread/tokenUsage/updated", { tokenUsage: {
                     total: { inputTokens: turnNumber * 300, outputTokens: turnNumber * 100, cachedInputTokens: turnNumber * 170 },
-                    last: second,
+                    last: second, modelContextWindow: 250_000,
                 } });
                 notify("turn/completed", { turn: { ...active.turn, status: "completed", durationMs: 2470 } });
+                break;
+            }
+            if (params.input[0].text.startsWith("phase4 handoff")) {
+                mark("handoff=" + JSON.stringify(params.input[0].text));
+                notify("turn/completed", { turn: { ...active.turn, status: "completed" } });
                 break;
             }
             if (captureMentionPrompt(params.input[0].text)) {
@@ -345,6 +374,15 @@ function claude(frame) {
             claudeThinkingReply(backgroundPrompt);
             return;
         }
+        if (request.subtype === "get_context_usage") {
+            assert.equal(request.detail, "summary");
+            mark("claude get_context_usage");
+            claudeMessage("control_response", { response: { subtype: "success", request_id, response: {
+                totalTokens: 20_000, maxTokens: 150_000,
+                apiUsage: { input_tokens: 15_000, output_tokens: 2_000, cache_read_input_tokens: 3_000, cache_creation_input_tokens: 0 },
+            } } });
+            return;
+        }
         assert.equal(request.subtype, "initialize");
         if (!discovering) {
             assert.ok(args.includes("--include-partial-messages"));
@@ -391,6 +429,27 @@ function claude(frame) {
         }
         denyClaudeTool = content === "reject" || (Array.isArray(content) && content.some(item => item.text === "reject"));
         claudeMessage("system", { subtype: "init", slash_commands: ["compact", "help"], skills: ["shot-review", "look-chain"] });
+        if (content === "phase4 usage" || content === "phase4 usage fallback") {
+            claudeMessage("assistant", {
+                parent_tool_use_id: null,
+                message: { id: "phase4-assistant", model: "claude-opus-test", role: "assistant", content: [{ type: "text", text: "Ready" }],
+                    usage: { input_tokens: 90_000, output_tokens: 5_000, cache_read_input_tokens: 20_000, cache_creation_input_tokens: 3_000 } },
+            });
+            claudeMessage("result", { subtype: "success", is_error: false, result: "Ready", user_message_uuid: frame.uuid, num_turns: 2,
+                usage: { input_tokens: 210_000, output_tokens: 6_000, cache_read_input_tokens: 24_000, cache_creation_input_tokens: 3_000 },
+                modelUsage: { "claude-opus-test": content.endsWith("fallback") ? {} : { contextWindow: 150_000 } },
+            });
+            return;
+        }
+        if (content === "/compact") {
+            mark("claude /compact");
+            claudeMessage("system", { subtype: "status", status: "compacting" });
+            claudeMessage("system", { subtype: "compact_boundary", compact_metadata: { trigger: "manual", pre_tokens: 118_000 } });
+            claudeMessage("result", { subtype: "success", is_error: false, result: "Compacted", user_message_uuid: frame.uuid,
+                modelUsage: { "claude-opus-test": { contextWindow: 150_000 } },
+            });
+            return;
+        }
         if (content === "phase3 metrics") {
             claudeMessage("system", { subtype: "status", status: "compacting" });
             claudeMessage("system", { subtype: "compact_boundary", compact_metadata: { trigger: "auto", pre_tokens: 1000 } });

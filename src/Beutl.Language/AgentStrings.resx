@@ -579,4 +579,61 @@
   <data name="ContextCompacted" xml:space="preserve">
     <value>Context compacted</value>
   </data>
+  <data name="ContextMeterSummary" xml:space="preserve">
+    <value>Context · {0} / {1} ({2})</value>
+  </data>
+  <data name="CompactContext" xml:space="preserve">
+    <value>Compact context</value>
+  </data>
+  <data name="ClearContext" xml:space="preserve">
+    <value>Clear context</value>
+  </data>
+  <data name="ContextCleared" xml:space="preserve">
+    <value>Context cleared</value>
+  </data>
+  <data name="ProviderChangeNotice" xml:space="preserve">
+    <value>Provider changed · {0} → {1}</value>
+  </data>
+  <data name="PinThread" xml:space="preserve">
+    <value>Pin thread</value>
+  </data>
+  <data name="UnpinThread" xml:space="preserve">
+    <value>Unpin thread</value>
+  </data>
+  <data name="ArchiveThread" xml:space="preserve">
+    <value>Archive thread</value>
+  </data>
+  <data name="UnarchiveThread" xml:space="preserve">
+    <value>Unarchive thread</value>
+  </data>
+  <data name="ShowArchivedThreads" xml:space="preserve">
+    <value>Show archived</value>
+  </data>
+  <data name="ArchivedThread" xml:space="preserve">
+    <value>Archived</value>
+  </data>
+  <data name="UnreadThread" xml:space="preserve">
+    <value>Unread</value>
+  </data>
+  <data name="RegenerateThreadTitle" xml:space="preserve">
+    <value>Regenerate title</value>
+  </data>
+  <data name="ForkThread" xml:space="preserve">
+    <value>Fork thread</value>
+  </data>
+  <data name="CompactionFailed" xml:space="preserve">
+    <value>Could not compact the context.</value>
+  </data>
+  <data name="ToolGroupCommands" xml:space="preserve">
+    <value>Ran {0} commands</value>
+  </data>
+  <data name="ToolGroupMixed" xml:space="preserve">
+    <value>{0} commands · {1} tools</value>
+  </data>
+  <data name="ToolGroupTools" xml:space="preserve">
+    <value>Ran {0} tools</value>
+  </data>
+  <data name="ToolGroupFailures" xml:space="preserve">
+    <value>Some failed</value>
+  </data>
 </root>

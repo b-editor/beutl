@@ -36,12 +36,15 @@ internal sealed class AgentProjectThreadSessions(string path, AgentDraftStore dr
 {
     private static readonly ILogger s_logger = Log.CreateLogger<AgentProjectThreadSessions>();
     private readonly Dictionary<Guid, AgentThreadController> _controllers = [];
+    private readonly Dictionary<Guid, int> _viewers = [];
     private Task _draftWrites = Task.CompletedTask;
+    private Task _metadataWork = Task.CompletedTask;
 
     public string ProjectPath => path;
     public CancellationToken Lifetime => lifetime;
     public event Action<Guid>? StateChanged;
     public event Action<Guid, AgentThreadMetadata?>? MetadataChanged;
+    public event Action<Guid, DateTimeOffset?, DateTimeOffset?>? ActivityChanged;
     public event Action? FlushingDrafts;
 
     public AgentThreadController GetOrCreate(IAgentWorkspaceHost host, Guid threadId)
@@ -57,6 +60,55 @@ internal sealed class AgentProjectThreadSessions(string path, AgentDraftStore dr
     public void PublishState(Guid threadId) => StateChanged?.Invoke(threadId);
 
     public void PublishMetadata(AgentThreadMetadata thread) => MetadataChanged?.Invoke(thread.Id, thread);
+
+    public void AttachViewer(Guid threadId) => _viewers[threadId] = _viewers.GetValueOrDefault(threadId) + 1;
+
+    public void DetachViewer(Guid threadId)
+    {
+        if (_viewers.GetValueOrDefault(threadId) is > 1 and var count)
+            _viewers[threadId] = count - 1;
+        else
+            _viewers.Remove(threadId);
+    }
+
+    public void ObserveActivity(AgentRuntimeManager runtime, Guid threadId, DateTimeOffset timestamp)
+    {
+        bool viewed = _viewers.ContainsKey(threadId);
+        ActivityChanged?.Invoke(threadId, timestamp, viewed ? timestamp : null);
+        if (viewed)
+            _ = MarkReadAsync(runtime, threadId, lifetime, timestamp);
+    }
+
+    public Task MarkReadAsync(
+        AgentRuntimeManager runtime, Guid threadId, CancellationToken cancellationToken, DateTimeOffset? observedThrough = null)
+    {
+        Task work = MarkReadCoreAsync(runtime, threadId, cancellationToken, observedThrough);
+        TrackMetadataWork(work);
+        return work;
+    }
+
+    public void TrackMetadataWork(Task work)
+        => _metadataWork = _metadataWork.IsCompletedSuccessfully ? work : Task.WhenAll(_metadataWork, work);
+
+    private async Task MarkReadCoreAsync(
+        AgentRuntimeManager runtime, Guid threadId, CancellationToken cancellationToken, DateTimeOffset? observedThrough)
+    {
+        try
+        {
+            var thread = await runtime.MarkReadAsync(path, threadId, cancellationToken, observedThrough);
+            ActivityChanged?.Invoke(threadId, thread.LastActivityAt, thread.LastReadAt);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+        }
+        catch (KeyNotFoundException) when (!_controllers.ContainsKey(threadId))
+        {
+        }
+        catch (Exception ex)
+        {
+            s_logger.LogWarning(ex, "Could not mark agent thread {ThreadId} as read.", threadId);
+        }
+    }
 
     public async Task RemoveAsync(Guid threadId)
     {
@@ -85,6 +137,7 @@ internal sealed class AgentProjectThreadSessions(string path, AgentDraftStore dr
     {
         FlushingDrafts?.Invoke();
         await Task.WhenAll(_controllers.Values.Select(controller => controller.ShutdownAsync()));
+        await _metadataWork;
         await _draftWrites;
         _controllers.Clear();
     }

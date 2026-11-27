@@ -34,6 +34,10 @@ internal interface IAgentWorkspaceHost
         IEditorContext editor, string projectPath, AgentTurnRequest request, bool includeSceneContext,
         IReadOnlyList<AgentAttachedFile> attachments, IReadOnlyList<AgentContextMention>? mentions, CancellationToken cancellationToken);
 
+    Task<AgentThreadMetadata> CompactContextAsync(
+        string projectPath, Guid threadId, AgentProviderDescriptor provider, AgentTurnCallbacks callbacks, CancellationToken cancellationToken)
+        => Runtime.CompactContextAsync(projectPath, threadId, provider, [], callbacks, cancellationToken);
+
     Task<AgentAttachedFile> SavePastedImageAsync(Bitmap image, CancellationToken cancellationToken);
     Task<AgentAttachedFile> SavePastedTextAsync(string text, CancellationToken cancellationToken);
     Task<AgentAttachedFile> CaptureFrameAsync(IEditorContext editor, CancellationToken cancellationToken);

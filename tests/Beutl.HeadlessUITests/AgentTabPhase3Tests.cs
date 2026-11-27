@@ -120,11 +120,8 @@ public sealed class AgentTabPhase3Tests
                 Is.EqualTo("{\n  \"titleFadeFrames\": 12\n}"));
             Assert.That(((FluentIcon)code.Content!).Icon, Is.EqualTo(Icon.Checkmark));
             await HeadlessTestHelpers.WaitUntilAsync(() => ((FluentIcon)code.Content!).Icon == Icon.Copy);
-            var stats = Find<TextBlock>(view, "TurnStatsFooter");
-            Assert.That(stats.IsEffectivelyVisible, Is.False);
-            Click(Find<ToggleButton>(view, "TurnStatsToggle"));
+            var stats = Find<ToggleButton>(view, "TurnStatsToggle");
             Assert.That(stats.IsEffectivelyVisible, Is.True);
-            Assert.That(stats.Text, Is.EqualTo(CompactTokens(1240)));
             Assert.That(ToolTip.GetTip(stats), Does.Contain(1024.ToString("N0")).And.Contain("216").And.Contain("800")
                 .And.Not.Contain("GPT-6.2 Sol"));
             Assert.That(view.GetVisualDescendants().OfType<TextBlock>().Any(text => Equals(ToolTip.GetTip(text), sender.TimeDetail)
@@ -198,10 +195,11 @@ public sealed class AgentTabPhase3Tests
             Complete("background", "Read", AgentToolStatus.Completed, background: true);
             turn = Guid.NewGuid();
             Complete("later", "Read", AgentToolStatus.Completed);
-            Assert.That(transcript.Items.OfType<AgentToolGroupItem>().Single().Tools.Select(tool => tool.ToolCallId),
-                Is.EqualTo(new[] { "read", "glob" }));
+            var group = transcript.Items.OfType<AgentToolGroupItem>().Single();
+            Assert.That(group.Tools.Select(tool => tool.ToolCallId), Is.EqualTo(new[] { "read", "glob", "failed" }));
+            Assert.That(group.HasFailure, Is.True);
             Assert.That(transcript.Items.OfType<AgentToolItem>().Select(tool => tool.ToolCallId),
-                Is.EqualTo(new[] { "failed", "image", "other", "background", "later" }));
+                Is.EqualTo(new[] { "image", "other", "background", "later" }));
         }
         finally
         {
@@ -229,6 +227,8 @@ public sealed class AgentTabPhase3Tests
             var then = DateTimeOffset.UtcNow.AddMinutes(i - 8);
             await store.AppendAsync(workspace.ProjectPath, new AgentUserMessage(thread.Id, turn, then,
                 i == 0 ? "Review the opening title before export." : "Check the next title placement."));
+            if (i == 0)
+                await store.AppendAsync(workspace.ProjectPath, new AgentReasoningDelta(thread.Id, turn, then, "Check the safe area."));
             await store.AppendAsync(workspace.ProjectPath, new AgentAssistantMessageCompleted(thread.Id, turn, then,
                 "The title stays within the safe area. Its fade begins with the scene and ends before the first cut."));
             await store.AppendAsync(workspace.ProjectPath, new AgentTurnCompleted(thread.Id, turn, then,
@@ -369,8 +369,11 @@ public sealed class AgentTabPhase3Tests
             Task run = model.SendAsync();
             var request = await started.Task.WaitAsync(TimeSpan.FromSeconds(10));
             var (thread, turn, _, _) = request;
-            var live = Find<TextBlock>(view, "LiveTurnStatus");
-            var workTime = Find<TextBlock>(view, "LiveTurnWorkTime");
+            await HeadlessTestHelpers.WaitUntilAsync(() => TryFind<TextBlock>(view, "TurnWorkTime") is { IsEffectivelyVisible: true }
+                && view.GetVisualDescendants().OfType<TextBlock>()
+                    .Any(text => text.Name == "LiveTurnStatus" && text.IsEffectivelyVisible));
+            var live = view.GetVisualDescendants().OfType<TextBlock>().Single(text => text.Name == "LiveTurnStatus" && text.IsEffectivelyVisible);
+            var workTime = Find<TextBlock>(view, "TurnWorkTime");
             await HeadlessTestHelpers.WaitUntilAsync(() => live.IsEffectivelyVisible && live.Text == AgentStrings.ThinkingInProgress);
             string? workStarted = workTime.Text;
             Assert.That(workStarted, Is.Not.Null.And.Not.Empty);
@@ -384,11 +387,11 @@ public sealed class AgentTabPhase3Tests
             workspace.Bridge.Emit(new AgentTurnPhaseChanged(thread, turn, now, AgentTurnPhase.Compacting));
             await HeadlessTestHelpers.WaitUntilAsync(() => live.Text == AgentStrings.CompactingContext);
             HeadlessTestHelpers.Render(5);
-            Assert.That(live.IsEffectivelyVisible, Is.False);
-            Assert.That(AutomationProperties.GetName(Find<Grid>(view, "TimelineDivider")), Is.EqualTo(AgentStrings.CompactingContext));
+            Assert.That(live.IsEffectivelyVisible, Is.True);
+            Assert.That(live.HorizontalAlignment, Is.EqualTo(Avalonia.Layout.HorizontalAlignment.Left));
             Capture(view, window, "phase3-compacting");
             workspace.Bridge.Emit(new AgentContextCompacted(thread, turn, now));
-            await HeadlessTestHelpers.WaitUntilAsync(() => model.ActiveCompaction is null);
+            await HeadlessTestHelpers.WaitUntilAsync(() => !model.IsCompacting);
             Assert.That(model.Timeline.OfType<AgentTimelineDividerItem>().Single().Text, Is.EqualTo(AgentStrings.ContextCompacted));
             workspace.Bridge.Emit(new AgentTurnPhaseChanged(thread, turn, now, AgentTurnPhase.Retrying));
             await HeadlessTestHelpers.WaitUntilAsync(() => live.Text == AgentStrings.RetryingTurn);
@@ -406,9 +409,8 @@ public sealed class AgentTabPhase3Tests
             Assert.That(thought.IsFinished, Is.True);
             Assert.That(thought.Summary, Is.EqualTo(AutomationProperties.GetName(Find<ToggleButton>(view, "ThinkingToggle"))));
             Assert.That(thought.Summary.Any(char.IsDigit), Is.True);
-            Assert.That(Find<TextBlock>(view, "FinishedTurnWorkTime").Text, Is.EqualTo(model.Timeline.OfType<AgentTurnStatsItem>().Single().WorkTime));
-            Click(Find<ToggleButton>(view, "TurnStatsToggle"));
-            Assert.That(Find<TextBlock>(view, "TurnStatsFooter").Text, Is.EqualTo(CompactTokens(1200)));
+            Assert.That(workTime.Text, Is.EqualTo(model.Timeline.OfType<AgentTurnStatsItem>().Single().WorkTime));
+            Assert.That(ToolTip.GetTip(Find<ToggleButton>(view, "TurnStatsToggle")), Does.Contain("800").And.Contain("400").And.Contain("200"));
         }
         finally
         {
@@ -593,9 +595,6 @@ public sealed class AgentTabPhase3Tests
     private static bool VisibleText(Control root, string value)
         => root.GetVisualDescendants().OfType<TextBlock>().Any(text => text.IsEffectivelyVisible && text.Text == value);
 
-    private static string CompactTokens(int count) =>
-        string.Format(AgentStrings.TurnTokens, string.Format(AgentStrings.TokensThousands, count / 1000d));
-
     private static void Click(Control control) => HeadlessTestHelpers.Click(control, move: true, ticks: 4);
 
     private static void Capture(Control control, Window window, string name)
@@ -612,7 +611,7 @@ public sealed class AgentTabPhase3Tests
         return owner.OwnedWindows.OfType<AgentImageLightboxWindow>().Single();
     }
 
-    private static string CreateFrame(string path)
+    internal static string CreateFrame(string path)
     {
         using var bitmap = new SKBitmap(720, 432);
         using var canvas = new SKCanvas(bitmap);

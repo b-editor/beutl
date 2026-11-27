@@ -20,6 +20,14 @@
             <SolidColorBrush x:Key="SecondaryCardBackgroundColor" Color="{DynamicResource ControlFillColorDefault}" />
             <SolidColorBrush x:Key="CodeInlineColor" Color="{DynamicResource TextFillColorPrimary}" />
             <SolidColorBrush x:Key="QuoteBorderColor" Color="{DynamicResource ControlStrokeColorDefault}" />
+            <DataTemplate x:Key="LiveStatusTemplate" x:DataType="vm:AgentTabViewModel">
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="7" Margin="4,4,2,4">
+                    <icons:FluentIcon Classes="agent-status" Icon="{Binding LiveStatusIcon}" VerticalAlignment="Center" />
+                    <views:AgentShimmerTextBlock x:Name="LiveTurnStatus" Grid.Column="1" HorizontalAlignment="Left"
+                                                 IsLive="{Binding ShowLiveStatus}" Text="{Binding LiveStatus}" FontSize="12"
+                                                 VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                </Grid>
+            </DataTemplate>
         </ResourceDictionary>
     </UserControl.Resources>
     <UserControl.Styles>
@@ -149,7 +157,7 @@
         <DataTemplate DataType="vm:AgentAssistantItem" x:DataType="vm:AgentAssistantItem">
             <StackPanel Classes="agent-message" Margin="2,2,2,0" Spacing="3">
                 <views:AgentMarkdownRenderer MarkdownBuilder="{Binding Markdown}" />
-                <StackPanel Orientation="Horizontal" Spacing="1">
+                <StackPanel x:Name="AssistantFooter" Orientation="Horizontal" Spacing="1" IsVisible="{Binding IsFinalTurnResponse}">
                     <TextBlock Classes="agent-message-time" Text="{Binding TimeLabel}" ToolTip.Tip="{Binding TimeDetail}" />
                     <StackPanel Orientation="Horizontal" Spacing="1" IsVisible="{Binding CanCopy}">
                         <Button Classes="agent-message-action" Click="OnCopyMessage"
@@ -173,16 +181,15 @@
 
         <DataTemplate DataType="vm:AgentReasoningItem" x:DataType="vm:AgentReasoningItem">
             <StackPanel>
-                <ToggleButton x:Name="ThinkingToggle" Theme="{StaticResource TransparentToggleButton}" HorizontalAlignment="Left"
+                <ToggleButton x:Name="ThinkingToggle" Classes="agent-disclosure" HorizontalAlignment="Left"
                               MinHeight="24" Padding="4,2" AutomationProperties.Name="{Binding Summary}">
                     <StackPanel Orientation="Horizontal" Spacing="6">
-                        <TextBlock Text="{Binding Summary}" FontSize="12" VerticalAlignment="Center"
-                                   Foreground="{DynamicResource TextFillColorTertiaryBrush}" />
-                        <icons:FluentIcon Classes="agent-chevron" Foreground="{DynamicResource TextFillColorTertiaryBrush}" />
+                        <TextBlock Text="{Binding Summary}" Classes="agent-caption agent-disclosure-label" FontSize="12" VerticalAlignment="Center" />
+                        <icons:FluentIcon Classes="agent-status agent-chevron agent-disclosure-glyph" />
                     </StackPanel>
                 </ToggleButton>
-                <Border IsVisible="{Binding !!#ThinkingToggle.IsChecked}" Margin="8,2,0,2" Padding="9,2"
-                        BorderThickness="2,0,0,0" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}">
+                <Border IsVisible="{Binding !!#ThinkingToggle.IsChecked}" Margin="8,2,0,2" Padding="9,4"
+                        CornerRadius="{DynamicResource ControlCornerRadius}" Background="{DynamicResource ControlAltFillColorSecondaryBrush}">
                     <SelectableTextBlock Text="{Binding Text}" Classes="agent-secondary" TextWrapping="Wrap" />
                 </Border>
             </StackPanel>
@@ -192,16 +199,17 @@
 
         <DataTemplate DataType="vm:AgentToolGroupItem" x:DataType="vm:AgentToolGroupItem">
             <StackPanel Spacing="3">
-                <ToggleButton x:Name="ToolGroupToggle" Theme="{StaticResource TransparentToggleButton}" HorizontalAlignment="Left"
+                <ToggleButton x:Name="ToolGroupToggle" Classes="agent-disclosure" HorizontalAlignment="Left"
                               AutomationProperties.Name="{Binding Label}" MinHeight="26" Padding="4,3">
                     <StackPanel Orientation="Horizontal" Spacing="7">
-                        <icons:FluentIcon Classes="agent-status success" Icon="CheckmarkCircle" VerticalAlignment="Center" />
-                        <TextBlock Classes="agent-secondary" Text="{Binding Label}" VerticalAlignment="Center" />
-                        <icons:FluentIcon Classes="agent-chevron" Foreground="{DynamicResource TextFillColorTertiaryBrush}" />
+                        <icons:FluentIcon Classes="agent-status agent-disclosure-glyph" Icon="Wrench" VerticalAlignment="Center" />
+                        <TextBlock Classes="agent-secondary agent-disclosure-label" Text="{Binding Label}" VerticalAlignment="Center" />
+                        <TextBlock x:Name="ToolGroupFailure" Classes="agent-caption agent-disclosure-label" IsVisible="{Binding HasFailure}"
+                                   Text="{x:Static lang:AgentStrings.ToolGroupFailures}" VerticalAlignment="Center" />
+                        <icons:FluentIcon Classes="agent-status agent-chevron agent-disclosure-glyph" />
                     </StackPanel>
                 </ToggleButton>
-                <Border Margin="9,0,0,0" Padding="7,0,0,0" BorderThickness="1,0,0,0"
-                        BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}" IsVisible="{Binding !!#ToolGroupToggle.IsChecked}">
+                <Border Margin="9,0,0,0" Padding="7,0,0,0" IsVisible="{Binding !!#ToolGroupToggle.IsChecked}">
                     <ItemsControl ItemsSource="{Binding Tools}" />
                 </Border>
             </StackPanel>
@@ -241,20 +249,18 @@
         </DataTemplate>
 
         <DataTemplate DataType="vm:AgentHistoryItem" x:DataType="vm:AgentHistoryItem">
-            <Border Classes="agent-card" Padding="10,6">
+            <Border Padding="0,3">
                 <StackPanel Spacing="4">
                     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="4">
-                        <ToggleButton x:Name="HistoryToggle" Theme="{StaticResource ColorPickerTypeTransparentToggleButtonStyle}" Padding="2,3"
+                        <ToggleButton x:Name="HistoryToggle" Classes="agent-disclosure" Padding="2,3"
                                       HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
                                       IsHitTestVisible="{Binding HasChanges}" Focusable="{Binding HasChanges}"
                                       AutomationProperties.Name="{Binding DisplayText}">
                             <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="7">
-                                <icons:FluentIcon Icon="History" FontSize="14" VerticalAlignment="Center"
-                                                  Foreground="{DynamicResource TextFillColorTertiaryBrush}" />
-                                <TextBlock Grid.Column="1" Classes="agent-secondary" Text="{Binding DisplayText}"
+                                <icons:FluentIcon Icon="History" Classes="agent-status agent-disclosure-glyph" FontSize="14" VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="1" Classes="agent-secondary agent-disclosure-label" Text="{Binding DisplayText}"
                                            TextWrapping="Wrap" VerticalAlignment="Center" />
-                                <icons:FluentIcon Grid.Column="2" Classes="agent-chevron" IsVisible="{Binding HasChanges}"
-                                                  Foreground="{DynamicResource TextFillColorTertiaryBrush}" />
+                                <icons:FluentIcon Grid.Column="2" Classes="agent-status agent-chevron agent-disclosure-glyph" IsVisible="{Binding HasChanges}" />
                             </Grid>
                         </ToggleButton>
                         <Button Grid.Column="1" Command="{Binding RevertAsync}" IsVisible="{Binding CanRevert}" Theme="{StaticResource TransparentButton}"
@@ -265,8 +271,7 @@
                             </StackPanel>
                         </Button>
                     </Grid>
-                    <Border IsVisible="{Binding !!#HistoryToggle.IsChecked}" Margin="5,0,0,3" Padding="11,2,0,0"
-                            BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}" BorderThickness="1,0,0,0">
+                    <Border IsVisible="{Binding !!#HistoryToggle.IsChecked}" Margin="5,0,0,3" Padding="11,2,0,0">
                         <StackPanel Spacing="4">
                             <ItemsControl ItemsSource="{Binding Changes}">
                                 <ItemsControl.ItemTemplate>
@@ -282,20 +287,29 @@
             </Border>
         </DataTemplate>
 
-        <DataTemplate DataType="vm:AgentTurnStatsItem" x:DataType="vm:AgentTurnStatsItem">
+        <DataTemplate DataType="vm:AgentTurnWorkItem" x:DataType="vm:AgentTurnWorkItem">
             <StackPanel Spacing="4" Margin="2,0,2,4">
-                <ToggleButton x:Name="TurnStatsToggle" Theme="{StaticResource ColorPickerTypeTransparentToggleButtonStyle}" HorizontalAlignment="Left"
-                              Padding="3,2" MinHeight="24" Focusable="{Binding CanExpand}" IsHitTestVisible="{Binding CanExpand}"
-                              AutomationProperties.Name="{Binding WorkTime}" ToolTip.Tip="{Binding Detail}">
+                <ToggleButton x:Name="TurnStatsToggle" Classes="agent-disclosure" HorizontalAlignment="Left"
+                              Padding="3,2" MinHeight="24" Focusable="{Binding !Header.IsRunning}" IsHitTestVisible="{Binding !Header.IsRunning}"
+                              IsChecked="{Binding IsExpanded, Mode=TwoWay}"
+                              AutomationProperties.Name="{Binding Header.WorkTime}" ToolTip.Tip="{Binding Header.Detail}">
                     <StackPanel Orientation="Horizontal" Spacing="7">
-                        <TextBlock x:Name="FinishedTurnWorkTime" Classes="agent-turn-time" Text="{Binding WorkTime}" />
-                        <icons:FluentIcon Classes="agent-chevron" Foreground="{DynamicResource TextFillColorTertiaryBrush}"
-                                          IsVisible="{Binding CanExpand}" />
+                        <TextBlock x:Name="TurnWorkTime" Classes="agent-turn-time agent-disclosure-label" Text="{Binding Header.WorkTime}" />
+                        <icons:FluentIcon Classes="agent-status agent-chevron agent-disclosure-glyph"
+                                          IsVisible="{Binding !Header.IsRunning}" />
                     </StackPanel>
                 </ToggleButton>
-                <TextBlock x:Name="TurnStatsFooter" Classes="agent-message-time" Text="{Binding UsageSummary}" ToolTip.Tip="{Binding Detail}"
-                           IsVisible="{Binding !!#TurnStatsToggle.IsChecked}" TextTrimming="CharacterEllipsis" Margin="3,0,3,2" />
                 <Border Classes="agent-turn-divider" />
+                <StackPanel x:Name="TurnWorkBody" IsVisible="{Binding IsExpanded}" Spacing="4">
+                    <ItemsControl ItemsSource="{Binding Entries}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate><StackPanel Spacing="6" /></ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                    </ItemsControl>
+                    <ContentControl IsVisible="{Binding Header.IsRunning}"
+                                    Content="{Binding $parent[views:AgentTimelineView].((vm:AgentTabViewModel)DataContext)}"
+                                    ContentTemplate="{StaticResource LiveStatusTemplate}" />
+                </StackPanel>
             </StackPanel>
         </DataTemplate>
 
@@ -305,7 +319,7 @@
                 <Border Classes="agent-turn-divider" VerticalAlignment="Center" />
                 <Grid Grid.Column="1" ColumnDefinitions="Auto,*" HorizontalAlignment="Center" ColumnSpacing="6">
                     <icons:FluentIcon Icon="{Binding Icon}" Classes="agent-status" VerticalAlignment="Center" />
-                    <TextBlock Grid.Column="1" Text="{Binding Text}" Classes="agent-secondary agent-live-status" Classes.live="{Binding Animate}" TextWrapping="Wrap"
+                    <TextBlock Grid.Column="1" Text="{Binding Text}" Classes="agent-secondary" TextWrapping="Wrap"
                                TextAlignment="Center" VerticalAlignment="Center" />
                 </Grid>
                 <Border Grid.Column="2" Classes="agent-turn-divider" VerticalAlignment="Center" />
@@ -320,24 +334,13 @@
     <Grid>
         <ScrollViewer x:Name="TimelineScroll" HorizontalScrollBarVisibility="Disabled" ScrollChanged="OnTimelineScrollChanged">
             <StackPanel Margin="12,12,12,10" Spacing="7">
-                <ItemsControl ItemsSource="{Binding Timeline}">
+                <ItemsControl ItemsSource="{Binding DisplayTimeline}">
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate><StackPanel Spacing="7" /></ItemsPanelTemplate>
                     </ItemsControl.ItemsPanel>
                 </ItemsControl>
-                <StackPanel IsVisible="{Binding IsRunning}" Spacing="6" Margin="3,2,2,1">
-                    <ContentControl Content="{Binding ActiveCompaction}" IsVisible="{Binding IsCompacting}" />
-                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
-                        <TextBlock x:Name="LiveTurnWorkTime" Classes="agent-turn-time" Text="{Binding LiveWorkTime}" />
-                        <Grid Grid.Column="1" HorizontalAlignment="Right" ColumnDefinitions="Auto,*" ColumnSpacing="6"
-                              IsVisible="{Binding !IsCompacting}">
-                            <Ellipse Classes="agent-turn-dot" Classes.live="{Binding IsRunning}" />
-                            <TextBlock x:Name="LiveTurnStatus" Grid.Column="1" Classes="agent-caption agent-live-status" Classes.live="{Binding IsRunning}"
-                                       Text="{Binding LiveStatus}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                        </Grid>
-                    </Grid>
-                    <Border Classes="agent-turn-divider" />
-                </StackPanel>
+                <ContentControl IsVisible="{Binding ShowStandaloneLiveStatus}" Content="{Binding}"
+                                ContentTemplate="{StaticResource LiveStatusTemplate}" />
             </StackPanel>
         </ScrollViewer>
         <Button x:Name="ScrollToBottomButton" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,17,12"

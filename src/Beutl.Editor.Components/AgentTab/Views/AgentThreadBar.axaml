@@ -5,11 +5,11 @@
              xmlns:conv="using:Avalonia.Data.Converters"
              xmlns:icons="using:FluentIcons.Avalonia.Fluent"
              xmlns:lang="using:Beutl.Language"
-             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:views="using:Beutl.Editor.Components.AgentTab.Views"
              xmlns:vm="using:Beutl.Editor.Components.AgentTab.ViewModels"
              x:DataType="vm:AgentTabViewModel">
     <controls:ToolTabBar>
-        <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="2" VerticalAlignment="Center">
+        <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto" ColumnSpacing="2" VerticalAlignment="Center">
             <Button x:Name="ThreadSwitcherButton" Theme="{StaticResource TransparentButton}" Padding="7,4" MinHeight="28"
                     HorizontalAlignment="Left" HorizontalContentAlignment="Stretch" IsEnabled="{Binding CanManage}"
                     ToolTip.Tip="{Binding ThreadTitle}" ToolTip.ShowOnDisabled="True"
@@ -22,32 +22,52 @@
                 </Grid>
                 <Button.Flyout>
                     <Flyout Placement="BottomEdgeAlignedLeft" FlyoutPresenterClasses="agent-thread-picker"
-                            Opening="OnThreadPickerOpening" Opened="OnThreadPickerOpened">
+                            Opening="OnThreadPickerOpening" Opened="OnThreadPickerOpened" Closed="OnThreadPickerClosed">
                         <StackPanel Width="282" Spacing="6">
                             <TextBox x:Name="ThreadSearchBox" Text="{Binding ThreadSearch, Mode=TwoWay}" FontSize="12"
                                      MinHeight="30" PlaceholderText="{x:Static lang:AgentStrings.SearchThreads}"
                                      AutomationProperties.Name="{x:Static lang:AgentStrings.SearchThreads}" />
+                            <CheckBox x:Name="ShowArchivedThreads" IsChecked="{Binding ShowArchived, Mode=TwoWay}"
+                                      Content="{x:Static lang:AgentStrings.ShowArchivedThreads}" FontSize="12" MinHeight="24" Margin="4,0,0,0" />
                             <TextBlock IsVisible="{Binding !FilteredThreads.Count}" Classes="agent-secondary" Margin="6"
                                        Text="{x:Static lang:AgentStrings.NoThreadsFound}" />
                             <ScrollViewer MaxHeight="262" HorizontalScrollBarVisibility="Disabled">
                                 <ItemsControl x:Name="ThreadMatches" ItemsSource="{Binding FilteredThreads}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate x:DataType="vm:AgentThreadRow">
-                                            <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="2">
+                                            <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="2"
+                                                  Classes="agent-thread-row" Classes.archived="{Binding Thread.IsArchived}">
                                                 <Button Theme="{StaticResource TransparentButton}" Click="OnSelectThread"
                                                         HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
                                                         Padding="6,5" AutomationProperties.Name="{Binding Thread.Title}">
                                                     <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="6">
                                                         <StackPanel Spacing="1">
-                                                            <TextBlock Text="{Binding Thread.Title}" TextTrimming="CharacterEllipsis" FontSize="13"
-                                                                       Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
-                                                            <TextBlock Classes="agent-caption" Text="{Binding ProviderName}" TextTrimming="CharacterEllipsis" />
+                                                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="4">
+                                                                <icons:FluentIcon Icon="Pin" FontSize="12" VerticalAlignment="Center"
+                                                                                  IsVisible="{Binding Thread.IsPinned}"
+                                                                                  Foreground="{DynamicResource TextFillColorTertiaryBrush}" />
+                                                                <TextBlock Grid.Column="1" Text="{Binding Thread.Title}" TextTrimming="CharacterEllipsis" FontSize="13"
+                                                                           Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                                                                <Ellipse Grid.Column="2" x:Name="ThreadUnreadDot" Width="6" Height="6" VerticalAlignment="Center"
+                                                                         IsVisible="{Binding IsUnread}" Fill="{DynamicResource AccentTextFillColorPrimaryBrush}"
+                                                                         ToolTip.Tip="{x:Static lang:AgentStrings.UnreadThread}"
+                                                                         AutomationProperties.Name="{x:Static lang:AgentStrings.UnreadThread}" />
+                                                            </Grid>
+                                                            <TextBlock x:Name="ThreadMatchSnippet" Classes="agent-caption" Text="{Binding MatchSnippet}"
+                                                                       IsVisible="{Binding MatchSnippet, Converter={x:Static conv:StringConverters.IsNotNullOrEmpty}}"
+                                                                       TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding MatchSnippet}" />
+                                                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="4">
+                                                                <TextBlock Classes="agent-caption" Text="{Binding ProviderName}" TextTrimming="CharacterEllipsis" />
+                                                                <TextBlock Grid.Column="1" Classes="agent-caption" IsVisible="{Binding Thread.IsArchived}"
+                                                                           Text="{x:Static lang:AgentStrings.ArchivedThread}" />
+                                                            </Grid>
                                                         </StackPanel>
                                                         <Panel Grid.Column="1" VerticalAlignment="Center">
-                                                            <ui:FAProgressRing x:Name="ThreadRunningIndicator" Width="14" Height="14" MinWidth="0" MinHeight="0"
-                                                                               IsActive="{Binding ShowsRunningIndicator}" IsVisible="{Binding ShowsRunningIndicator}"
-                                                                               ToolTip.Tip="{x:Static lang:AgentStrings.Running}"
-                                                                               AutomationProperties.Name="{x:Static lang:AgentStrings.Running}" />
+                                                            <icons:FluentIcon x:Name="ThreadRunningIndicator" Icon="Play" FontSize="12"
+                                                                              IsVisible="{Binding ShowsRunningIndicator}"
+                                                                              Foreground="{DynamicResource TextFillColorTertiaryBrush}"
+                                                                              ToolTip.Tip="{x:Static lang:AgentStrings.Running}"
+                                                                              AutomationProperties.Name="{x:Static lang:AgentStrings.Running}" />
                                                             <icons:FluentIcon x:Name="ThreadAttentionIndicator" Icon="Alert" IconVariant="Filled" FontSize="14"
                                                                               IsVisible="{Binding NeedsAttention}"
                                                                               Foreground="{DynamicResource SystemFillColorCautionBrush}"
@@ -66,10 +86,21 @@
                                                     <icons:FluentIcon Icon="Edit" FontSize="13" />
                                                 </Button>
                                                 <Button Grid.Column="2" Theme="{StaticResource ToolTabBarIconButtonTheme}" Click="OnBeginDelete"
-                                                        Width="26" Height="26" Padding="0" Margin="0,0,2,0" IsEnabled="{Binding CanDelete}"
+                                                        Width="26" Height="26" Padding="0" IsEnabled="{Binding CanDelete}"
                                                         ToolTip.Tip="{x:Static lang:AgentStrings.DeleteThread}"
                                                         AutomationProperties.Name="{x:Static lang:AgentStrings.DeleteThread}">
                                                     <icons:FluentIcon Icon="Delete" FontSize="13" />
+                                                </Button>
+                                                <Button Grid.Column="3" Theme="{StaticResource ToolTabBarIconButtonTheme}" Width="26" Height="26"
+                                                        Padding="0" ToolTip.Tip="{x:Static lang:AgentStrings.ThreadActions}"
+                                                        AutomationProperties.Name="{x:Static lang:AgentStrings.ThreadActions}">
+                                                    <icons:FluentIcon Icon="MoreHorizontal" FontSize="13" />
+                                                    <Button.Flyout>
+                                                        <MenuFlyout Placement="BottomEdgeAlignedRight">
+                                                            <MenuItem Header="{Binding PinLabel}" Click="OnToggleRowPin" />
+                                                            <MenuItem Header="{Binding ArchiveLabel}" Click="OnToggleRowArchive" />
+                                                        </MenuFlyout>
+                                                    </Button.Flyout>
                                                 </Button>
                                             </Grid>
                                         </DataTemplate>
@@ -105,15 +136,31 @@
                 </FlyoutBase.AttachedFlyout>
             </Button>
 
-            <Button Grid.Column="1" Theme="{StaticResource ToolTabBarIconButtonTheme}" Command="{Binding NewThreadAsync}"
+            <Border Grid.Column="1" x:Name="ContextMeter" IsVisible="{Binding ShowContextMeter}" Padding="4,3"
+                    VerticalAlignment="Center" AutomationProperties.Name="{Binding ContextMeterSummary}">
+                <ToolTip.Tip>
+                    <StackPanel Spacing="3" MinWidth="142">
+                        <TextBlock Text="{Binding ContextMeterSummary}" FontWeight="SemiBold" />
+                        <TextBlock Text="{Binding ContextMeterInput}" />
+                        <TextBlock Text="{Binding ContextMeterOutput}" />
+                        <TextBlock Text="{Binding ContextMeterCache}" />
+                    </StackPanel>
+                </ToolTip.Tip>
+                <StackPanel Orientation="Horizontal" Spacing="4">
+                    <views:AgentContextRing Width="16" Height="16" Progress="{Binding ContextMeterProgress}"
+                                            Classes.warning="{Binding IsContextWarning}" Classes.critical="{Binding IsContextCritical}" />
+                    <TextBlock Text="{Binding ContextMeterLabel}" Classes="agent-caption" FontSize="11" VerticalAlignment="Center" />
+                </StackPanel>
+            </Border>
+            <Button Grid.Column="2" Theme="{StaticResource ToolTabBarIconButtonTheme}" Command="{Binding NewThreadAsync}"
                     IsEnabled="{Binding CanManage}" Width="26" Height="26" Padding="0"
                     ToolTip.Tip="{x:Static lang:AgentStrings.NewThread}" AutomationProperties.Name="{x:Static lang:AgentStrings.NewThread}">
                 <icons:FluentIcon Icon="Add" FontSize="15" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
             </Button>
-            <ToggleButton Grid.Column="2" Theme="{StaticResource ToolTabVisibilityToggleButtonTheme}"
+            <ToggleButton Grid.Column="3" Theme="{StaticResource ToolTabVisibilityToggleButtonTheme}"
                           IsChecked="{Binding FollowLiveMcpEdits, Mode=TwoWay}" Width="26" Height="26" Padding="0"
                           ToolTip.Tip="{x:Static lang:AgentStrings.FollowEdits}" AutomationProperties.Name="{x:Static lang:AgentStrings.FollowEdits}" />
-            <Button Grid.Column="3" Theme="{StaticResource ToolTabBarIconButtonTheme}" IsEnabled="{Binding CanManage}" IsVisible="{Binding ShowComposer}"
+            <Button Grid.Column="4" x:Name="ThreadActionsButton" Theme="{StaticResource ToolTabBarIconButtonTheme}" IsEnabled="{Binding CanManage}" IsVisible="{Binding ShowComposer}"
                     Width="26" Height="26" Padding="0" ToolTip.Tip="{x:Static lang:AgentStrings.ThreadActions}"
                     AutomationProperties.Name="{x:Static lang:AgentStrings.ThreadActions}">
                 <icons:FluentIcon Icon="MoreHorizontal" FontSize="15" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
@@ -122,6 +169,14 @@
                         <MenuItem Header="{x:Static lang:AgentStrings.RenameThread}" Click="OnBeginRename" IsEnabled="{Binding CanManageSelected}">
                             <MenuItem.Icon><icons:FluentIcon Icon="Edit" FontSize="14" /></MenuItem.Icon>
                         </MenuItem>
+                        <MenuItem Header="{x:Static lang:AgentStrings.RegenerateThreadTitle}" Command="{Binding RegenerateTitleAsync}" IsEnabled="{Binding CanManageSelected}" />
+                        <MenuItem Header="{x:Static lang:AgentStrings.ForkThread}" Command="{Binding ForkThreadAsync}" IsEnabled="{Binding CanManageContext}" />
+                        <MenuItem Header="{Binding ThreadPinLabel}" Command="{Binding ToggleCurrentPinAsync}" IsEnabled="{Binding CanManageSelected}" />
+                        <MenuItem Header="{Binding ThreadArchiveLabel}" Command="{Binding ToggleCurrentArchiveAsync}" IsEnabled="{Binding CanManageSelected}" />
+                        <Separator />
+                        <MenuItem Header="{x:Static lang:AgentStrings.CompactContext}" Command="{Binding CompactContextAsync}" IsEnabled="{Binding CanManageContext}" />
+                        <MenuItem Header="{x:Static lang:AgentStrings.ClearContext}" Command="{Binding ClearContextAsync}" IsEnabled="{Binding CanManageContext}" />
+                        <Separator />
                         <MenuItem Header="{x:Static lang:AgentStrings.DeleteThread}" Click="OnBeginDelete" IsEnabled="{Binding CanDeleteSelected}">
                             <MenuItem.Icon><icons:FluentIcon Icon="Delete" FontSize="14" /></MenuItem.Icon>
                         </MenuItem>
@@ -132,7 +187,7 @@
                     </MenuFlyout>
                 </Button.Flyout>
             </Button>
-            <Button Grid.Column="3" x:Name="StopForPermission" Theme="{StaticResource ToolTabBarIconButtonTheme}"
+            <Button Grid.Column="4" x:Name="StopForPermission" Theme="{StaticResource ToolTabBarIconButtonTheme}"
                     Width="26" Height="26" Padding="0" IsVisible="{Binding !ShowComposer}" IsEnabled="{Binding CanStop}"
                     Command="{Binding StopAsync}" ToolTip.Tip="{x:Static lang:AgentStrings.Stop}" AutomationProperties.Name="{x:Static lang:AgentStrings.Stop}">
                 <icons:FluentIcon Icon="Stop" IconVariant="Filled" FontSize="11" />

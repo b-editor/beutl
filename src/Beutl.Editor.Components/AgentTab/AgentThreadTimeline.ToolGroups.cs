@@ -9,7 +9,10 @@ internal sealed partial class AgentThreadTimeline
         if (tool.Group is { } group)
         {
             if (tool.CanGroup)
+            {
+                group.RefreshSummary();
                 return;
+            }
 
             int index = _timeline.IndexOf(group);
             var children = group.Tools.ToArray();

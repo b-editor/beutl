@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using Beutl.Agents;
+using FluentIcons.Common;
 
 namespace Beutl.Editor.Components.AgentTab.ViewModels;
 
@@ -9,6 +10,8 @@ internal sealed partial class AgentTabViewModel
 {
     private static readonly AgentThreadTimeline s_emptyTranscript = new();
     private readonly ObservableCollection<AgentTimelineItemViewModel> _timeline = [];
+    private readonly Dictionary<Guid, AgentTurnWorkItem> _workSections = [];
+    public ObservableCollection<AgentTimelineItemViewModel> DisplayTimeline { get; } = [];
     private AgentThreadTimeline Transcript => _controller?.Transcript ?? s_emptyTranscript;
 
     public AgentBackgroundWorkGroup BackgroundCommands => Transcript.BackgroundCommands;
@@ -17,9 +20,10 @@ internal sealed partial class AgentTabViewModel
     public bool HasBackgroundWork => Transcript.HasBackgroundWork;
     public string BackgroundWorkCount => Transcript.BackgroundWorkCount;
     public string LiveStatus => Transcript.LiveStatus;
-    public string LiveWorkTime => _controller?.LiveWorkTime ?? "";
+    public Icon LiveStatusIcon => Transcript.LiveStatusIcon;
     public bool IsCompacting => Transcript.IsCompacting;
-    public AgentTimelineDividerItem? ActiveCompaction => Transcript.ActiveCompaction;
+    public bool ShowLiveStatus => IsRunning || IsCompacting;
+    public bool ShowStandaloneLiveStatus => ShowLiveStatus && !_workSections.Values.Any(section => section.Header.IsRunning);
     public bool CanActOnMessages => CanManage && _controller?.CanConfigure == true;
     public AgentPermissionItem? ActivePermission => _controller?.ActivePermission;
     public int ActivePermissionIndex => _controller?.ActivePermissionIndex ?? 0;
@@ -84,7 +88,8 @@ internal sealed partial class AgentTabViewModel
 
     private Task ChangeConversationAsync(AgentMessageItem item, bool includeTurn)
     {
-        if (!CanActOnMessages || item.TurnId is not Guid turnId || !_timeline.Contains(item)
+        if (!CanActOnMessages || item is AgentAssistantItem { IsFinalTurnResponse: false }
+            || item.TurnId is not Guid turnId || !_timeline.Contains(item)
             || _controller is not { } controller || _selectedThread is not { } source)
             return Task.CompletedTask;
         return ManageAsync(async ct =>
@@ -107,7 +112,7 @@ internal sealed partial class AgentTabViewModel
 
     public Task RetryMessageAsync(AgentAssistantItem item)
     {
-        if (!CanActOnMessages || item.TurnId is not Guid turnId || !_timeline.Contains(item)
+        if (!CanActOnMessages || !item.IsFinalTurnResponse || item.TurnId is not Guid turnId || !_timeline.Contains(item)
             || _controller is not { } controller || _selectedThread is not { } source || SelectedProvider is not { } provider
             || _timeline.OfType<AgentUserItem>().FirstOrDefault(user => user.TurnId == turnId) is not { } user)
             return Task.CompletedTask;
@@ -134,14 +139,18 @@ internal sealed partial class AgentTabViewModel
     {
         if (_controller is not null)
         {
+            _sessions.DetachViewer(_controller.ThreadId);
             _controller.PropertyChanged -= OnControllerChanged;
             _controller.Transcript.PropertyChanged -= OnTranscriptChanged;
+            _controller.Transcript.TurnLayoutChanged -= SyncDisplayTimeline;
             ((INotifyCollectionChanged)_controller.Timeline).CollectionChanged -= OnTimelineChanged;
         }
         _controller = controller;
         _timeline.Clear();
+        _workSections.Clear();
         if (controller is not null)
         {
+            _sessions.AttachViewer(controller.ThreadId);
             foreach (var item in controller.Timeline)
             {
                 _timeline.Add(item is AgentQuestionItem { TurnId: { } turnId } question
@@ -149,8 +158,10 @@ internal sealed partial class AgentTabViewModel
             }
             ((INotifyCollectionChanged)controller.Timeline).CollectionChanged += OnTimelineChanged;
             controller.Transcript.PropertyChanged += OnTranscriptChanged;
+            controller.Transcript.TurnLayoutChanged += SyncDisplayTimeline;
             controller.PropertyChanged += OnControllerChanged;
         }
+        SyncDisplayTimeline();
         Notify(nameof(BackgroundCommands));
         Notify(nameof(Subagents));
         OnTranscriptChanged(null, new PropertyChangedEventArgs(null));
@@ -179,7 +190,9 @@ internal sealed partial class AgentTabViewModel
         else if (e.Action == NotifyCollectionChangedAction.Reset)
         {
             _timeline.Clear();
+            _workSections.Clear();
         }
+        SyncDisplayTimeline();
         Notify(nameof(ShowEmptyState));
         UpdateRevertButtons();
     }
@@ -188,16 +201,63 @@ internal sealed partial class AgentTabViewModel
     {
         AgentHistoryRecordItem history => new AgentHistoryItem(history.Entry, RevertTurnAsync),
         AgentModelChangeItem change => BindModelChange(change.Entry),
+        AgentProviderChangeItem change => new AgentTimelineDividerItem(change.TurnId,
+            string.Format(CultureInfo.CurrentCulture, AgentStrings.ProviderChangeNotice,
+                ProviderDisplayName(change.Entry.PreviousProviderId), ProviderDisplayName(change.Entry.ProviderId)), Icon.ArrowSwap),
         _ => item
     };
 
+    private void SyncDisplayTimeline()
+    {
+        var display = new List<AgentTimelineItemViewModel>();
+        var work = new Dictionary<Guid, List<AgentTimelineItemViewModel>>();
+        foreach (var item in _timeline)
+        {
+            if (item is AgentTurnStatsItem header && item.TurnId is { } id)
+            {
+                if (!_workSections.TryGetValue(id, out var section))
+                    _workSections.Add(id, section = new AgentTurnWorkItem(header));
+                work.Add(id, []);
+                display.Add(section);
+            }
+            else if (item is not AgentAssistantItem { IsFinalTurnResponse: true }
+                && item.TurnId is { } turnId && work.TryGetValue(turnId, out var entries))
+            {
+                entries.Add(item);
+            }
+            else
+            {
+                display.Add(item);
+            }
+        }
+
+        foreach (var (id, entries) in work)
+            SyncItems(_workSections[id].Entries, entries);
+        display.RemoveAll(item => item is AgentTurnWorkItem { Header.IsRunning: false, Entries.Count: 0 });
+        SyncItems(DisplayTimeline, display);
+        Notify(nameof(ShowStandaloneLiveStatus));
+    }
+
+    private static void SyncItems(ObservableCollection<AgentTimelineItemViewModel> current, List<AgentTimelineItemViewModel> updated)
+    {
+        int sharedStart = 0;
+        while (sharedStart < current.Count && sharedStart < updated.Count && current[sharedStart] == updated[sharedStart])
+            sharedStart++;
+        int oldEnd = current.Count;
+        int newEnd = updated.Count;
+        while (oldEnd > sharedStart && newEnd > sharedStart && current[oldEnd - 1] == updated[newEnd - 1])
+        {
+            oldEnd--;
+            newEnd--;
+        }
+        for (int i = oldEnd - 1; i >= sharedStart; i--)
+            current.RemoveAt(i);
+        for (int i = sharedStart; i < newEnd; i++)
+            current.Insert(i, updated[i]);
+    }
+
     private void OnControllerChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(AgentThreadController.LiveWorkTime))
-        {
-            Notify(nameof(LiveWorkTime));
-            return;
-        }
         if (e.PropertyName == nameof(AgentThreadController.Error))
         {
             Notify(nameof(Error));
@@ -209,7 +269,8 @@ internal sealed partial class AgentTabViewModel
             return;
         }
         Notify(nameof(Error));
-        Notify(nameof(LiveWorkTime));
+        Notify(nameof(ShowLiveStatus));
+        Notify(nameof(ShowStandaloneLiveStatus));
         Notify(nameof(ActivePermission));
         Notify(nameof(PendingPermissions));
         Notify(nameof(HasActivePermission));
@@ -227,16 +288,28 @@ internal sealed partial class AgentTabViewModel
 
     private void OnTranscriptChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName is { } name)
+        if (e.PropertyName == nameof(AgentThreadTimeline.ContextUsage))
+            NotifyContextMeter();
+        else if (e.PropertyName is { } name)
+        {
             Notify(name);
+            if (name == nameof(IsCompacting))
+            {
+                Notify(nameof(ShowLiveStatus));
+                Notify(nameof(ShowStandaloneLiveStatus));
+            }
+        }
         else
         {
             Notify(nameof(HasSubagents));
             Notify(nameof(HasBackgroundWork));
             Notify(nameof(BackgroundWorkCount));
             Notify(nameof(LiveStatus));
+            Notify(nameof(LiveStatusIcon));
             Notify(nameof(IsCompacting));
-            Notify(nameof(ActiveCompaction));
+            Notify(nameof(ShowLiveStatus));
+            Notify(nameof(ShowStandaloneLiveStatus));
+            NotifyContextMeter();
         }
     }
 

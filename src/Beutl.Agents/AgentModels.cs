@@ -11,7 +11,8 @@ public sealed record AgentModelDescriptor(
     string? DefaultReasoningEffort = null,
     bool IsSecondary = false,
     bool IsProviderDefault = false,
-    string? ResolvedModelId = null);
+    string? ResolvedModelId = null,
+    long? ContextWindowTokens = null);
 
 public sealed record AgentModelListRequest(
     string ProviderId,
@@ -36,9 +37,9 @@ public static class AgentModelCatalog
     ];
     private static readonly AgentModelDescriptor[] s_claudeModels =
     [
-        new("opus", "Claude Opus", "Opus", "claude", s_claudeEfforts),
-        new("sonnet", "Claude Sonnet", "Sonnet", "claude", ["low", "medium", "high"]),
-        new("haiku", "Claude Haiku", "Haiku", "claude", [])
+        new("opus", "Claude Opus", "Opus", "claude", s_claudeEfforts, ContextWindowTokens: 200_000),
+        new("sonnet", "Claude Sonnet", "Sonnet", "claude", ["low", "medium", "high"], ContextWindowTokens: 200_000),
+        new("haiku", "Claude Haiku", "Haiku", "claude", [], ContextWindowTokens: 200_000)
     ];
 
     public static IReadOnlyList<AgentModelDescriptor> GetFallback(AgentProviderDescriptor provider)

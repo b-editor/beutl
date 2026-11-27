@@ -20,7 +20,11 @@ internal sealed partial class AgentTabViewModel
             return GetMentionSuggestions(token.Prefix);
 
         var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        return _host.BundledSkills.Concat(_providerSuggestions)
+        AgentComposerSuggestion[] builtIn = token.Trigger == '/'
+            ? [new("compact", AgentStrings.CompactContext, AgentComposerSuggestionKind.Command),
+                new("clear", AgentStrings.ClearContext, AgentComposerSuggestionKind.Command)]
+            : [];
+        return builtIn.Concat(_host.BundledSkills).Concat(_providerSuggestions)
             .Where(suggestion => !string.IsNullOrWhiteSpace(suggestion.Name)
                 && (token.Trigger == '/' || suggestion.Kind == AgentComposerSuggestionKind.Skill))
             .Select(suggestion => (Suggestion: suggestion, Name: NormalizeSuggestionName(suggestion.Name)))

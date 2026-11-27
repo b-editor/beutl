@@ -13,6 +13,8 @@ internal sealed partial class AgentThreadTimeline : AgentBindable
     private readonly Dictionary<(Guid? TurnId, string ToolCallId), AgentToolItem> _tools = new();
     private readonly Dictionary<(Guid? TurnId, string ToolCallId), List<AgentToolItem>> _waitingTools = new();
     private readonly Dictionary<Guid, AgentPlanItem> _plans = new();
+    private readonly Dictionary<Guid, AgentTurnStatsItem> _turnHeaders = new();
+    private readonly Dictionary<Guid, AgentAssistantItem> _replyCandidates = new();
     private readonly Func<AgentToolItem, Task>? _stopWork;
     private Guid? _stopWorkTurn;
 
@@ -23,6 +25,13 @@ internal sealed partial class AgentThreadTimeline : AgentBindable
     }
 
     public ReadOnlyObservableCollection<AgentTimelineItemViewModel> Items { get; }
+    public event Action? TurnLayoutChanged;
+    public AgentContextUsage? ContextUsage { get; private set => Set(ref field, value); }
+
+    public void ResetContextUsage(bool keepWindow = true)
+    {
+        ContextUsage = new AgentContextUsage(0, keepWindow ? ContextUsage?.ContextWindowTokens : null, 0, 0, 0);
+    }
 
     public void AddInteraction(AgentInteractionItem item) => _timeline.Add(item);
 
@@ -41,12 +50,35 @@ internal sealed partial class AgentThreadTimeline : AgentBindable
     public void Restore(IReadOnlyList<AgentTimelineEvent> entries)
     {
         Clear();
+        var permissions = new Dictionary<string, AgentPermissionRequest>(StringComparer.Ordinal);
         foreach (var entry in entries)
         {
-            if (entry is AgentUserQuestionResolved { TurnId: { } turnId } question)
-                _timeline.Add(new AgentQuestionItem(turnId, question.Answered));
-            else
-                ApplyEntry(entry);
+            switch (entry)
+            {
+                case AgentPermissionRequested permission:
+                    permissions[permission.Request.RequestId] = permission.Request;
+                    ClearReplyCandidate(permission);
+                    break;
+                case AgentPermissionResolved resolution:
+                    if (permissions.Remove(resolution.RequestId, out var request) && resolution.WasPresented != false)
+                    {
+                        var item = new AgentPermissionItem(request);
+                        item.Respond(resolution.Decision);
+                        _timeline.Add(item);
+                    }
+                    break;
+                case AgentUserQuestionResolved { TurnId: { } turnId } question:
+                    _timeline.Add(new AgentQuestionItem(turnId, question.Answered));
+                    break;
+                default:
+                    ApplyEntry(entry);
+                    break;
+            }
+        }
+        if (_activityTurn is { } unfinished && entries.LastOrDefault(entry => entry.TurnId == unfinished) is { } last)
+        {
+            ClearReplyCandidate(last);
+            FinishActivity(last);
         }
     }
 
@@ -62,6 +94,9 @@ internal sealed partial class AgentThreadTimeline : AgentBindable
         _waitingTools.Clear();
         _messages.Clear();
         _plans.Clear();
+        _turnHeaders.Clear();
+        _replyCandidates.Clear();
+        ContextUsage = null;
         _timeline.Clear();
     }
 
@@ -78,20 +113,31 @@ internal sealed partial class AgentThreadTimeline : AgentBindable
                 ResetBackgroundWork(user.TurnId);
                 StartActivity(user);
                 _timeline.Add(new AgentUserItem(user));
+                if (user.TurnId is { } turnId && !_turnHeaders.ContainsKey(turnId))
+                {
+                    var header = new AgentTurnStatsItem(turnId, _activityStartedAt);
+                    _turnHeaders.Add(turnId, header);
+                    _timeline.Add(header);
+                }
                 break;
             case AgentAssistantTextDelta text:
                 RecordResponse(text, text.ParentToolCallId);
                 var streaming = GetAssistantItem(text, text.ParentToolCallId, text.MessageId, out var streamParent);
                 streaming.Append(text.Text);
+                RecordReplyCandidate(text, streaming, streamParent);
                 streamParent?.UpdateScopedActivity(text.Text);
                 break;
             case AgentAssistantMessageCompleted message:
                 RecordResponse(message, message.ParentToolCallId);
-                GetAssistantItem(message, message.ParentToolCallId, message.MessageId, out var messageParent).Complete(message.Text);
+                var reply = GetAssistantItem(message, message.ParentToolCallId, message.MessageId, out var messageParent);
+                reply.Complete(message.Text);
+                RecordReplyCandidate(message, reply, messageParent);
                 messageParent?.UpdateScopedActivity(message.Text);
                 break;
             case AgentReasoningDelta reasoning:
                 var reasoningParent = GetScope(reasoning, reasoning.ParentToolCallId);
+                if (reasoningParent is null)
+                    ClearReplyCandidate(reasoning);
                 RecordReasoning(reasoning, reasoningParent);
                 if (reasoningParent is not null)
                 {
@@ -119,6 +165,12 @@ internal sealed partial class AgentThreadTimeline : AgentBindable
             case AgentTurnPhaseChanged phase:
                 ChangePhase(phase, phase.Phase, phase.ToolName);
                 break;
+            case AgentPermissionRequested or AgentUserQuestionRequested:
+                ClearReplyCandidate(entry);
+                break;
+            case AgentContextUsageUpdated usage:
+                ContextUsage = usage.Usage;
+                break;
             case AgentContextCompacted compacted:
                 ChangePhase(compacted, AgentTurnPhase.Thinking);
                 _timeline.Add(new AgentTimelineDividerItem(compacted.TurnId, AgentStrings.ContextCompacted, Icon.ArrowMinimize));
@@ -126,38 +178,63 @@ internal sealed partial class AgentThreadTimeline : AgentBindable
             case AgentThreadModelChanged changed:
                 _timeline.Add(new AgentModelChangeItem(changed));
                 break;
+            case AgentThreadProviderChanged changed:
+                ResetContextUsage(keepWindow: false);
+                _timeline.Add(new AgentProviderChangeItem(changed));
+                break;
+            case AgentContextCleared cleared:
+                ResetContextUsage();
+                _timeline.Add(new AgentTimelineDividerItem(cleared.TurnId, AgentStrings.ContextCleared, Icon.ArrowReset));
+                break;
+            case AgentCompactionStarted started:
+                StartActivity(started);
+                ChangePhase(started, AgentTurnPhase.Compacting);
+                break;
+            case AgentCompactionCompleted compacted:
+                FinishActivity(compacted);
+                if (compacted.Succeeded)
+                {
+                    if (compacted.UsedHandoff)
+                        ResetContextUsage();
+                    else
+                        ContextUsage = compacted.ContextUsage ?? new AgentContextUsage(ContextWindowTokens: ContextUsage?.ContextWindowTokens);
+                    _timeline.Add(new AgentTimelineDividerItem(compacted.TurnId, AgentStrings.ContextCompacted, Icon.ArrowMinimize));
+                }
+                break;
             case AgentPlanUpdated plan:
                 if (plan.TurnId is Guid id && _plans.TryGetValue(id, out var existing))
                     existing.Entry = plan;
                 else
                 {
                     var item = new AgentPlanItem(plan);
-                    if (plan.TurnId is Guid turnId)
-                        _plans.Add(turnId, item);
+                    if (plan.TurnId is Guid planTurnId)
+                        _plans.Add(planTurnId, item);
                     _timeline.Add(item);
                 }
                 break;
             case AgentTurnHistoryRecorded { TransactionCount: > 0 } history:
-                int index = _timeline.Count;
-                if (_timeline.LastOrDefault() is AgentTurnStatsItem stats && stats.TurnId == history.TurnId)
-                    index--;
-                _timeline.Insert(index, new AgentHistoryRecordItem(history));
+                _timeline.Add(new AgentHistoryRecordItem(history));
                 break;
             case AgentErrorNotice notice:
                 AddNotice(notice.TurnId, notice.Message, FAInfoBarSeverity.Warning);
                 break;
             case AgentTurnCompleted turnCompleted:
                 FinishActivity(turnCompleted);
-                if (turnCompleted is { DurationMs: not null } or { InputTokens: not null } or { OutputTokens: not null }
-                    or { CachedInputTokens: not null })
-                    _timeline.Add(new AgentTurnStatsItem(turnCompleted));
+                if (turnCompleted.ContextUsage is { } contextUsage)
+                    ContextUsage = contextUsage;
+                if (turnCompleted.TurnId is { } completedId && _replyCandidates.Remove(completedId, out var assistant)
+                    && !string.IsNullOrWhiteSpace(assistant.Text))
+                    assistant.MarkFinal();
+                TurnLayoutChanged?.Invoke();
                 break;
             case AgentTurnFailed failed:
+                ClearReplyCandidate(failed);
                 FinishActivity(failed);
                 FinishTools(failed.TurnId, AgentToolStatus.Failed);
                 AddNotice(failed.TurnId, failed.Error, FAInfoBarSeverity.Error);
                 break;
             case AgentTurnCancelled cancelled:
+                ClearReplyCandidate(cancelled);
                 FinishActivity(cancelled);
                 FinishTools(cancelled.TurnId, AgentToolStatus.Cancelled);
                 AddNotice(cancelled.TurnId, AgentStrings.TurnStopped, FAInfoBarSeverity.Informational);
@@ -165,14 +242,26 @@ internal sealed partial class AgentThreadTimeline : AgentBindable
         }
     }
 
+    private void RecordReplyCandidate(AgentTimelineEvent entry, AgentAssistantItem message, AgentToolItem? parent)
+    {
+        if (parent is null && entry.TurnId is { } turnId && !string.IsNullOrWhiteSpace(message.Text))
+            _replyCandidates[turnId] = message;
+    }
+
+    private void ClearReplyCandidate(AgentTimelineEvent entry)
+    {
+        if (entry.TurnId is { } turnId)
+            _replyCandidates.Remove(turnId);
+    }
+
     private AgentAssistantItem GetAssistantItem(AgentTimelineEvent entry, string? parentId, string? messageId, out AgentToolItem? parent)
     {
         parent = GetScope(entry, parentId);
         var key = (entry.TurnId, parentId, messageId);
-        if (!_messages.TryGetValue(key, out var item))
+        if (!_messages.TryGetValue(key, out var item) || (messageId is null && item.ReceivedCompletion))
         {
             item = new AgentAssistantItem(entry.TurnId, entry.Timestamp);
-            _messages.Add(key, item);
+            _messages[key] = item;
             (parent?.Children ?? _timeline).Add(item);
             if (parent is not null)
                 TrackBackgroundWork(parent);
@@ -259,6 +348,9 @@ internal sealed partial class AgentThreadTimeline : AgentBindable
     private void FinishTools(Guid? turnId, AgentToolStatus status)
     {
         foreach (var tool in _tools.Values.Where(tool => tool.TurnId == turnId))
+        {
             tool.FinishIfRunning(status);
+            UpdateGrouping(tool);
+        }
     }
 }
