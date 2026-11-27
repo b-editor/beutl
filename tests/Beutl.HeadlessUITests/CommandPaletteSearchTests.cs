@@ -44,9 +44,12 @@ public class CommandPaletteSearchTests
                 window.KeyTextInput(search);
                 await CommandPaletteTestHost.UntilAsync(() => palette.FilteredCommands.Count < unfilteredCount);
 
-                Assert.That(palette.FilteredCommands.Select(item => item.Command.Id), Does.Contain(commandId));
+                CommandPaletteItemViewModel match = palette.FilteredCommands.Single(item => item.Command.Id == commandId);
                 ListBox results = view.FindControl<ListBox>("ResultsListBox")!;
-                Assert.That(results.GetVisualDescendants().OfType<TextBlock>().Select(text => text.Text), Does.Contain(japaneseName));
+                results.ScrollIntoView(match);
+                await CommandPaletteTestHost.UntilAsync(() => results.ContainerFromItem(match) is not null);
+                Control row = results.ContainerFromItem(match)!;
+                Assert.That(row.GetVisualDescendants().OfType<TextBlock>().Select(text => text.Text), Does.Contain(japaneseName));
                 HeadlessCapture.SaveIfRequested(window, nameof(CommandPaletteSearchTests), search);
             }
             finally
