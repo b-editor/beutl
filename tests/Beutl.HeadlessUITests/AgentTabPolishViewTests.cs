@@ -418,15 +418,37 @@ public sealed class AgentTabPolishViewTests
             await viewModel.SendAsync();
             Assert.That(workspace.Bridge.OpenedSession?.Model, Is.EqualTo(Sol));
             Assert.That(workspace.Bridge.OpenedSession?.ReasoningEffort, Is.EqualTo("max"));
-            window.Width = 300;
+            window.Width = 500;
             HeadlessTestHelpers.Render(4);
             var composerPermission = composer.FindControl<AgentPermissionModePicker>("PermissionPicker")!;
             var composerPermissionCombo = composerPermission.FindControl<ComboBox>("PermissionComboBox")!;
+            Assert.That(composerPermission.IsCompact, Is.False);
+            var wideIcon = composerPermissionCombo.GetVisualDescendants().OfType<FluentIcons.Avalonia.Fluent.FluentIcon>().Single();
+            Point wideOrigin = wideIcon.TranslatePoint(default, composerPermission)!.Value;
+            double wideCenterY = wideOrigin.Y + (wideIcon.Bounds.Height / 2);
+            Capture(view, window, "dark-docked-wide");
+
+            window.Width = 300;
+            HeadlessTestHelpers.Render(4);
             Assert.That(composerPermission.IsCompact, Is.True);
             Assert.That(composerPermissionCombo.GetVisualDescendants().OfType<Control>()
                 .Single(control => control.Name == "DropDownGlyph").IsEffectivelyVisible, Is.False);
             Assert.That(composerPermissionCombo.GetVisualDescendants().OfType<TextBlock>()
                 .Single(text => text.Classes.Contains("agent-permission-label")).IsEffectivelyVisible, Is.False);
+            var compactIcon = composerPermissionCombo.GetVisualDescendants().OfType<FluentIcons.Avalonia.Fluent.FluentIcon>().Single();
+            Point compactOrigin = compactIcon.TranslatePoint(default, composerPermission)!.Value;
+            double compactCenterY = compactOrigin.Y + (compactIcon.Bounds.Height / 2);
+            double compactCenterX = compactOrigin.X + (compactIcon.Bounds.Width / 2);
+            Assert.That(Math.Abs(compactOrigin.X - wideOrigin.X), Is.LessThanOrEqualTo(0.1),
+                $"Compact icon X ({compactOrigin.X:0.##}) drifted from wide icon X ({wideOrigin.X:0.##}).");
+            Assert.That(Math.Abs(compactOrigin.Y - wideOrigin.Y), Is.LessThanOrEqualTo(0.1),
+                $"Compact icon Y ({compactOrigin.Y:0.##}) drifted from wide icon Y ({wideOrigin.Y:0.##}).");
+            Assert.That(Math.Abs(compactCenterY - wideCenterY), Is.LessThanOrEqualTo(0.1),
+                $"Compact icon center Y ({compactCenterY:0.##}) drifted from wide icon center Y ({wideCenterY:0.##}).");
+            Assert.That(Math.Abs(compactCenterX - (composerPermissionCombo.Bounds.Width / 2)), Is.LessThanOrEqualTo(0.1),
+                $"Compact icon center X ({compactCenterX:0.##}) is not centered inside button width ({composerPermissionCombo.Bounds.Width:0.##}).");
+            Assert.That(Math.Abs(compactCenterY - (composerPermissionCombo.Bounds.Height / 2)), Is.LessThanOrEqualTo(0.1),
+                $"Compact icon center Y ({compactCenterY:0.##}) is not centered inside button height ({composerPermissionCombo.Bounds.Height:0.##}).");
             Capture(view, window, "dark-docked-narrow");
             Click(trigger);
             Assert.That(picker.Bounds.Width, Is.LessThanOrEqualTo(composer.Bounds.Width));

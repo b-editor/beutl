@@ -6,6 +6,11 @@
              xmlns:vm="using:Beutl.Editor.Components.AgentTab.ViewModels"
              x:DataType="vm:AgentTabViewModel">
     <UserControl.Styles>
+        <Style Selector="ComboBox">
+            <Setter Property="MinWidth" Value="0" />
+            <Setter Property="Padding" Value="5,0,0,0" />
+            <Setter Property="HorizontalContentAlignment" Value="Left" />
+        </Style>
         <Style Selector="ComboBox:disabled">
             <Setter Property="Opacity" Value="0.6" />
         </Style>
@@ -13,10 +18,13 @@
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="BorderBrush" Value="Transparent" />
         </Style>
+        <Style Selector="ComboBox /template/ ContentPresenter#ContentPresenter">
+            <Setter Property="VerticalAlignment" Value="Stretch" />
+            <Setter Property="VerticalContentAlignment" Value="Stretch" />
+        </Style>
         <Style Selector="ComboBox.compact">
             <Setter Property="MinWidth" Value="26" />
             <Setter Property="Width" Value="26" />
-            <Setter Property="Height" Value="28" />
             <Setter Property="Padding" Value="0" />
             <Setter Property="HorizontalContentAlignment" Value="Center" />
         </Style>
@@ -26,7 +34,10 @@
         <Style Selector="ComboBox.compact /template/ ContentPresenter#ContentPresenter">
             <Setter Property="Grid.ColumnSpan" Value="2" />
             <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="VerticalAlignment" Value="Stretch" />
+            <Setter Property="VerticalContentAlignment" Value="Stretch" />
             <Setter Property="Margin" Value="0" />
+            <Setter Property="Padding" Value="0" />
         </Style>
         <Style Selector="ComboBox.compact /template/ :is(Control)#DropDownGlyph">
             <Setter Property="IsVisible" Value="False" />
@@ -40,19 +51,18 @@
               Theme="{StaticResource LiteComboBoxStyle}"
               ItemsSource="{Binding PermissionModes}"
               IsEnabled="{Binding CanConfigure}"
-              MinWidth="0"
               MinHeight="28"
               Height="28"
-              Padding="5,0,0,0"
               VerticalAlignment="Center"
-              VerticalContentAlignment="Center"
+              VerticalContentAlignment="Stretch"
               SelectionChanged="OnSelectionChanged"
               ToolTip.Tip="{Binding PermissionModeTooltip}"
               AutomationProperties.Name="{x:Static lang:AgentStrings.PermissionMode}">
         <ComboBox.ItemTemplate>
             <DataTemplate x:DataType="vm:AgentPermissionChoiceItem">
-                <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
-                    <icons:FluentIcon Icon="{Binding Icon}" FontSize="15" VerticalAlignment="Center"
+                <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Stretch">
+                    <icons:FluentIcon Icon="{Binding Icon}" FontSize="15" Width="16" Height="16"
+                                      HorizontalAlignment="Center" VerticalAlignment="Center"
                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
                     <TextBlock Classes="agent-permission-label" Text="{Binding Label}" TextTrimming="CharacterEllipsis"
                                VerticalAlignment="Center" />
