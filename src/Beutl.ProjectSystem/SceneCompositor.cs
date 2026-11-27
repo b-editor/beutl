@@ -291,6 +291,8 @@ public sealed partial class SceneCompositor : ICompositor
         return frame;
     }
 
+    internal int AudioEligibilityVersion => Volatile.Read(ref _audioEligibilityVersion);
+
     public CompositionFrame EvaluateAudio(TimeRange timeRange) => EvaluateAudio(timeRange, null);
 
     internal CompositionFrame EvaluateAudio(TimeRange timeRange, CompositionContext? conditions)
@@ -356,7 +358,7 @@ public sealed partial class SceneCompositor : ICompositor
 
     private AudioEligibilitySnapshot GetAudioEligibility()
     {
-        int version = Volatile.Read(ref _audioEligibilityVersion);
+        int version = AudioEligibilityVersion;
         if (_audioEligibility is { } cached && cached.Version == version) return cached;
 
         SceneLayerSnapshot layers = GetLayerSnapshot();

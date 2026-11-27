@@ -92,7 +92,7 @@ public sealed partial class MixerNode : AudioNode
         foreach (AudioNode input in Inputs)
         {
             int branchLatency = GetBranchDrainLatencySamples(input, sampleRate);
-            if (_branchDelays?.TryGetValue(input, out BranchDelay? delay) == true)
+            if (_branchDelays?.TryGetValue(input, out AudioDelayLine? delay) == true)
             {
                 int compensation = branchLatency > 0 ? delay.DelaySamples : delay.PendingSamples;
                 branchLatency = AudioLatency.SaturatingAdd(branchLatency,
@@ -194,7 +194,7 @@ public sealed partial class MixerNode : AudioNode
                 for (int i = 0; i < buffers.Length; i++)
                 {
                     var inBuffer = buffers[i];
-                    BranchDelay? delay = alignment.IsEmpty ? null : GetBranchDelay(
+                    AudioDelayLine? delay = alignment.IsEmpty ? null : GetBranchDelay(
                         Inputs[i], alignment[i].DelaySamples, output, inBuffer != null);
                     if (inBuffer == null && delay is not { PendingSamples: > 0 })
                         continue;

@@ -18,28 +18,25 @@ public partial class Composer
         AudioNode[] outputNodes,
         AudioProcessContext context,
         int sampleCount,
-        List<AudioBuffer> buffers)
+        List<MixInput> buffers)
     {
         foreach (AudioNode outputNode in outputNodes)
         {
             int outputLatency = GetOutputLatency(entry, outputNode, SampleRate);
-            if (outputLatency <= 0)
-                continue;
-
-            buffers.Add(FlushTail(outputNode, context, outputLatency, sampleCount, out int drainedSamples));
-            SetTailBudget(entry, outputNode, outputLatency, drainedSamples);
+            AudioDelayLine? delay = null;
+            entry.Delays?.TryGetValue(outputNode, out delay);
+            if (outputLatency > 0)
+            {
+                int drainedSamples = Math.Min(outputLatency, sampleCount);
+                AudioBuffer tail = AudioLatency.FlushIntoWindow(outputNode, context, drainedSamples, sampleCount);
+                buffers.Add(new MixInput(tail, delay, sampleCount - drainedSamples));
+                SetTailBudget(entry, outputNode, outputLatency, drainedSamples);
+            }
+            else if (delay is { PendingSamples: > 0 })
+            {
+                buffers.Add(new MixInput(null, delay, 0));
+            }
         }
-    }
-
-    private AudioBuffer FlushTail(
-        AudioNode outputNode,
-        AudioProcessContext context,
-        int outputLatency,
-        int sampleCount,
-        out int drainedSamples)
-    {
-        drainedSamples = Math.Min(outputLatency, sampleCount);
-        return AudioLatency.FlushIntoWindow(outputNode, context, drainedSamples, sampleCount);
     }
 
     private void RecordInlineDrainBudget(AudioNodeEntry entry, AudioNode[] outputNodes)
@@ -219,7 +216,8 @@ public partial class Composer
         int latency = 0;
         foreach (AudioNode outputNode in outputNodes)
         {
-            latency = Math.Max(latency, GetOutputLatency(entry, outputNode, sampleRate));
+            int nodeLatency = GetOutputLatency(entry, outputNode, sampleRate);
+            latency = Math.Max(latency, IncludeOutputDelay(entry, outputNode, nodeLatency, sampleRate));
         }
 
         return latency;

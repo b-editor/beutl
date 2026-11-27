@@ -4,7 +4,7 @@ namespace Beutl.Audio.Graph.Nodes;
 
 public sealed partial class MixerNode
 {
-    private Dictionary<AudioNode, BranchDelay>? _branchDelays;
+    private Dictionary<AudioNode, AudioDelayLine>? _branchDelays;
     private int _delayTargetLatency;
     private MediaTime? _lastDelayRangeEnd;
 
@@ -34,7 +34,7 @@ public sealed partial class MixerNode
     }
 
     internal int GetBranchCompensationSamples(AudioNode input, int sampleRate)
-        => _branchDelays?.TryGetValue(input, out BranchDelay? delay) == true
+        => _branchDelays?.TryGetValue(input, out AudioDelayLine? delay) == true
             ? AudioLatency.ScaleSampleCount(delay.DelaySamples, delay.SampleRate, sampleRate)
             : 0;
 
@@ -58,9 +58,9 @@ public sealed partial class MixerNode
         return min < max ? max : 0;
     }
 
-    private BranchDelay? GetBranchDelay(AudioNode input, int delaySamples, AudioBuffer output, bool hasInput)
+    private AudioDelayLine? GetBranchDelay(AudioNode input, int delaySamples, AudioBuffer output, bool hasInput)
     {
-        if (_branchDelays?.TryGetValue(input, out BranchDelay? existing) == true)
+        if (_branchDelays?.TryGetValue(input, out AudioDelayLine? existing) == true)
         {
             if (existing.DelaySamples == delaySamples && existing.SampleRate == output.SampleRate
                 && existing.ChannelCount == output.ChannelCount)
@@ -74,40 +74,8 @@ public sealed partial class MixerNode
         if (delaySamples <= 0 || !hasInput || output.SampleCount == 0)
             return null;
 
-        var delay = new BranchDelay(output.SampleRate, output.ChannelCount, delaySamples);
+        var delay = new AudioDelayLine(output.SampleRate, output.ChannelCount, delaySamples);
         (_branchDelays ??= new(ReferenceEqualityComparer.Instance)).Add(input, delay);
         return delay;
-    }
-
-    private sealed class BranchDelay(int sampleRate, int channelCount, int delaySamples)
-    {
-        private readonly float[] _history = new float[checked(channelCount * delaySamples)];
-        private int _position;
-
-        public int SampleRate { get; } = sampleRate;
-        public int ChannelCount { get; } = channelCount;
-        public int DelaySamples { get; } = delaySamples;
-        public int PendingSamples { get; private set; }
-
-        public void MixChannel(int channel, ReadOnlySpan<float> input, Span<float> output, float gain)
-        {
-            Span<float> history = _history.AsSpan(channel * DelaySamples, DelaySamples);
-            int position = _position;
-            for (int i = 0; i < output.Length; i++)
-            {
-                output[i] += history[position] * gain;
-                history[position] = input.IsEmpty ? 0f : input[i];
-                if (++position == history.Length)
-                    position = 0;
-            }
-        }
-
-        public void Advance(int sampleCount, int trailingSilence)
-        {
-            _position = (int)(((long)_position + sampleCount) % DelaySamples);
-            PendingSamples = trailingSilence < sampleCount
-                ? Math.Max(0, DelaySamples - trailingSilence)
-                : Math.Max(0, PendingSamples - sampleCount);
-        }
     }
 }
