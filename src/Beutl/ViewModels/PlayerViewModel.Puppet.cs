@@ -111,6 +111,7 @@ public partial class PlayerViewModel : IPreviewPuppetPinEditor
         if (_isDisposing || cancellationToken.IsCancellationRequested) return true;
 
         StopPuppetPinPlacement();
+        EndEffectComparison();
         PointPick.Value?.Cancel();
         using var request = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         _puppetPlacement = request;

@@ -49,6 +49,7 @@ public partial class PlayerViewModel : IEffectComparisonSelection
         }
         else
         {
+            StopPuppetPinPlacement();
             SetEffectComparisonDivider(0.5);
             IsEffectComparisonActive.Value = true;
             BeginEffectComparisonSelection();

@@ -7,6 +7,7 @@ using Avalonia.Input;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
 using Beutl.Editor.Components.ElementPropertyTab.Views;
+using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.PropertyEditors;
 using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Editor.Components.PropertyEditors.Views;
@@ -132,6 +133,41 @@ public sealed class PlayerViewEffectComparisonTests
         group.Children.Remove(blur);
         HeadlessTestHelpers.Render();
         AssertEnded(view, player);
+    }
+
+    [AvaloniaTest]
+    public async Task Puppet_pin_placement_and_effect_comparison_replace_each_other()
+    {
+        using var host = await ComparisonHost.OpenAsync(capture: HeadlessCapture.IsRequested);
+        var (window, _, player, view, _, group, _) = host;
+        var puppet = new Puppet();
+        group.Children.Add(puppet);
+
+        player.ToggleEffectComparison();
+        Assert.That(((IEffectComparisonSelection)player).TryChooseComparisonEffect(puppet), Is.True);
+        await WaitForComparison(view);
+
+        using var cancel = new CancellationTokenSource();
+        var placement = ((IPreviewPuppetPinEditor)player).PlacePinsAsync(puppet, _ => false, cancel.Token);
+        try
+        {
+            await HeadlessTestHelpers.WaitUntilAsync(() => player.PointPick.Value is not null || placement.IsCompleted);
+            HeadlessTestHelpers.Render();
+            Assert.That(player.PointPick.Value, Is.Not.Null, "Puppet placement must have started.");
+            AssertEnded(view, player);
+            Capture(window, "04-puppet-placement");
+
+            player.ToggleEffectComparison();
+            Assert.That(player.IsSelectingEffectForComparison.Value, Is.True);
+            Assert.That(player.PuppetPlacementEffect.Value, Is.Null);
+            Assert.That(await placement.WaitAsync(TimeSpan.FromSeconds(10)), Is.True);
+            Assert.That(player.PointPick.Value, Is.Null);
+        }
+        finally
+        {
+            cancel.Cancel();
+            await placement.WaitAsync(TimeSpan.FromSeconds(10));
+        }
     }
 
     [AvaloniaTest]
