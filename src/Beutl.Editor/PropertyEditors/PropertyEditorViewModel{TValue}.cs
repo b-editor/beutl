@@ -8,6 +8,7 @@ using Beutl.Engine;
 using Beutl.Engine.Expressions;
 using Beutl.Extensibility;
 using Beutl.Language;
+using Beutl.ProjectSystem;
 using Beutl.PropertyAdapters;
 using Beutl.Reactive;
 using Reactive.Bindings;
@@ -476,6 +477,15 @@ public abstract class PropertyEditorViewModel<TValue> : PropertyEditorViewModel
         error = null;
         return true;
     }
+
+    internal override PropertyLinkExpressionWriter? CreateLinkExpressionWriter()
+        => PropertyAdapter is IExpressionPropertyAdapter<TValue> adapter
+            ? new PropertyLinkExpressionWriter<TValue>(
+                adapter,
+                GetService(typeof(Element)) as Element,
+                GetService(typeof(Scene)) as Scene,
+                GetService(typeof(HistoryManager)) as HistoryManager)
+            : null;
 
     private static bool TryParseExpression(
         IExpression<TValue>? current,

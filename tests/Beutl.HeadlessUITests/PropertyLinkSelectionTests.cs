@@ -18,6 +18,7 @@ using Beutl.Editor.PropertyEditors;
 using Beutl.Editor.Services;
 using Beutl.Graphics;
 using Beutl.Graphics.Shapes;
+using Beutl.Language;
 using Beutl.Media;
 using Beutl.ProjectSystem;
 using Beutl.Testing.Headless;
@@ -293,6 +294,130 @@ public sealed class PropertyLinkSelectionTests
         Assert.That(reopenedSource.Opacity.Expression?.ExpressionString, Is.EqualTo(expected));
     }
 
+    [AvaloniaTest]
+    public async Task A_property_links_to_a_property_of_another_element()
+    {
+        using CrossElementHost host = await CrossElementHost.OpenAsync();
+        var (window, editor, sourceElement, source, targetElement, target, _, view) = host;
+        int before = editor.HistoryManager.UndoCount;
+
+        PropertyEditor sourceRow = await ScrollToRowAsync(view, source.Opacity);
+        var sourceEditor = (PropertyEditorViewModel)sourceRow.DataContext!;
+        await StartLinkAsync(view, source.Opacity);
+
+        editor.GetRequiredService<IEditorSelection>().Select(targetElement);
+        HeadlessTestHelpers.Settle();
+        Assert.Multiple(() =>
+        {
+            Assert.That(Selection(editor).IsSelectingLinkTarget.Value, Is.True,
+                "Showing another element keeps the picking.");
+            Assert.That(sourceEditor.IsDisposed, Is.True, "The panel disposed the source editor.");
+            Assert.That(source.Opacity.Expression, Is.Null);
+        });
+
+        PropertyEditor targetRow = await ScrollToRowAsync(view, target.Opacity);
+        PropertyLinkSelectionOverlay overlay = OverlayOf(targetRow);
+        Assert.That(overlay.IsCandidate, Is.True, "A row of the other element can be the target.");
+        await HoverAsync(window, overlay);
+        Assert.That(overlay.IsHighlighted, Is.True);
+        Capture(window, "03-cross-element");
+
+        HeadlessTestHelpers.Click(targetRow);
+        HeadlessTestHelpers.Settle();
+
+        string expected = $"GetProperty<float>(\"{{{target.Id.Value}}}.Opacity\")";
+        Assert.Multiple(() =>
+        {
+            Assert.That(Selection(editor).IsSelectingLinkTarget.Value, Is.False);
+            Assert.That(source.Opacity.Expression?.ExpressionString, Is.EqualTo(expected));
+            Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(before + 1));
+        });
+
+        target.Opacity.Value = 41;
+        Assert.That(source.Opacity.Evaluate(new EvaluationContext(MediaTime.Zero)), Is.EqualTo(41f));
+
+        editor.HistoryManager.Undo();
+        HeadlessTestHelpers.Settle();
+        Assert.That(source.Opacity.Expression, Is.Null, "One undo removes the whole link.");
+    }
+
+    [AvaloniaTest]
+    public async Task The_prompt_stays_after_another_element_and_escape_cancels()
+    {
+        using CrossElementHost host = await CrossElementHost.OpenAsync();
+        var (window, editor, _, source, targetElement, _, _, view) = host;
+        int before = editor.HistoryManager.UndoCount;
+
+        await StartLinkAsync(view, source.Opacity);
+        editor.GetRequiredService<IEditorSelection>().Select(targetElement);
+        HeadlessTestHelpers.Settle();
+
+        Border prompt = view.FindControl<Border>("linkSelectionPrompt")!;
+        Assert.Multiple(() =>
+        {
+            Assert.That(Selection(editor).IsSelectingLinkTarget.Value, Is.True);
+            Assert.That(prompt.IsEffectivelyVisible, Is.True, "The prompt stays while another element is shown.");
+        });
+
+        PressEscape(window);
+        Assert.Multiple(() =>
+        {
+            Assert.That(Selection(editor).IsSelectingLinkTarget.Value, Is.False);
+            Assert.That(prompt.IsEffectivelyVisible, Is.False);
+            Assert.That(source.Opacity.Expression, Is.Null);
+            Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(before));
+        });
+    }
+
+    [AvaloniaTest]
+    public async Task Removing_the_source_element_cancels_the_picking()
+    {
+        using CrossElementHost host = await CrossElementHost.OpenAsync();
+        var (_, editor, sourceElement, source, _, _, _, view) = host;
+
+        await StartLinkAsync(view, source.Opacity);
+        Assert.That(Selection(editor).IsSelectingLinkTarget.Value, Is.True);
+
+        editor.Scene.Children.Remove(sourceElement);
+        HeadlessTestHelpers.Settle();
+        Assert.Multiple(() =>
+        {
+            Assert.That(Selection(editor).IsSelectingLinkTarget.Value, Is.False);
+            Assert.That(source.Opacity.Expression, Is.Null);
+        });
+    }
+
+    [AvaloniaTest]
+    public async Task A_failed_cross_element_link_reports_through_notifications()
+    {
+        using CrossElementHost host = await CrossElementHost.OpenAsync();
+        var (window, editor, sourceElement, source, targetElement, target, _, view) = host;
+        using var notifications = new NotificationCapture(TestShell.Notifications);
+        int before = editor.HistoryManager.UndoCount;
+
+        await StartLinkAsync(view, source.Opacity);
+        editor.GetRequiredService<IEditorSelection>().Select(targetElement);
+        HeadlessTestHelpers.Settle();
+        // The source row is gone, so its editing is refused and no menu of it can show why.
+        sourceElement.IsLocked.Value = true;
+        HeadlessTestHelpers.Settle();
+
+        PropertyEditor targetRow = await ScrollToRowAsync(view, target.Opacity);
+        HeadlessTestHelpers.Click(targetRow);
+        HeadlessTestHelpers.Settle();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(Selection(editor).IsSelectingLinkTarget.Value, Is.False);
+            Assert.That(source.Opacity.Expression, Is.Null);
+            Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(before));
+            Assert.That(
+                notifications.All.Where(notification => notification.Title == Strings.LinkToAnotherProperty)
+                    .Select(notification => notification.Message),
+                Has.Some.Not.Empty);
+        });
+    }
+
     // Opens the property panel of an element that holds the source and the target object, and picks through it.
     private sealed class LinkHost : IDisposable
     {
@@ -374,6 +499,110 @@ public sealed class PropertyLinkSelectionTests
             editor = Editor;
             element = Element;
             source = Source;
+            target = Target;
+            tab = Tab;
+            view = View;
+        }
+    }
+
+    // Two elements of the same scene, with the property panel following the selection as the editor's does.
+    private sealed class CrossElementHost : IDisposable
+    {
+        private readonly IDisposable _followSelection;
+
+        private CrossElementHost(
+            Project project, Window window, EditViewModel editor, Element sourceElement, RectShape source,
+            Element targetElement, RectShape target, ElementPropertyTabViewModel tab, ElementPropertyTabView view)
+        {
+            Project = project;
+            Window = window;
+            Editor = editor;
+            SourceElement = sourceElement;
+            Source = source;
+            TargetElement = targetElement;
+            Target = target;
+            Tab = tab;
+            View = view;
+            _followSelection = editor.GetRequiredService<IEditorSelection>().SelectedObject
+                .Subscribe(selected =>
+                {
+                    if (selected is Element element)
+                        tab.Element.Value = element;
+                });
+        }
+
+        public Project Project { get; }
+        public Window Window { get; }
+        public EditViewModel Editor { get; }
+        public Element SourceElement { get; }
+        public RectShape Source { get; }
+        public Element TargetElement { get; }
+        public RectShape Target { get; }
+        public ElementPropertyTabViewModel Tab { get; }
+        public ElementPropertyTabView View { get; }
+
+        public static async Task<CrossElementHost> OpenAsync()
+        {
+            (Project project, Scene scene, EditViewModel editor) =
+                await TestShell.OpenNewSceneAsync("property-link-cross", duration: MediaTime.FromSeconds(6));
+            ElementAddResult sourceResult = await TestShell.AddElementAsync(
+                editor, () => new RectShape { Opacity = { Value = 100 } },
+                MediaTime.Zero, MediaTime.FromSeconds(5), layer: 1);
+            ElementAddResult targetResult = await TestShell.AddElementAsync(
+                editor, () => new RectShape { Opacity = { Value = 25 } },
+                MediaTime.Zero, MediaTime.FromSeconds(5), layer: 2);
+            Element sourceElement = sourceResult.Elements.Single();
+            Element targetElement = targetResult.Elements.Single();
+            var source = (RectShape)sourceElement.Objects[0];
+            var target = (RectShape)targetElement.Objects[0];
+            editor.HistoryManager.Commit("test setup");
+            HeadlessTestHelpers.Settle();
+            editor.GetRequiredService<IEditorSelection>().Select(sourceElement);
+            HeadlessTestHelpers.Settle();
+
+            var tab = new ElementPropertyTabViewModel(editor);
+            tab.Element.Value = sourceElement;
+            var view = new ElementPropertyTabView { DataContext = tab };
+            var window = new Window
+            {
+                Content = view,
+                Width = 720,
+                Height = 860,
+                RequestedThemeVariant = ThemeVariant.Light
+            };
+            try
+            {
+                window.Show();
+                if (HeadlessCapture.IsRequested)
+                    window.SetRenderScaling(1.5);
+                HeadlessTestHelpers.Render(3);
+                return new(project, window, editor, sourceElement, source, targetElement, target, tab, view);
+            }
+            catch
+            {
+                window.Close();
+                tab.Dispose();
+                throw;
+            }
+        }
+
+        public void Dispose()
+        {
+            Window.Close();
+            _followSelection.Dispose();
+            Tab.Dispose();
+        }
+
+        public void Deconstruct(
+            out Window window, out EditViewModel editor, out Element sourceElement, out RectShape source,
+            out Element targetElement, out RectShape target, out ElementPropertyTabViewModel tab,
+            out ElementPropertyTabView view)
+        {
+            window = Window;
+            editor = Editor;
+            sourceElement = SourceElement;
+            source = Source;
+            targetElement = TargetElement;
             target = Target;
             tab = Tab;
             view = View;

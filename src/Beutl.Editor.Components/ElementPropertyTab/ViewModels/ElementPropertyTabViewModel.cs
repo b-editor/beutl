@@ -75,11 +75,7 @@ public sealed class ElementPropertyTabViewModel : IPinnableToolContext, IPropert
         DisplayedElement.Subscribe(OnDisplayedElementChanged).DisposeWith(_disposables);
 
         _selection = editorContext.GetService<IEditorSelection>();
-        // Another element has other properties, so it ends picking instead of retargeting this tab's rows.
         _linkSelection = editorContext.GetService<IPropertyLinkSelection>();
-        DisplayedElement.Skip(1)
-            .Subscribe(_ => _linkSelection?.CancelLinkSelection())
-            .DisposeWith(_disposables);
         if (_selection != null)
         {
             IObservable<Unit> selectionChanges = _selection.SelectedElements.CollectionChangedAsObservable()

@@ -74,7 +74,7 @@ public sealed partial class PropertyEditorMenu : UserControl
             if (model.GetService<IPropertyLinkSelection>() is { } linkSelection)
             {
                 _linkFailureSubscription = linkSelection.Failure
-                    .Where(failure => failure is not null && ReferenceEquals(failure.Source, model))
+                    .Where(failure => failure is not null && failure.Source.Matches(model))
                     .Subscribe(failure => ShowLinkFailure(model, failure!.Error));
                 model.Own(_linkFailureSubscription);
             }
@@ -414,7 +414,7 @@ public sealed partial class PropertyEditorMenu : UserControl
         }
 
         // Choosing the item of the property that is picking again ends the picking.
-        if (linkSelection.IsSelectingLinkTarget.Value && ReferenceEquals(linkSelection.Source, viewModel))
+        if (linkSelection.IsSelectingLinkTarget.Value && linkSelection.IsSource(viewModel))
             linkSelection.CancelLinkSelection();
         else
             linkSelection.BeginLinkSelection(viewModel);

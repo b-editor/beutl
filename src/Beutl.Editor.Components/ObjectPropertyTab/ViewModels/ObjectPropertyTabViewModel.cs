@@ -33,11 +33,6 @@ public sealed class ObjectPropertyTabViewModel : IPinnableToolContext, IProperty
         _linkSelection = editorContext.GetService<IPropertyLinkSelection>();
         _pin = new ToolTabPin(ChildContext.Select(child => child != null)).DisposeWith(_disposables);
 
-        // Another object has other properties, so it ends picking instead of retargeting this tab's rows.
-        ChildContext.Skip(1)
-            .Subscribe(_ => _linkSelection?.CancelLinkSelection())
-            .DisposeWith(_disposables);
-
         // Going back would change what a pinned tab shows.
         CanBack = _canBack
             .CombineLatest(_pin.IsPinned, (canBack, pinned) => canBack && !pinned)
