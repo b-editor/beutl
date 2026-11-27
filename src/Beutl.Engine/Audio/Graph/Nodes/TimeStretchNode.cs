@@ -27,6 +27,10 @@ public sealed partial class TimeStretchNode : AudioNode, IAudioTimeMappingNode
     public override int GetTotalLatencySamples(int sampleRate)
         => _mapping.GetTotalLatencySamples(sampleRate, GetMaxInputLatency(sampleRate, drain: false));
 
+    internal override bool HasFixedLatency(int sampleRate)
+        => base.HasFixedLatency(sampleRate)
+            && (!_mapping.ChangesOverTime || GetMaxInputLatency(sampleRate, drain: false) == 0);
+
     public override int GetDrainLatencySamples(int sampleRate)
         => _mapping.GetDrainLatencySamples(sampleRate, GetMaxInputLatency(sampleRate, drain: true));
 

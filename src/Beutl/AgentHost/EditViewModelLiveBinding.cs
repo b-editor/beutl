@@ -1,14 +1,27 @@
 ﻿using Avalonia.Threading;
 using Beutl.AgentToolkit.Sessions;
+using Beutl.AgentToolkit.Tools;
 using Beutl.Editor;
+using Beutl.Editor.Components.MissingMediaTab;
+using Beutl.Editor.Components.MissingMediaTab.ViewModels;
+using Beutl.Editor.Services;
+using Beutl.Editor.VersionControl;
+using Beutl.Extensibility;
+using Beutl.Language;
+using Beutl.Logging;
+using Beutl.Media;
 using Beutl.ProjectSystem;
 using Beutl.ViewModels;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace Beutl.AgentHost;
 
 public sealed class EditViewModelLiveBinding(EditViewModel editViewModel, AgentEditFollower? follower = null)
-    : ILiveSessionBinding
+    : ILiveSessionBinding, ILiveElementBinding, ILiveMediaRepairBinding
 {
+    private static readonly ILogger s_logger = Log.CreateLogger<EditViewModelLiveBinding>();
+
     public Scene? ActiveScene => editViewModel.Scene;
 
     public HistoryManager? ActiveHistory => editViewModel.HistoryManager;
@@ -37,6 +50,31 @@ public sealed class EditViewModelLiveBinding(EditViewModel editViewModel, AgentE
                 return false;
             }
         }
+    }
+
+    IReadOnlyList<Element> ILiveElementBinding.GetSelectedElements()
+        => editViewModel.GetRequiredService<IEditorSelection>().GetTargetElements(editViewModel.Scene);
+
+    async ValueTask<ElementAddResult> ILiveElementBinding.AddElementsAsync(
+        Scene scene, IReadOnlyList<ElementDescription> descriptions,
+        Func<Scene, Action?> captureValidation, CancellationToken cancellationToken)
+    {
+        return await Dispatcher.UIThread.InvokeAsync(async () =>
+        {
+            if (!IsAlive || !ReferenceEquals(scene, ActiveScene)) throw new SessionUnavailableException();
+            var adder = (ElementAdderImpl)editViewModel.GetRequiredService<IElementAdder>();
+            return await adder.AddAsync(descriptions, cancellationToken,
+                (commit, token) => ExecuteHistoryMutationAsync(
+                    _ => IsAlive,
+                    history =>
+                    {
+                        if (!IsAlive) throw new SessionUnavailableException();
+                        if (history.IsEditing) throw new UserEditingException();
+                        return commit();
+                    },
+                    token, LiveEditingSession.EditSessionWait),
+                captureValidation);
+        });
     }
 
     public void Invoke(Action action)
@@ -129,5 +167,103 @@ public sealed class EditViewModelLiveBinding(EditViewModel editViewModel, AgentE
         }
 
         return await Dispatcher.UIThread.InvokeAsync(async () => await ExecuteCoreAsync());
+    }
+
+    MissingMediaService ILiveMediaRepairBinding.MissingMediaDetector => ((IMediaRepairHost)editViewModel).MissingMediaDetector;
+
+    IReadOnlyList<MediaReference> ILiveMediaRepairBinding.MediaReferencesForRepair
+        => ((IMediaRepairHost)editViewModel).GetMediaReferencesForRepair();
+
+    async ValueTask<(MediaRepairSelection[] Applied, IReadOnlyList<MissingMedia> Remaining)> ILiveMediaRepairBinding.ApplyMediaRepairsAsync(
+        Scene scene, IReadOnlyList<MediaRepairSelection> selections, TimeSpan editWait, CancellationToken cancellationToken)
+    {
+        async Task<(MediaRepairSelection[], IReadOnlyList<MissingMedia>)> ApplyAsync()
+        {
+            CheckScene();
+            IMediaRepairHost host = editViewModel;
+            using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, host.RepairCancellationToken);
+            CancellationToken token = cancellation.Token;
+            await RunAfterEditSessionAsync(static () => { }, editWait, token);
+            using var write = await editViewModel.EditorService.BeginProjectFileWriteAsync(token);
+
+            MediaRepairSelection[] applied;
+            IReadOnlyList<MissingMedia> remaining;
+            // Suspend inside the playback guard, in the same turn that drains the player and pending edits.
+            using (await editViewModel.ExecuteGuardedHistoryMutationAsync(
+                () => { CheckScene(); return true; },
+                () =>
+                {
+                    CheckScene();
+                    token.ThrowIfCancellationRequested();
+                    if (editViewModel.HistoryManager.IsEditing) throw new UserEditingException();
+                    return host.SuspendEditor();
+                }, token))
+            {
+                var detector = host.MissingMediaDetector;
+                var validated = new List<MissingMediaRepair.Item>();
+                foreach (var selection in selections)
+                    validated.Add(await MissingMediaRepair.ValidateAsync(detector, selection, token));
+
+                var repair = MissingMediaRepair.Create(scene, editViewModel.HistoryManager,
+                    editViewModel.GetRequiredService<FontManager>(), host.ReloadBundledFonts,
+                    host.GetMediaReferencesForRepair(), validated) ?? throw MissingMediaTools.SceneChanged();
+                applied = repair.Applied;
+                if (applied.Length > 0)
+                {
+                    bool hadRepairs = host.HasMediaRepairs;
+                    try
+                    {
+                        using (repair)
+                        {
+                            await repair.ApplyAsync(token);
+                            token.ThrowIfCancellationRequested();
+                            host.HasMediaRepairs = true;
+                            if (!await host.SaveRepairsAsync()) throw new IOException(MessageStrings.UnableToSaveFile);
+                            repair.Commit();
+                        }
+                    }
+                    catch
+                    {
+                        host.HasMediaRepairs = hadRepairs;
+                        throw;
+                    }
+                    finally
+                    {
+                        if (!editViewModel.IsDisposingOrDisposed) host.ClearRenderCaches();
+                    }
+                }
+
+                remaining = await detector.FindMissingAsync(scene, host.GetMediaReferencesForRepair(), host.RepairCancellationToken,
+                    revalidateExisting: true);
+                if (!editViewModel.IsDisposingOrDisposed)
+                {
+                    editViewModel.NotifyMissingMedia();
+                    if (editViewModel.FindToolTab<MissingMediaViewModel>() is { IsBusy.Value: false } tab)
+                        tab.RefreshRows(remaining);
+                }
+            }
+
+            if (applied.Length > 0 && editViewModel.GetService(typeof(IProjectVersionControlCoordinator)) is IProjectVersionControlSession projectSession)
+            {
+                try
+                {
+                    await projectSession.NotifySavedAsync(write, host.RepairCancellationToken);
+                    host.ScheduleMediaFingerprints(finishSaveSnapshot: true);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    s_logger.LogWarning(ex, "Could not snapshot the saved media repair.");
+                }
+            }
+
+            return (applied, remaining);
+        }
+
+        void CheckScene()
+        {
+            if (!IsAlive || !ReferenceEquals(scene, ActiveScene)) throw new SessionUnavailableException();
+        }
+
+        return Dispatcher.UIThread.CheckAccess() ? await ApplyAsync() : await Dispatcher.UIThread.InvokeAsync(ApplyAsync);
     }
 }

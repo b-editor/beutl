@@ -498,14 +498,15 @@ public readonly struct BrushConstructor(
     /// </summary>
     private RenderTarget? AcquireTileIntermediate(int width, int height, out RenderTargetLease? lease)
     {
+        var size = new PixelSize(width, height);
         if (_renderTargetLeaseSession is { HasTargetFactory: true } leaseSession)
         {
-            lease = leaseSession.TryAcquire(new PixelSize(width, height));
+            lease = leaseSession.TryAcquire(size);
             return lease?.Target;
         }
 
         lease = null;
-        return RenderTarget.Create(width, height);
+        return RenderTarget.CreateUnpooled(size, _renderTargetLeaseSession);
     }
 
     private void RasterizeTileContent(

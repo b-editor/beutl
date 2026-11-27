@@ -7,16 +7,16 @@ using Avalonia.Interactivity;
 using Avalonia.Platform;
 using Avalonia.VisualTree;
 using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Components.TerminalTab.Views;
 using Beutl.ViewModels;
 using FluentAvalonia.UI.Controls;
 using ObjCRuntime = Beutl.Controls.ObjCRuntime;
 
 namespace Beutl.Views;
 
-// An Edit entry of the macOS menu bar. AppKit gives a key equivalent to the menu before the focused control sees the
-// key, which would take Cmd+Z and Cmd+C from a text box. So the entry hands its key to the focused control the way the
-// key goes on the other platforms, where a command bound to it can take it too, and fallback does what none took.
-internal sealed class FocusedEditCommand(StandardEditAction action, ICommand fallback, TopLevel window, KeyGesture? shownGesture = null) : ICommand
+// Routes Edit entries to the focused input or the editor. AppKit can give a key equivalent to the native menu
+// before the focused control sees the key, so native entries also forward those gestures to other controls.
+internal sealed class FocusedEditCommand(StandardEditAction action, ICommand fallback, Control owner, KeyGesture? shownGesture = null) : ICommand
 {
     private EventHandler? _focusChanged;
 
@@ -36,37 +36,63 @@ internal sealed class FocusedEditCommand(StandardEditAction action, ICommand fal
 
     public ICommand Fallback => fallback;
 
+    private TopLevel? Window => owner as TopLevel ?? TopLevel.GetTopLevel(owner);
+
+    private Interactive? FocusedElement
+        => InWindowFocus?.Target ?? Window?.FocusManager?.GetFocusedElement() as Interactive;
+
     // The key the entry shows, which the key map can move.
     internal KeyGesture? ShownGesture { get; set; } = shownGesture;
 
     // Test seam: the Headless platform has no AppKit event to look at.
-    internal Func<bool> IsKeyEquivalent { get; init; } = () => IsCurrentEventKeyDown(window);
+    internal Func<bool> IsKeyEquivalent { get; init; } = () => owner is TopLevel window && IsCurrentEventKeyDown(window);
+
+    internal InWindowEditMenuFocus? InWindowFocus { get; init; }
 
     internal (Func<bool> IsEnabled, IObservable<Unit> Changed)? Availability { get; init; }
 
     // A text input takes the action whether or not the fallback, which may need a scene, is available.
     public bool CanExecute(object? parameter)
         => Availability?.IsEnabled() != false
-            && (fallback.CanExecute(parameter) || IsTextInput(window.FocusManager?.GetFocusedElement()));
+            && (fallback.CanExecute(parameter) || IsTextInput(FocusedElement));
 
     // Keeps the entry's state with the focus and its availability until disposed.
     internal IDisposable FollowFocus() => new CompositeDisposable(
-        window.AddDisposableHandler(InputElement.GotFocusEvent, (_, _) => _focusChanged?.Invoke(this, EventArgs.Empty), handledEventsToo: true),
-        window.AddDisposableHandler(InputElement.LostFocusEvent, (_, _) => _focusChanged?.Invoke(this, EventArgs.Empty), handledEventsToo: true),
+        owner.AddDisposableHandler(InputElement.GotFocusEvent, (_, _) => _focusChanged?.Invoke(this, EventArgs.Empty), handledEventsToo: true),
+        owner.AddDisposableHandler(InputElement.LostFocusEvent, (_, _) => _focusChanged?.Invoke(this, EventArgs.Empty), handledEventsToo: true),
         Availability?.Changed.Subscribe(_ => _focusChanged?.Invoke(this, EventArgs.Empty)) ?? Disposable.Empty);
 
     public void Execute(object? parameter)
     {
-        if (Availability?.IsEnabled() == false)
+        if (Availability?.IsEnabled() == false || Window is not { } window)
             return;
 
         bool isDialogOpen = IsDialogOpen(window);
-        var target = window.FocusManager?.GetFocusedElement() as Interactive ?? window;
+        var target = FocusedElement ?? window;
         // Not every dialog takes the focus when it opens, and what it covers must not get the key.
         if (isDialogOpen && (target as Visual)?.FindAncestorOfType<FAContentDialog>(includeSelf: true) is null)
             return;
 
-        if (!isDialogOpen && SendToNativeResponder())
+        if (InWindowFocus is { } menuFocus)
+        {
+            if (menuFocus.Target is not null || IsTextInput(target))
+            {
+                if (target is InputElement { IsEffectivelyVisible: true, IsEffectivelyEnabled: true }
+                    && TopLevel.GetTopLevel(target) == window)
+                {
+                    menuFocus.RestoreSelection();
+                    ExecuteTextAction(target);
+                }
+            }
+            else if (!isDialogOpen && fallback.CanExecute(parameter))
+            {
+                fallback.Execute(parameter);
+            }
+
+            return;
+        }
+
+        if (!isDialogOpen && SendToNativeResponder(window))
             return;
 
         // Delete has no key equivalent, even when the menu item is chosen with the keyboard.
@@ -75,16 +101,7 @@ internal sealed class FocusedEditCommand(StandardEditAction action, ICommand fal
         // A text input knows only the standard keys. Elsewhere a key map can have moved the entry's key, and the
         // standard one may then run another command.
         KeyGesture gesture = (isTextInput ? null : ShownGesture) ?? GetKeyGesture(action);
-        var args = new KeyEventArgs
-        {
-            RoutedEvent = InputElement.KeyDownEvent,
-            Key = gesture.Key,
-            KeyModifiers = gesture.KeyModifiers,
-            Source = target
-        };
-        target.RaiseEvent(args);
-
-        if (args.Handled || isDialogOpen || isTextInput)
+        if (SendKey(target, gesture) || isDialogOpen || isTextInput)
             return;
 
         // Cut, Copy and Paste keys belong to the panel with the focus, which may have nothing to do with the
@@ -97,8 +114,68 @@ internal sealed class FocusedEditCommand(StandardEditAction action, ICommand fal
     internal static bool IsDialogOpen(TopLevel window)
         => OverlayLayer.GetOverlayLayer(window)?.GetVisualDescendants().OfType<FAContentDialog>().Any() == true;
 
-    private static bool IsTextInput(object? element)
+    internal static bool IsTextInput(object? element)
         => ContextCommandInput.IsFromTextInput(new KeyEventArgs { Source = element });
+
+    private void ExecuteTextAction(Interactive target)
+    {
+        if (target.FindAncestorOfType<TextBox>(includeSelf: true) is { } box)
+        {
+            switch (action)
+            {
+                case StandardEditAction.Cut:
+                    if (box.CanCut) box.Cut();
+                    return;
+                case StandardEditAction.Copy:
+                    if (box.CanCopy) box.Copy();
+                    return;
+                case StandardEditAction.Paste:
+                    if (box.CanPaste) box.Paste();
+                    return;
+                case StandardEditAction.SelectAll:
+                    box.SelectAll();
+                    return;
+            }
+        }
+        else if (target.FindAncestorOfType<ShellTerminalControl>(includeSelf: true) is { } terminal)
+        {
+            // The terminal can deliver these keyboard chords to the shell as input.
+            Func<Task>? clipboardAction = action switch
+            {
+                StandardEditAction.Cut => terminal.CutSelectionAsync,
+                StandardEditAction.Copy => terminal.CopySelectionAsync,
+                StandardEditAction.Paste => terminal.PasteAsync,
+                _ => null
+            };
+            if (clipboardAction is not null)
+            {
+                _ = ShellTerminalControl.RunClipboardActionAsync(clipboardAction);
+                return;
+            }
+
+            if (action == StandardEditAction.SelectAll)
+            {
+                terminal.SelectAll();
+                return;
+            }
+        }
+
+        // TextBox handles forward Delete through its key handler, including deletion at the caret.
+        SendKey(target, GetKeyGesture(action));
+    }
+
+    private static bool SendKey(Interactive target, KeyGesture gesture)
+    {
+        var args = new KeyEventArgs
+        {
+            RoutedEvent = InputElement.KeyDownEvent,
+            Key = gesture.Key,
+            KeyModifiers = gesture.KeyModifiers,
+            Source = target
+        };
+        target.RaiseEvent(args);
+        return args.Handled;
+    }
 
     internal static KeyGesture GetKeyGesture(StandardEditAction action)
     {
@@ -116,7 +193,7 @@ internal sealed class FocusedEditCommand(StandardEditAction action, ICommand fal
     }
 
     // A native view with the first responder, such as the browser tab's web view, does the action itself.
-    private bool SendToNativeResponder()
+    private bool SendToNativeResponder(TopLevel window)
     {
         if (window.TryGetPlatformHandle() is not IMacOSTopLevelPlatformHandle handle)
             return false;

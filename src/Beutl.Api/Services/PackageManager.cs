@@ -322,7 +322,7 @@ public sealed partial class PackageManager : IBeutlApiResource
             }
             catch
             {
-                TryUnloadLoadContext(package, result.LoadContext);
+                TryUnloadLoadContext(package.Name, result.LoadContext);
                 throw;
             }
         }

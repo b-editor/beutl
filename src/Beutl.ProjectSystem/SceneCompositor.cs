@@ -6,6 +6,7 @@ using Beutl.Composition;
 using Beutl.Configuration;
 using Beutl.Engine;
 using Beutl.Graphics;
+using Beutl.Graphics.Effects;
 using Beutl.Graphics.Transitions;
 using Beutl.Media;
 using Beutl.Media.Decoding;
@@ -225,10 +226,14 @@ public sealed partial class SceneCompositor : ICompositor
     internal CompositionFrame EvaluateGraphicsWithContext(MediaTime time, CompositionContext conditions)
         => EvaluateGraphics(time, null, null, conditions);
 
+    internal CompositionFrame EvaluateGraphicsWithBypassedFilterEffect(MediaTime time, FilterEffect effect)
+        => EvaluateGraphics(time, null, null, bypassedFilterEffect: effect);
+
     // Inherited conditions bring their own cancellation and frame rate; cancellationToken and frameRate apply
     // only without them.
     private CompositionFrame EvaluateGraphics(MediaTime time, int? layer, EvaluationServices? services,
-        CompositionContext? conditions = null, CancellationToken cancellationToken = default, Rational? frameRate = null)
+        CompositionContext? conditions = null, CancellationToken cancellationToken = default, Rational? frameRate = null,
+        FilterEffect? bypassedFilterEffect = null)
     {
         CancellationToken token = conditions?.CancellationToken ?? cancellationToken;
         token.ThrowIfCancellationRequested();
@@ -243,6 +248,8 @@ public sealed partial class SceneCompositor : ICompositor
         using var allResources = new PooledList<EngineObject.Resource>();
         var ctx = new CompositorContext(time, this, flow, currentElements, CompositionTarget.Graphics);
         ctx.InheritConditions(conditions);
+        if (bypassedFilterEffect is not null)
+            ctx.Conditions = ctx.Conditions with { BypassedFilterEffect = bypassedFilterEffect };
         if (conditions is null)
         {
             ctx.CancellationToken = cancellationToken;

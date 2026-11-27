@@ -24,6 +24,12 @@
                           IsChecked="{Binding IsExpanded.Value}"
                           Theme="{StaticResource ListEditorMiniExpanderToggleButton}" />
 
+            <local:FilterEffectComparisonHeader x:Name="comparisonHeader"
+                                                Margin="36,0,0,0"
+                                                AutomationProperties.Name="{Binding FilterName.Value}"
+                                                IsVisible="{Binding CanCompareEffect.Value}"
+                                                Theme="{StaticResource TransparentButton}" />
+
             <Button x:Name="selectEffectButton"
                     Grid.Column="1"
                     Margin="4,0,0,0"
@@ -55,31 +61,36 @@
             </Button>
         </Grid>
 
-        <pe:ReferenceEditor x:Name="presenterEditor"
-                            Margin="4,0,0,0"
-                            EditorStyle="ListItem"
-                            IsVisible="{Binding IsPresenter.Value}"
-                            SelectTargetRequested="SelectTarget_Requested"
-                            ToolTip.Tip="{Binding HoverInfo.Value}"
-                            TargetName="{Binding CurrentTargetName.Value}">
-            <pe:ReferenceEditor.MenuContent>
-                <StackPanel Orientation="Horizontal">
-                    <ToggleButton Margin="4,0,0,0"
-                                  Padding="0"
-                                  Classes="size-24x24"
-                                  IsChecked="{Binding IsEnabled.Value}"
-                                  IsEnabled="{Binding CanEditProperty.Value}"
-                                  Theme="{StaticResource VisibilityToggleButtonStyle}" />
-                    <Button Margin="4,0,8,0"
-                            Padding="0"
-                            Classes="size-24x24"
-                            Click="DeleteClick"
-                            Theme="{StaticResource TransparentButton}">
-                        <icons:FluentIcon Icon="Delete" />
-                    </Button>
-                </StackPanel>
-            </pe:ReferenceEditor.MenuContent>
-        </pe:ReferenceEditor>
+        <Panel IsVisible="{Binding IsPresenter.Value}">
+            <pe:ReferenceEditor x:Name="presenterEditor"
+                                Margin="4,0,0,0"
+                                EditorStyle="ListItem"
+                                SelectTargetRequested="SelectTarget_Requested"
+                                ToolTip.Tip="{Binding HoverInfo.Value}"
+                                TargetName="{Binding CurrentTargetName.Value}">
+                <pe:ReferenceEditor.MenuContent>
+                    <StackPanel Orientation="Horizontal">
+                        <ToggleButton Margin="4,0,0,0"
+                                      Padding="0"
+                                      Classes="size-24x24"
+                                      IsChecked="{Binding IsEnabled.Value}"
+                                      IsEnabled="{Binding CanEditProperty.Value}"
+                                      Theme="{StaticResource VisibilityToggleButtonStyle}" />
+                        <Button Margin="4,0,8,0"
+                                Padding="0"
+                                Classes="size-24x24"
+                                Click="DeleteClick"
+                                Theme="{StaticResource TransparentButton}">
+                            <icons:FluentIcon Icon="Delete" />
+                        </Button>
+                    </StackPanel>
+                </pe:ReferenceEditor.MenuContent>
+            </pe:ReferenceEditor>
+            <local:FilterEffectComparisonHeader Margin="36,4,64,4"
+                                                AutomationProperties.Name="{Binding CurrentTargetName.Value}"
+                                                IsVisible="{Binding CanCompareEffect.Value}"
+                                                Theme="{StaticResource TransparentButton}" />
+        </Panel>
 
         <Panel x:Name="content"
                Grid.Row="2"

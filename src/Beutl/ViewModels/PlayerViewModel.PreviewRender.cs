@@ -2,6 +2,7 @@
 using Beutl.Configuration;
 using Beutl.Engine;
 using Beutl.Graphics;
+using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using Beutl.Media.Source;
@@ -16,9 +17,14 @@ namespace Beutl.ViewModels;
 
 public partial class PlayerViewModel
 {
+    // Guarded by _renderRequestLock. Scene edits can request one follow-up while a preview is in flight.
+    private bool _previewRenderScheduled;
+    private bool _previewEditPending;
+
     // Both displayed images retain their own reference; the caller still owns the supplied frames.
     private void UpdateImage(Ref<Bitmap> source, Ref<Bitmap>? cleanSource, MediaTime time, long playbackId = 0,
-        IEditingStageProvider? editingStage = null)
+        IEditingStageProvider? editingStage = null, GraphEditingFrame? graphEditingFrame = null,
+        EffectComparisonFrame? comparison = null)
     {
         lock (_cleanPreviewLock)
         {
@@ -27,6 +33,9 @@ public partial class PlayerViewModel
             ReplaceImage(CleanPreviewImage, _cleanPreviewEnabled ? cleanSource : null);
         }
 
+        _graphEditingFrame = graphEditingFrame;
+        if (comparison is not null)
+            UpdateEffectComparisonImage(source, comparison);
         ReplaceImage(PreviewImage, source);
         ShownEditingStage.Value = editingStage;
 
@@ -96,36 +105,25 @@ public partial class PlayerViewModel
     // playback path (e.g. a PreviewSourceMode switch) invalidates the shown frame while paused.
     public void QueuePreviewRender() => QueueRender();
 
-    private void QueueRender()
+    private void QueueRender(bool coalesceSceneEdits = false)
     {
-        CancellationTokenSource cts;
         CancellationTokenSource? previousCts;
-        CancellationToken token;
         lock (_renderRequestLock)
         {
             if (_isDisposing || _isPausing)
                 return;
 
-            cts = new CancellationTokenSource();
-            token = cts.Token;
-            previousCts = _cts;
-            _cts = cts;
+            // Fast drags can outpace rendering. Keep the current render and fold the newer scene edits
+            // into one follow-up, so the preview can keep presenting frames while the pointer moves.
+            if (coalesceSceneEdits && _cts is not null && _previewRenderScheduled)
+            {
+                _previewEditPending = true;
+                return;
+            }
 
-            // Serialize the UI-side handoff with DisposeAsync. Once disposal claims this lock,
-            // no callback can enqueue more render-thread work behind its teardown barrier.
-            Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(
-                () =>
-                {
-                    lock (_renderRequestLock)
-                    {
-                        if (!_isDisposing && !_isPausing && !token.IsCancellationRequested)
-                        {
-                            RenderOnRenderThread(token);
-                        }
-                    }
-                },
-                Avalonia.Threading.DispatcherPriority.Background,
-                token);
+            previousCts = _cts;
+            _cts = new CancellationTokenSource();
+            SchedulePreviewRender(_cts.Token);
         }
 
         if (previousCts is not null)
@@ -138,6 +136,49 @@ public partial class PlayerViewModel
             {
                 previousCts.Dispose();
             }
+        }
+    }
+
+    // Called with _renderRequestLock held. The UI handoff shares the lock with pause and teardown.
+    private void SchedulePreviewRender(CancellationToken token)
+    {
+        _previewRenderScheduled = true;
+        _previewEditPending = false;
+        Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(
+            () =>
+            {
+                lock (_renderRequestLock)
+                {
+                    if (_isDisposing || _isPausing || _cts?.Token != token)
+                        return;
+
+                    // This render already includes edits that arrived before the handoff.
+                    _previewEditPending = false;
+                    try
+                    {
+                        RenderOnRenderThread(token);
+                    }
+                    catch
+                    {
+                        _previewRenderScheduled = false;
+                        throw;
+                    }
+                }
+            },
+            Avalonia.Threading.DispatcherPriority.Background,
+            token);
+    }
+
+    private void CompletePreviewRender(CancellationToken token)
+    {
+        lock (_renderRequestLock)
+        {
+            if (_cts?.Token != token)
+                return;
+
+            _previewRenderScheduled = false;
+            if (_previewEditPending && !_isDisposing && !_isPausing)
+                SchedulePreviewRender(token);
         }
     }
 
@@ -154,15 +195,14 @@ public partial class PlayerViewModel
         int onionNextCount = editorConfig.OnionSkinNextCount.Value;
         float onionPrevOpacity = editorConfig.OnionSkinPrevOpacity.Value;
         float onionNextOpacity = editorConfig.OnionSkinNextOpacity.Value;
-        IEditingStageProvider? stage = IsPlaybackActive ? null : _editingStageEffect.Value;
+        EffectComparisonTarget? comparison = ComparisonTarget;
+        EffectComparisonCapture? capture = comparison is null ? null : RefreshComparisonCapture(comparison);
+        IEditingStageProvider? stage = IsPlaybackActive || comparison is not null ? null : _editingStageEffect.Value;
         IReadOnlySet<EngineObject>? disabledEffects = GetEditingStageDisabledEffects(stage);
-        if (disabledEffects is null)
-            stage = null;
-
         RenderThread.Dispatcher.Dispatch(
             () => RenderPreviewFrame(
                 token, onionEnabled, onionPrevCount, onionNextCount, onionPrevOpacity, onionNextOpacity,
-                stage, disabledEffects),
+                stage, disabledEffects, capture),
             ct: token);
     }
 
@@ -175,7 +215,8 @@ public partial class PlayerViewModel
         float onionPrevOpacity,
         float onionNextOpacity,
         IEditingStageProvider? stage,
-        IReadOnlySet<EngineObject>? disabledEffects)
+        IReadOnlySet<EngineObject>? disabledEffects,
+        EffectComparisonCapture? comparison)
     {
         int frame = 0;
         bool useOnionSkin = false;
@@ -190,13 +231,16 @@ public partial class PlayerViewModel
             if (renderer is not { IsDisposed: false, IsGraphicsRendering: false }
                 || cacheManager.IsDisposed)
                 return;
-            if (Scene is null)
+            if (Scene is not { } scene || comparison is not null && !ReferenceEquals(comparison.Target, ComparisonTarget))
                 return;
 
             Rational rate = GetFrameRate();
             MediaTime time = _editorClock.CurrentTime.Value;
             frame = (int)time.ToFrame(rate, MidpointRounding.AwayFromZero);
             time = MediaTime.FromFrames(frame, rate);
+            EffectComparisonRenderScene? renderScene = comparison is null ? null : GetComparisonRenderScene(renderer, comparison);
+            SceneRenderer drawingRenderer = renderScene?.Renderer ?? renderer;
+            Scene drawingScene = renderScene?.Renderer.Compositor.Scene ?? scene;
             // A side contributes nothing when its opacity is 0, so fold opacity into the
             // effective count. When both sides are invisible useOnionSkin stays false and
             // the empty-samples fallback below routes through the cheaper cache-aware path.
@@ -210,7 +254,7 @@ public partial class PlayerViewModel
             if (useOnionSkin)
             {
                 onionSamples = OnionSkinHelper.EnumerateOnionSkinTimes(
-                    frame, Scene.Start.Value, Scene.Duration.Value, rate,
+                    frame, drawingScene.Start.Value, drawingScene.Duration.Value, rate,
                     effectivePrevCount, effectiveNextCount,
                     onionPrevOpacity, onionNextOpacity);
                 onionSampleCount = onionSamples.Count;
@@ -225,20 +269,31 @@ public partial class PlayerViewModel
                 }
             }
 
-            using Ref<Bitmap> bitmapRef = GetPreviewFrame(renderer, cacheManager, time, frame, disabledEffects,
-                useCache: !useOnionSkin && disabledEffects is null, out string? warning);
+            using EffectComparisonFrame? comparisonFrame = renderScene is null ? null : RenderComparisonBefore(renderScene, time);
+            using Ref<Bitmap> bitmapRef = GetPreviewFrame(drawingRenderer, cacheManager, time, frame, disabledEffects, stage as FilterEffect,
+                useCache: !useOnionSkin && disabledEffects is null && comparison is null,
+                out GraphEditingFrame? graphEditingFrame, out string? warning);
             Bitmap bitmap = bitmapRef.Value;
-            using Ref<Bitmap>? cleanFrame = CopyCleanFrame(renderer, bitmap);
+            using Ref<Bitmap>? cleanFrame = CopyCleanFrame(drawingRenderer, bitmap);
             if (useOnionSkin)
             {
                 using var canvas = new SKCanvas(bitmap.SKBitmap);
-                DrawOnionSkin(renderer, canvas, time, frame, onionSamples, disabledEffects, token);
+                using var beforeCanvas = comparisonFrame is null ? null : new SKCanvas(comparisonFrame.Before.Value.SKBitmap);
+                DrawOnionSkin(drawingRenderer, canvas, beforeCanvas, time, frame, onionSamples, disabledEffects, token);
             }
 
             if (token.IsCancellationRequested)
                 return;
 
-            UpdateImage(bitmapRef, cleanFrame, time, editingStage: stage);
+            if (comparisonFrame is not null && !IsCurrentComparisonRender(token, comparisonFrame.Target))
+                return;
+
+            UpdateImage(bitmapRef, cleanFrame, time, editingStage: disabledEffects is null ? null : stage,
+                graphEditingFrame: graphEditingFrame, comparison: comparisonFrame);
+
+            // The tool handles query the live drawables' geometry. Prepare it before another job can query it.
+            if (comparisonFrame is not null && (IsMoveMode.Value || IsCameraMode.Value))
+                renderer.UpdateFrame(renderer.Compositor.EvaluateGraphics(time));
 
             // Dispose と並走した場合に AfterRendered が破棄されている可能性があるためトークンを確認する
             if (!token.IsCancellationRequested)
@@ -259,6 +314,10 @@ public partial class PlayerViewModel
                 useOnionSkin, onionSampleCount, frame);
             UpdatePreviewRenderStatus(MessageStrings.FrameDrawingException, warning: null,
                 () => !token.IsCancellationRequested);
+        }
+        finally
+        {
+            CompletePreviewRender(token);
         }
     }
 
@@ -281,11 +340,23 @@ public partial class PlayerViewModel
         }
     }
 
+    private bool IsCurrentComparisonRender(CancellationToken token, EffectComparisonTarget target)
+    {
+        lock (_renderRequestLock)
+            return _cts?.Token == token && ReferenceEquals(target, ComparisonTarget);
+    }
+
     private static Ref<Bitmap> GetPreviewFrame(
         SceneRenderer renderer, FrameCacheManager cacheManager, MediaTime time, int frame,
-        IReadOnlySet<EngineObject>? disabledEffects, bool useCache, out string? warning)
+        IReadOnlySet<EngineObject>? disabledEffects, FilterEffect? stage, bool useCache,
+        out GraphEditingFrame? graphEditingFrame, out string? warning)
     {
         warning = null;
+        graphEditingFrame = null;
+        using var placement = stage is not null && FindEditingGraph(stage) is { } graph
+            ? EffectEditingPlacement.Begin(stage, graph)
+            : null;
+        useCache &= placement is null;
         CompositionFrame compositionFrame = EvaluatePreviewFrame(renderer, time, disabledEffects);
         if (useCache && cacheManager.TryGet(frame, out var cache, out warning))
         {
@@ -298,8 +369,10 @@ public partial class PlayerViewModel
         }
 
         warning = renderer.RenderWithWarning(compositionFrame);
+        if (placement is not null)
+            graphEditingFrame = new GraphEditingFrame(stage!, time, placement.GetTransform());
         using var bitmap = Ref<Bitmap>.Create(renderer.Snapshot());
-        // Onion skin and an editing stage bypass the normal frame cache.
+        // Onion skin, comparison and an editing stage bypass the normal frame cache.
         if (useCache && cacheManager.IsEnabled)
         {
             cacheManager.Add(frame, bitmap, warning);
@@ -311,6 +384,7 @@ public partial class PlayerViewModel
     private void DrawOnionSkin(
         SceneRenderer renderer,
         SKCanvas canvas,
+        SKCanvas? comparisonCanvas,
         MediaTime time,
         int frame,
         IReadOnlyList<OnionSkinSample> onionSamples,
@@ -342,6 +416,7 @@ public partial class PlayerViewModel
 
                 // This CPU canvas blends synchronously, so the next sample can reuse the scratch.
                 canvas.DrawBitmap(onionScratch.SKBitmap, 0, 0, SKSamplingOptions.Default, paint);
+                comparisonCanvas?.DrawBitmap(onionScratch.SKBitmap, 0, 0, SKSamplingOptions.Default, paint);
             }
 
             // Selection bounds and subsequent queries must use the current frame's geometry.

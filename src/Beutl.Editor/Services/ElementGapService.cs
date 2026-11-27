@@ -26,10 +26,13 @@ public sealed class ElementGapService : IElementGapService
     }
 
     public int CloseAllGaps(Scene scene)
+        => CloseAllGaps(scene, null);
+
+    internal int CloseAllGaps(Scene scene, IReadOnlySet<int>? layers)
     {
         ArgumentNullException.ThrowIfNull(scene);
 
-        int closed = scene.CloseAllGaps(_configuration.AutoAdjustSceneDuration.Value);
+        int closed = scene.CloseAllGaps(layers, _configuration.AutoAdjustSceneDuration.Value);
         if (closed > 0) _historyManager.Commit(CommandNames.CloseAllGaps);
         return closed;
     }

@@ -86,7 +86,7 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
         DarkBorderThemeExtension.Instance
     ];
 
-    internal LoadPrimitiveExtensionTask(PackageManager manager, IExtensionRegistry provider,
+    internal LoadPrimitiveExtensionTask(PackageManager manager,
         EditorService editorService, ProjectService projectService)
     {
         _manager = manager;
@@ -98,12 +98,7 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
         {
             using (Activity? activity = Telemetry.StartActivity("LoadPrimitiveExtensionTask"))
             {
-                foreach (Extension item in allExtensions)
-                {
-                    _manager.LoadExtension(item);
-                }
-
-                provider.AddExtensions(LocalPackage.Reserved0, allExtensions);
+                _manager.LoadBuiltInExtensions(LocalPackage.Reserved0, allExtensions, restoreSettingsFirst: null);
                 activity?.AddEvent(new("Loaded_Extensions"));
 
                 await Task.Yield();
@@ -128,11 +123,10 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
                         var encoding = new Extensions.FFmpeg.Encoding.FFmpegControlledEncodingExtension();
                         var propertyEditor = new Extensions.FFmpeg.PropertyEditors.FFmpegEncoderSpecializedPropertyExtension();
                         var proxy = new Extensions.FFmpeg.Proxy.FFmpegProxyExtension();
-                        LoadEmbedded(
-                            provider,
-                            pkg,
-                            [decoding, encoding, propertyEditor],
-                            [decoding, encoding, propertyEditor, proxy]);
+                        _manager.LoadBuiltInExtensions(
+                            pkg.LocalId,
+                            [decoding, encoding, propertyEditor, proxy],
+                            [decoding, encoding, propertyEditor]);
                     }
                     catch (Exception ex)
                     {
@@ -165,7 +159,7 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
                     {
                         var decoding = new Embedding.MediaFoundation.Decoding.MFDecodingExtension();
                         var encoding = new Embedding.MediaFoundation.Encoding.MFEncodingExtension();
-                        LoadEmbedded(provider, pkg, [decoding, encoding], [decoding, encoding]);
+                        _manager.LoadBuiltInExtensions(pkg.LocalId, [decoding, encoding], [decoding, encoding]);
                     }
                     catch (Exception ex)
                     {
@@ -198,7 +192,7 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
                     {
                         var decoding = new Extensions.AVFoundation.Decoding.AVFDecodingExtension();
                         var encoding = new Extensions.AVFoundation.Encoding.AVFEncodingExtension();
-                        LoadEmbedded(provider, pkg, [decoding, encoding], [decoding, encoding]);
+                        _manager.LoadBuiltInExtensions(pkg.LocalId, [decoding, encoding], [decoding, encoding]);
                     }
                     catch (Exception ex)
                     {
@@ -233,26 +227,6 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
         pkg.WebSite = "https://github.com/b-editor/beutl";
         pkg.Publisher = "b-editor";
         return pkg;
-    }
-
-    // Settings are restored for the first list only, before any extension of the package loads.
-    private void LoadEmbedded(
-        IExtensionRegistry provider,
-        LocalPackage pkg,
-        IReadOnlyList<Extension> withSettings,
-        IReadOnlyList<Extension> extensions)
-    {
-        foreach (Extension extension in withSettings)
-        {
-            _manager.SetupExtensionSettings(extension);
-        }
-
-        foreach (Extension extension in extensions)
-        {
-            _manager.LoadExtension(extension, restoreSettings: false);
-        }
-
-        provider.AddExtensions(pkg.LocalId, extensions);
     }
 
     public override Task Task { get; }

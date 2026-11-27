@@ -9,6 +9,7 @@ using Avalonia.Headless.NUnit;
 using Avalonia.Input;
 using Avalonia.Input.Raw;
 using Avalonia.Platform.Storage;
+using Avalonia.Styling;
 using Avalonia.VisualTree;
 using Beutl.Audio;
 using Beutl.Composition;
@@ -40,8 +41,11 @@ using Beutl.Serialization;
 using Beutl.Services;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
+using Beutl.ViewModels.Dock;
 using Beutl.Views;
+using Beutl.Views.Dock;
 using Beutl.Views.Tools;
+using Dock.Avalonia.Controls;
 using FluentAvalonia.UI.Controls;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;
@@ -519,6 +523,63 @@ public class ElementAddEntryPointTests
             Assert.That(notification.Type, Is.EqualTo(NotificationType.Error));
             Assert.That(notification.Title, Is.EqualTo(Strings.AddElement));
             Assert.That(notification.Message, Is.EqualTo(MessageStrings.UnexpectedError));
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task EditView_DragOverTimelineTab_SelectsItBeforeTheDrop()
+    {
+        await TestReset.ResetShellAsync();
+        (EditViewModel editor, TimelineTabViewModel timeline) =
+            await OpenEditorForNewScene("timeline-tab-drag-hover");
+        var dock = editor.DockHost.Factory.GetAnchoredDock(DockAnchor.Bottom)!;
+        var timelineDockable = dock.VisibleDockables!.OfType<BeutlToolDockable>()
+            .Single(tool => ReferenceEquals(tool.ToolContext, timeline));
+        var initialTab = editor.DockHost.Factory.OpenNewToolTab(dock);
+        var window = new Window
+        {
+            Content = new EditView { DataContext = editor },
+            Width = 1200,
+            Height = 750,
+            RequestedThemeVariant = ThemeVariant.Dark
+        };
+
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+            var tab = window.GetVisualDescendants().OfType<ToolTabStripItem>()
+                .Single(item => ReferenceEquals(item.DataContext, timelineDockable));
+            var point = HeadlessTestHelpers.Center(tab, window);
+            window.MouseMove(point);
+            Assert.That(dock.ActiveDockable, Is.SameAs(initialTab), "Ordinary hover keeps the current selection.");
+            HeadlessCapture.SaveIfRequested(window, nameof(ElementAddEntryPointTests), "before-drag-hover");
+
+            using var transfer = new DataTransfer();
+            transfer.Add(DataTransferItem.Create(BeutlDataFormats.EngineObject, TypeFormat.ToString(typeof(RectShape))));
+            var freeSpace = tab.FindAncestorOfType<ToolTabHeaderPanel>()!.GetVisualDescendants().OfType<Border>()
+                .Single(border => border.Name == "PART_FreeSpace");
+            window.DragDrop(HeadlessTestHelpers.Center(freeSpace, window), RawDragEventType.DragEnter, transfer, DragDropEffects.Copy);
+            Assert.That(dock.ActiveDockable, Is.SameAs(initialTab), "Hovering empty header space keeps the current selection.");
+
+            window.DragDrop(point, RawDragEventType.DragOver, transfer, DragDropEffects.Copy);
+            Assert.That(dock.ActiveDockable, Is.SameAs(timelineDockable));
+            Assert.That(tab.IsSelected, Is.True);
+            Assert.That(editor.Scene.Children, Is.Empty);
+            HeadlessCapture.SaveIfRequested(window, nameof(ElementAddEntryPointTests), "during-drag-hover");
+
+            var timelineView = window.GetVisualDescendants().OfType<TimelineTabView>().Single();
+            var dropPoint = HeadlessTestHelpers.Center(timelineView.FindControl<ScrollViewer>("ContentScroll")!, window);
+            window.DragDrop(dropPoint, RawDragEventType.DragOver, transfer, DragDropEffects.Copy);
+            window.DragDrop(dropPoint, RawDragEventType.Drop, transfer, DragDropEffects.Copy);
+            await HeadlessTestHelpers.WaitUntilAsync(() => editor.Scene.Children.Count == 1);
+            Assert.That(editor.Scene.Children.Single().Objects.OfType<RectShape>(), Has.Exactly(1).Items);
+            HeadlessCapture.SaveIfRequested(window, nameof(ElementAddEntryPointTests), "after-drag-drop");
+        }
+        finally
+        {
+            window.Close();
+            HeadlessTestHelpers.Settle();
         }
     }
 
@@ -1688,10 +1749,13 @@ public class ElementAddEntryPointTests
     }
 
     [AvaloniaTest]
-    public async Task MainMenu_ImportMedia_PlacesMediaAtPlayheadAndKeepsSubtitleTimes()
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task MainMenu_ImportMedia_RespectsEditorStateAfterChoosingSubtitleTemplate(bool suspendEditor)
     {
         await TestReset.ResetShellAsync();
-        (EditViewModel editor, TimelineTabViewModel timeline) = await OpenEditorForNewScene("menu-import-media");
+        (EditViewModel editor, TimelineTabViewModel timeline) =
+            await OpenEditorForNewScene($"menu-import-media-{suspendEditor}");
         editor.CloseToolTab(timeline);
         MediaTime playhead = MediaTime.FromSeconds(4);
         editor.GetRequiredService<IEditorClock>().Seek(playhead);
@@ -1714,10 +1778,31 @@ public class ElementAddEntryPointTests
             window.Content = view;
             HeadlessTestHelpers.Render();
 
+            editor.HistoryManager.Commit();
+            int undoCount = editor.HistoryManager.UndoCount;
             Task import = TestShell.MainViewModel.MenuBar.ImportMedia.ExecuteAsync();
             FAMenuFlyoutItem[] templates = await WaitForTemplateMenuAsync(window);
-            HeadlessTestHelpers.Click(templates.Single(item => item.Text == saved.Name.Value));
+            FAMenuFlyoutItem template = templates.Single(item => item.Text == saved.Name.Value);
+            bool templateClicked = false;
+            template.Click += (_, _) => templateClicked = true;
+            using IDisposable? suspension = suspendEditor ? TestShell.Editor.SuspendEditor(editor) : null;
+            Assert.That(editor.IsEnabled.Value, Is.EqualTo(!suspendEditor));
+            HeadlessTestHelpers.Click(template);
             await import.WaitAsync(TimeSpan.FromSeconds(10));
+
+            Assert.That(templateClicked, Is.True);
+            storage.Verify(provider => provider.OpenFilePickerAsync(
+                It.Is<FilePickerOpenOptions>(options => options.AllowMultiple)), Times.Once);
+            if (suspendEditor)
+            {
+                using (Assert.EnterMultipleScope())
+                {
+                    Assert.That(editor.Scene.Children, Is.Empty);
+                    Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(undoCount));
+                    Assert.That(editor.HistoryManager.HasPendingOperations, Is.False);
+                }
+                return;
+            }
 
             Assert.That(editor.Scene.Children, Has.Count.EqualTo(2));
             Element image = editor.Scene.Children.Single(element => element.Objects.OfType<SourceImage>().Any());
@@ -1729,9 +1814,8 @@ public class ElementAddEntryPointTests
                 Assert.That(caption.Range, Is.EqualTo(new TimeRange(MediaTime.FromSeconds(1.5), MediaTime.FromSeconds(1))));
                 Assert.That(text.Text.Value, Is.EqualTo("Imported subtitle"));
                 Assert.That(text.Size.Value, Is.EqualTo(123f));
+                Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(undoCount + 1));
             }
-            storage.Verify(provider => provider.OpenFilePickerAsync(
-                It.Is<FilePickerOpenOptions>(options => options.AllowMultiple)), Times.Once);
         }
         finally
         {

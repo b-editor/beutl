@@ -36,4 +36,10 @@
   <data name="InUse" xml:space="preserve"><value>打开的项目或编辑器正在引用此文件。</value></data>
   <data name="DestinationExists" xml:space="preserve"><value>原位置已被占用。</value></data>
   <data name="Unavailable" xml:space="preserve"><value>无法读取此文件或其依赖文件。</value></data>
+  <data name="InvalidAction" xml:space="preserve"><value>请选择 collect、quarantine、restore 或 delete。</value></data>
+  <data name="SelectAssetPaths" xml:space="preserve"><value>请从 inspect_project_assets 的结果中选择适用于此操作的素材路径。</value></data>
+  <data name="ConfirmPermanentDelete" xml:space="preserve"><value>若要永久删除选中的文件，请将 confirmDelete 设置为 true。</value></data>
+  <data name="DeleteOneAsset" xml:space="preserve"><value>每次调用只能永久删除一个已隔离的文件。</value></data>
+  <data name="InvalidSceneId" xml:space="preserve"><value>请提供编辑器中当前打开项目的有效场景 ID，或省略 sceneId。</value></data>
+  <data name="SaveProjectBeforeCollecting" xml:space="preserve"><value>收集素材前，请调用 save_project 保存尚未保存的项目更改。</value></data>
 </root>

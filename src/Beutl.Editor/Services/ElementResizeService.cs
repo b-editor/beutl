@@ -175,19 +175,33 @@ public sealed partial class ElementResizeService : IElementResizeService
             req.Element.Length.Value = range.Duration;
         }
 
+        // When overlapping clips share an edge on a layer, the outermost new edge determines
+        // how far to shift neighbours, including when the clips clamp to different positions.
+        var rippleEnds = new Dictionary<(int Layer, MediaTime Edge), MediaTime>();
+        var rippleStarts = new Dictionary<(int Layer, MediaTime Edge), MediaTime>();
+        foreach (ElementResizeRequest req in requests)
+        {
+            (int oldZ, MediaTime oldStart, MediaTime oldEnd) = oldBounds[req.Element];
+            if (req.Element.ZIndex.Value != oldZ) continue;
+
+            TimeRange range = req.Element.Range;
+            if (!rippleEnds.TryGetValue((oldZ, oldEnd), out MediaTime end) || range.End > end)
+                rippleEnds[(oldZ, oldEnd)] = range.End;
+            if (!rippleStarts.TryGetValue((oldZ, oldStart), out MediaTime start) || range.Start < start)
+                rippleStarts[(oldZ, oldStart)] = range.Start;
+        }
+
         Element[] resized = requests.Select(r => r.Element).ToArray();
         foreach (ElementResizeRequest req in requests)
         {
             (int oldZ, MediaTime oldStart, MediaTime oldEnd) = oldBounds[req.Element];
             if (req.Element.ZIndex.Value != oldZ) continue;
 
-            // Both run: a pure right-edge resize has startDelta == 0, a pure left-edge
-            // resize has endDelta == 0, so each ShiftX no-ops on the untouched edge.
-            MediaTime endDelta = req.Element.Range.End - oldEnd;
-            RippleHelper.ShiftAfter(scene, oldZ, oldEnd, endDelta, resized);
-
-            MediaTime startDelta = req.Element.Start.Value - oldStart;
-            RippleHelper.ShiftBefore(scene, oldZ, oldStart, startDelta, resized);
+            // Consume each shared edge once while keeping the request order for distinct edges.
+            if (rippleEnds.Remove((oldZ, oldEnd), out MediaTime end))
+                RippleHelper.ShiftAfter(scene, oldZ, oldEnd, end - oldEnd, resized);
+            if (rippleStarts.Remove((oldZ, oldStart), out MediaTime start))
+                RippleHelper.ShiftBefore(scene, oldZ, oldStart, start - oldStart, resized);
         }
 
         if (autoAdjustSceneDuration)

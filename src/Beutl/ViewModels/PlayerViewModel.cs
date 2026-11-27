@@ -234,6 +234,7 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
         PathEditor = new PathEditorViewModel(_editViewModel, this)
             .DisposeWith(_disposables);
         InitializeEditingStage();
+        InitializeEffectComparison();
         InitializePuppetPinEditor();
 
         IsCameraMode.Subscribe(isCameraMode =>
@@ -368,7 +369,7 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
             return;
         }
 
-        QueueRender();
+        QueueRender(coalesceSceneEdits: true);
     }
 
     // The preview only needs to re-render when an edit touches a currently visible frame.
@@ -774,7 +775,7 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
 
     private void PresentPlaybackFrame(BufferedPlayer.Frame frame, MediaTime outputTime, Rational rate, int generation)
     {
-        UpdateImage(frame.Bitmap, frame.CleanBitmap, outputTime, _previewPlaybackId);
+        UpdateImage(frame.Bitmap, frame.CleanBitmap, outputTime, _previewPlaybackId, comparison: frame.Comparison);
         UpdatePreviewRenderStatus(error: null, frame.PreviewWarning, () => _sessionGuard.Owns(generation));
 
         if (Scene != null)
@@ -993,6 +994,7 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
         // never disposed under the request holding its token. Pause then drains the compose and render
         // dispatchers, so the render thread cannot call OnNext on the subjects disposed below.
         renderCts?.Cancel();
+        EndEffectComparison();
         StopPuppetPinPlacement();
         SetSelectedPuppetPin(null);
         Disposing?.Invoke(this, EventArgs.Empty);

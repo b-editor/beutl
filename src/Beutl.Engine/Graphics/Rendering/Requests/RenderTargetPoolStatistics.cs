@@ -10,4 +10,5 @@ internal readonly record struct RenderTargetPoolStatistics(
     int LeasedTargets,
     long OwnedBytes,
     long RetainedBytes,
-    int PeakLiveTargets);
+    int PeakLiveTargets,
+    long PeakLiveBytes);

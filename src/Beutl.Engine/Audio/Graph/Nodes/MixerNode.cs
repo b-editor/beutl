@@ -3,7 +3,7 @@ using Beutl.Media;
 
 namespace Beutl.Audio.Graph.Nodes;
 
-public sealed class MixerNode : AudioNode
+public sealed partial class MixerNode : AudioNode
 {
     private float[] _gains = Array.Empty<float>();
     private readonly Dictionary<AudioNode, MediaTime> _branchEndTimes =
@@ -41,6 +41,7 @@ public sealed class MixerNode : AudioNode
         _processedBranches.Remove(input);
         _unknownDrainAttempts.Remove(input);
         _branchTailBudgets.Remove(input);
+        _branchDelays?.Remove(input);
     }
 
     /// <summary>
@@ -90,33 +91,12 @@ public sealed class MixerNode : AudioNode
         int total = 0;
         foreach (AudioNode input in Inputs)
         {
-            if (_unknownDrainAttempts.Contains(input))
-                continue;
-
-            if (_branchTailBudgets.TryGetValue(input, out BranchTailBudget? budget))
+            int branchLatency = GetBranchDrainLatencySamples(input, sampleRate);
+            if (_branchDelays?.TryGetValue(input, out BranchDelay? delay) == true)
             {
-                if (budget.RemainingSamples <= 0)
-                    continue;
-
-                total = Math.Max(total, AudioLatency.ScaleSampleCount(budget.RemainingSamples, budget.SampleRate, sampleRate));
-                continue;
-            }
-
-            // A discontinuous process clears _processedBranches before asking the branch for audio.
-            // If the branch has already ended and was not processed in this run, its reported
-            // latency belongs to an abandoned timeline rather than the current drain.
-            if (_branchEndTimes.ContainsKey(input) && !_processedBranches.Contains(input))
-                continue;
-
-            int branchLatency = input.GetDrainLatencySamples(sampleRate);
-            AudioLatency.ThrowIfNegative(input, branchLatency, "drain latency");
-
-            if (branchLatency != int.MaxValue
-                && _branchEndTimes.TryGetValue(input, out MediaTime branchEndTime)
-                && _lastTimeRangeEnd is { } processedEnd
-                && GetTailEnd(branchEndTime, branchLatency, sampleRate) <= processedEnd)
-            {
-                continue;
+                int compensation = branchLatency > 0 ? delay.DelaySamples : delay.PendingSamples;
+                branchLatency = AudioLatency.SaturatingAdd(branchLatency,
+                    AudioLatency.ScaleSampleCount(compensation, delay.SampleRate, sampleRate));
             }
 
             total = Math.Max(total, branchLatency);
@@ -125,57 +105,76 @@ public sealed class MixerNode : AudioNode
         return total;
     }
 
+    private int GetBranchDrainLatencySamples(AudioNode input, int sampleRate)
+    {
+        if (_unknownDrainAttempts.Contains(input))
+            return 0;
+
+        if (_branchTailBudgets.TryGetValue(input, out BranchTailBudget? budget))
+            return AudioLatency.ScaleSampleCount(budget.RemainingSamples, budget.SampleRate, sampleRate);
+
+        // A branch that was already over when this run began has no retained audio from this run.
+        if (_branchEndTimes.ContainsKey(input) && !_processedBranches.Contains(input))
+            return 0;
+
+        int latency = input.GetDrainLatencySamples(sampleRate);
+        AudioLatency.ThrowIfNegative(input, latency, "drain latency");
+        if (latency != int.MaxValue
+            && _branchEndTimes.TryGetValue(input, out MediaTime end)
+            && _lastTimeRangeEnd is { } processedEnd
+            && GetTailEnd(end, latency, sampleRate) <= processedEnd)
+        {
+            return 0;
+        }
+
+        return latency;
+    }
+
     private AudioBuffer Mix(AudioProcessContext context, bool drain)
     {
         if (Inputs.Count == 0)
             throw new InvalidOperationException("Mixer requires at least one input.");
 
-        var buffers = new AudioBuffer[Inputs.Count];
+        int targetLatency = GetCompensationTarget(context.SampleRate);
+        if (targetLatency != _delayTargetLatency
+            || (_lastDelayRangeEnd is { } delayEnd && !context.ContinuesFrom(delayEnd)))
+        {
+            _branchDelays?.Clear();
+        }
+        _delayTargetLatency = targetLatency;
+
+        scoped Span<BranchAlignment> alignment = default;
+        if (targetLatency > 0)
+            alignment = Inputs.Count <= 64 ? stackalloc BranchAlignment[Inputs.Count] : new BranchAlignment[Inputs.Count];
+
+        var buffers = new AudioBuffer?[Inputs.Count];
         try
         {
             for (int i = 0; i < Inputs.Count; i++)
             {
-                bool branchEnded = IsBranchEndedByTime(i, context);
-                bool drainBranch = drain || IsBranchEnded(i, context);
-                if (drainBranch && IsBranchDead(i, context))
-                    continue;
-
-                bool unknownDrain = drainBranch
-                    && Inputs[i].GetDrainLatencySamples(context.SampleRate) == int.MaxValue;
-                buffers[i] = drainBranch
-                    ? FlushBranch(i, context)
-                    : Inputs[i].Process(context);
-                if (unknownDrain && context.GetSampleCount() > 0)
-                    _unknownDrainAttempts.Add(Inputs[i]);
-                if (!drainBranch && !branchEnded)
-                    _processedBranches.Add(Inputs[i]);
-                if (!drainBranch
-                    && _branchEndTimes.TryGetValue(Inputs[i], out MediaTime branchEndTime)
-                    && !branchEnded
-                    && context.TimeRange.End >= branchEndTime)
+                AudioNode branch = Inputs[i];
+                int? fixedLatency = targetLatency > 0 ? branch.GetFixedLatencySamples(context.SampleRate) : null;
+                buffers[i] = ReadBranch(branch, context, drain, fixedLatency, out int trailingSilence);
+                if (!alignment.IsEmpty)
                 {
-                    RecordProcessedTailBudget(Inputs[i], branchEndTime, context.TimeRange.End, context.SampleRate);
+                    alignment[i] = new BranchAlignment(
+                        fixedLatency is { } latency ? targetLatency - latency : 0, trailingSilence);
                 }
             }
 
             AudioBuffer? firstBuffer = null;
-            foreach (var buffer in buffers)
-            {
-                if (buffer != null)
-                {
-                    firstBuffer = buffer;
-                    break;
-                }
-            }
-
-            if (firstBuffer == null)
-                return CreateSilentFlush(context);
-
             for (int i = 0; i < buffers.Length; i++)
             {
                 var buffer = buffers[i];
                 if (buffer == null)
                     continue;
+
+                if (firstBuffer == null)
+                {
+                    firstBuffer = buffer;
+                    continue;
+                }
+
                 if (buffer.SampleRate != firstBuffer.SampleRate)
                     throw new InvalidOperationException($"All inputs must have the same sample rate. Expected {firstBuffer.SampleRate}, but input {i} has {buffer.SampleRate}.");
                 if (buffer.ChannelCount != firstBuffer.ChannelCount)
@@ -184,30 +183,47 @@ public sealed class MixerNode : AudioNode
                     throw new InvalidOperationException($"All inputs must have the same sample count. Expected {firstBuffer.SampleCount}, but input {i} has {buffer.SampleCount}.");
             }
 
-            var output = new AudioBuffer(firstBuffer.SampleRate, firstBuffer.ChannelCount, firstBuffer.SampleCount);
+            if (firstBuffer == null && _branchDelays is not { Count: > 0 })
+                return CreateSilentFlush(context);
+
+            var output = firstBuffer == null
+                ? CreateSilentFlush(context)
+                : new AudioBuffer(firstBuffer.SampleRate, firstBuffer.ChannelCount, firstBuffer.SampleCount);
             try
             {
-                for (int ch = 0; ch < output.ChannelCount; ch++)
+                for (int i = 0; i < buffers.Length; i++)
                 {
-                    var outData = output.GetChannelData(ch);
+                    var inBuffer = buffers[i];
+                    BranchDelay? delay = alignment.IsEmpty ? null : GetBranchDelay(
+                        Inputs[i], alignment[i].DelaySamples, output, inBuffer != null);
+                    if (inBuffer == null && delay is not { PendingSamples: > 0 })
+                        continue;
 
-                    for (int i = 0; i < buffers.Length; i++)
+                    float gain = i < _gains.Length ? _gains[i] : 1.0f;
+                    for (int ch = 0; ch < output.ChannelCount; ch++)
                     {
-                        var inBuffer = buffers[i];
-                        if (inBuffer == null)
+                        var outData = output.GetChannelData(ch);
+                        ReadOnlySpan<float> inData = inBuffer == null ? default : inBuffer.GetChannelData(ch);
+                        if (delay != null)
+                        {
+                            delay.MixChannel(ch, inData, outData, gain);
                             continue;
-
-                        var gain = i < _gains.Length ? _gains[i] : 1.0f;
-                        var inData = inBuffer.GetChannelData(ch);
+                        }
 
                         for (int s = 0; s < output.SampleCount; s++)
                         {
                             outData[s] += inData[s] * gain;
                         }
                     }
+
+                    if (delay != null)
+                        delay.Advance(output.SampleCount, inBuffer == null ? output.SampleCount : alignment[i].TrailingSilence);
                 }
 
-                RecordProcessedChannelCount(output.ChannelCount);
+                if (firstBuffer != null)
+                    RecordProcessedChannelCount(output.ChannelCount);
+                if (output.SampleCount > 0 && _branchDelays is { Count: > 0 })
+                    _lastDelayRangeEnd = context.TimeRange.End;
                 return output;
             }
             catch
@@ -215,6 +231,11 @@ public sealed class MixerNode : AudioNode
                 output.Dispose();
                 throw;
             }
+        }
+        catch
+        {
+            _branchDelays?.Clear();
+            throw;
         }
         finally
         {
@@ -225,17 +246,62 @@ public sealed class MixerNode : AudioNode
         }
     }
 
-    private bool IsBranchDead(int index, AudioProcessContext context)
+    private AudioBuffer? ReadBranch(AudioNode branch, AudioProcessContext context, bool drain, int? fixedLatency,
+        out int trailingSilence)
     {
-        AudioNode branch = Inputs[index];
-        if (!_branchEndTimes.TryGetValue(branch, out MediaTime branchEndTime))
-            return false;
+        trailingSilence = 0;
+        bool hasEnd = _branchEndTimes.TryGetValue(branch, out MediaTime branchEndTime);
+        bool branchEnded = hasEnd && context.TimeRange.Start >= branchEndTime;
+        bool processed = _processedBranches.Contains(branch);
+        if (drain || (branchEnded && processed))
+        {
+            if (IsBranchDead(branch, context) || (fixedLatency.HasValue && branchEnded && !processed))
+                return null;
 
+            int latency = branch.GetDrainLatencySamples(context.SampleRate);
+            AudioBuffer? tail = FlushBranch(branch, context, latency, branchEnded ? branchEndTime : null,
+                fixedLatency.HasValue, out trailingSilence);
+            if (latency == int.MaxValue && context.GetSampleCount() > 0)
+                _unknownDrainAttempts.Add(branch);
+
+            return tail;
+        }
+
+        AudioBuffer buffer = branch.Process(context);
+        try
+        {
+            if (branchEnded)
+            {
+                trailingSilence = buffer.SampleCount;
+            }
+            else
+            {
+                _processedBranches.Add(branch);
+                if (hasEnd && context.TimeRange.End >= branchEndTime)
+                    trailingSilence = RecordProcessedTailBudget(branch, branchEndTime, context.TimeRange.End, context.SampleRate, fixedLatency);
+                else if (fixedLatency.HasValue)
+                    _branchTailBudgets.Remove(branch);
+            }
+
+            return buffer;
+        }
+        catch
+        {
+            buffer.Dispose();
+            throw;
+        }
+    }
+
+    private bool IsBranchDead(AudioNode branch, AudioProcessContext context)
+    {
         if (_branchTailBudgets.TryGetValue(branch, out BranchTailBudget? budget)
             && budget.SampleRate == context.SampleRate)
         {
             return budget.RemainingSamples <= 0;
         }
+
+        if (!_branchEndTimes.TryGetValue(branch, out MediaTime branchEndTime))
+            return false;
 
         int branchLatency = branch.GetDrainLatencySamples(context.SampleRate);
         if (branchLatency == int.MaxValue)
@@ -250,17 +316,11 @@ public sealed class MixerNode : AudioNode
         return GetTailEnd(branchEndTime, branchLatency, context.SampleRate) <= deadAfter;
     }
 
-    private AudioBuffer FlushBranch(int index, AudioProcessContext context)
+    private AudioBuffer? FlushBranch(AudioNode branch, AudioProcessContext context, int branchLatency,
+        MediaTime? branchEnd, bool trackFixedTail, out int trailingSilence)
     {
-        AudioNode branch = Inputs[index];
-        if (!_branchEndTimes.TryGetValue(branch, out MediaTime branchEndTime)
-            || context.TimeRange.Start < branchEndTime)
-        {
-            return branch.Flush(context);
-        }
-
-        int branchLatency = branch.GetDrainLatencySamples(context.SampleRate);
-        if (branchLatency == int.MaxValue)
+        trailingSilence = 0;
+        if (branchLatency == int.MaxValue || (branchEnd == null && !trackFixedTail))
             return branch.Flush(context);
 
         int sampleCount = context.GetSampleCount();
@@ -272,12 +332,16 @@ public sealed class MixerNode : AudioNode
         }
         else
         {
-            MediaTime remaining = GetTailEnd(branchEndTime, branchLatency, context.SampleRate) - context.TimeRange.Start;
-            remainingSamples = remaining <= MediaTime.Zero
-                ? 0
-                : Math.Min(
-                    branchLatency,
-                    AudioProcessContext.GetSampleCount(new TimeRange(context.TimeRange.Start, remaining), context.SampleRate));
+            remainingSamples = branchLatency;
+            if (branchEnd is { } end)
+            {
+                MediaTime remaining = GetTailEnd(end, branchLatency, context.SampleRate) - context.TimeRange.Start;
+                remainingSamples = remaining <= MediaTime.Zero
+                    ? 0
+                    : Math.Min(branchLatency,
+                        AudioProcessContext.GetSampleCount(new TimeRange(context.TimeRange.Start, remaining), context.SampleRate));
+            }
+
             budget = new BranchTailBudget
             {
                 RemainingSamples = remainingSamples,
@@ -293,7 +357,12 @@ public sealed class MixerNode : AudioNode
         }
 
         if (remainingSamples <= 0)
-            return CreateSilentFlush(context);
+        {
+            trailingSilence = sampleCount;
+            return trackFixedTail ? null : CreateSilentFlush(context);
+        }
+
+        trailingSilence = sampleCount - remainingSamples;
 
         // The full-window and empty cases returned above, so FlushIntoWindow always builds a shortened drain
         // context here.
@@ -308,19 +377,25 @@ public sealed class MixerNode : AudioNode
         return branchEndTime > MediaTime.MaxValue - latency ? MediaTime.MaxValue : branchEndTime + latency;
     }
 
-    private void RecordProcessedTailBudget(
+    private int RecordProcessedTailBudget(
         AudioNode branch,
         MediaTime branchEndTime,
         MediaTime processedEnd,
-        int sampleRate)
+        int sampleRate,
+        int? fixedLatency)
     {
         int branchLatency = branch.GetDrainLatencySamples(sampleRate);
         AudioLatency.ThrowIfNegative(branch, branchLatency, "drain latency");
 
         if (branchLatency == int.MaxValue)
-            return;
+            return 0;
 
-        MediaTime remaining = GetTailEnd(branchEndTime, branchLatency, sampleRate) - processedEnd;
+        // A clip that wraps another mixer can already report a reduced budget after inline drain.
+        // Measure the padding against its fixed latency, and cap the result by what it still holds.
+        if (fixedLatency == null && branchLatency > 0 && processedEnd > branchEndTime)
+            fixedLatency = branch.GetFixedLatencySamples(sampleRate);
+
+        MediaTime remaining = GetTailEnd(branchEndTime, fixedLatency ?? branchLatency, sampleRate) - processedEnd;
         int remainingSamples = remaining <= MediaTime.Zero
             ? 0
             : (int)Math.Min(branchLatency, remaining.ToSamples(sampleRate, MidpointRounding.ToPositiveInfinity));
@@ -329,14 +404,11 @@ public sealed class MixerNode : AudioNode
             RemainingSamples = remainingSamples,
             SampleRate = sampleRate,
         };
+
+        return remaining < MediaTime.Zero
+            ? (int)Math.Min(int.MaxValue, (-remaining).ToSamples(sampleRate, MidpointRounding.ToZero))
+            : 0;
     }
-
-    private bool IsBranchEnded(int index, AudioProcessContext context)
-        => IsBranchEndedByTime(index, context) && _processedBranches.Contains(Inputs[index]);
-
-    private bool IsBranchEndedByTime(int index, AudioProcessContext context)
-        => _branchEndTimes.TryGetValue(Inputs[index], out MediaTime branchEndTime)
-            && context.TimeRange.Start >= branchEndTime;
 
     protected override void OnInputAdded(AudioNode input, int index)
     {
@@ -350,6 +422,7 @@ public sealed class MixerNode : AudioNode
         _processedBranches.Remove(input);
         _unknownDrainAttempts.Remove(input);
         _branchTailBudgets.Remove(input);
+        _branchDelays?.Remove(input);
         _lastTimeRangeEnd = null;
     }
 
@@ -375,6 +448,9 @@ public sealed class MixerNode : AudioNode
         _processedBranches.Clear();
         _unknownDrainAttempts.Clear();
         _branchTailBudgets.Clear();
+        _branchDelays = null;
+        _lastDelayRangeEnd = null;
+        _delayTargetLatency = 0;
         _lastTimeRangeEnd = null;
     }
 

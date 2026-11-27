@@ -31,6 +31,9 @@ public sealed class VibratoNode : AudioNode
         return VibratoEffect.GetHeldSamples(Depth, sampleRate);
     }
 
+    internal override bool HasFixedLatency(int sampleRate)
+        => GetLatencySamples(sampleRate) == 0 && base.HasFixedLatency(sampleRate);
+
     protected override AudioBuffer ProcessTail(AudioBuffer input, AudioProcessContext context, bool draining)
     {
         using AudioBuffer owned = input;

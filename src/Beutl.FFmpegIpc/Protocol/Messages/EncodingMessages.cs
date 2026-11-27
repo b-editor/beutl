@@ -1,8 +1,14 @@
-﻿namespace Beutl.FFmpegIpc.Protocol.Messages;
+﻿using System.Text.Json.Serialization;
+
+namespace Beutl.FFmpegIpc.Protocol.Messages;
 
 public sealed class EncodeStartRequest
 {
     public string OutputFile { get; set; } = "";
+
+    // Older hosts omit this field and keep the container's default stream selection.
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool VideoOnly { get; set; }
 
     // Frame provider metadata
     public long FrameCount { get; set; }

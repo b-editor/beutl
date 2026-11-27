@@ -1,6 +1,7 @@
 ﻿using Beutl.Graphics.Backend;
 using Beutl.Graphics.Backend.Composite;
 using Beutl.Graphics.Backend.Vulkan;
+using Beutl.Graphics.Rendering.Requests;
 using Beutl.Media;
 using Beutl.Threading;
 using SkiaSharp;
@@ -228,6 +229,12 @@ public partial class RenderTarget : IDisposable
         t_lastRefusal = (width, height, reason);
         return null;
     }
+
+    internal static RenderTarget? CreateUnpooled(PixelSize deviceSize, RenderTargetLeaseSession? session)
+        => session is null ? Create(deviceSize.Width, deviceSize.Height) : session.TryCreateUnpooled(deviceSize);
+
+    internal void TrackLiveBytes(RenderTargetLeaseSession session, long byteSize)
+        => _surface.TrackLiveBytes(session, byteSize);
 
     // Why the last Create of this size on this thread returned null, if it did; taking it clears it.
     internal static Exception? TakeRefusalReason(PixelSize size)

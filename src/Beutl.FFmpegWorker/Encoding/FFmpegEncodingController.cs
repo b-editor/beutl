@@ -29,6 +29,8 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
 
     public override FFmpegAudioEncoderSettings AudioSettings { get; } = new() { OutputFile = outputFile };
 
+    internal bool VideoOnly { get; init; }
+
     private void InitEncodeFilterGraph(MediaEncoder encoder)
     {
         _filterGraph = new MediaFilterGraph();
@@ -406,7 +408,7 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
             bool encodeCompletedSuccessfully = false;
             try
             {
-                if (outFormat.AudioCodec != AVCodecID.AV_CODEC_ID_NONE)
+                if (!VideoOnly && outFormat.AudioCodec != AVCodecID.AV_CODEC_ID_NONE)
                 {
                     ConfigureAudioStream(outFormat, muxer, audioFrame, sampleProvider, out var encoder, out var stream, out swr);
                     encoders.Add((encoder, stream));

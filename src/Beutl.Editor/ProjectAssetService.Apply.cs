@@ -26,7 +26,7 @@ internal sealed partial class ProjectAssetService
     private readonly MissingMediaService _validator = new(static _ => false, decoders);
 
     internal async Task<IReadOnlyCollection<CoreObject>> ApplyAsync(Project project, ProjectAssetPaths paths, Analysis current, ProjectAssetAction action,
-        IReadOnlyList<ProjectAssetItem> selected, CancellationToken token)
+        IReadOnlyList<ProjectAssetItem> selected, CancellationToken token, Action? beforeCollectionSave = null)
     {
         var rows = current.Preview.ForAction(action).ToDictionary(item => item.Path, StringComparer.Ordinal);
         var approved = new List<ProjectAssetItem>(selected.Count);
@@ -41,7 +41,7 @@ internal sealed partial class ProjectAssetService
         if (approved.Count == 0) return [];
         if (action == ProjectAssetAction.Collect)
         {
-            return await CollectAsync(project, paths, approved, current.Sources, token);
+            return await CollectAsync(project, paths, approved, current.Sources, token, beforeCollectionSave);
         }
         if (action == ProjectAssetAction.Delete)
         {
@@ -55,7 +55,7 @@ internal sealed partial class ProjectAssetService
     }
 
     private async Task<IReadOnlyCollection<CoreObject>> CollectAsync(Project project, ProjectAssetPaths paths, List<ProjectAssetItem> items,
-        Dictionary<string, List<Relink>> sources, CancellationToken token)
+        Dictionary<string, List<Relink>> sources, CancellationToken token, Action? beforeSave)
     {
         ProjectAssetCollection? copies = null;
         bool preserveCopies = false;
@@ -115,6 +115,7 @@ internal sealed partial class ProjectAssetService
             foreach (CoreObject document in documents)
                 paths.RequireWritable(document.Uri!.LocalPath);
 
+            beforeSave?.Invoke();
             var sceneFingerprints = documents.OfType<Scene>().ToDictionary(scene => scene,
                 scene => scene.MediaFingerprints.ToArray());
             var changed = new Stack<(ProjectAssetReferences.Use Use, ModelSource? OriginalModel)>();

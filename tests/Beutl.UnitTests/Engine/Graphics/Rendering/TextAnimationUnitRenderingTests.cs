@@ -305,6 +305,58 @@ public sealed class TextAnimationUnitRenderingTests
     }
 
     [Test]
+    public void GroupDelayKeepsOneSlotForTextCompositedWithDrawableOpacity()
+    {
+        var probe = new Probe(readAlpha: true);
+        TextOnPathEffect path = AlongLine(120);
+        DrawableGroup group = CreatePathGroup(
+            path, Chain(FadeDelay(150, DelayAnimationMode.PerStep), probe.Effect), pathOpacity: 70);
+        var onPath = (TextBlock)group.Children[0];
+        onPath.Pen.Value = new Pen
+        {
+            Brush = { Value = Brushes.White },
+            Thickness = { Value = 4 },
+            StrokeOrder = { Value = StrokeOrder.BelowFill },
+        };
+
+        foreach (float offset in new[] { 0f, 100f, 121f, 100f, 0f })
+        {
+            path.PathOffset.Value = offset;
+            Render(group, 0.8);
+
+            // The overlapping stroke and fill get 70% opacity together, then the parent's 80% fade.
+            float[] expected = [offset == 121 ? 0f : 0.56f, 0.65f, 0.5f];
+            Assert.That(probe.Parts.Select(part => part.PeakAlpha), Is.EqualTo(expected).Within(0.004), $"Offset {offset} px");
+            int? visibleCharacter = offset == 100 ? 0 : null;
+            Assert.That(probe.Parts[0].Tag?.Indices.Character, Is.EqualTo(visibleCharacter));
+        }
+    }
+
+    [Test]
+    public void GroupRangeKeepsOneSlotForTextCompositedWithDrawableOpacity()
+    {
+        var before = new Probe();
+        var after = new Probe();
+        var range = new RangeAnimatorEffect
+        {
+            RangeStart = { Value = 40 },
+            RangeEnd = { Value = 60 },
+            Smoothness = { Value = 0 },
+            Position = { Value = new Point(0, 24) },
+        };
+        TextOnPathEffect path = AlongLine(120);
+        DrawableGroup group = CreatePathGroup(path, Chain(before.Effect, range, after.Effect), pathOpacity: 70);
+
+        foreach (float offset in new[] { 0f, 100f, 121f, 100f, 0f })
+        {
+            path.PathOffset.Value = offset;
+            Render(group);
+
+            Assert.That(YOffsets(before, after), Is.EqualTo(new[] { 0f, 24f, 0f }).Within(0.001), $"Offset {offset} px");
+        }
+    }
+
+    [Test]
     public void SplitPartsKeepTheirRanksAheadOfATextBlockThatLeavesItsPath()
     {
         var probe = new Probe(readAlpha: true);
@@ -573,11 +625,13 @@ public sealed class TextAnimationUnitRenderingTests
         return new DelayAnimationEffect { Delay = { Value = milliseconds }, DelayMode = { Value = mode }, Effect = { Value = fade } };
     }
 
-    private static DrawableGroup CreatePathGroup(TextOnPathEffect path, FilterEffect effect, bool pathFirst = true)
+    private static DrawableGroup CreatePathGroup(TextOnPathEffect path, FilterEffect effect, bool pathFirst = true,
+        float pathOpacity = 100)
     {
         var group = new DrawableGroup { FilterEffect = { Value = effect } };
         TextBlock onPath = CreateText("AB", path);
         onPath.Transform.Value = new TranslateTransform(7, 9);
+        onPath.Opacity.Value = pathOpacity;
         TextBlock sibling = CreateText("CD");
         group.Children.Add(pathFirst ? onPath : sibling);
         group.Children.Add(pathFirst ? sibling : onPath);

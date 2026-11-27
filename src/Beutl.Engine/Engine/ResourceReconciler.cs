@@ -48,10 +48,34 @@ public static class ResourceReconciler
             }
         }
         bool changed = false;
-        ReconcileResource(context, context.Get(property), ref field, ref changed);
+        TObject value = context.Get(property);
+        if (context.Conditions.BypassedFilterEffect is not null && property is IExpressionProperty { IsReference: true })
+        {
+            ReconcileComparisonReference(context, value, ref field, ref changed);
+        }
+        else
+        {
+            ReconcileResource(context, value, ref field, ref changed);
+        }
         if (changed)
         {
             owner.BumpVersion(ref versionBumped);
+        }
+    }
+
+    private static void ReconcileComparisonReference<TObject, TResource>(
+        CompositionContext context, TObject value, ref TResource? field, ref bool changed)
+        where TObject : EngineObject? where TResource : EngineObject.Resource
+    {
+        CompositionConditions original = context.Conditions;
+        context.Conditions = original with { BypassedFilterEffect = null };
+        try
+        {
+            ReconcileResource(context, value, ref field, ref changed);
+        }
+        finally
+        {
+            context.Conditions = original;
         }
     }
 

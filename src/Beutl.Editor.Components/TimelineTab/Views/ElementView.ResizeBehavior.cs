@@ -485,28 +485,16 @@ public sealed partial class ElementView
 
         private void BeginEdgeResize(ElementViewModel viewModel)
         {
-            IReadOnlyList<ElementViewModel> relatedElements = viewModel.GetGroupOrSelectedElements()
-                .Where(el => el.IsEditable.Value)
-                .ToArray();
-
-            IEnumerable<ElementViewModel> filteredElements;
-            if (_resizeType == AlignmentX.Right)
-            {
-                MediaTime targetEndTime = viewModel.Model.Range.End;
-                filteredElements = relatedElements.Where(elem => elem.Model.Range.End == targetEndTime);
-            }
-            else if (_resizeType == AlignmentX.Left)
-            {
-                MediaTime targetStartTime = viewModel.Model.Start.Value;
-                filteredElements = relatedElements.Where(elem => elem.Model.Start.Value == targetStartTime);
-            }
-            else
-            {
-                filteredElements = [viewModel];
-            }
+            ElementViewModel[] participants = _resizeType is AlignmentX.Left or AlignmentX.Right
+                ? TrimGroupCollector.CollectResizeMembers(viewModel.GetGroupOrSelectedModels(), viewModel.Model,
+                        _resizeType == AlignmentX.Left)
+                    .Select(viewModel.Timeline.GetViewModelFor)
+                    .OfType<ElementViewModel>()
+                    .Where(elem => elem.IsEditable.Value)
+                    .ToArray()
+                : [viewModel];
 
             bool clampToOriginal = viewModel.Timeline.EditorContext.GetRequiredService<GlobalConfiguration>().EditorConfig.ClampResizeToOriginalLength.Value;
-            ElementViewModel[] participants = filteredElements.ToArray();
             var timingPeers = participants.Select(elem => elem.Model).ToHashSet();
 
             _resizeContexts = participants.Select(elem =>
@@ -556,15 +544,9 @@ public sealed partial class ElementView
         {
             if (_resizeType is not (AlignmentX.Left or AlignmentX.Right)) return false;
 
-            Element model = viewModel.Model;
-            MediaTime boundary = _resizeType == AlignmentX.Right ? model.Range.End : model.Start.Value;
-
             IReadOnlyList<ElementTrimPair>? pairs = TrimGroupCollector.CollectRollPairs(
-                viewModel.Scene, CollectTrimMembers(viewModel), boundary);
+                viewModel.Scene, CollectTrimMembers(viewModel), viewModel.Model, _resizeType == AlignmentX.Left, out _);
             if (pairs is null) return false;
-            // The pressed clip's own cut must participate; without it the drag would roll
-            // only other group members' cuts, detached from the pointer.
-            if (!pairs.Any(p => p.Front == model || p.Back == model)) return false;
 
             var constraints = ElementResizeService.CreateTrimConstraints(viewModel.Scene, pairs, viewModel.Timeline.EditorContext.GetRequiredService<GlobalConfiguration>().EditorConfig, decoders: ExtensionGuard.FindService<DecoderRegistry>(viewModel.Timeline.EditorContext));
             var fronts = new TrimSegment[pairs.Count];
@@ -755,9 +737,7 @@ public sealed partial class ElementView
         {
             // Round the moving edge once so clips with sub-frame starts keep their shared edge.
             MediaTime edge = sharedEdge ?? RoundResizeEdge(ctx, leftEdge, scale, rate);
-            return leftEdge
-                ? TimeRange.FromRange(edge, ctx.RecordedEndTime)
-                : TimeRange.FromRange(ctx.RecordedStartTime, edge);
+            return TrimGroupCollector.GetResizeRange(ctx.RecordedStartTime, ctx.RecordedEndTime, edge, leftEdge);
         }
 
         private static ElementResizeRequest[] GetResizeRequests(ElementResizeContext[] contexts, bool ripple, bool leftEdge,

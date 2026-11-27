@@ -29,6 +29,7 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
     private readonly Dictionary<PropertyPair, IDisposable> _inlinePairs = [];
     private readonly IEditorSelection _selection;
     private readonly IEditorClock _editorClock;
+    private MediaTime? _clickedFrame;
     private bool _isDisposed;
     private bool _updatingToolMode;
     private bool _addingLayerHeaders;
@@ -408,7 +409,11 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
 
     public ReactivePropertySlim<CacheBlock?> HoveredCacheBlock { get; } = new();
 
-    public MediaTime ClickedFrame { get; set; }
+    public MediaTime ClickedFrame
+    {
+        get => _clickedFrame.GetValueOrDefault();
+        set => _clickedFrame = value;
+    }
 
     public Point ClickedPosition { get; set; }
 
@@ -568,8 +573,11 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
     {
         try
         {
+            (MediaTime start, int layer) = _clickedFrame is { } frame
+                ? (frame, CalculateClickedLayer())
+                : PlayheadPlacement.Find(EditorContext, Scene);
             ElementPasteOutcome outcome = await EditorContext.GetRequiredService<IElementClipboardService>()
-                .PasteAsync(Scene, ClickedFrame, CalculateClickedLayer());
+                .PasteAsync(Scene, start, layer);
 
             if (outcome.Pasted && outcome.ScrollTo.Duration > MediaTime.Zero)
             {

@@ -39,6 +39,12 @@
   <data name="ConfirmExcludeItem" xml:space="preserve">
     <value>プロジェクトからこのアイテムを除外しますか？</value>
   </data>
+  <data name="CannotRemoveLastScene" xml:space="preserve">
+    <value>プロジェクトの最後のシーンは除外できません。</value>
+  </data>
+  <data name="SaveSceneBeforeRemoving" xml:space="preserve">
+    <value>除外する前に、このシーンの変更を保存してください。</value>
+  </data>
   <data name="FailedToOpenFileWithExtension" xml:space="preserve">
     <value>'{0}'で次のファイルを開くことができませんでした。
 '{1}'</value>
@@ -106,6 +112,9 @@
   </data>
   <data name="FrameDrawingException" xml:space="preserve">
     <value>フレームの描画中に例外が発生しました。</value>
+  </data>
+  <data name="RenderTargetLiveByteBudgetExceeded" xml:space="preserve">
+    <value>{0} × {1} ピクセルの描画ターゲットを追加すると、このレンダーリクエストのメモリ上限（{2:N0} バイト）を超えます。使用中の描画ターゲットはすでに {3:N0} バイトを使用しています。</value>
   </data>
   <data name="Scene3DBackendUnavailable" xml:space="preserve">
     <value>Vulkan を利用できないため、3D を描画できません。</value>
@@ -517,6 +526,9 @@
   </data>
   <data name="ConfirmDeleteProjectFolderFromDisk" xml:space="preserve">
     <value>このプロジェクトのフォルダーと、その中のすべてのファイルを完全に削除しますか？この操作は元に戻せません。</value>
+  </data>
+  <data name="ConfirmDeleteHostedRepository" xml:space="preserve">
+    <value>Beutl 上のリポジトリと履歴を完全に削除します。&#10;削除後もローカルのコピーを開けます。</value>
   </data>
   <data name="ConfirmDeleteProjectFileFromDisk" xml:space="preserve">
     <value>このプロジェクトは専用のフォルダーにないため、プロジェクトファイルだけを削除します。シーンなどのファイルはディスクに残ります。プロジェクトファイルを完全に削除しますか？この操作は元に戻せません。</value>

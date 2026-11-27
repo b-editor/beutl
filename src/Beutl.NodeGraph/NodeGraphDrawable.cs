@@ -2,6 +2,7 @@
 using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Graphics;
+using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Language;
 using Beutl.NodeGraph.Composition;
@@ -44,6 +45,9 @@ public sealed partial class NodeGraphDrawable : Drawable
 
         protected override void RenderCore(GraphicsContext2D context)
         {
+            if (GetOriginal() is { } graph)
+                EffectEditingPlacement.ObserveGraphOutputs(graph, OutputRenderNode);
+
             foreach (var output in OutputRenderNode)
             {
                 context.DrawNode(

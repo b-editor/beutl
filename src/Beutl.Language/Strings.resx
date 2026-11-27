@@ -1232,6 +1232,9 @@
   <data name="Duplicate_ProjectNotSaved" xml:space="preserve">
     <value>Save the project before duplicating elements.</value>
   </data>
+  <data name="Duplicate_InvalidLayer" xml:space="preserve">
+    <value>Choose a non-negative destination layer with room for all the copies.</value>
+  </data>
   <data name="Duplicate_IOFailed" xml:space="preserve">
     <value>Could not write the duplicated element to disk.</value>
   </data>
@@ -1510,6 +1513,36 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="ExportProject" xml:space="preserve">
     <value>Export Project…</value>
   </data>
+  <data name="ExportSubtitlesMenu" xml:space="preserve">
+    <value>Export Subtitles…</value>
+  </data>
+  <data name="ExportSubtitles" xml:space="preserve">
+    <value>Export Subtitles</value>
+  </data>
+  <data name="ExportSubtitles_Source" xml:space="preserve">
+    <value>Clips to export</value>
+  </data>
+  <data name="ExportSubtitles_SelectedElements" xml:space="preserve">
+    <value>Selected elements</value>
+  </data>
+  <data name="ExportSubtitles_Layers" xml:space="preserve">
+    <value>Timeline layers</value>
+  </data>
+  <data name="ExportSubtitles_NoLayers" xml:space="preserve">
+    <value>No layers contain clips.</value>
+  </data>
+  <data name="ExportSubtitles_Format" xml:space="preserve">
+    <value>File format</value>
+  </data>
+  <data name="ExportSubtitles_SelectSource" xml:space="preserve">
+    <value>Choose clips or layers to export.</value>
+  </data>
+  <data name="ExportSubtitles_NoText" xml:space="preserve">
+    <value>No text clips were found.</value>
+  </data>
+  <data name="ExportSubtitles_SkippedClips" xml:space="preserve">
+    <value>Skipped clips without text ({0}).</value>
+  </data>
   <data name="ImportProject" xml:space="preserve">
     <value>Import Project…</value>
   </data>
@@ -1616,6 +1649,36 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="EnterTemplateName" xml:space="preserve">
     <value>Enter template name</value>
   </data>
+  <data name="TemplateInvalidName" xml:space="preserve">
+    <value>Supply a valid file name for the template.</value>
+  </data>
+  <data name="TemplateInvalidId" xml:space="preserve">
+    <value>Supply a valid ID.</value>
+  </data>
+  <data name="TemplateObjectSaveFailed" xml:space="preserve">
+    <value>Beutl could not save the object as a template.</value>
+  </data>
+  <data name="TemplateNotFound" xml:space="preserve">
+    <value>Template '{0}' was not found.</value>
+  </data>
+  <data name="TemplateInstantiationFailed" xml:space="preserve">
+    <value>Template '{0}' could not create an object.</value>
+  </data>
+  <data name="TemplateObjectAmbiguous" xml:space="preserve">
+    <value>More than one object in the scene document has ID '{0}'.</value>
+  </data>
+  <data name="TemplateObjectNotFound" xml:space="preserve">
+    <value>The scene document has no object with ID '{0}'.</value>
+  </data>
+  <data name="TemplateTypeMismatch" xml:space="preserve">
+    <value>Template type '{0}' does not fit property '{1}', which requires '{2}'.</value>
+  </data>
+  <data name="TemplateIndexOutOfRange" xml:space="preserve">
+    <value>Supply a zero-based index from 0 to {0} for '{1}'.</value>
+  </data>
+  <data name="TemplateInvalidProperty" xml:space="preserve">
+    <value>To apply a template at '{0}', specify an object property for replacement or an object list with its insertion index.</value>
+  </data>
   <data name="Preset_YouTube_1080p60" xml:space="preserve">
     <value>YouTube 1080p 60fps</value>
   </data>
@@ -1666,6 +1729,9 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   </data>
   <data name="CommandPalette_MenuCategory" xml:space="preserve">
     <value>Menu</value>
+  </data>
+  <data name="CommandPalette_OpensToolTab" xml:space="preserve">
+    <value>Opens {0}</value>
   </data>
   <data name="CommandPalette_InputPlaceholder" xml:space="preserve">
     <value>Enter a value…</value>
@@ -2970,6 +3036,12 @@ Resolve the conflicts with an external Git tool before editing. The project may 
   <data name="AiSubtitle_CaptionsFile" xml:space="preserve">
     <value>Captions file</value>
   </data>
+  <data name="SubtitleFile_UnsupportedFormat" xml:space="preserve">
+    <value>Choose an SRT, ASS, or WebVTT file.</value>
+  </data>
+  <data name="SubtitleFile_UnsupportedTemplate" xml:space="preserve">
+    <value>The template must contain a text object.</value>
+  </data>
   <data name="SubtitleFile_CouldNotRead" xml:space="preserve">
     <value>Could not read any subtitles from {0}.</value>
   </data>
@@ -3892,6 +3964,24 @@ when history recording is enabled.</value>
   <data name="TogglePreviewCheckerboard_Description" xml:space="preserve">
     <value>Show the preview's transparent parts over a checkerboard instead of black.</value>
   </data>
+  <data name="CompareFilterEffect" xml:space="preserve">
+    <value>Compare Filter Effect</value>
+  </data>
+  <data name="CompareFilterEffect_Description" xml:space="preserve">
+    <value>Compare the current frame with and without one filter effect.</value>
+  </data>
+  <data name="ChooseFilterEffectToCompare" xml:space="preserve">
+    <value>Choose a filter effect to compare in the property editor.</value>
+  </data>
+  <data name="EffectComparisonBefore" xml:space="preserve">
+    <value>Before: {0}</value>
+  </data>
+  <data name="EffectComparisonAfter" xml:space="preserve">
+    <value>After</value>
+  </data>
+  <data name="EffectComparisonDivider" xml:space="preserve">
+    <value>Effect comparison divider</value>
+  </data>
   <data name="PreviewZoom" xml:space="preserve">
     <value>Preview zoom</value>
   </data>
@@ -4164,6 +4254,15 @@ when history recording is enabled.</value>
   </data>
   <data name="HostedGit_CloneRepositoryMenu" xml:space="preserve">
     <value>Clone Repository…</value>
+  </data>
+  <data name="HostedGit_DeleteRepository" xml:space="preserve">
+    <value>Delete Remote Repository</value>
+  </data>
+  <data name="HostedGit_DeleteRepositoryMenu" xml:space="preserve">
+    <value>Delete Remote Repository…</value>
+  </data>
+  <data name="HostedGit_DeletingRepository" xml:space="preserve">
+    <value>Deleting repository…</value>
   </data>
   <data name="HostedGit_BeutlRepositories" xml:space="preserve">
     <value>Beutl Repositories</value>

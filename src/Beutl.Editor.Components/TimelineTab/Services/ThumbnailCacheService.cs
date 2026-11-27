@@ -1,249 +1,156 @@
-﻿using System.Collections.Concurrent;
-using System.Diagnostics.CodeAnalysis;
+﻿using System.Diagnostics.CodeAnalysis;
 using Beutl.Engine;
-using Beutl.Logging;
 using Beutl.Media;
-using Microsoft.Extensions.Logging;
+using Beutl.Media.Source;
 
 namespace Beutl.Editor.Components.TimelineTab.Services;
 
 public sealed class ThumbnailCacheService : IThumbnailCacheService
 {
-    private static readonly Lazy<ThumbnailCacheService> s_instance = new(() => new ThumbnailCacheService());
+    private const long VideoBudgetBytes = 64 * 1024 * 1024;
+    private const int WaveformEntryBudget = 32 * 1024;
+    private readonly Cache<Ref<Bitmap>> _video;
+    private readonly Cache<(float Min, float Max)> _waveforms;
 
-    private readonly ILogger _logger = Log.CreateLogger<ThumbnailCacheService>();
-    private readonly ConcurrentDictionary<string, CacheIndex<Bitmap>> _indices = new();
-    private readonly ConcurrentDictionary<string, CacheIndex<(float Min, float Max)>> _waveformIndices = new();
-    private const int MaxTotalEntries = 512;
+    public static ThumbnailCacheService Instance { get; } = new();
 
-    public static ThumbnailCacheService Instance => s_instance.Value;
+    public ThumbnailCacheService() : this(VideoBudgetBytes, WaveformEntryBudget) { }
+
+    internal ThumbnailCacheService(long videoBudgetBytes, int waveformEntryBudget)
+    {
+        _video = new(videoBudgetBytes, static bitmap => bitmap.Clone(), static bitmap => bitmap.Dispose());
+        _waveforms = new(waveformEntryBudget, static value => value, static _ => { });
+    }
 
     public bool TryGet(string cacheKey, MediaTime time, MediaTime threshold, out Bitmap? bitmap)
     {
-        bitmap = null;
-
-        var index = GetOrCreateIndex(cacheKey);
-        long targetFlicks = time.Flicks;
-
-        lock (index.Lock)
-        {
-            if (TryFindNearest(index.Entries, targetFlicks, threshold.Flicks, out Bitmap? cached))
-            {
-                bitmap = cached.Clone();
-            }
-        }
-
-        if (bitmap == null)
-            return false;
-
-        index.LastAccessTime = DateTime.UtcNow;
-        return true;
+        using var lease = _video.TryGet(cacheKey, time.Flicks, threshold.Flicks, out var cached) ? cached : null;
+        bitmap = lease?.Value.Clone();
+        return bitmap != null;
     }
 
     public void Save(string cacheKey, MediaTime time, Bitmap bitmap)
     {
-        try
-        {
-            var clone = bitmap.Clone();
-
-            var index = GetOrCreateIndex(cacheKey);
-            Bitmap? old = null;
-            lock (index.Lock)
-            {
-                if (index.Entries.TryGetValue(time.Flicks, out var existing))
-                {
-                    old = existing;
-                }
-
-                index.Entries[time.Flicks] = clone;
-            }
-
-            old?.Dispose();
-            index.LastAccessTime = DateTime.UtcNow;
-
-            TryEvictCache();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to save thumbnail cache: {CacheKey} at {Time}", cacheKey, time);
-        }
+        using var lease = Ref<Bitmap>.Create(bitmap.Clone());
+        SaveVideo(cacheKey, time, lease);
     }
+
+    public Ref<Bitmap>? AcquireVideo(string cacheKey, MediaTime time)
+        => _video.TryGet(cacheKey, time.Flicks, 0, out var bitmap) ? bitmap : null;
+
+    public void SaveVideo(string cacheKey, MediaTime time, Ref<Bitmap> bitmap)
+        => _video.Save(cacheKey, time.Flicks, bitmap, bitmap.Value.ByteCount);
 
     public bool TryGetWaveform(string cacheKey, MediaTime time, MediaTime threshold, out float minValue, out float maxValue)
     {
-        minValue = 0;
-        maxValue = 0;
-
-        var index = GetOrCreateWaveformIndex(cacheKey);
-        long targetFlicks = time.Flicks;
-
-        lock (index.Lock)
-        {
-            if (!TryFindNearest(index.Entries, targetFlicks, threshold.Flicks, out (float Min, float Max) result))
-                return false;
-
-            minValue = result.Min;
-            maxValue = result.Max;
-        }
-
-        index.LastAccessTime = DateTime.UtcNow;
-        return true;
+        bool found = _waveforms.TryGet(cacheKey, time.Flicks, threshold.Flicks, out var peaks);
+        (minValue, maxValue) = peaks;
+        return found;
     }
 
     public void SaveWaveform(string cacheKey, MediaTime time, float minValue, float maxValue)
-    {
-        var index = GetOrCreateWaveformIndex(cacheKey);
-        lock (index.Lock)
-        {
-            index.Entries[time.Flicks] = (minValue, maxValue);
-        }
-
-        index.LastAccessTime = DateTime.UtcNow;
-
-        TryEvictCache();
-    }
+        => _waveforms.Save(cacheKey, time.Flicks, (minValue, maxValue), 1);
 
     public void Invalidate(string cacheKey)
     {
-        if (_indices.TryRemove(cacheKey, out var index))
+        _video.Invalidate(cacheKey);
+        _waveforms.Invalidate(cacheKey);
+    }
+
+    private sealed class Cache<T>(long budget, Func<T, T> retain, Action<T> release)
+    {
+        private sealed record Entry(string Key, long Time, T Value, long Cost);
+
+        private readonly object _gate = new();
+        private readonly Dictionary<string, SortedList<long, LinkedListNode<Entry>>> _indices = new();
+        private readonly LinkedList<Entry> _lru = new();
+        private long _used;
+
+        public bool TryGet(string key, long time, long threshold, [MaybeNullWhen(false)] out T value)
         {
-            lock (index.Lock)
+            lock (_gate)
             {
-                foreach (var entry in index.Entries.Values)
+                value = default;
+                if (!_indices.TryGetValue(key, out var index))
+                    return false;
+
+                if (!index.TryGetValue(time, out var node) && threshold > 0)
+                    node = FindNearest(index, time, threshold);
+                if (node == null)
+                    return false;
+
+                _lru.Remove(node);
+                _lru.AddLast(node);
+                value = retain(node.Value.Value);
+                return true;
+            }
+        }
+
+        public void Save(string key, long time, T value, long cost)
+        {
+            if (cost <= 0 || cost > budget)
+                return;
+
+            lock (_gate)
+            {
+                T retained = retain(value);
+                if (!_indices.TryGetValue(key, out var index))
+                    _indices.Add(key, index = new());
+
+                if (index.TryGetValue(time, out var previous))
+                    ReleaseEntry(previous);
+
+                index[time] = _lru.AddLast(new Entry(key, time, retained, cost));
+                _used += cost;
+                while (_used > budget && _lru.First is { } oldest)
                 {
-                    entry.Dispose();
+                    Entry entry = oldest.Value;
+                    var evictedIndex = _indices[entry.Key];
+                    evictedIndex.Remove(entry.Time);
+                    if (evictedIndex.Count == 0)
+                        _indices.Remove(entry.Key);
+                    ReleaseEntry(oldest);
                 }
-
-                index.Entries.Clear();
             }
         }
 
-        if (_waveformIndices.TryRemove(cacheKey, out var waveformIndex))
+        public void Invalidate(string key)
         {
-            lock (waveformIndex.Lock)
+            lock (_gate)
             {
-                waveformIndex.Entries.Clear();
+                if (_indices.Remove(key, out var index))
+                {
+                    foreach (var node in index.Values)
+                        ReleaseEntry(node);
+                }
             }
         }
-    }
 
-    private CacheIndex<Bitmap> GetOrCreateIndex(string cacheKey)
-    {
-        return _indices.GetOrAdd(cacheKey, _ => new CacheIndex<Bitmap>());
-    }
-
-    private CacheIndex<(float Min, float Max)> GetOrCreateWaveformIndex(string cacheKey)
-    {
-        return _waveformIndices.GetOrAdd(cacheKey, _ => new CacheIndex<(float Min, float Max)>());
-    }
-
-    private static bool TryFindNearest<T>(
-        SortedList<long, T> entries, long targetFlicks, long thresholdFlicks, [MaybeNullWhen(false)] out T value)
-    {
-        value = default;
-        if (entries.Count == 0)
-            return false;
-
-        var keys = entries.Keys;
-
-        int lo = 0, hi = keys.Count - 1;
-        while (lo <= hi)
+        private void ReleaseEntry(LinkedListNode<Entry> node)
         {
-            int mid = lo + (hi - lo) / 2;
-            if (keys[mid] < targetFlicks)
-                lo = mid + 1;
-            else
-                hi = mid - 1;
+            _lru.Remove(node);
+            _used -= node.Value.Cost;
+            release(node.Value.Value);
         }
 
-        // lo は targetFlicks 以上の最小インデックス
-        long bestDiff = long.MaxValue;
-        int best = -1;
-
-        for (int i = Math.Max(0, lo - 1); i <= Math.Min(keys.Count - 1, lo); i++)
+        private static LinkedListNode<Entry>? FindNearest(
+            SortedList<long, LinkedListNode<Entry>> index, long time, long threshold)
         {
-            long diff = Math.Abs(keys[i] - targetFlicks);
-            if (diff < bestDiff)
+            int low = 0, high = index.Count;
+            while (low < high)
             {
-                bestDiff = diff;
-                best = i;
-            }
-        }
-
-        if (best < 0 || bestDiff > thresholdFlicks)
-            return false;
-
-        value = entries[keys[best]];
-        return true;
-    }
-
-    private void TryEvictCache()
-    {
-        int totalEntries = 0;
-        foreach (var kvp in _indices)
-        {
-            lock (kvp.Value.Lock)
-            {
-                totalEntries += kvp.Value.Entries.Count;
-            }
-        }
-
-        foreach (var kvp in _waveformIndices)
-        {
-            lock (kvp.Value.Lock)
-            {
-                totalEntries += kvp.Value.Entries.Count;
-            }
-        }
-
-        if (totalEntries <= MaxTotalEntries)
-            return;
-
-        // LRU: bitmap と waveform 両方のアクセス時間で古い順にソートして削除
-        var sortedBitmaps = _indices.Select(kvp => (Key: kvp.Key, Time: kvp.Value.LastAccessTime, IsBitmap: true)).ToList();
-        var sortedWaveforms = _waveformIndices.Select(kvp => (Key: kvp.Key, Time: kvp.Value.LastAccessTime, IsBitmap: false)).ToList();
-        var sorted = sortedBitmaps.Concat(sortedWaveforms).OrderBy(x => x.Time).ToList();
-
-        foreach (var item in sorted)
-        {
-            if (totalEntries <= MaxTotalEntries)
-                break;
-
-            int? removed = item.IsBitmap ? Evict(_indices, item.Key) : Evict(_waveformIndices, item.Key);
-            if (removed is not { } count)
-                continue;
-
-            totalEntries -= count;
-            if (item.IsBitmap)
-                _logger.LogDebug("Evicted thumbnail cache: {Key}", item.Key);
-            else
-                _logger.LogDebug("Evicted waveform cache: {Key}", item.Key);
-        }
-    }
-
-    // Removes the index of key and returns how many entries it held, disposing bitmaps; null when it is gone.
-    private static int? Evict<T>(ConcurrentDictionary<string, CacheIndex<T>> indices, string key)
-    {
-        if (!indices.TryRemove(key, out var index))
-            return null;
-
-        lock (index.Lock)
-        {
-            int removed = index.Entries.Count;
-            foreach (var entry in index.Entries.Values)
-            {
-                (entry as IDisposable)?.Dispose();
+                int middle = low + (high - low) / 2;
+                if (index.Keys[middle] < time)
+                    low = middle + 1;
+                else
+                    high = middle;
             }
 
-            index.Entries.Clear();
-            return removed;
+            Int128 before = low > 0 ? (Int128)time - index.Keys[low - 1] : Int128.MaxValue;
+            Int128 after = low < index.Count ? (Int128)index.Keys[low] - time : Int128.MaxValue;
+            if (before <= after && before <= threshold)
+                return index.Values[low - 1];
+            return after <= threshold ? index.Values[low] : null;
         }
-    }
-
-    private sealed class CacheIndex<T>
-    {
-        public readonly SortedList<long, T> Entries = new();
-        public readonly object Lock = new();
-        public DateTime LastAccessTime = DateTime.UtcNow;
     }
 }

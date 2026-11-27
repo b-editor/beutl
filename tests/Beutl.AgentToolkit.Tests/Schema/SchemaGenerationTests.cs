@@ -19,6 +19,7 @@ using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transformation;
 using Beutl.Graphics.Transitions;
 using Beutl.Graphics3D;
+using Beutl.Graphics3D.Skyboxes;
 using Beutl.Media;
 using Beutl.NodeGraph;
 using Beutl.ProjectSystem;
@@ -79,6 +80,10 @@ public sealed class SchemaGenerationTests
             Assert.That(Fits(nameof(Scene3D.Objects)), Does.Contain("Cube3D"));
             Assert.That(Fits(nameof(Scene3D.Lights)), Does.Contain("PointLight3D"));
             Assert.That(Fits(nameof(Scene3D.Camera)), Does.Contain("PerspectiveCamera"));
+            Assert.That(Fits(nameof(Scene3D.Skybox)), Is.EquivalentTo(new[]
+            {
+                nameof(CubemapSkybox), nameof(EquirectangularSkybox), nameof(ProceduralSkybox)
+            }));
             Assert.That(Fits(nameof(Scene3D.AmbientIntensity)), Is.Null, "not a base class");
             Assert.That(Fits(nameof(Drawable.FilterEffect)), Is.Null, "too many to repeat on every drawable");
         });
@@ -87,13 +92,14 @@ public sealed class SchemaGenerationTests
     [Test]
     public void Schema_exposes_every_builtin_3d_type_a_document_can_create()
     {
-        // Reflect over the engine, so a camera or material that no registration lists fails too.
+        // Reflect over the engine to check that every authorable 3D type is registered.
         Type[] bases =
         [
             typeof(Object3D),
             typeof(Beutl.Graphics3D.Camera.Camera3D),
             typeof(Beutl.Graphics3D.Lighting.Light3D),
             typeof(Beutl.Graphics3D.Materials.Material3D),
+            typeof(Skybox3D),
         ];
         string[] builtinTypes = typeof(Object3D).Assembly
             .GetExportedTypes()

@@ -36,4 +36,10 @@
   <data name="InUse" xml:space="preserve"><value>The file is referenced by an open project or editor.</value></data>
   <data name="DestinationExists" xml:space="preserve"><value>The original location is already occupied.</value></data>
   <data name="Unavailable" xml:space="preserve"><value>Unable to read the file or its dependencies.</value></data>
+  <data name="InvalidAction" xml:space="preserve"><value>Choose collect, quarantine, restore, or delete.</value></data>
+  <data name="SelectAssetPaths" xml:space="preserve"><value>Select asset paths from inspect_project_assets that are eligible for this operation.</value></data>
+  <data name="ConfirmPermanentDelete" xml:space="preserve"><value>Set confirmDelete to true to permanently delete the selected file.</value></data>
+  <data name="DeleteOneAsset" xml:space="preserve"><value>Permanent deletion accepts one quarantined file per call.</value></data>
+  <data name="InvalidSceneId" xml:space="preserve"><value>Supply a valid scene ID from the open editor project, or omit sceneId.</value></data>
+  <data name="SaveProjectBeforeCollecting" xml:space="preserve"><value>Call save_project to save pending project changes before collecting assets.</value></data>
 </root>

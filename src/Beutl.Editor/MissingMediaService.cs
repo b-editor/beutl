@@ -64,7 +64,7 @@ public sealed class MissingMediaService
         CancellationToken token = default, bool revalidateExisting = true)
         => FindMissingAsync(scene, index.GetReferences(), token, revalidateExisting);
 
-    private Task<IReadOnlyList<MissingMedia>> FindMissingAsync(Scene scene, IReadOnlyList<MediaReference> found,
+    internal Task<IReadOnlyList<MissingMedia>> FindMissingAsync(Scene scene, IReadOnlyList<MediaReference> found,
         CancellationToken token, bool revalidateExisting)
     {
         // Capture the editable graph before moving filesystem probes and decoders

@@ -509,7 +509,7 @@ public sealed class DeviceBufferBudgetTests
             RenderThread.Dispatcher.Invoke(() =>
             {
                 bool refused = pool.ExceedsBufferBudget(request, pastTheDevice, out int resolved);
-                bool got = pool.TryAcquire(request, pastTheDevice, out RenderTargetLease? lease);
+                bool got = pool.TryAcquire(request, pastTheDevice, out RenderTargetLease? lease, out _);
                 Exception? thrown = null;
                 try
                 {
@@ -588,7 +588,7 @@ public sealed class DeviceBufferBudgetTests
             ContextAttaching(DeviceBudget));
 
         bool refuses = pool.ExceedsBufferBudget(request, pastTheDevice, out int budget);
-        bool acquired = pool.TryAcquire(request, pastTheDevice, out RenderTargetLease? lease);
+        bool acquired = pool.TryAcquire(request, pastTheDevice, out RenderTargetLease? lease, out _);
 
         using (lease)
         {

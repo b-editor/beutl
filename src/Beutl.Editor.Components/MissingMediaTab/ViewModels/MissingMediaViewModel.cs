@@ -5,11 +5,9 @@ using Beutl.Controls;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Services;
 using Beutl.Editor.VersionControl;
-using Beutl.IO;
 using Beutl.Language;
 using Beutl.Media;
 using Beutl.ProjectSystem;
-using Beutl.Serialization;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
@@ -76,7 +74,6 @@ public sealed class MissingMediaRowViewModel : IDisposable
     public ReadOnlyReactivePropertySlim<bool> HasCandidate { get; }
     public ReadOnlyReactivePropertySlim<string?> StateText { get; }
     public ReadOnlyReactivePropertySlim<StatusLabelKind> StateKind { get; }
-    internal IFileSource? ValidatedSource { get; set; }
     internal IReadOnlyList<string> FontReplacementFiles { get; set; } = [];
 
     public void Dispose()
@@ -267,7 +264,7 @@ public sealed class MissingMediaViewModel : IToolContext
         CancellationToken token = cancellationToken ?? _token;
         try
         {
-            var validated = await _service.ValidateAsync(row.Media, path, token);
+            await _service.ValidateAsync(row.Media, path, token);
             IReadOnlyList<string> fontFiles = [];
             if (row.Media.Kind == MissingMediaKind.Font)
             {
@@ -275,7 +272,6 @@ public sealed class MissingMediaViewModel : IToolContext
             }
             token.ThrowIfCancellationRequested();
             if (asCandidate && (!Rows.Contains(row) || row.IsOffline.Value || row.ReplacementPath.Value != null)) return;
-            row.ValidatedSource = validated;
             row.FontReplacementFiles = fontFiles;
             if (asCandidate) row.CandidatePath.Value = Path.GetFullPath(path);
             else
@@ -296,7 +292,6 @@ public sealed class MissingMediaViewModel : IToolContext
             if (!_disposed)
             {
                 // Leave the original reference intact. The row can be retried or kept offline.
-                row.ValidatedSource = null;
                 row.FontReplacementFiles = [];
                 row.ReplacementPath.Value = null;
                 row.CandidatePath.Value = null;
@@ -321,108 +316,38 @@ public sealed class MissingMediaViewModel : IToolContext
             suspension = _host.SuspendEditor();
             await _editor.GetRequiredService<IPreviewPlayer>().Pause();
             _token.ThrowIfCancellationRequested();
-            var rows = Rows.Where(row => !row.IsOffline.Value && row.ReplacementPath.Value != null).ToArray();
-            var replacementModels = new HashSet<MissingMediaRowViewModel>();
+            var selected = Rows.Where(row => !row.IsOffline.Value && row.ReplacementPath.Value != null)
+                .Select(row => new MediaRepairSelection(row.Media, row.ReplacementPath.Value!, row.FontReplacementFiles)).ToArray();
+            var validated = new List<MissingMediaRepair.Item>();
             // Revalidate after any time spent waiting for file-write admission.
-            foreach (var row in rows)
-            {
-                row.ValidatedSource = await _service.ValidateAsync(row.Media, row.ReplacementPath.Value!, _token);
-                if (row.Media.Kind == MissingMediaKind.Font)
-                {
-                    var fresh = await _service.FindFontFamilyFilesAsync(row.Media.FontFamily!,
-                        Path.GetDirectoryName(row.ReplacementPath.Value!)!, _token, row.ReplacementPath.Value!);
-                    row.FontReplacementFiles = await _service.SelectFontFamilyFilesAsync(row.Media.FontFamily!,
-                        row.ReplacementPath.Value!, row.FontReplacementFiles.Concat(fresh), _token);
-                }
-                foreach (string path in row.FontReplacementFiles) await _service.ValidateAsync(row.Media, path, _token);
-                // A repair keeps saved child meshes, including their order and edits.
-                // Replace geometry only when a saved hash proves this is a different asset.
-                if (row.Media.Kind == MissingMediaKind.Model && row.Media.Fingerprint is not null
-                    && !await MissingMediaService.MatchesFingerprintAsync(row.Media, row.ReplacementPath.Value!,
-                        row.ValidatedSource as Beutl.Graphics3D.Models.ModelSource, _token))
-                    replacementModels.Add(row);
-            }
+            foreach (var selection in selected)
+                validated.Add(await MissingMediaRepair.ValidateAsync(_service, selection, _token));
             _token.ThrowIfCancellationRequested();
-            // The scene remains editable while this tab is open; resolve its current
-            // source instances rather than the detection-time references.
-            var currentSources = _host.GetMediaSources()
-                .ToLookup(source => (MissingMediaService.GetKind(source), source.Uri));
-            // Nothing is applied when a listed file is no longer used, or the save would report a repair that did not
-            // happen. Listing the rows again keeps the replacements chosen for the others.
-            if (rows.Any(row => row.Media.Kind != MissingMediaKind.Font && !currentSources[(row.Media.Kind, row.Media.ExpectedUri!)].Any()))
+
+            var repair = MissingMediaRepair.Create(_scene, history, _editor.GetRequiredService<FontManager>(),
+                _host.ReloadBundledFonts, _host.GetMediaReferencesForRepair(), validated, includeRecoveryProtected: true);
+            if (repair is null || repair.Applied.Length == 0)
             {
                 await RefreshRowsAsync();
                 Error.Value = MissingMediaStrings.SceneChanged;
                 return false;
             }
 
-            string projectDirectory = Path.GetDirectoryName((_scene.FindHierarchicalParent<Project>()?.Uri
-                                      ?? _scene.Uri)!.LocalPath)!;
-            string fontsDirectory = Path.Combine(projectDirectory, "resources", "fonts");
-            var originalFonts = Directory.Exists(fontsDirectory)
-                ? Directory.GetFiles(fontsDirectory).ToHashSet(StringComparer.Ordinal) : [];
-            var fingerprints = new Dictionary<string, MediaFileFingerprint>(_scene.MediaFingerprints);
             bool hadRepairs = _host.HasMediaRepairs;
-            var rollback = new List<Action>();
-            foreach (var source in rows.Where(row => row.Media.Kind != MissingMediaKind.Font)
-                         .SelectMany(row => currentSources[(row.Media.Kind, row.Media.ExpectedUri!)])
-                         .Distinct<IFileSource>(ReferenceEqualityComparer.Instance))
-            {
-                Uri original = source.Uri;
-                if (source is Beutl.Graphics3D.Models.ModelSource model)
-                {
-                    var snapshot = model.CaptureState();
-                    rollback.Add(() => model.RelinkFrom(snapshot));
-                    if (model.FindHierarchicalParent<Beutl.Graphics3D.Models.Model3D>() is { } owner)
-                        rollback.Add(owner.CaptureGeometryRollback());
-                }
-                else rollback.Add(() => source.ReadFrom(original));
-            }
-            var fontRows = rows.Where(row => row.Media.Kind == MissingMediaKind.Font).ToArray();
             try
             {
-                // Copy and validate fonts before mutating any live media reference.
-                if (fontRows.Length > 0)
+                using (repair)
                 {
-                    var paths = fontRows.ToDictionary(row => row.Media.FontFamily!.Name, row => row.FontReplacementFiles);
-                    var relocation = new ResourceRelocationService(family => paths[family]);
-                    RelocationResult result = await relocation.RelocateFontsAsync(_editor.GetRequiredService<FontManager>(), fontRows.Select(row => row.Media.FontFamily!),
-                        projectDirectory, _token);
-                    if (result.FailedResources.Count > 0) throw new IOException(MissingMediaStrings.FontCopyFailed);
-                    _host.ReloadBundledFonts();
+                    await repair.ApplyAsync(_token);
+                    _host.HasMediaRepairs = true;
+                    if (!await _host.SaveRepairsAsync())
+                        throw new IOException(MessageStrings.UnableToSaveFile);
+                    repair.Commit();
                 }
-                using (history.SuppressRecording())
-                {
-                    foreach (var row in rows.Where(row => row.Media.Kind != MissingMediaKind.Font))
-                    {
-                        var uri = UriHelper.CreateFromPath(row.ReplacementPath.Value!);
-                        foreach (IFileSource source in currentSources[(row.Media.Kind, row.Media.ExpectedUri!)])
-                            ResourceRelocationService.RelinkFileSource(source, uri, row.ValidatedSource,
-                                synchronizeModelGeometry: replacementModels.Contains(row));
-                    }
-                }
-                _host.HasMediaRepairs = true;
-
-                if (!await _host.SaveRepairsAsync())
-                    throw new IOException(MessageStrings.UnableToSaveFile);
             }
             catch
             {
-                using (history.SuppressRecording())
-                    foreach (var restore in rollback) restore();
-                _scene.SetMediaFingerprints(fingerprints);
                 _host.HasMediaRepairs = hadRepairs;
-                if (fontRows.Length > 0)
-                {
-                    try
-                    {
-                        if (Directory.Exists(fontsDirectory))
-                            foreach (string file in Directory.GetFiles(fontsDirectory).Where(file => !originalFonts.Contains(file)))
-                                File.Delete(file);
-                        _host.ReloadBundledFonts();
-                    }
-                    catch (Exception ex) { s_logger.LogWarning(ex, "Could not roll back copied repair fonts."); }
-                }
                 _host.ClearRenderCaches();
                 throw;
             }

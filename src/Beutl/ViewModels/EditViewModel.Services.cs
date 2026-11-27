@@ -3,6 +3,7 @@ using Beutl.Editor;
 using Beutl.Editor.Components.FileBrowserTab.Services;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.PathEditorTab.ViewModels;
+using Beutl.Editor.Components.PropertyEditors;
 using Beutl.Editor.Services.AI;
 using Beutl.Editor.VersionControl;
 using Beutl.Media.Decoding;
@@ -64,6 +65,7 @@ public partial class EditViewModel
         .Add<ITimelineOptionsProvider>(() => _timelineOptionsProvider)
         .Add<IEditorClock>(() => _editorClock)
         .Add<IEditorSelection>(() => _editorSelection)
+        .Add<IEffectComparisonSelection>(() => Player)
         .Add<IElementAdder>(() => _elementAdder)
         .Add<IClipboardGateway>(() => _clipboardGateway)
         .Add<IPreviewPlayer>(() => Player)
@@ -103,7 +105,7 @@ public partial class EditViewModel
         .AddOwned<IElementGapService>(() => new ElementGapService(HistoryManager, this.GetRequiredService<GlobalConfiguration>().EditorConfig))
         .AddOwned<SceneFileImporter>(() => new SceneFileImporter(
             _elementAdder, this.GetRequiredService<DecoderRegistry>(), this.GetRequiredService<ObjectTemplateService>(),
-            this.GetRequiredService<INotificationService>(), _elementAdder.HasFileSourceOverride))
+            this.GetRequiredService<INotificationService>(), _elementAdder.HasFileSourceOverride, editor: this))
         .AddOwned<IElementClipboardService>(() => new ProjectFileWriteClipboardService(
             EditorService,
             new ElementClipboardService(

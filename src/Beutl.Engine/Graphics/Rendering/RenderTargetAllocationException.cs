@@ -1,4 +1,5 @@
-﻿using Beutl.Media;
+﻿using Beutl.Language;
+using Beutl.Media;
 
 namespace Beutl.Graphics.Rendering;
 
@@ -13,11 +14,22 @@ public sealed class RenderTargetAllocationException : InvalidOperationException
     {
         DeviceSize = deviceSize;
         MaxDimension = maxDimension;
+        IsBudgetRefusal = maxDimension.HasValue;
+    }
+
+    internal RenderTargetAllocationException(PixelSize deviceSize, long liveBytes, long maximumLiveBytes)
+        : base(string.Format(MessageStrings.RenderTargetLiveByteBudgetExceeded,
+            deviceSize.Width, deviceSize.Height, maximumLiveBytes, liveBytes))
+    {
+        DeviceSize = deviceSize;
+        IsBudgetRefusal = true;
     }
 
     /// <summary>Gets the requested allocation size in device pixels.</summary>
     public PixelSize DeviceSize { get; }
 
-    /// <summary>Gets the per-axis limit, or <see langword="null"/> when an allocator declined an in-budget size.</summary>
+    /// <summary>Gets the per-axis limit when it caused the refusal.</summary>
     public int? MaxDimension { get; }
+
+    internal bool IsBudgetRefusal { get; }
 }

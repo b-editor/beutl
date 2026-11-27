@@ -99,13 +99,16 @@ public sealed class HostedGitRepositoryService : IBeutlApiResource
     }
 
     public Task DeleteAsync(Guid repositoryId, CancellationToken cancellationToken = default)
+        => DeleteAsync(repositoryId, cancellationToken, expectedUser: null);
+
+    public Task DeleteAsync(Guid repositoryId, CancellationToken cancellationToken, AuthenticatedUser? expectedUser)
     {
         string id = ValidateId(repositoryId);
         return SendAsync(async (auth, token) =>
         {
             await _app.GitRepositories.Delete(auth, id, token).ConfigureAwait(false);
             return true;
-        }, cancellationToken);
+        }, cancellationToken, expectedUser);
     }
 
     public Task<GitRepositorySummary> UploadThumbnailAsync(

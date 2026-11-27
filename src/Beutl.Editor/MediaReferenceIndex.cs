@@ -30,7 +30,9 @@ internal sealed class MediaReferenceIndex(Scene scene)
 
     // The values a walk of the whole scene reports, in its order: a font family, or a source with a file URI. One
     // that several elements share is reported once, with the first of them.
-    public IReadOnlyList<MediaReference> GetReferences()
+    public IReadOnlyList<MediaReference> GetReferences() => GetReferences(includeSharedReferences: false);
+
+    internal IReadOnlyList<MediaReference> GetReferences(bool includeSharedReferences)
     {
         Refresh();
         var references = new List<MediaReference>();
@@ -40,7 +42,7 @@ internal sealed class MediaReferenceIndex(Scene scene)
             foreach (MediaReference reference in _elements[element])
             {
                 if ((reference.Value is FontFamily || MissingMediaService.GetUri(reference.Value) is { IsFile: true })
-                    && seen.Add(reference.Value))
+                    && (includeSharedReferences || seen.Add(reference.Value)))
                 {
                     references.Add(reference);
                 }

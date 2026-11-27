@@ -15,6 +15,8 @@ namespace Beutl.Audio.Effects;
 /// </summary>
 /// <remarks>
 /// A <see cref="Lookahead"/> above 0 ms delays the whole signal and its tail is recovered at the clip end.
+/// A <see cref="SoundGroup"/> aligns inputs using their fixed latencies. Animated lookahead retains its
+/// per-sample delay and uses the existing tail recovery when mixed.
 /// The master limiter in <see cref="Beutl.Audio.Composing.Composer"/> limits the mixed bus again afterwards.
 /// </remarks>
 [Display(Name = nameof(AudioStrings.LimiterEffect), ResourceType = typeof(AudioStrings))]
