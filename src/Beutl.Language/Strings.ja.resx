@@ -3959,6 +3959,24 @@ GetProperty&lt;T&gt;("path", time) または GetProperty&lt;T&gt;(guid, "propert
   <data name="TogglePreviewCheckerboard_Description" xml:space="preserve">
     <value>プレビューの透明な部分を、黒ではなく市松模様の上に表示します。</value>
   </data>
+  <data name="CompareFilterEffect" xml:space="preserve">
+    <value>フィルターエフェクトを比較</value>
+  </data>
+  <data name="CompareFilterEffect_Description" xml:space="preserve">
+    <value>現在のフレームを、指定したフィルターエフェクトの適用前後で比較します。</value>
+  </data>
+  <data name="ChooseFilterEffectToCompare" xml:space="preserve">
+    <value>プロパティエディターで比較するフィルターエフェクトを選択してください。</value>
+  </data>
+  <data name="EffectComparisonBefore" xml:space="preserve">
+    <value>適用前: {0}</value>
+  </data>
+  <data name="EffectComparisonAfter" xml:space="preserve">
+    <value>適用後</value>
+  </data>
+  <data name="EffectComparisonDivider" xml:space="preserve">
+    <value>エフェクト比較の境界線</value>
+  </data>
   <data name="PreviewZoom" xml:space="preserve">
     <value>プレビューの拡大率</value>
   </data>

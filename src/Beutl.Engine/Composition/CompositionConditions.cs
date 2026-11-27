@@ -1,5 +1,6 @@
 ﻿using Beutl.Engine;
 using Beutl.Graphics;
+using Beutl.Graphics.Effects;
 using Beutl.Media;
 using Beutl.Media.Decoding;
 using Beutl.Media.Proxy;
@@ -51,7 +52,11 @@ public sealed record CompositionConditions
     /// </remarks>
     internal IReadOnlySet<EngineObject>? DisabledObjects { get; init; }
 
-    internal bool Disables(EngineObject obj) => DisabledObjects is { Count: > 0 } objects && objects.Contains(obj);
+    // Preview comparison bypasses this effect where authored. A reference to it is evaluated normally.
+    internal FilterEffect? BypassedFilterEffect { get; init; }
+
+    internal bool Disables(EngineObject obj)
+        => ReferenceEquals(BypassedFilterEffect, obj) || DisabledObjects is { Count: > 0 } objects && objects.Contains(obj);
 
     /// <summary>Filter effects that leave out their per-pixel color stages in this evaluation.</summary>
     /// <remarks>

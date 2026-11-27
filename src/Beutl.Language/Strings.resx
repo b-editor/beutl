@@ -3964,6 +3964,24 @@ when history recording is enabled.</value>
   <data name="TogglePreviewCheckerboard_Description" xml:space="preserve">
     <value>Show the preview's transparent parts over a checkerboard instead of black.</value>
   </data>
+  <data name="CompareFilterEffect" xml:space="preserve">
+    <value>Compare Filter Effect</value>
+  </data>
+  <data name="CompareFilterEffect_Description" xml:space="preserve">
+    <value>Compare the current frame with and without one filter effect.</value>
+  </data>
+  <data name="ChooseFilterEffectToCompare" xml:space="preserve">
+    <value>Choose a filter effect to compare in the property editor.</value>
+  </data>
+  <data name="EffectComparisonBefore" xml:space="preserve">
+    <value>Before: {0}</value>
+  </data>
+  <data name="EffectComparisonAfter" xml:space="preserve">
+    <value>After</value>
+  </data>
+  <data name="EffectComparisonDivider" xml:space="preserve">
+    <value>Effect comparison divider</value>
+  </data>
   <data name="PreviewZoom" xml:space="preserve">
     <value>Preview zoom</value>
   </data>

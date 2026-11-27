@@ -31,7 +31,8 @@ public partial class PlayerViewModel : IPreviewPuppetPinEditor
 
     private void InitializePuppetPinEditor()
     {
-        EditorPreviewImage = _puppetPlacementImage.CombineLatest(PreviewImage, static (placement, preview) => placement ?? preview)
+        EditorPreviewImage = _puppetPlacementImage.CombineLatest(PreviewImage, EffectComparisonImage,
+                static (placement, preview, comparison) => comparison ?? placement ?? preview)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
         _puppetPlacementImage.DisposeWith(_disposables);
@@ -110,6 +111,7 @@ public partial class PlayerViewModel : IPreviewPuppetPinEditor
         if (_isDisposing || cancellationToken.IsCancellationRequested) return true;
 
         StopPuppetPinPlacement();
+        EndEffectComparison();
         PointPick.Value?.Cancel();
         using var request = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         _puppetPlacement = request;

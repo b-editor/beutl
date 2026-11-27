@@ -3961,6 +3961,24 @@ cuando el registro del historial está activado.</value>
   <data name="TogglePreviewCheckerboard_Description" xml:space="preserve">
     <value>Muestra las partes transparentes de la vista previa sobre una cuadrícula en lugar de negro.</value>
   </data>
+  <data name="CompareFilterEffect" xml:space="preserve">
+    <value>Comparar efecto de filtro</value>
+  </data>
+  <data name="CompareFilterEffect_Description" xml:space="preserve">
+    <value>Compara el fotograma actual con y sin un efecto de filtro.</value>
+  </data>
+  <data name="ChooseFilterEffectToCompare" xml:space="preserve">
+    <value>Elige un efecto de filtro para comparar en el editor de propiedades.</value>
+  </data>
+  <data name="EffectComparisonBefore" xml:space="preserve">
+    <value>Antes: {0}</value>
+  </data>
+  <data name="EffectComparisonAfter" xml:space="preserve">
+    <value>Después</value>
+  </data>
+  <data name="EffectComparisonDivider" xml:space="preserve">
+    <value>Divisor de comparación de efectos</value>
+  </data>
   <data name="PreviewZoom" xml:space="preserve">
     <value>Zoom de la vista previa</value>
   </data>
