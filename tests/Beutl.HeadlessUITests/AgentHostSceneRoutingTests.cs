@@ -577,6 +577,9 @@ public sealed class AgentHostSceneRoutingTests
         string firstId = created["summary"]!["scenes"]![0]!["sceneId"]!.GetValue<string>();
         Scene firstScene = TestShell.Project.CurrentProject.Value!.Items.OfType<Scene>().Single();
         TestShell.Editor.ActivateTabItem(firstScene);
+        var firstEditor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+        var timelineDock = firstEditor.DockHost.Factory.GetAnchoredDock(DockAnchor.Bottom)!;
+        timelineDock.Proportion = timelineDock.CollapsedProportion = 0.35;
         var arguments = Target(Guid.Parse(firstId));
         arguments["width"] = 640;
         arguments["height"] = 360;
@@ -586,6 +589,11 @@ public sealed class AgentHostSceneRoutingTests
         JsonObject added = Success(await client.CallToolAsync("add_scene", arguments));
         Guid secondId = Guid.Parse(added["sceneId"]!.GetValue<string>());
         Assert.That(SelectedScene(), Is.SameAs(firstScene));
+        Scene secondScene = TestShell.Project.CurrentProject.Value!.Items.OfType<Scene>()
+            .Single(scene => scene.Id.Value == secondId);
+        Assert.That(TestShell.Editor.TryGetTabItem(secondScene, out var secondTab), Is.True);
+        var secondEditor = (EditViewModel)secondTab!.Context.Value;
+        Assert.That(secondEditor.DockHost.Factory.GetAnchoredDock(DockAnchor.Bottom)!.Proportion, Is.EqualTo(0.35));
         AssertError(await client.CallToolAsync("read_document"), ErrorCode.ValidationRejected);
 
         Success(await client.CallToolAsync("open_project", new Dictionary<string, object?> { ["path"] = path }));
@@ -603,8 +611,7 @@ public sealed class AgentHostSceneRoutingTests
         Assert.Multiple(() =>
         {
             Assert.That(SelectedScene(), Is.SameAs(firstScene));
-            Assert.That(TestShell.Project.CurrentProject.Value!.Items.OfType<Scene>()
-                .Single(scene => scene.Id.Value == secondId).Children, Is.Not.Empty);
+            Assert.That(secondScene.Children, Is.Not.Empty);
             Assert.That(firstScene.Children, Is.Empty);
         });
         JsonObject save = Success(await client.CallToolAsync("save_project", Target(secondId)));

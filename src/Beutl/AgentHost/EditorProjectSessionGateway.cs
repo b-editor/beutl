@@ -123,7 +123,7 @@ public sealed class EditorProjectSessionGateway(
             }
             // Bind the new scene without selecting it. Subsequent calls still name their own
             // sceneId rather than inheriting this operation's target or the visible editor.
-            LiveEditingSession session = BindScene(scene);
+            LiveEditingSession session = BindScene(scene, inheritDockLayout: true);
             return new ProjectSceneResult(scene, project, session);
         });
     }
@@ -245,14 +245,14 @@ public sealed class EditorProjectSessionGateway(
         return new ProjectSessionResult(BindScene(scene), project);
     }
 
-    private LiveEditingSession BindScene(Scene scene)
+    private LiveEditingSession BindScene(Scene scene, bool inheritDockLayout = false)
     {
         // Closing keeps the project published while its captured tabs are being disposed.
         // Do not bind a new context that would escape that transition's close snapshot.
         if (projectService.CurrentTransition is not null)
             throw new SessionUnavailableException();
 
-        EditorTabItem? tab = editorService.GetOrCreateBackgroundTabItem(scene);
+        EditorTabItem? tab = editorService.GetOrCreateBackgroundTabItem(scene, inheritDockLayout);
         if (tab?.Context.Value is not EditViewModel editViewModel
             || !ReferenceEquals(editViewModel.Scene, scene))
         {

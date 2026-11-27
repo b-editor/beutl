@@ -1,5 +1,6 @@
 ﻿using Beutl.Configuration;
 using Beutl.Editor.Components.WebBrowserTab;
+using Beutl.ProjectSystem;
 using Beutl.Services;
 using Beutl.Views.Dock;
 using Dock.Model;
@@ -53,14 +54,14 @@ public class BeutlDockFactory(EditViewModel editViewModel) : Factory
 
     public override IRootDock CreateLayout()
     {
-        return IsPortraitScene()
+        return IsPortraitScene(editViewModel.Scene)
             ? CreatePortraitLayout()
             : CreateLandscapeLayout();
     }
 
-    private bool IsPortraitScene()
+    internal static bool IsPortraitScene(Scene scene)
     {
-        var frameSize = editViewModel.Scene.FrameSize.Value;
+        var frameSize = scene.FrameSize.Value;
         return frameSize.Height > frameSize.Width;
     }
 

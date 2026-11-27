@@ -9,6 +9,7 @@ using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Beutl.Services;
 using Beutl.ViewModels;
+using Beutl.ViewModels.Dock;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
@@ -231,7 +232,11 @@ public sealed partial class EditorService
         return ProjectPersistence.RemoveScene(project, scene, dirty, persist: true);
     }
 
-    public void ActivateTabItem(CoreObject obj)
+    public void ActivateTabItem(CoreObject obj) => ActivateTabItem(obj, inheritDockLayout: false);
+
+    internal void ActivateNewScene(Scene scene) => ActivateTabItem(scene, inheritDockLayout: true);
+
+    private void ActivateTabItem(CoreObject obj, bool inheritDockLayout)
     {
         ViewConfig viewConfig = AppServices.GetRequiredService<GlobalConfiguration>().ViewConfig;
         string path = obj.Uri!.LocalPath;
@@ -244,7 +249,7 @@ public sealed partial class EditorService
         }
         else
         {
-            if (CreateTabItem(obj, isSelected: true) is { } tabItem2)
+            if (CreateTabItem(obj, isSelected: true, inheritDockLayout) is { } tabItem2)
             {
                 SelectedTabItem.Value = tabItem2;
             }
@@ -253,7 +258,7 @@ public sealed partial class EditorService
 
     // Background editing shares the normal context, history, save admission and tab lifecycle,
     // without changing either the selected tab or the recent-file navigation state.
-    internal EditorTabItem? GetOrCreateBackgroundTabItem(CoreObject obj)
+    internal EditorTabItem? GetOrCreateBackgroundTabItem(CoreObject obj, bool inheritDockLayout = false)
     {
         Dispatcher.UIThread.VerifyAccess();
         using IDisposable? open = TryBeginEditorFileOpen();
@@ -262,10 +267,10 @@ public sealed partial class EditorService
 
         return TryGetTabItem(obj, out EditorTabItem? existing)
             ? existing
-            : CreateTabItem(obj, isSelected: false);
+            : CreateTabItem(obj, isSelected: false, inheritDockLayout);
     }
 
-    private EditorTabItem? CreateTabItem(CoreObject obj, bool isSelected)
+    private EditorTabItem? CreateTabItem(CoreObject obj, bool isSelected, bool inheritDockLayout)
     {
         EditorExtension? ext = _extensionProvider.MatchEditorExtension(obj.Uri!.LocalPath);
         if (ext is null
@@ -273,6 +278,13 @@ public sealed partial class EditorService
                 () => ext.TryCreateContext(obj, new EditorContextServices(this, _extensionProvider), out IEditorContext? created) ? created : null)
             is not { } context)
             return null;
+
+        if (inheritDockLayout && context is EditViewModel editor
+            && SelectedTabItem.Value?.Context.Value is EditViewModel { IsDisposingOrDisposed: false } currentEditor
+            && BeutlDockFactory.IsPortraitScene(currentEditor.Scene) == BeutlDockFactory.IsPortraitScene(editor.Scene))
+        {
+            editor.DockHost.InheritLayout(currentEditor.DockHost);
+        }
 
         var item = new EditorTabItem(context) { IsSelected = { Value = isSelected } };
         TabItems.Add(item);

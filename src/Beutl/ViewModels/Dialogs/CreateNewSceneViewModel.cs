@@ -63,7 +63,11 @@ public sealed class CreateNewSceneViewModel
                     UriHelper.CreateFromPath(Path.Combine(Location.Value, Name.Value,
                         $"{Name.Value}.{EditorConstants.SceneFileExtension}")));
 
-                ProjectPersistence.AddItemAndPersist(_proj, scene);
+                // Keep the source tab selected until the new editor can inherit its layout.
+                using (_editorService.SuppressProjectItemActivation())
+                {
+                    ProjectPersistence.AddItemAndPersist(_proj, scene);
+                }
             }
             catch (Exception ex)
             {
@@ -75,7 +79,7 @@ public sealed class CreateNewSceneViewModel
 
             // Activation is not part of persistence, so a failure here must not be reported as a
             // save failure — kept outside the try above.
-            _editorService.ActivateTabItem(scene);
+            _editorService.ActivateNewScene(scene);
         });
     }
 

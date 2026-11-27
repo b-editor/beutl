@@ -1,8 +1,10 @@
 ﻿using System.Windows.Input;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
 using Avalonia.LogicalTree;
 using Avalonia.VisualTree;
+using Beutl.Editor.Components.LibraryTab;
 using Beutl.Extensibility;
 using Beutl.Language;
 using Beutl.ProjectSystem;
@@ -10,7 +12,10 @@ using Beutl.Services.PrimitiveImpls;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Dialogs;
+using Beutl.ViewModels.Dock;
 using Beutl.Views;
+using Dock.Model.Controls;
+using Dock.Model.Core;
 
 namespace Beutl.HeadlessUITests;
 
@@ -193,6 +198,88 @@ public class NewSceneEntryPointTests
         finally
         {
             await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
+    [TestCase(640, 360, 800, 600, true, false)]
+    [TestCase(360, 640, 480, 720, true, false)]
+    [TestCase(640, 360, 360, 640, false, false)]
+    [TestCase(360, 640, 640, 360, false, false)]
+    [TestCase(640, 360, 480, 480, true, false)]
+    [TestCase(640, 360, 800, 450, true, true)]
+    public async Task New_scene_inherits_the_current_dock_layout_for_the_same_orientation(
+        int width, int height, int newWidth, int newHeight, bool inheritsLayout, bool previewOnly)
+    {
+        (_, _, EditViewModel source) = await TestShell.OpenNewSceneAsync("new-scene-layout", width, height);
+        try
+        {
+            var tabsToClose = source.DockHost.Factory.EnumerateTools()
+                .Where(tool => previewOnly || tool.ToolContext.Extension is LibraryTabExtension)
+                .ToArray();
+            foreach (var tool in tabsToClose)
+            {
+                source.DockHost.CloseToolTab(tool.ToolContext);
+            }
+            var sourceLeft = source.DockHost.Factory.GetAnchoredDock(DockAnchor.Left)!;
+            sourceLeft.Proportion = sourceLeft.CollapsedProportion = 0.35;
+            string captureName = $"{width}x{height}-to-{newWidth}x{newHeight}";
+            CaptureDockLayout(source, $"{captureName}-source");
+            // Rendering normalizes the proportions within each split.
+            double sourceProportion = sourceLeft.Proportion;
+
+            var dialog = new CreateNewSceneViewModel(TestShell.Project, TestShell.Editor);
+            dialog.Name.Value = "AddedScene";
+            dialog.Size.Value = new PixelSize(newWidth, newHeight);
+            await dialog.Create.ExecuteAsync();
+            HeadlessTestHelpers.Settle();
+
+            var added = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+            Assert.That(added.Scene.Name.Value, Is.EqualTo("AddedScene"));
+            var addedLeft = added.DockHost.Factory.GetAnchoredDock(DockAnchor.Left)!;
+            var rootSplit = BeutlDockFactory.Traverse(added.DockHost.Layout.Value).OfType<IProportionalDock>()
+                .Single(dock => dock.Id == DockIds.RootSplit);
+            var player = BeutlDockFactory.Traverse(added.DockHost.Layout.Value).OfType<PlayerToolDockable>().Single();
+            var addedTools = added.DockHost.Factory.EnumerateTools().ToArray();
+            Assert.Multiple(() =>
+            {
+                Assert.That(addedTools.Any(tool => tool.ToolContext.Extension is LibraryTabExtension), Is.EqualTo(!inheritsLayout));
+                if (previewOnly)
+                {
+                    Assert.That(addedTools, Is.Empty);
+                }
+                else
+                {
+                    Assert.That(addedLeft.Proportion, Is.EqualTo(inheritsLayout ? sourceProportion : 0.25));
+                }
+                Assert.That(rootSplit.Orientation, Is.EqualTo(newHeight > newWidth ? Orientation.Horizontal : Orientation.Vertical));
+                Assert.That(addedLeft, Is.Not.SameAs(sourceLeft));
+                Assert.That(player.Player, Is.SameAs(added.Player));
+            });
+            CaptureDockLayout(added, $"{captureName}-added");
+        }
+        finally
+        {
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    private static void CaptureDockLayout(EditViewModel editor, string name)
+    {
+        if (!HeadlessCapture.IsRequested) return;
+
+        var view = new EditorHostView { DataContext = editor };
+        var window = new Window { Content = view, Width = 1280, Height = 800 };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render(5);
+            HeadlessCapture.SaveIfRequested(window, nameof(NewSceneEntryPointTests), name);
+        }
+        finally
+        {
+            window.Close();
+            HeadlessTestHelpers.Settle();
         }
     }
 
