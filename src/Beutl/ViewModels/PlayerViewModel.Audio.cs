@@ -59,7 +59,8 @@ public partial class PlayerViewModel
                     AudioBuffer? audio;
                     try
                     {
-                        audio = composer.Compose(new TimeRange(start, duration));
+                        Scene scene = composer.Compositor.Scene;
+                        audio = composer.ComposePlayback(new TimeRange(start, duration), scene.Start.Value + scene.Duration.Value);
                     }
                     catch (ObjectDisposedException)
                     {
@@ -194,7 +195,7 @@ public partial class PlayerViewModel
 
             MediaTime sceneEnd = scene.Start.Value + scene.Duration.Value;
             SceneComposer composer = EditViewModel.Composer.Value;
-            AudioBuffer? audio = composer.Compose(new TimeRange(time, s_second));
+            AudioBuffer? audio = composer.ComposePlayback(new TimeRange(time, s_second), sceneEnd, generation);
             if (audio is not null)
                 SilenceTailBeyondSceneEnd(audio, time, sceneEnd);
 
