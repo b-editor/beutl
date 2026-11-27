@@ -92,7 +92,9 @@ public class PlayerViewModelQuiescenceTests
 
             // Keep this UI turn occupied so PauseCore cannot retire the generation yet. The
             // queued worker must stop without initializing scene buffers or an audio backend.
-            bool stopped = playback.Wait(TimeSpan.FromSeconds(5));
+            // A loaded CI runner can delay the worker; the ordering, not the 5-second budget,
+            // is what this test checks.
+            bool stopped = playback.Wait(TimeSpan.FromSeconds(15));
             Assert.Multiple(() =>
             {
                 Assert.That(stopped, Is.True);

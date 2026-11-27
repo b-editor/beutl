@@ -355,6 +355,18 @@ internal sealed class WebBrowserTabViewModel : IToolContext
             : $"{Strings.WebViewUnavailable}{Environment.NewLine}{detail}";
     }
 
+    // Stop() can raise NavigationCompleted for the canceled navigation before it returns.
+    // Mark the stop first so that a completion raised inside Stop does not report a page failure.
+    internal void PrepareNavigationStop()
+    {
+        _navigationStopped = true;
+    }
+
+    internal void CancelNavigationStop()
+    {
+        _navigationStopped = false;
+    }
+
     internal void StopNavigation()
     {
         EndLoading();

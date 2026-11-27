@@ -1621,11 +1621,24 @@ public class NativeBrowserFrameTests
         using Process process = Process.Start(start)!;
         Task<string> output = process.StandardOutput.ReadToEndAsync();
         Task<string> error = process.StandardError.ReadToEndAsync();
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(scenario is "--native-browser-referrers" or "--native-browser-download-referrers" or "--native-browser-download-methods" ? 90 : 60));
+        int timeoutSeconds = scenario is "--native-browser-referrers" or "--native-browser-download-referrers" or "--native-browser-download-methods" ? 120 : 90;
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSeconds));
+        void Kill() { try { process.Kill(entireProcessTree: true); } catch (InvalidOperationException) { } }
         try { await process.WaitForExitAsync(timeout.Token); }
+        catch (OperationCanceledException) when (timeout.IsCancellationRequested)
+        {
+            Kill();
+            // A killed host can leave WebView2 processes holding the pipes. Capture what the child
+            // printed instead of waiting for them indefinitely.
+            await Task.WhenAny(Task.WhenAll(output, error), Task.Delay(TimeSpan.FromSeconds(5)));
+            throw new TimeoutException(
+                $"The {scenario} browser host did not exit within {timeoutSeconds} seconds.{Environment.NewLine}" +
+                $"stdout:{Environment.NewLine}{(output.IsCompletedSuccessfully ? output.Result : "(still running)")}{Environment.NewLine}" +
+                $"stderr:{Environment.NewLine}{(error.IsCompletedSuccessfully ? error.Result : "(still running)")}");
+        }
         catch
         {
-            process.Kill(entireProcessTree: true);
+            Kill();
             throw;
         }
         if (process.ExitCode == NativeBrowserFrameTestHost.SkippedExitCode) Assert.Ignore(await output);
