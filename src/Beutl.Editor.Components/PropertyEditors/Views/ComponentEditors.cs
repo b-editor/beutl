@@ -30,7 +30,12 @@ internal sealed class ComponentEditors : StackPanel, IDisposable
     {
         _owner = owner;
         _combined = combined;
-        _hasMenu = combined is PropertyEditor { MenuContent: not null };
+        _hasMenu = combined switch
+        {
+            PropertyEditor { MenuContent: not null } => true,
+            PropertyLinkSelectionRow { Editor.MenuContent: not null } => true,
+            _ => false
+        };
         if (combined is not null)
             Children.Add(combined);
         _subscription = owner.SeparatedProperties.Subscribe(Rebuild);

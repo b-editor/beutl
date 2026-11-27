@@ -4,6 +4,7 @@ using System.Text.Json.Nodes;
 
 using Beutl.Editor;
 using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Components.PropertyEditors;
 using Beutl.Editor.PropertyEditors;
 using Beutl.Editor.Services;
 using Beutl.Engine;
@@ -16,7 +17,7 @@ using Reactive.Bindings.Extensions;
 
 namespace Beutl.Editor.Components.ElementPropertyTab.ViewModels;
 
-public sealed class ElementPropertyTabViewModel : IPinnableToolContext
+public sealed class ElementPropertyTabViewModel : IPinnableToolContext, IPropertyLinkSelectionHost
 {
     private const string PinnedElementJsonKey = "pinnedElementId";
     // A range selection changes the selection with each pointer move; the view of several elements waits for it to settle.
@@ -24,6 +25,7 @@ public sealed class ElementPropertyTabViewModel : IPinnableToolContext
     private readonly CompositeDisposable _disposables = [];
     private readonly ToolTabPin _pin;
     private readonly IEditorSelection? _selection;
+    private readonly IPropertyLinkSelection? _linkSelection;
     private IEditorContext _editorContext;
     private IDisposable? _disposable1;
     private Element? _oldElement;
@@ -73,6 +75,11 @@ public sealed class ElementPropertyTabViewModel : IPinnableToolContext
         DisplayedElement.Subscribe(OnDisplayedElementChanged).DisposeWith(_disposables);
 
         _selection = editorContext.GetService<IEditorSelection>();
+        // Another element has other properties, so it ends picking instead of retargeting this tab's rows.
+        _linkSelection = editorContext.GetService<IPropertyLinkSelection>();
+        DisplayedElement.Skip(1)
+            .Subscribe(_ => _linkSelection?.CancelLinkSelection())
+            .DisposeWith(_disposables);
         if (_selection != null)
         {
             IObservable<Unit> selectionChanges = _selection.SelectedElements.CollectionChangedAsObservable()
@@ -263,6 +270,8 @@ public sealed class ElementPropertyTabViewModel : IPinnableToolContext
 
     public ToolTabExtension Extension => ElementPropertyTabExtension.Instance;
 
+    IPropertyLinkSelection? IPropertyLinkSelectionHost.LinkSelection => _linkSelection;
+
     public IReactiveProperty<bool> IsSelected { get; } = new ReactivePropertySlim<bool>();
 
     public IReactiveProperty<bool> IsPinned => _pin.IsPinned;
@@ -304,6 +313,7 @@ public sealed class ElementPropertyTabViewModel : IPinnableToolContext
         }
         Element.Value = null;
         _isDisposed = true;
+        _linkSelection?.CancelLinkSelection();
         _disposables.Dispose();
         _disposable1?.Dispose();
         // While the tab shows several elements, Element going null leaves the copy displayed, so its items stay.

@@ -10,6 +10,7 @@ using Beutl.Editor.Components.PropertyEditors.Views;
 using Beutl.Editor.PropertyEditors;
 using Beutl.PropertyAdapters;
 using Beutl.Services;
+using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings.Extensions;
 
 namespace Beutl.Editor.Components.PropertyEditors.Services;
@@ -106,6 +107,11 @@ internal sealed class PropertyEditorControls : IPropertyEditorHost
         {
             case PropertyEditorSurface.Panel when control is PropertyEditor editor:
                 editor.MenuContent = new PropertyEditorMenu();
+                if (context is PropertyEditorViewModel viewModel
+                    && viewModel.GetService<IPropertyLinkSelection>() is { } linkSelection)
+                {
+                    control = new PropertyLinkSelectionRow(editor, viewModel, linkSelection);
+                }
                 break;
             case PropertyEditorSurface.Node:
                 control.Margin -= new Thickness(control is PropertyEditor ? 4 : 8, 0);

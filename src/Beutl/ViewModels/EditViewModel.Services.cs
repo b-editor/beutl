@@ -67,6 +67,7 @@ public partial class EditViewModel
         .Add<IEditorClock>(() => _editorClock)
         .Add<IEditorSelection>(() => _editorSelection)
         .Add<IEffectComparisonSelection>(() => Player)
+        .AddOwned<IPropertyLinkSelection>(() => new PropertyLinkSelectionService())
         .Add<IElementAdder>(() => _elementAdder)
         .Add<IClipboardGateway>(() => _clipboardGateway)
         .Add<IPreviewPlayer>(() => Player)

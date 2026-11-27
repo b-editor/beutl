@@ -762,6 +762,12 @@
   <data name="CopyGetPropertyCode" xml:space="preserve">
     <value>GetPropertyコードをコピー</value>
   </data>
+  <data name="LinkToAnotherProperty" xml:space="preserve">
+    <value>別のプロパティにリンク</value>
+  </data>
+  <data name="LinkToAnotherProperty_Prompt" xml:space="preserve">
+    <value>リンク先のプロパティをクリックしてください。Esc でキャンセルします。</value>
+  </data>
   <data name="ChangeToOriginalLength" xml:space="preserve">
     <value>オリジナルの長さに変更</value>
   </data>
