@@ -43,32 +43,140 @@
             <Setter Property="CornerRadius" Value="6" />
             <Setter Property="Margin" Value="0,4" />
         </Style>
+        <Style Selector="md|MarkdownRenderer md|CodeBlock">
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border CornerRadius="7" BorderThickness="1" ClipToBounds="True"
+                            Background="{DynamicResource ControlAltFillColorSecondaryBrush}"
+                            BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}">
+                        <Grid RowDefinitions="Auto,*">
+                            <Border Padding="8,2,4,2" BorderThickness="0,0,0,1"
+                                    BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}">
+                                <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="2">
+                                    <TextBlock x:Name="PART_LanguageTextBlock" Text="{TemplateBinding Language}"
+                                               Classes="agent-caption" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                    <ToggleButton x:Name="PART_ToggleTextWrapButton" Grid.Column="1" Width="23" Height="23" Padding="0"
+                                                  Theme="{StaticResource ColorPickerTypeTransparentToggleButtonStyle}"
+                                                  IsChecked="{TemplateBinding IsCodeWrapped, Mode=TwoWay}"
+                                                  AutomationProperties.Name="{x:Static lang:AgentStrings.WrapCode}" ToolTip.Tip="{x:Static lang:AgentStrings.WrapCode}">
+                                        <icons:FluentIcon Icon="TextWrap" FontSize="13" />
+                                    </ToggleButton>
+                                    <Button x:Name="PART_CopyButton" Grid.Column="2" Width="23" Height="23" Padding="0"
+                                            Theme="{StaticResource ToolTabBarIconButtonTheme}"
+                                            AutomationProperties.Name="{x:Static lang:AgentStrings.CopyCode}" ToolTip.Tip="{x:Static lang:AgentStrings.CopyCode}">
+                                        <icons:FluentIcon Icon="Copy" FontSize="13" />
+                                    </Button>
+                                </Grid>
+                            </Border>
+                            <ScrollViewer x:Name="PART_ScrollViewer" Grid.Row="1" VerticalScrollBarVisibility="Disabled"
+                                          HorizontalScrollBarVisibility="{TemplateBinding HorizontalScrollBarVisibility}">
+                                <md:MarkdownTextBlock x:Name="PART_CodeTextBlock" Margin="8,6" Padding="0"
+                                                      FontFamily="{TemplateBinding FontFamily}" TextWrapping="{TemplateBinding TextWrapping}" />
+                            </ScrollViewer>
+                        </Grid>
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
     </UserControl.Styles>
 
     <UserControl.DataTemplates>
         <DataTemplate DataType="vm:AgentUserItem" x:DataType="vm:AgentUserItem">
-            <Border Classes="agent-card" HorizontalAlignment="Right" Margin="36,0,0,0" Padding="11,8">
-                <SelectableTextBlock Text="{Binding Text}" FontSize="14" TextWrapping="Wrap" />
-            </Border>
+            <StackPanel Classes="agent-message" HorizontalAlignment="Right" Margin="30,0,0,0" Spacing="2">
+                <Border x:Name="SentUserBubble" Classes="agent-card" HorizontalAlignment="Right" Padding="10,8">
+                    <StackPanel Spacing="6">
+                        <SelectableTextBlock Text="{Binding Text}" IsVisible="{Binding HasText}" FontSize="14" TextWrapping="Wrap" />
+                        <ItemsControl ItemsSource="{Binding Attachments}" IsVisible="{Binding !!Attachments.Count}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate><WrapPanel ItemSpacing="6" LineSpacing="5" /></ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:AgentMessageAttachmentItem">
+                                    <Panel>
+                                        <Button x:Name="SentImageThumbnail" IsVisible="{Binding HasPreview}" Click="OnOpenSentImage"
+                                                Theme="{StaticResource TransparentButton}" Padding="0" CornerRadius="6"
+                                                ToolTip.Tip="{Binding Path}" AutomationProperties.Name="{Binding Label}"
+                                                AutomationProperties.HelpText="{x:Static lang:AgentStrings.OpenImagePreview}">
+                                            <Border Width="128" CornerRadius="6" ClipToBounds="True" BorderThickness="1"
+                                                    BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}">
+                                                <Grid RowDefinitions="76,Auto">
+                                                    <Image Source="{Binding Preview.Thumbnail}" Stretch="UniformToFill" />
+                                                    <TextBlock Grid.Row="1" Classes="agent-caption" Margin="7,3"
+                                                               Text="{Binding Label}" TextTrimming="CharacterEllipsis" />
+                                                </Grid>
+                                            </Border>
+                                        </Button>
+                                        <Border x:Name="SentFileChip" IsVisible="{Binding !HasPreview}" Padding="7,5" MaxWidth="208" VerticalAlignment="Top"
+                                                CornerRadius="5" BorderThickness="1" ToolTip.Tip="{Binding Path}"
+                                                Background="{DynamicResource ControlAltFillColorSecondaryBrush}"
+                                                BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}">
+                                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="6">
+                                                <icons:FluentIcon Icon="{Binding Icon}" FontSize="15" VerticalAlignment="Center"
+                                                                  Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                                <StackPanel Grid.Column="1" Spacing="1">
+                                                    <TextBlock Text="{Binding Label}" FontSize="11" TextTrimming="CharacterEllipsis" />
+                                                    <TextBlock Classes="agent-caption" FontSize="10" Text="{Binding Detail}" TextTrimming="CharacterEllipsis"
+                                                               IsVisible="{Binding Detail, Converter={x:Static conv:StringConverters.IsNotNullOrEmpty}}" />
+                                                </StackPanel>
+                                            </Grid>
+                                        </Border>
+                                    </Panel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+                <StackPanel x:Name="UserMessageFooter" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="1" Margin="0,0,4,0">
+                    <TextBlock Classes="agent-message-time" Text="{Binding TimeLabel}" ToolTip.Tip="{Binding TimeDetail}" />
+                    <Button x:Name="CopyUserMessage" Classes="agent-message-action" Click="OnCopyMessage" IsVisible="{Binding HasText}"
+                            ToolTip.Tip="{x:Static lang:AgentStrings.CopyMessage}" AutomationProperties.Name="{x:Static lang:AgentStrings.CopyMessage}">
+                        <icons:FluentIcon Icon="Copy" FontSize="13" />
+                    </Button>
+                    <Button x:Name="EditUserMessage" Classes="agent-message-action" Click="OnEditMessage" IsVisible="{Binding HasTurn}"
+                            IsEnabled="{Binding $parent[views:AgentTimelineView].((vm:AgentTabViewModel)DataContext).CanActOnMessages}"
+                            ToolTip.Tip="{x:Static lang:AgentStrings.EditFromHere}" AutomationProperties.Name="{x:Static lang:AgentStrings.EditFromHere}">
+                        <icons:FluentIcon Icon="Edit" FontSize="13" />
+                    </Button>
+                    <Button x:Name="ForkUserMessage" Classes="agent-message-action" Click="OnForkMessage" IsVisible="{Binding HasTurn}"
+                            IsEnabled="{Binding $parent[views:AgentTimelineView].((vm:AgentTabViewModel)DataContext).CanActOnMessages}"
+                            ToolTip.Tip="{x:Static lang:AgentStrings.ForkFromHere}" AutomationProperties.Name="{x:Static lang:AgentStrings.ForkFromHere}">
+                        <icons:FluentIcon Icon="BranchFork" FontSize="13" />
+                    </Button>
+                </StackPanel>
+            </StackPanel>
         </DataTemplate>
 
         <DataTemplate DataType="vm:AgentAssistantItem" x:DataType="vm:AgentAssistantItem">
-            <StackPanel Margin="2,2,2,0" Spacing="3">
+            <StackPanel Classes="agent-message" Margin="2,2,2,0" Spacing="3">
                 <views:AgentMarkdownRenderer MarkdownBuilder="{Binding Markdown}" />
-                <Button HorizontalAlignment="Left" Width="24" Height="23" Padding="0" Click="OnCopyResponse"
-                        Theme="{StaticResource ToolTabBarIconButtonTheme}" IsVisible="{Binding CanCopy}"
-                        ToolTip.Tip="{x:Static lang:AgentStrings.CopyResponse}" AutomationProperties.Name="{x:Static lang:AgentStrings.CopyResponse}">
-                    <icons:FluentIcon Icon="Copy" FontSize="13" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
-                </Button>
+                <StackPanel Orientation="Horizontal" Spacing="1">
+                    <TextBlock Classes="agent-message-time" Text="{Binding TimeLabel}" ToolTip.Tip="{Binding TimeDetail}" />
+                    <StackPanel Orientation="Horizontal" Spacing="1" IsVisible="{Binding CanCopy}">
+                        <Button Classes="agent-message-action" Click="OnCopyMessage"
+                                ToolTip.Tip="{x:Static lang:AgentStrings.CopyResponse}" AutomationProperties.Name="{x:Static lang:AgentStrings.CopyResponse}">
+                            <icons:FluentIcon Icon="Copy" FontSize="13" />
+                        </Button>
+                        <Button x:Name="RetryAssistantMessage" Classes="agent-message-action" Click="OnRetryMessage" IsVisible="{Binding HasTurn}"
+                                IsEnabled="{Binding $parent[views:AgentTimelineView].((vm:AgentTabViewModel)DataContext).CanActOnMessages}"
+                                ToolTip.Tip="{x:Static lang:AgentStrings.RetryTurn}" AutomationProperties.Name="{x:Static lang:AgentStrings.RetryTurn}">
+                            <icons:FluentIcon Icon="ArrowSync" FontSize="13" />
+                        </Button>
+                        <Button x:Name="ForkAssistantMessage" Classes="agent-message-action" Click="OnForkMessage" IsVisible="{Binding HasTurn}"
+                                IsEnabled="{Binding $parent[views:AgentTimelineView].((vm:AgentTabViewModel)DataContext).CanActOnMessages}"
+                                ToolTip.Tip="{x:Static lang:AgentStrings.ForkFromHere}" AutomationProperties.Name="{x:Static lang:AgentStrings.ForkFromHere}">
+                            <icons:FluentIcon Icon="BranchFork" FontSize="13" />
+                        </Button>
+                    </StackPanel>
+                </StackPanel>
             </StackPanel>
         </DataTemplate>
 
         <DataTemplate DataType="vm:AgentReasoningItem" x:DataType="vm:AgentReasoningItem">
             <StackPanel>
                 <ToggleButton x:Name="ThinkingToggle" Theme="{StaticResource TransparentToggleButton}" HorizontalAlignment="Left"
-                              MinHeight="24" Padding="4,2" AutomationProperties.Name="{x:Static lang:AgentStrings.Thinking}">
+                              MinHeight="24" Padding="4,2" AutomationProperties.Name="{Binding Summary}">
                     <StackPanel Orientation="Horizontal" Spacing="6">
-                        <TextBlock Text="{x:Static lang:AgentStrings.Thinking}" FontSize="12" VerticalAlignment="Center"
+                        <TextBlock Text="{Binding Summary}" FontSize="12" VerticalAlignment="Center"
                                    Foreground="{DynamicResource TextFillColorTertiaryBrush}" />
                         <icons:FluentIcon Classes="agent-chevron" Foreground="{DynamicResource TextFillColorTertiaryBrush}" />
                     </StackPanel>
@@ -81,6 +189,23 @@
         </DataTemplate>
 
         <DataTemplate DataType="vm:AgentToolItem"><views:AgentToolView /></DataTemplate>
+
+        <DataTemplate DataType="vm:AgentToolGroupItem" x:DataType="vm:AgentToolGroupItem">
+            <StackPanel Spacing="3">
+                <ToggleButton x:Name="ToolGroupToggle" Theme="{StaticResource TransparentToggleButton}" HorizontalAlignment="Left"
+                              AutomationProperties.Name="{Binding Label}" MinHeight="26" Padding="4,3">
+                    <StackPanel Orientation="Horizontal" Spacing="7">
+                        <icons:FluentIcon Classes="agent-status success" Icon="CheckmarkCircle" VerticalAlignment="Center" />
+                        <TextBlock Classes="agent-secondary" Text="{Binding Label}" VerticalAlignment="Center" />
+                        <icons:FluentIcon Classes="agent-chevron" Foreground="{DynamicResource TextFillColorTertiaryBrush}" />
+                    </StackPanel>
+                </ToggleButton>
+                <Border Margin="9,0,0,0" Padding="7,0,0,0" BorderThickness="1,0,0,0"
+                        BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}" IsVisible="{Binding !!#ToolGroupToggle.IsChecked}">
+                    <ItemsControl ItemsSource="{Binding Tools}" />
+                </Border>
+            </StackPanel>
+        </DataTemplate>
 
         <DataTemplate DataType="vm:AgentPlanItem" x:DataType="vm:AgentPlanItem">
             <Border Padding="10,8" CornerRadius="8" BorderThickness="1" BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}">
@@ -117,19 +242,74 @@
 
         <DataTemplate DataType="vm:AgentHistoryItem" x:DataType="vm:AgentHistoryItem">
             <Border Classes="agent-card" Padding="10,6">
-                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="7">
-                    <icons:FluentIcon Icon="History" FontSize="14" VerticalAlignment="Center"
-                                      Foreground="{DynamicResource TextFillColorTertiaryBrush}" />
-                    <TextBlock Grid.Column="1" Classes="agent-secondary" Text="{Binding DisplayText}" TextWrapping="Wrap" VerticalAlignment="Center" />
-                    <Button Grid.Column="2" Command="{Binding RevertAsync}" IsVisible="{Binding CanRevert}" Theme="{StaticResource TransparentButton}"
-                            AutomationProperties.Name="{x:Static lang:AgentStrings.RevertTurn}">
-                        <StackPanel Orientation="Horizontal" Spacing="5">
-                            <icons:FluentIcon Icon="ArrowUndo" FontSize="13" />
-                            <TextBlock Text="{x:Static lang:AgentStrings.RevertTurn}" VerticalAlignment="Center" />
+                <StackPanel Spacing="4">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="4">
+                        <ToggleButton x:Name="HistoryToggle" Theme="{StaticResource ColorPickerTypeTransparentToggleButtonStyle}" Padding="2,3"
+                                      HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                                      IsHitTestVisible="{Binding HasChanges}" Focusable="{Binding HasChanges}"
+                                      AutomationProperties.Name="{Binding DisplayText}">
+                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="7">
+                                <icons:FluentIcon Icon="History" FontSize="14" VerticalAlignment="Center"
+                                                  Foreground="{DynamicResource TextFillColorTertiaryBrush}" />
+                                <TextBlock Grid.Column="1" Classes="agent-secondary" Text="{Binding DisplayText}"
+                                           TextWrapping="Wrap" VerticalAlignment="Center" />
+                                <icons:FluentIcon Grid.Column="2" Classes="agent-chevron" IsVisible="{Binding HasChanges}"
+                                                  Foreground="{DynamicResource TextFillColorTertiaryBrush}" />
+                            </Grid>
+                        </ToggleButton>
+                        <Button Grid.Column="1" Command="{Binding RevertAsync}" IsVisible="{Binding CanRevert}" Theme="{StaticResource TransparentButton}"
+                                AutomationProperties.Name="{x:Static lang:AgentStrings.RevertTurn}" Padding="5,3">
+                            <StackPanel Orientation="Horizontal" Spacing="5">
+                                <icons:FluentIcon Icon="ArrowUndo" FontSize="13" />
+                                <TextBlock Text="{x:Static lang:AgentStrings.RevertTurn}" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+                    </Grid>
+                    <Border IsVisible="{Binding !!#HistoryToggle.IsChecked}" Margin="5,0,0,3" Padding="11,2,0,0"
+                            BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}" BorderThickness="1,0,0,0">
+                        <StackPanel Spacing="4">
+                            <ItemsControl ItemsSource="{Binding Changes}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="x:String">
+                                        <TextBlock Classes="agent-secondary" Margin="0,1" Text="{Binding}" TextWrapping="Wrap" />
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <TextBlock Classes="agent-caption" Text="{Binding MoreChanges}" IsVisible="{Binding HasMoreChanges}" />
                         </StackPanel>
-                    </Button>
-                </Grid>
+                    </Border>
+                </StackPanel>
             </Border>
+        </DataTemplate>
+
+        <DataTemplate DataType="vm:AgentTurnStatsItem" x:DataType="vm:AgentTurnStatsItem">
+            <StackPanel Spacing="4" Margin="2,0,2,4">
+                <ToggleButton x:Name="TurnStatsToggle" Theme="{StaticResource ColorPickerTypeTransparentToggleButtonStyle}" HorizontalAlignment="Left"
+                              Padding="3,2" MinHeight="24" Focusable="{Binding CanExpand}" IsHitTestVisible="{Binding CanExpand}"
+                              AutomationProperties.Name="{Binding WorkTime}" ToolTip.Tip="{Binding Detail}">
+                    <StackPanel Orientation="Horizontal" Spacing="7">
+                        <TextBlock x:Name="FinishedTurnWorkTime" Classes="agent-turn-time" Text="{Binding WorkTime}" />
+                        <icons:FluentIcon Classes="agent-chevron" Foreground="{DynamicResource TextFillColorTertiaryBrush}"
+                                          IsVisible="{Binding CanExpand}" />
+                    </StackPanel>
+                </ToggleButton>
+                <TextBlock x:Name="TurnStatsFooter" Classes="agent-message-time" Text="{Binding UsageSummary}" ToolTip.Tip="{Binding Detail}"
+                           IsVisible="{Binding !!#TurnStatsToggle.IsChecked}" TextTrimming="CharacterEllipsis" Margin="3,0,3,2" />
+                <Border Classes="agent-turn-divider" />
+            </StackPanel>
+        </DataTemplate>
+
+        <DataTemplate DataType="vm:AgentTimelineDividerItem" x:DataType="vm:AgentTimelineDividerItem">
+            <Grid x:Name="TimelineDivider" ColumnDefinitions="*,8*,*" ColumnSpacing="8" MinHeight="25" Margin="2,1"
+                  AutomationProperties.Name="{Binding Text}" ToolTip.Tip="{Binding Text}">
+                <Border Classes="agent-turn-divider" VerticalAlignment="Center" />
+                <Grid Grid.Column="1" ColumnDefinitions="Auto,*" HorizontalAlignment="Center" ColumnSpacing="6">
+                    <icons:FluentIcon Icon="{Binding Icon}" Classes="agent-status" VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="1" Text="{Binding Text}" Classes="agent-secondary agent-live-status" Classes.live="{Binding Animate}" TextWrapping="Wrap"
+                               TextAlignment="Center" VerticalAlignment="Center" />
+                </Grid>
+                <Border Grid.Column="2" Classes="agent-turn-divider" VerticalAlignment="Center" />
+            </Grid>
         </DataTemplate>
 
         <DataTemplate DataType="vm:AgentNoticeItem" x:DataType="vm:AgentNoticeItem">
@@ -137,18 +317,34 @@
         </DataTemplate>
     </UserControl.DataTemplates>
 
-    <ScrollViewer x:Name="TimelineScroll" HorizontalScrollBarVisibility="Disabled" ScrollChanged="OnTimelineScrollChanged">
-        <StackPanel Margin="12,12,12,10" Spacing="7">
-            <ItemsControl ItemsSource="{Binding Timeline}">
-                <ItemsControl.ItemsPanel>
-                    <ItemsPanelTemplate><StackPanel Spacing="7" /></ItemsPanelTemplate>
-                </ItemsControl.ItemsPanel>
-            </ItemsControl>
-            <StackPanel IsVisible="{Binding IsRunning}" Orientation="Horizontal" Spacing="7" Margin="4,1,0,1">
-                <ui:FAProgressRing IsActive="{Binding IsRunning}" Width="12" Height="12" MinWidth="0" MinHeight="0"
-                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
-                <TextBlock Classes="agent-caption" Text="{x:Static lang:AgentStrings.Working}" VerticalAlignment="Center" />
+    <Grid>
+        <ScrollViewer x:Name="TimelineScroll" HorizontalScrollBarVisibility="Disabled" ScrollChanged="OnTimelineScrollChanged">
+            <StackPanel Margin="12,12,12,10" Spacing="7">
+                <ItemsControl ItemsSource="{Binding Timeline}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate><StackPanel Spacing="7" /></ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                </ItemsControl>
+                <StackPanel IsVisible="{Binding IsRunning}" Spacing="6" Margin="3,2,2,1">
+                    <ContentControl Content="{Binding ActiveCompaction}" IsVisible="{Binding IsCompacting}" />
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                        <TextBlock x:Name="LiveTurnWorkTime" Classes="agent-turn-time" Text="{Binding LiveWorkTime}" />
+                        <Grid Grid.Column="1" HorizontalAlignment="Right" ColumnDefinitions="Auto,*" ColumnSpacing="6"
+                              IsVisible="{Binding !IsCompacting}">
+                            <Ellipse Classes="agent-turn-dot" Classes.live="{Binding IsRunning}" />
+                            <TextBlock x:Name="LiveTurnStatus" Grid.Column="1" Classes="agent-caption agent-live-status" Classes.live="{Binding IsRunning}"
+                                       Text="{Binding LiveStatus}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                        </Grid>
+                    </Grid>
+                    <Border Classes="agent-turn-divider" />
+                </StackPanel>
             </StackPanel>
-        </StackPanel>
-    </ScrollViewer>
+        </ScrollViewer>
+        <Button x:Name="ScrollToBottomButton" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,17,12"
+                IsVisible="False" Width="34" Height="34" CornerRadius="17" Padding="0" Click="OnScrollToBottom"
+                Background="{DynamicResource SolidBackgroundFillColorSecondaryBrush}"
+                ToolTip.Tip="{x:Static lang:AgentStrings.ScrollToBottom}" AutomationProperties.Name="{x:Static lang:AgentStrings.ScrollToBottom}">
+            <icons:FluentIcon Icon="ArrowDown" FontSize="16" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+        </Button>
+    </Grid>
 </UserControl>

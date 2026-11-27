@@ -68,10 +68,13 @@ internal sealed class AgentTurnHistoryTracker
 
     internal sealed class Turn(Guid threadId, Guid id, HistoryManager history)
     {
+        private const int ChangeLimit = 50;
+
         internal Guid ThreadId { get; } = threadId;
         internal Guid Id { get; } = id;
         internal HistoryManager History { get; } = history;
         internal List<long> Transactions { get; } = [];
+        internal List<string> Changes { get; } = [];
         internal bool IsFinished { get; set; }
 
         internal void TrackEdit(HistoryManager target, Action edit)
@@ -88,9 +91,11 @@ internal sealed class AgentTurnHistoryTracker
             var (subscription, _, _) = target.SubscribeEntries((_, args) =>
             {
                 if (args.Action == NotifyCollectionChangedAction.Add
-                    && args.NewItems?[0] is HistoryEntry { IsIsolatedEdit: true, TransactionId: long transactionId })
+                    && args.NewItems?[0] is HistoryEntry { IsIsolatedEdit: true, TransactionId: long transactionId } entry)
                 {
                     Transactions.Add(transactionId);
+                    if (Changes.Count < ChangeLimit)
+                        Changes.Add(entry.DisplayLabel);
                 }
             });
             using (subscription)

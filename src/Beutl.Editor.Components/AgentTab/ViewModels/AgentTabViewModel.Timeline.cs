@@ -16,6 +16,11 @@ internal sealed partial class AgentTabViewModel
     public bool HasSubagents => Transcript.HasSubagents;
     public bool HasBackgroundWork => Transcript.HasBackgroundWork;
     public string BackgroundWorkCount => Transcript.BackgroundWorkCount;
+    public string LiveStatus => Transcript.LiveStatus;
+    public string LiveWorkTime => _controller?.LiveWorkTime ?? "";
+    public bool IsCompacting => Transcript.IsCompacting;
+    public AgentTimelineDividerItem? ActiveCompaction => Transcript.ActiveCompaction;
+    public bool CanActOnMessages => CanManage && _controller?.CanConfigure == true;
     public AgentPermissionItem? ActivePermission => _controller?.ActivePermission;
     public int ActivePermissionIndex => _controller?.ActivePermissionIndex ?? 0;
     public IReadOnlyList<AgentPermissionItem> PendingPermissions => _controller is { } controller ? controller.PendingPermissions : [];
@@ -71,6 +76,60 @@ internal sealed partial class AgentTabViewModel
         });
     }
 
+    public Task ForkFromMessageAsync(AgentMessageItem item)
+        => ChangeConversationAsync(item, includeTurn: true);
+
+    public Task EditFromMessageAsync(AgentUserItem item)
+        => ChangeConversationAsync(item, includeTurn: false);
+
+    private Task ChangeConversationAsync(AgentMessageItem item, bool includeTurn)
+    {
+        if (!CanActOnMessages || item.TurnId is not Guid turnId || !_timeline.Contains(item)
+            || _controller is not { } controller || _selectedThread is not { } source)
+            return Task.CompletedTask;
+        return ManageAsync(async ct =>
+        {
+            var fork = await controller.ForkThreadAsync(turnId, ForkTitle(source.Title), includeTurn, ct);
+            if (fork is null)
+                return;
+            await LoadThreadAsync(fork, ct);
+            if (!includeTurn && item is AgentUserItem user)
+            {
+                Prompt = user.Text;
+                RestoreAcceptedMentions(user.Entry.Mentions);
+                IncludeSceneContext = user.Entry.IncludeSceneContext ?? true;
+                foreach (var attachment in user.Entry.Attachments ?? [])
+                    await AddAttachmentAsync(new AgentAttachedFile(attachment.Path, attachment.MediaType), ct);
+                await SaveDraftAsync();
+            }
+        });
+    }
+
+    public Task RetryMessageAsync(AgentAssistantItem item)
+    {
+        if (!CanActOnMessages || item.TurnId is not Guid turnId || !_timeline.Contains(item)
+            || _controller is not { } controller || _selectedThread is not { } source || SelectedProvider is not { } provider
+            || _timeline.OfType<AgentUserItem>().FirstOrDefault(user => user.TurnId == turnId) is not { } user)
+            return Task.CompletedTask;
+        return ManageAsync(async ct =>
+        {
+            var entry = user.Entry;
+            var retry = new AgentQueuedMessage(_editor, provider.Descriptor, entry.Text, entry.IncludeSceneContext ?? true,
+                entry.Attachments ?? [], GetInvokedProviderSkills(entry.Text), entry.Mentions);
+            if (_timeline.OfType<AgentUserItem>().Last().TurnId == turnId)
+            {
+                await controller.RewindTurnAsync(turnId, ct, retry);
+            }
+            else if (await controller.ForkThreadAsync(turnId, ForkTitle(source.Title), includeTurn: false, ct) is { } fork)
+            {
+                await LoadThreadAsync(fork, ct);
+                _ = _controller?.SubmitAsync(retry);
+            }
+        });
+    }
+
+    private static string ForkTitle(string title) => string.Format(CultureInfo.CurrentCulture, AgentStrings.ForkedThreadTitle, title);
+
     private void AttachController(AgentThreadController? controller)
     {
         if (_controller is not null)
@@ -111,6 +170,12 @@ internal sealed partial class AgentTabViewModel
             for (int i = 0; i < e.OldItems!.Count; i++)
                 _timeline.RemoveAt(e.OldStartingIndex);
         }
+        else if (e.Action == NotifyCollectionChangedAction.Replace)
+        {
+            int index = e.NewStartingIndex;
+            foreach (AgentTimelineItemViewModel item in e.NewItems!)
+                _timeline[index++] = BindTimelineItem(item);
+        }
         else if (e.Action == NotifyCollectionChangedAction.Reset)
         {
             _timeline.Clear();
@@ -119,11 +184,20 @@ internal sealed partial class AgentTabViewModel
         UpdateRevertButtons();
     }
 
-    private AgentTimelineItemViewModel BindTimelineItem(AgentTimelineItemViewModel item) => item is AgentHistoryRecordItem history
-        ? new AgentHistoryItem(history.Entry, RevertTurnAsync) : item;
+    private AgentTimelineItemViewModel BindTimelineItem(AgentTimelineItemViewModel item) => item switch
+    {
+        AgentHistoryRecordItem history => new AgentHistoryItem(history.Entry, RevertTurnAsync),
+        AgentModelChangeItem change => BindModelChange(change.Entry),
+        _ => item
+    };
 
     private void OnControllerChanged(object? sender, PropertyChangedEventArgs e)
     {
+        if (e.PropertyName == nameof(AgentThreadController.LiveWorkTime))
+        {
+            Notify(nameof(LiveWorkTime));
+            return;
+        }
         if (e.PropertyName == nameof(AgentThreadController.Error))
         {
             Notify(nameof(Error));
@@ -135,6 +209,7 @@ internal sealed partial class AgentTabViewModel
             return;
         }
         Notify(nameof(Error));
+        Notify(nameof(LiveWorkTime));
         Notify(nameof(ActivePermission));
         Notify(nameof(PendingPermissions));
         Notify(nameof(HasActivePermission));
@@ -159,6 +234,9 @@ internal sealed partial class AgentTabViewModel
             Notify(nameof(HasSubagents));
             Notify(nameof(HasBackgroundWork));
             Notify(nameof(BackgroundWorkCount));
+            Notify(nameof(LiveStatus));
+            Notify(nameof(IsCompacting));
+            Notify(nameof(ActiveCompaction));
         }
     }
 

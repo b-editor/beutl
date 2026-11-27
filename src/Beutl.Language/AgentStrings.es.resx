@@ -229,4 +229,136 @@
   <data name="PasteFailed" xml:space="preserve">
     <value>No se pudo pegar desde el portapapeles.</value>
   </data>
+  <data name="CopyMessage" xml:space="preserve">
+    <value>Copiar mensaje</value>
+  </data>
+  <data name="EditFromHere" xml:space="preserve">
+    <value>Editar desde aquí</value>
+  </data>
+  <data name="ForkFromHere" xml:space="preserve">
+    <value>Bifurcar desde aquí</value>
+  </data>
+  <data name="ForkedThreadTitle" xml:space="preserve">
+    <value>Bifurcación de {0}</value>
+  </data>
+  <data name="RetryTurn" xml:space="preserve">
+    <value>Volver a generar la respuesta</value>
+  </data>
+  <data name="ScrollToBottom" xml:space="preserve">
+    <value>Ir al final</value>
+  </data>
+  <data name="ThinkingInProgress" xml:space="preserve">
+    <value>Pensando…</value>
+  </data>
+  <data name="ThinkingForSeconds" xml:space="preserve">
+    <value>Pensando… {0:0} s</value>
+  </data>
+  <data name="ThoughtForSeconds" xml:space="preserve">
+    <value>Razonó durante {0:0.#} s</value>
+  </data>
+  <data name="RunningTool" xml:space="preserve">
+    <value>Ejecutando {0}…</value>
+  </data>
+  <data name="CompactingContext" xml:space="preserve">
+    <value>Comprimiendo el contexto…</value>
+  </data>
+  <data name="RetryingTurn" xml:space="preserve">
+    <value>Reintentando…</value>
+  </data>
+  <data name="TurnDuration" xml:space="preserve">
+    <value>{0:0.#} s</value>
+  </data>
+  <data name="TurnTokens" xml:space="preserve">
+    <value>{0} tokens</value>
+  </data>
+  <data name="TokensThousands" xml:space="preserve">
+    <value>{0:0.#} mil</value>
+  </data>
+  <data name="TokensMillions" xml:space="preserve">
+    <value>{0:0.#} M</value>
+  </data>
+  <data name="TurnInputTokens" xml:space="preserve">
+    <value>Tokens de entrada · {0}</value>
+  </data>
+  <data name="TurnOutputTokens" xml:space="preserve">
+    <value>Tokens de salida · {0}</value>
+  </data>
+  <data name="TurnCachedInputTokens" xml:space="preserve">
+    <value>Tokens de entrada en caché · {0}</value>
+  </data>
+  <data name="ToolGroupChecks" xml:space="preserve">
+    <value>{0:N0} comprobaciones</value>
+  </data>
+  <data name="MoreHistoryChanges" xml:space="preserve">
+    <value>{0:N0} cambios más</value>
+  </data>
+  <data name="CopyCode" xml:space="preserve">
+    <value>Copiar código</value>
+  </data>
+  <data name="WrapCode" xml:space="preserve">
+    <value>Ajustar líneas</value>
+  </data>
+  <data name="OpenImagePreview" xml:space="preserve">
+    <value>Abrir vista previa de la imagen</value>
+  </data>
+  <data name="ImagePreview" xml:space="preserve">
+    <value>Vista previa de la imagen</value>
+  </data>
+  <data name="ImageDimensions" xml:space="preserve">
+    <value>{0:N0} × {1:N0} px</value>
+  </data>
+  <data name="CloseImagePreview" xml:space="preserve">
+    <value>Cerrar vista previa</value>
+  </data>
+  <data name="ZoomImageIn" xml:space="preserve">
+    <value>Acercar</value>
+  </data>
+  <data name="ZoomImageOut" xml:space="preserve">
+    <value>Alejar</value>
+  </data>
+  <data name="FitImage" xml:space="preserve">
+    <value>Ajustar</value>
+  </data>
+  <data name="FitImageTooltip" xml:space="preserve">
+    <value>Ajustar imagen a la ventana</value>
+  </data>
+  <data name="ActualImageSize" xml:space="preserve">
+    <value>Mostrar tamaño real</value>
+  </data>
+  <data name="CopyImage" xml:space="preserve">
+    <value>Copiar imagen</value>
+  </data>
+  <data name="CopyImagePath" xml:space="preserve">
+    <value>Copiar ruta de la imagen</value>
+  </data>
+  <data name="StopTurn" xml:space="preserve">
+    <value>Detener turno</value>
+  </data>
+  <data name="StopBackgroundTask" xml:space="preserve">
+    <value>Detener tarea</value>
+  </data>
+  <data name="StopBackgroundTaskFailed" xml:space="preserve">
+    <value>No se pudo detener la tarea.</value>
+  </data>
+  <data name="TurnWorkingFor" xml:space="preserve">
+    <value>Trabajando {0}</value>
+  </data>
+  <data name="TurnWorkedFor" xml:space="preserve">
+    <value>Trabajó durante {0}</value>
+  </data>
+  <data name="TurnDurationMinutes" xml:space="preserve">
+    <value>{0} min {1} s</value>
+  </data>
+  <data name="TurnDurationHours" xml:space="preserve">
+    <value>{0} h {1} min {2} s</value>
+  </data>
+  <data name="ModelChangeNotice" xml:space="preserve">
+    <value>Modelo · {0} → {1}</value>
+  </data>
+  <data name="EffortChangeNotice" xml:space="preserve">
+    <value>Esfuerzo · {0} → {1}</value>
+  </data>
+  <data name="ContextCompacted" xml:space="preserve">
+    <value>Contexto comprimido</value>
+  </data>
 </root>

@@ -79,6 +79,11 @@ public sealed class AgentTabPhase2Tests
             Drag(DragDrop.DropEvent, files, prompt);
             await HeadlessTestHelpers.WaitUntilAsync(() => model.CanManage);
             Assert.That(model.Attachments.Count, Is.EqualTo(2));
+            model.Prompt = "Review these files";
+            await model.SendAsync();
+            var timeline = await workspace.Runtime.LoadTimelineAsync(workspace.ProjectPath, model.SelectedThread!.Id);
+            Assert.That(timeline.OfType<AgentUserMessage>().Single().Attachments!.Select(attachment => attachment.Path),
+                Is.EqualTo(new[] { notes, captions }));
         }
         finally
         {
@@ -153,6 +158,17 @@ public sealed class AgentTabPhase2Tests
             await HeadlessTestHelpers.WaitUntilAsync(() => prompt.Text == "Keep this and the title");
             Assert.That(prompt.CaretIndex, Is.EqualTo(prompt.Text!.Length));
             Assert.That(model.Attachments.Count, Is.EqualTo(3));
+            await model.SendAsync();
+            var timeline = await workspace.Runtime.LoadTimelineAsync(workspace.ProjectPath, model.SelectedThread!.Id);
+            var sent = timeline.OfType<AgentUserMessage>().Single().Attachments!;
+            Assert.Multiple(() =>
+            {
+                Assert.That(sent[0].IsImage, Is.True);
+                Assert.That(sent[0].Path, Is.EqualTo(image.Path));
+                Assert.That(sent[1].MediaType, Is.EqualTo("text/plain"));
+                Assert.That(sent[1].Detail, Is.EqualTo(text.Detail));
+                Assert.That(sent[2].Path, Is.EqualTo(notes));
+            });
             await clipboard.ClearAsync();
         }
         finally

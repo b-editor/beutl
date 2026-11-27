@@ -238,6 +238,27 @@ function codex(frame) {
             active = { turn: { id: "external-turn-" + ++turnNumber, status: "inProgress" } };
             notify("turn/started", { turn: active.turn });
             reply(id, { turn: active.turn });
+            if (params.input[0].text === "phase3 metrics") {
+                const item = { type: "contextCompaction", id: "compaction-" + turnNumber };
+                notify("item/started", { item });
+                notify("item/completed", { item });
+                notify("thread/compacted", {});
+                notify("error", { error: { message: "Reconnecting" }, willRetry: true });
+                notify("model/rerouted", { toModel: "gpt-6.2-sol" });
+                const previousTurns = turnNumber - 1;
+                const first = { inputTokens: 200, outputTokens: 40, cachedInputTokens: 120 };
+                const second = { inputTokens: 100, outputTokens: 60, cachedInputTokens: 50 };
+                notify("thread/tokenUsage/updated", { tokenUsage: {
+                    total: { inputTokens: previousTurns * 300 + 200, outputTokens: previousTurns * 100 + 40, cachedInputTokens: previousTurns * 170 + 120 },
+                    last: first,
+                } });
+                notify("thread/tokenUsage/updated", { tokenUsage: {
+                    total: { inputTokens: turnNumber * 300, outputTokens: turnNumber * 100, cachedInputTokens: turnNumber * 170 },
+                    last: second,
+                } });
+                notify("turn/completed", { turn: { ...active.turn, status: "completed", durationMs: 2470 } });
+                break;
+            }
             if (captureMentionPrompt(params.input[0].text)) {
                 notify("turn/completed", { turn: { ...active.turn, status: "completed" } });
                 break;
@@ -312,9 +333,18 @@ const claudeQuestions = [
 ];
 let claudePreToolHook;
 let awaitingClaudeSteer;
+let backgroundPrompt;
 function claude(frame) {
     if (frame.type === "control_request") {
         const { request_id, request } = frame;
+        if (request.subtype === "stop_task") {
+            assert.equal(request.task_id, "actual-task-id");
+            mark("claude stop_task " + request.task_id);
+            claudeMessage("control_response", { response: { subtype: "success", request_id, response: {} } });
+            claudeMessage("system", { subtype: "task_notification", task_id: request.task_id, status: "stopped", summary: "Cancelled" });
+            claudeThinkingReply(backgroundPrompt);
+            return;
+        }
         assert.equal(request.subtype, "initialize");
         if (!discovering) {
             assert.ok(args.includes("--include-partial-messages"));
@@ -361,6 +391,22 @@ function claude(frame) {
         }
         denyClaudeTool = content === "reject" || (Array.isArray(content) && content.some(item => item.text === "reject"));
         claudeMessage("system", { subtype: "init", slash_commands: ["compact", "help"], skills: ["shot-review", "look-chain"] });
+        if (content === "phase3 metrics") {
+            claudeMessage("system", { subtype: "status", status: "compacting" });
+            claudeMessage("system", { subtype: "compact_boundary", compact_metadata: { trigger: "auto", pre_tokens: 1000 } });
+            claudeMessage("system", { subtype: "api_retry", attempt: 1, max_retries: 2, retry_delay_ms: 50, error_status: 503, error: "server_error" });
+            claudeMessage("result", { subtype: "success", is_error: false, result: "Ready", user_message_uuid: frame.uuid,
+                duration_ms: 3420, usage: { input_tokens: 200, output_tokens: 140, cache_read_input_tokens: 800, cache_creation_input_tokens: 60 },
+                modelUsage: { "claude-opus-test": {} },
+            });
+            return;
+        }
+        if (content === "stop background task") {
+            backgroundPrompt = frame.uuid;
+            claudeMessage("system", { subtype: "task_started", task_id: "actual-task-id", tool_use_id: "visible-tool-id",
+                task_type: "local_bash", is_backgrounded: true, description: "Render reference frames" });
+            return;
+        }
         if (captureMentionPrompt(content)) {
             claudeThinkingReply(frame.uuid);
             return;

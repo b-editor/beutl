@@ -176,6 +176,13 @@ export class AcpAdapter implements Adapter {
                 sessionId: this.sessionId,
                 prompt: [{ type: "text", text: turn.prompt }],
             });
+            if (result.stopReason !== "cancelled") {
+                turn.reportUsage({
+                    inputTokens: result.usage?.inputTokens, outputTokens: result.usage?.outputTokens,
+                    cachedInputTokens: result.usage?.cachedReadTokens ?? undefined,
+                    model: this.config("model")?.currentValue ?? this.legacyModels?.currentModelId ?? this.configuredModel,
+                });
+            }
             return { status: result.stopReason === "cancelled" ? "cancelled" : "completed" };
         } finally {
             this.completeMessage();

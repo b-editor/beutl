@@ -9,7 +9,7 @@ namespace Beutl.Editor.Components.AgentTab.ViewModels;
 internal sealed class AgentAttachment : AgentBindable, IDisposable
 {
     private const int ThumbnailExtent = 216;
-    private const long MaxThumbnailBytes = 20L * 1024 * 1024;
+    internal const long MaxImageBytes = 20L * 1024 * 1024;
     private readonly Action<AgentAttachment> _remove;
 
     private AgentAttachment(AgentAttachedFile file, string label, string detail, Icon icon,
@@ -34,6 +34,8 @@ internal sealed class AgentAttachment : AgentBindable, IDisposable
     public bool IsPastedText => File.MediaType == AgentAttachmentStore.PastedTextMediaType;
     public string RemoveLabel => AgentStrings.RemoveAttachment;
     public string Tooltip { get; }
+
+    public AgentUserAttachment Snapshot() => new(Path, Label, File.MediaType, Detail, Icon == Icon.Image);
 
     public static AgentAttachment CreateFile(AgentAttachedFile file, Action<AgentAttachment> remove)
     {
@@ -123,12 +125,12 @@ internal sealed class AgentAttachment : AgentBindable, IDisposable
         return count;
     }
 
-    private static Bitmap? DecodeThumbnail(string path)
+    internal static Bitmap? DecodeThumbnail(string path)
     {
         try
         {
             using var stream = System.IO.File.OpenRead(path);
-            var (width, height) = AiImageDecodeValidator.ValidateEncoded(stream, MaxThumbnailBytes);
+            var (width, height) = AiImageDecodeValidator.ValidateEncoded(stream, MaxImageBytes);
             if (Math.Max(width, height) <= ThumbnailExtent)
                 return new Bitmap(stream);
             return width >= height ? Bitmap.DecodeToWidth(stream, ThumbnailExtent) : Bitmap.DecodeToHeight(stream, ThumbnailExtent);

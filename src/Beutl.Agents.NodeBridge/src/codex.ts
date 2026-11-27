@@ -1,4 +1,4 @@
-import { CodexRpc, type CodexNotification, type CodexRequest, type CodexInput, type CodexItem, type CodexSkill, type CodexTurn } from "./codexProtocol.js";
+import { CodexRpc, type CodexNotification, type CodexRequest, type CodexInput, type CodexItem, type CodexSkill, type CodexTokenCounts, type CodexTurn } from "./codexProtocol.js";
 import { ProviderProcess } from "./process.js";
 import { type Adapter, type AdapterHost, type ComposerSuggestion, type Decision, type ModelDescriptor, type Permission, type PermissionMode, type ToolStatus, type Turn, type TurnRequest, type TurnResult, contentOutputs, formatPrompt, planStatus, withTimeout } from "./protocol.js";
 
@@ -38,6 +38,16 @@ interface ActiveTurn {
     childThreads: Map<string, string>;
     collabParents: Map<string, string | undefined>;
     startedCollab: Set<string>;
+    usageBaseline?: CodexTokenCounts;
+    hasCompactionItems?: boolean;
+}
+
+function tokenDifference(total: CodexTokenCounts, baseline: CodexTokenCounts): CodexTokenCounts {
+    return {
+        inputTokens: Math.max(0, total.inputTokens - baseline.inputTokens),
+        outputTokens: Math.max(0, total.outputTokens - baseline.outputTokens),
+        cachedInputTokens: Math.max(0, total.cachedInputTokens - baseline.cachedInputTokens),
+    };
 }
 
 function toolStatus(status: string): ToolStatus {
@@ -51,6 +61,8 @@ export class CodexAdapter implements Adapter {
     private process?: ProviderProcess;
     private rpc?: CodexRpc;
     private threadId?: string;
+    private model?: string;
+    private tokenTotal?: CodexTokenCounts;
     private active?: ActiveTurn;
     private skills?: Promise<CodexSkill[]>;
     private mode: PermissionMode;
@@ -68,6 +80,7 @@ export class CodexAdapter implements Adapter {
             ? await rpc.request("thread/resume", { ...params, threadId: options.externalSessionId, excludeTurns: true })
             : await rpc.request("thread/start", params);
         this.threadId = response.thread.id;
+        this.model = response.model ?? options.model;
         this.host.saveSessionId(this.threadId);
     }
 
@@ -272,8 +285,20 @@ export class CodexAdapter implements Adapter {
     private notify(notification: CodexNotification): void {
         const active = this.active;
         const params = notification.params;
-        if (!active || !params?.threadId) return;
+        if (!params?.threadId) return;
         const root = params.threadId === this.threadId;
+        if (root && notification.method === "thread/tokenUsage/updated") {
+            const { tokenUsage: { total, last }, turnId } = notification.params;
+            const previous = this.tokenTotal;
+            this.tokenTotal = total;
+            // On resume, Codex may replay an older turn's cumulative usage.
+            if (active?.externalId === turnId) {
+                const baseline = active.usageBaseline ??= previous ?? tokenDifference(total, last);
+                active.turn.reportUsage(tokenDifference(total, baseline));
+            }
+            return;
+        }
+        if (!active) return;
         const parentToolCallId = ("parentToolCallId" in params ? params.parentToolCallId : undefined)
             ?? ("item" in params ? params.item.parentToolCallId : undefined) ?? active.childThreads.get(params.threadId);
         if (!root && !parentToolCallId) return;
@@ -282,15 +307,20 @@ export class CodexAdapter implements Adapter {
 
         switch (notification.method) {
             case "turn/started":
-                if (root) active.externalId = notification.params.turn.id;
+                if (root) {
+                    active.externalId = notification.params.turn.id;
+                    turn.reportUsage({ model: this.host.options.model ?? this.model });
+                }
                 break;
             case "turn/completed": {
-                const { id, status, error } = notification.params.turn;
+                const { id, status, error, durationMs } = notification.params.turn;
                 if (!root) {
                     if (parentToolCallId) this.updateAgent(active, parentToolCallId, status, error?.message);
                     break;
                 }
                 if (active.externalId && id !== active.externalId) break;
+                turn.durationMs = durationMs ?? undefined;
+                if (!turn.usage.model) turn.reportUsage({ model: this.host.options.model ?? this.model });
                 active.finished.resolve(status === "interrupted" ? { status: "cancelled" }
                     : status === "completed" ? { status }
                     : { status: "failed", error: error?.message ?? "Codex turn failed." });
@@ -322,8 +352,22 @@ export class CodexAdapter implements Adapter {
                     explanation: notification.params.explanation ?? undefined,
                 });
                 break;
+            case "thread/compacted":
+                if (root && !active.hasCompactionItems) {
+                    turn.emit({ type: "contextCompacted" });
+                    turn.emit({ type: "turnPhaseChanged", phase: "thinking" });
+                }
+                break;
+            case "model/rerouted":
+                if (root) turn.reportUsage({ model: notification.params.toModel });
+                break;
             case "error":
-                if (root && !parentToolCallId) turn.emit({ type: "errorNotice", message: notification.params.error.message });
+                if (root && !parentToolCallId) {
+                    if (notification.params.willRetry)
+                        turn.emit({ type: "turnPhaseChanged", phase: "retrying" });
+                    else
+                        turn.emit({ type: "errorNotice", message: notification.params.error.message });
+                }
                 break;
         }
     }
@@ -335,6 +379,14 @@ export class CodexAdapter implements Adapter {
         const complete = (status: string, outputs?: ReturnType<typeof contentOutputs>) =>
             turn.emit({ type: "toolCallCompleted", toolCallId: item.id, status: toolStatus(status), outputs, parentToolCallId });
         switch (item.type) {
+            case "contextCompaction":
+                if (!parentToolCallId) {
+                    active.hasCompactionItems = true;
+                    if (finished)
+                        turn.emit({ type: "contextCompacted" });
+                    turn.emit({ type: "turnPhaseChanged", phase: finished ? "thinking" : "compacting" });
+                }
+                break;
             case "agentMessage":
                 if (finished) turn.emit({ type: "assistantMessageCompleted", text: item.text, messageId: item.id, parentToolCallId });
                 break;

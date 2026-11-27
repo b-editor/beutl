@@ -17,10 +17,11 @@ public sealed class AgentTurnHistoryTrackerTests
         var turn = tracker.TryBegin(Guid.NewGuid(), Guid.NewGuid(), history)!;
         int value = 0;
         Record(history, () => value, next => value = next, 1);
-        turn.TrackEdit(history, () => history.ExecuteInTransaction(() => Record(history, () => value, next => value = next, 2)));
-        turn.TrackEdit(history, () => history.ExecuteInTransaction(() => Record(history, () => value, next => value = next, 3)));
+        turn.TrackEdit(history, () => history.ExecuteInTransaction(() => Record(history, () => value, next => value = next, 2), "Move title"));
+        turn.TrackEdit(history, () => history.ExecuteInTransaction(() => Record(history, () => value, next => value = next, 3), "Shorten fade"));
 
         Assert.That(tracker.Finish(turn), Is.EqualTo(2));
+        Assert.That(turn.Changes, Is.EqualTo(new[] { "Move title", "Shorten fade" }));
         Assert.That(tracker.CanRevert(history, turn.Id), Is.True);
         Assert.That(tracker.Revert(history, turn.Id), Is.EqualTo(AgentTurnRevertResult.Reverted));
         Assert.Multiple(() =>

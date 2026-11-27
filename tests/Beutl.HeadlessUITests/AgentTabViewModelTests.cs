@@ -477,6 +477,7 @@ internal sealed class AgentTabTestWorkspace : IAgentWorkspaceHost, IAsyncDisposa
         }
     }
     public int TransactionCount { get; init; }
+    public IReadOnlyList<string>? TransactionChanges { get; init; }
     public AgentTurnRevertResult RevertResult { get; set; } = AgentTurnRevertResult.Reverted;
     public bool IncludedScene { get; private set; }
     public IReadOnlyList<AgentAttachedFile> SentAttachments { get; private set; } = [];
@@ -508,7 +509,7 @@ internal sealed class AgentTabTestWorkspace : IAgentWorkspaceHost, IAsyncDisposa
         if (TransactionCount > 0)
         {
             _revertibleTurn = result.TurnId;
-            var entry = new AgentTurnHistoryRecorded(request.ThreadId, result.TurnId, DateTimeOffset.UtcNow, TransactionCount);
+            var entry = new AgentTurnHistoryRecorded(request.ThreadId, result.TurnId, DateTimeOffset.UtcNow, TransactionCount, TransactionChanges);
             await Runtime.RecordTurnHistoryAsync(projectPath, entry);
             callbacks.Timeline(entry);
         }
@@ -557,6 +558,7 @@ internal sealed class AgentTabTestBridge : IAgentRuntimeBridge
     public Func<AgentUserQuestionRequest, CancellationToken, Task<IReadOnlyDictionary<string, string[]>>>? QuestionHandler { get; set; }
     public Func<AgentTurnRequest, CancellationToken, Task>? Script { get; set; }
     public bool SupportsSteer { get; set; } = true;
+    public Func<Guid, Guid, string, AgentBackgroundStopResult>? StopTask { get; set; }
     public AgentSessionOpenRequest? OpenedSession { get; private set; }
     public Func<AgentModelListRequest, IReadOnlyList<AgentModelDescriptor>>? ModelCatalog { get; set; }
     public Func<AgentComposerSuggestionRequest, IReadOnlyList<AgentComposerSuggestion>>? SuggestionCatalog { get; set; }
@@ -567,7 +569,7 @@ internal sealed class AgentTabTestBridge : IAgentRuntimeBridge
     {
         var (thread, turn, text, _) = request;
         Emit(new AgentTurnStarted(thread, turn, DateTimeOffset.UtcNow));
-        Emit(new AgentUserMessage(thread, turn, DateTimeOffset.UtcNow, text));
+        Emit(new AgentUserMessage(thread, turn, DateTimeOffset.UtcNow, text, request.Attachments, request.IncludeSceneContext, request.Mentions));
         if (Script is { } script)
             await script(request, cancellationToken);
         Emit(new AgentTurnCompleted(thread, turn, DateTimeOffset.UtcNow));
@@ -616,9 +618,13 @@ internal sealed class AgentTabTestBridge : IAgentRuntimeBridge
     public Task<bool> SteerTurnAsync(AgentTurnRequest request, CancellationToken cancellationToken = default)
     {
         if (SupportsSteer)
-            Emit(new AgentUserMessage(request.ThreadId, request.TurnId, DateTimeOffset.UtcNow, request.Text));
+            Emit(new AgentUserMessage(request.ThreadId, request.TurnId, DateTimeOffset.UtcNow, request.Text,
+                request.Attachments, request.IncludeSceneContext, request.Mentions));
         return Task.FromResult(SupportsSteer);
     }
+    public Task<AgentBackgroundStopResult> StopBackgroundTaskAsync(
+        Guid threadId, Guid turnId, string toolCallId, CancellationToken cancellationToken = default)
+        => Task.FromResult(StopTask?.Invoke(threadId, turnId, toolCallId) ?? AgentBackgroundStopResult.Unsupported);
     public Task CancelTurnAsync(Guid threadId, Guid turnId, CancellationToken cancellationToken = default) => Task.CompletedTask;
     public Task SetPermissionModeAsync(Guid threadId, AgentPermissionMode mode, CancellationToken cancellationToken = default) => Task.CompletedTask;
     public Task CloseSessionAsync(Guid threadId, CancellationToken cancellationToken = default) => Task.CompletedTask;

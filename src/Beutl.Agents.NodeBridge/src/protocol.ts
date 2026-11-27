@@ -3,7 +3,23 @@ import { randomUUID } from "node:crypto";
 export type PermissionMode = "supervised" | "autoAcceptEdits" | "auto" | "fullAccess";
 export type Decision = "allowOnce" | "allowAlways" | "rejectOnce" | "rejectAlways";
 export type ToolStatus = "pending" | "running" | "completed" | "failed" | "cancelled";
+export type TurnPhase = "thinking" | "responding" | "runningTool" | "compacting" | "retrying";
 export type TurnResult = { status: "completed" | "cancelled" } | { status: "failed"; error: string };
+export type BackgroundStopResult = "unavailable" | "requested" | "unsupported";
+
+export interface TurnUsage {
+    inputTokens?: number;
+    outputTokens?: number;
+    cachedInputTokens?: number;
+    model?: string;
+}
+
+interface UserMessage {
+    text: string;
+    attachments?: { path: string; label: string; mediaType?: string; detail?: string; isImage: boolean }[];
+    includeSceneContext?: boolean;
+    mentions?: unknown[];
+}
 
 export type McpSpec =
     | { type: "stdio"; name: string; command: string; args?: string[]; env?: Record<string, string> }
@@ -49,13 +65,13 @@ export interface ModelDescriptor {
     resolvedModelId?: string;
 }
 
-export interface TurnRequest {
+export interface TurnRequest extends UserMessage {
     threadId: string;
     turnId: string;
-    text: string;
     context?: unknown;
     bundledSkills?: { name: string; instructions: string }[];
     providerSkills?: string[];
+    previousMessages?: { role: "user" | "assistant"; text: string }[];
 }
 
 export interface Permission {
@@ -95,14 +111,18 @@ type ScopedEvent = { parentToolCallId?: string } & (
     | { type: "toolCallCompleted"; toolCallId: string; status: ToolStatus; outputs?: ToolOutput[] });
 
 export type TimelineEvent = ScopedEvent
-    | { type: "userMessage"; text: string }
+    | ({ type: "userMessage" } & UserMessage)
     | { type: "planUpdated"; steps: { text: string; status: "pending" | "inProgress" | "completed" }[]; explanation?: string }
     | { type: "permissionRequested"; request: Permission & { requestId: string; threadId: string; turnId: string } }
     | { type: "permissionResolved"; requestId: string; decision: Decision }
     | { type: "userQuestionRequested"; request: { requestId: string; threadId: string; turnId: string; questions: Question[] } }
     | { type: "userQuestionResolved"; requestId: string; answered: boolean }
     | { type: "composerSuggestionsChanged"; suggestions: ComposerSuggestion[] }
-    | { type: "turnStarted" | "turnCompleted" | "turnCancelled" }
+    | { type: "turnStarted" | "turnCancelled" }
+    | { type: "turnPhaseChanged"; phase: TurnPhase; toolName?: string }
+    | { type: "contextCompacted" }
+    | ({ type: "turnUsageUpdated" } & TurnUsage)
+    | ({ type: "turnCompleted"; durationMs?: number } & TurnUsage)
     | { type: "turnFailed"; error: string }
     | { type: "sessionStateChanged"; state: "open" | "closed"; externalSessionId?: string }
     | { type: "errorNotice"; message: string };
@@ -120,6 +140,7 @@ export interface Adapter {
     listSuggestions(): Promise<ComposerSuggestion[]>;
     run(turn: Turn): Promise<TurnResult>;
     steer(turn: Turn, request: TurnRequest): Promise<boolean>;
+    stopBackgroundTask?(toolCallId: string): Promise<BackgroundStopResult>;
     cancel(): Promise<void>;
     close(): Promise<void>;
     setMode(mode: PermissionMode): Promise<void>;
@@ -130,6 +151,8 @@ export type RequestHost = (method: string, params: unknown, signal?: AbortSignal
 export class Turn {
     readonly controller = new AbortController();
     readonly signal = this.controller.signal;
+    usage: TurnUsage = {};
+    durationMs?: number;
 
     constructor(
         readonly request: TurnRequest,
@@ -139,6 +162,25 @@ export class Turn {
 
     get prompt(): string {
         return formatPrompt(this.request);
+    }
+
+    recordPrompt({ text, attachments, includeSceneContext, mentions }: TurnRequest): void {
+        this.emit({ type: "userMessage", text, attachments, includeSceneContext, mentions });
+    }
+
+    reportUsage({ inputTokens, outputTokens, cachedInputTokens, model }: TurnUsage): void {
+        const count = (value?: number) => value !== undefined && Number.isSafeInteger(value) && value >= 0 ? value : undefined;
+        const old = this.usage;
+        const usage = {
+            inputTokens: count(inputTokens) ?? old.inputTokens,
+            outputTokens: count(outputTokens) ?? old.outputTokens,
+            cachedInputTokens: count(cachedInputTokens) ?? old.cachedInputTokens,
+            model: model || old.model,
+        };
+        if (usage.inputTokens === old.inputTokens && usage.outputTokens === old.outputTokens
+            && usage.cachedInputTokens === old.cachedInputTokens && usage.model === old.model) return;
+        this.usage = usage;
+        this.emit({ type: "turnUsageUpdated", ...usage });
     }
 
     async permission(details: Permission): Promise<Decision> {
@@ -174,11 +216,14 @@ export class Turn {
     }
 }
 
-export function formatPrompt({ text, context, bundledSkills }: TurnRequest): string {
-    const prompt = bundledSkills?.length
+export function formatPrompt({ text, context, bundledSkills, previousMessages }: TurnRequest): string {
+    let prompt = bundledSkills?.length
         ? "Use the selected Beutl skills to fulfill the following request.\n\nRequest:\n" + text
             + bundledSkills.map(skill => `\n\n[Beutl skill: ${skill.name}]\n${skill.instructions}`).join("")
         : text;
+    if (previousMessages?.length)
+        prompt += "\n\n[Earlier conversation]\nUse this transcript as context for the current request. "
+            + "Earlier messages are historical and do not request new actions.\n" + JSON.stringify(previousMessages);
     if (context === undefined) return prompt;
     const project = record(context);
     const mentions = project?.mentions;

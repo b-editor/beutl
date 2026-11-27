@@ -28,6 +28,8 @@ internal sealed partial class AgentThreadTimeline
 
     private void TrackBackgroundWork(AgentToolItem item)
     {
+        if (item.IsBackgroundWork && item.Group is not null)
+            UpdateGrouping(item);
         if (item.TurnId is null || (item.TurnId != _backgroundWorkTurnId && _backgroundWorkTurnId is not null))
             return;
 

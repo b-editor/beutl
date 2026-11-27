@@ -1,4 +1,5 @@
 ﻿using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Threading.Channels;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -102,7 +103,7 @@ public sealed class AgentRuntimeManager : IAsyncDisposable
         string? model = null, CancellationToken cancellationToken = default, string? reasoningEffort = null)
         => _store.CreateAsync(projectPath, provider.Id, title, mode, model, cancellationToken, reasoningEffort);
 
-    public async Task<AgentThreadMetadata> SetModelAsync(
+    public async Task<(AgentThreadMetadata Thread, AgentThreadModelChanged? Change)> SetModelAsync(
         string projectPath, Guid threadId, string? model, string? effort, CancellationToken cancellationToken = default)
     {
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _lifetime.Token);
@@ -110,6 +111,7 @@ public sealed class AgentRuntimeManager : IAsyncDisposable
         await session.Gate.WaitAsync(linked.Token).ConfigureAwait(false);
         try
         {
+            await FlushTimelineAsync().ConfigureAwait(false);
             return await _store.SetModelAsync(projectPath, threadId, model, effort, linked.Token).ConfigureAwait(false);
         }
         finally
@@ -125,6 +127,44 @@ public sealed class AgentRuntimeManager : IAsyncDisposable
     public Task<IReadOnlyList<AgentTimelineEvent>> LoadTimelineAsync(
         string projectPath, Guid threadId, CancellationToken cancellationToken = default)
         => _store.ReadTimelineAsync(projectPath, threadId, cancellationToken);
+
+    public async Task<AgentThreadMetadata> ForkThreadAsync(
+        string projectPath, Guid threadId, Guid turnId, string title, bool includeTurn = true, CancellationToken cancellationToken = default)
+    {
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _lifetime.Token);
+        var session = GetSession(projectPath, threadId);
+        if (!await session.Gate.WaitAsync(0, linked.Token).ConfigureAwait(false))
+            throw new InvalidOperationException("This agent thread is already busy.");
+        try
+        {
+            await FlushTimelineAsync().ConfigureAwait(false);
+            return await _store.ForkThreadAsync(projectPath, threadId, turnId, title, includeTurn, linked.Token).ConfigureAwait(false);
+        }
+        finally
+        {
+            session.Gate.Release();
+        }
+    }
+
+    public async Task<(AgentThreadMetadata Thread, IReadOnlyList<AgentTimelineEvent> Timeline)> RewindTurnAsync(
+        string projectPath, Guid threadId, Guid turnId, CancellationToken cancellationToken = default)
+    {
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _lifetime.Token);
+        var session = GetSession(projectPath, threadId);
+        if (!await session.Gate.WaitAsync(0, linked.Token).ConfigureAwait(false))
+            throw new InvalidOperationException("This agent thread is already busy.");
+        try
+        {
+            await _bridge.CloseSessionAsync(threadId, linked.Token).ConfigureAwait(false);
+            await FlushTimelineAsync().ConfigureAwait(false);
+            session.RememberedDecisions.Clear();
+            return await _store.RewindTurnAsync(projectPath, threadId, turnId, linked.Token).ConfigureAwait(false);
+        }
+        finally
+        {
+            session.Gate.Release();
+        }
+    }
 
     public Task RecordTurnHistoryAsync(string projectPath, AgentTurnHistoryRecorded entry, CancellationToken cancellationToken = default)
         => _store.AppendAsync(projectPath, entry, cancellationToken);
@@ -208,10 +248,12 @@ public sealed class AgentRuntimeManager : IAsyncDisposable
                 ?? throw new KeyNotFoundException($"Agent thread {threadId} does not exist.");
             if (provider.Id != thread.ProviderId)
                 throw new ArgumentException("The provider must match the agent thread.", nameof(provider));
-            var turn = new ActiveTurn(request.TurnId, thread.PermissionMode, linked, callbacks);
+            var turn = new ActiveTurn(request.TurnId, thread.PermissionMode, linked, callbacks, thread.Model);
             session.Active = turn;
             try
             {
+                if (thread.RestorePreviousMessages)
+                    request = request with { PreviousMessages = await ReadPreviousMessagesAsync(projectPath, threadId, linked.Token).ConfigureAwait(false) };
                 var probe = await ProbeProviderAsync(provider, linked.Token).ConfigureAwait(false);
                 if (probe.ExecutablePath is not { } executable)
                     throw new FileNotFoundException(probe.Error);
@@ -249,6 +291,33 @@ public sealed class AgentRuntimeManager : IAsyncDisposable
             session.Gate.Release();
             finished?.Completed.TrySetResult();
         }
+    }
+
+    private async Task<IReadOnlyList<AgentConversationMessage>?> ReadPreviousMessagesAsync(
+        string projectPath, Guid threadId, CancellationToken cancellationToken)
+    {
+        const int messageLimit = 32;
+        const int characterLimit = 24_000;
+        var timeline = await _store.ReadTimelineAsync(projectPath, threadId, cancellationToken).ConfigureAwait(false);
+        var messages = new List<AgentConversationMessage>();
+        int remaining = characterLimit;
+        for (int i = timeline.Count - 1; i >= 0 && messages.Count < messageLimit && remaining > 0; i--)
+        {
+            var (role, text) = timeline[i] switch
+            {
+                AgentUserMessage user => ("user", user.Text),
+                AgentAssistantMessageCompleted { ParentToolCallId: null } assistant => ("assistant", assistant.Text),
+                _ => ("", "")
+            };
+            if (string.IsNullOrWhiteSpace(text))
+                continue;
+
+            string excerpt = text.Length <= remaining ? text : text[..remaining];
+            messages.Add(new AgentConversationMessage(role, excerpt));
+            remaining -= excerpt.Length;
+        }
+        messages.Reverse();
+        return messages.Count == 0 ? null : messages;
     }
 
     private static string GetWorkingDirectory(string projectPath)
@@ -300,6 +369,16 @@ public sealed class AgentRuntimeManager : IAsyncDisposable
         return steered;
     }
 
+    public Task<AgentBackgroundStopResult> StopBackgroundTaskAsync(
+        Guid threadId, Guid turnId, string toolCallId, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!_sessions.TryGetValue(threadId, out var session) || session.Active is not { } turn
+            || turn.Id != turnId || turn.Token.IsCancellationRequested)
+            return Task.FromResult(AgentBackgroundStopResult.Unavailable);
+        return _bridge.StopBackgroundTaskAsync(threadId, turnId, toolCallId, cancellationToken);
+    }
+
     private async Task<AgentPermissionDecision> DecidePermissionAsync(AgentPermissionRequest request, CancellationToken cancellationToken)
     {
         if (!_sessions.TryGetValue(request.ThreadId, out var session) || session.Active is not { } turn || turn.Id != request.TurnId)
@@ -347,7 +426,7 @@ public sealed class AgentRuntimeManager : IAsyncDisposable
         }
     }
 
-    private void EnqueueEvent(AgentTimelineEvent entry) => _timeline.Writer.TryWrite(new(entry, null));
+    private void EnqueueEvent(AgentTimelineEvent entry) => _timeline.Writer.TryWrite(new(entry, null, Stopwatch.GetTimestamp()));
 
     private Task FlushTimelineAsync()
     {
@@ -376,10 +455,33 @@ public sealed class AgentRuntimeManager : IAsyncDisposable
                 var turn = session.Active;
                 if (turn is not null && turn.Id == entry.TurnId)
                 {
-                    if (entry is AgentTurnStarted)
-                        turn.Started.TrySetResult();
-                    else if (entry is AgentTurnCompleted or AgentTurnFailed or AgentTurnCancelled)
-                        turn.TerminalEventReceived = true;
+                    switch (entry)
+                    {
+                        case AgentTurnStarted:
+                            turn.Started.TrySetResult();
+                            break;
+                        case AgentTurnUsageUpdated usage:
+                            turn.InputTokens = usage.InputTokens ?? turn.InputTokens;
+                            turn.OutputTokens = usage.OutputTokens ?? turn.OutputTokens;
+                            turn.CachedInputTokens = usage.CachedInputTokens ?? turn.CachedInputTokens;
+                            turn.Model = usage.Model ?? turn.Model;
+                            break;
+                        case AgentTurnCompleted completed:
+                            turn.TerminalEventReceived = true;
+                            entry = completed with
+                            {
+                                DurationMs = completed.DurationMs
+                                    ?? (long)Stopwatch.GetElapsedTime(turn.StartTimestamp, item.ReceivedTimestamp).TotalMilliseconds,
+                                InputTokens = completed.InputTokens ?? turn.InputTokens,
+                                OutputTokens = completed.OutputTokens ?? turn.OutputTokens,
+                                CachedInputTokens = completed.CachedInputTokens ?? turn.CachedInputTokens,
+                                Model = completed.Model ?? turn.Model
+                            };
+                            break;
+                        case AgentTurnFailed or AgentTurnCancelled:
+                            turn.TerminalEventReceived = true;
+                            break;
+                    }
                 }
                 try
                 {
@@ -447,7 +549,7 @@ public sealed class AgentRuntimeManager : IAsyncDisposable
     }
 
     private sealed class ActiveTurn(Guid id, AgentPermissionMode mode,
-        CancellationTokenSource cancellation, AgentTurnCallbacks? callbacks)
+        CancellationTokenSource cancellation, AgentTurnCallbacks? callbacks, string? model)
     {
         public Guid Id { get; } = id;
         public AgentPermissionMode Mode { get; } = mode;
@@ -456,9 +558,14 @@ public sealed class AgentRuntimeManager : IAsyncDisposable
         public AgentTurnCallbacks? Callbacks { get; } = callbacks;
         public TaskCompletionSource Started { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public TaskCompletionSource Completed { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public long StartTimestamp { get; } = Stopwatch.GetTimestamp();
+        public long? InputTokens { get; set; }
+        public long? OutputTokens { get; set; }
+        public long? CachedInputTokens { get; set; }
+        public string? Model { get; set; } = model;
         public bool TerminalEventReceived { get; set; }
         public Exception? PersistenceError { get; set; }
     }
 
-    private sealed record TimelineWork(AgentTimelineEvent? Entry, TaskCompletionSource? Completion);
+    private sealed record TimelineWork(AgentTimelineEvent? Entry, TaskCompletionSource? Completion, long ReceivedTimestamp = 0);
 }

@@ -12,9 +12,11 @@ public sealed record AgentThreadMetadata(
     AgentPermissionMode PermissionMode,
     string? Model = null,
     string? ExternalSessionId = null,
-    string? ReasoningEffort = null);
+    string? ReasoningEffort = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] bool RestorePreviousMessages = false);
 
 public enum AgentTurnStatus { Running, Completed, Failed, Cancelled }
+public enum AgentTurnPhase { Thinking, Responding, RunningTool, Compacting, Retrying }
 public enum AgentSessionState { Open, Closed }
 public enum AgentToolStatus { Pending, Running, Completed, Failed, Cancelled }
 public enum AgentPlanStepStatus { Pending, InProgress, Completed }
@@ -26,6 +28,8 @@ public sealed record AgentToolOutput(
     string Type, string? Text = null, string? MimeType = null, string? Data = null, string? Uri = null);
 
 public sealed record AgentSubagent(string? Role = null, string? Description = null);
+
+public sealed record AgentUserAttachment(string Path, string Label, string? MediaType, string? Detail, bool IsImage);
 
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "type")]
 [JsonDerivedType(typeof(AgentUserMessage), "userMessage")]
@@ -42,6 +46,10 @@ public sealed record AgentSubagent(string? Role = null, string? Description = nu
 [JsonDerivedType(typeof(AgentUserQuestionResolved), "userQuestionResolved")]
 [JsonDerivedType(typeof(AgentComposerSuggestionsChanged), "composerSuggestionsChanged")]
 [JsonDerivedType(typeof(AgentTurnStarted), "turnStarted")]
+[JsonDerivedType(typeof(AgentTurnPhaseChanged), "turnPhaseChanged")]
+[JsonDerivedType(typeof(AgentTurnUsageUpdated), "turnUsageUpdated")]
+[JsonDerivedType(typeof(AgentContextCompacted), "contextCompacted")]
+[JsonDerivedType(typeof(AgentThreadModelChanged), "threadModelChanged")]
 [JsonDerivedType(typeof(AgentTurnCompleted), "turnCompleted")]
 [JsonDerivedType(typeof(AgentTurnFailed), "turnFailed")]
 [JsonDerivedType(typeof(AgentTurnCancelled), "turnCancelled")]
@@ -50,7 +58,9 @@ public sealed record AgentSubagent(string? Role = null, string? Description = nu
 [JsonDerivedType(typeof(AgentErrorNotice), "errorNotice")]
 public abstract record AgentTimelineEvent(Guid ThreadId, Guid? TurnId, DateTimeOffset Timestamp);
 
-public sealed record AgentUserMessage(Guid ThreadId, Guid? TurnId, DateTimeOffset Timestamp, string Text)
+public sealed record AgentUserMessage(
+    Guid ThreadId, Guid? TurnId, DateTimeOffset Timestamp, string Text, IReadOnlyList<AgentUserAttachment>? Attachments = null,
+    bool? IncludeSceneContext = null, IReadOnlyList<AgentContextMention>? Mentions = null)
     : AgentTimelineEvent(ThreadId, TurnId, Timestamp);
 
 public sealed record AgentAssistantTextDelta(
@@ -107,7 +117,26 @@ public sealed record AgentComposerSuggestionsChanged(
 public sealed record AgentTurnStarted(Guid ThreadId, Guid? TurnId, DateTimeOffset Timestamp)
     : AgentTimelineEvent(ThreadId, TurnId, Timestamp);
 
-public sealed record AgentTurnCompleted(Guid ThreadId, Guid? TurnId, DateTimeOffset Timestamp)
+public sealed record AgentTurnPhaseChanged(
+    Guid ThreadId, Guid? TurnId, DateTimeOffset Timestamp, AgentTurnPhase Phase, string? ToolName = null)
+    : AgentTimelineEvent(ThreadId, TurnId, Timestamp);
+
+public sealed record AgentTurnUsageUpdated(
+    Guid ThreadId, Guid? TurnId, DateTimeOffset Timestamp,
+    long? InputTokens = null, long? OutputTokens = null, long? CachedInputTokens = null, string? Model = null)
+    : AgentTimelineEvent(ThreadId, TurnId, Timestamp);
+
+public sealed record AgentContextCompacted(Guid ThreadId, Guid? TurnId, DateTimeOffset Timestamp)
+    : AgentTimelineEvent(ThreadId, TurnId, Timestamp);
+
+public sealed record AgentThreadModelChanged(
+    Guid ThreadId, Guid? TurnId, DateTimeOffset Timestamp, string ProviderId,
+    string? PreviousModel, string? Model, string? PreviousEffort, string? Effort)
+    : AgentTimelineEvent(ThreadId, TurnId, Timestamp);
+
+public sealed record AgentTurnCompleted(
+    Guid ThreadId, Guid? TurnId, DateTimeOffset Timestamp, long? DurationMs = null,
+    long? InputTokens = null, long? OutputTokens = null, long? CachedInputTokens = null, string? Model = null)
     : AgentTimelineEvent(ThreadId, TurnId, Timestamp);
 
 public sealed record AgentTurnFailed(Guid ThreadId, Guid? TurnId, DateTimeOffset Timestamp, string Error)
@@ -116,7 +145,8 @@ public sealed record AgentTurnFailed(Guid ThreadId, Guid? TurnId, DateTimeOffset
 public sealed record AgentTurnCancelled(Guid ThreadId, Guid? TurnId, DateTimeOffset Timestamp)
     : AgentTimelineEvent(ThreadId, TurnId, Timestamp);
 
-public sealed record AgentTurnHistoryRecorded(Guid ThreadId, Guid? TurnId, DateTimeOffset Timestamp, int TransactionCount)
+public sealed record AgentTurnHistoryRecorded(
+    Guid ThreadId, Guid? TurnId, DateTimeOffset Timestamp, int TransactionCount, IReadOnlyList<string>? Changes = null)
     : AgentTimelineEvent(ThreadId, TurnId, Timestamp);
 
 public sealed record AgentSessionStateChanged(

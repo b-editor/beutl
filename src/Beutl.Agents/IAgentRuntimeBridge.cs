@@ -17,13 +17,19 @@ public sealed record AgentSessionOpenRequest(
     string? ReasoningEffort = null);
 
 public sealed record AgentSessionInfo(string? ExternalSessionId);
+public enum AgentBackgroundStopResult { Unavailable, Requested, Unsupported }
 
 public sealed record AgentSkillInstruction(string Name, string Instructions);
+public sealed record AgentConversationMessage(string Role, string Text);
 
 public sealed record AgentTurnRequest(Guid ThreadId, Guid TurnId, string Text, AgentContextSnapshot? Context = null)
 {
     public IReadOnlyList<AgentSkillInstruction>? BundledSkills { get; init; }
     public IReadOnlyList<string>? ProviderSkills { get; init; }
+    public IReadOnlyList<AgentUserAttachment>? Attachments { get; init; }
+    public bool? IncludeSceneContext { get; init; }
+    public IReadOnlyList<AgentContextMention>? Mentions { get; init; }
+    public IReadOnlyList<AgentConversationMessage>? PreviousMessages { get; init; }
 }
 
 public interface IAgentRuntimeBridge : IAsyncDisposable
@@ -40,6 +46,9 @@ public interface IAgentRuntimeBridge : IAsyncDisposable
     Task<AgentSessionInfo> OpenSessionAsync(AgentSessionOpenRequest request, CancellationToken cancellationToken = default);
     Task<AgentTurnSummary> RunTurnAsync(AgentTurnRequest request, CancellationToken cancellationToken = default);
     Task<bool> SteerTurnAsync(AgentTurnRequest request, CancellationToken cancellationToken = default);
+    Task<AgentBackgroundStopResult> StopBackgroundTaskAsync(
+        Guid threadId, Guid turnId, string toolCallId, CancellationToken cancellationToken = default)
+        => Task.FromResult(AgentBackgroundStopResult.Unsupported);
     Task CancelTurnAsync(Guid threadId, Guid turnId, CancellationToken cancellationToken = default);
     Task SetPermissionModeAsync(Guid threadId, AgentPermissionMode mode, CancellationToken cancellationToken = default);
     Task CloseSessionAsync(Guid threadId, CancellationToken cancellationToken = default);

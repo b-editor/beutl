@@ -27,7 +27,14 @@
                                         BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
                                         Background="{DynamicResource SubtleFillColorSecondaryBrush}" ClipToBounds="True">
                                     <Grid RowDefinitions="*,25">
-                                        <Image Source="{Binding Thumbnail}" Stretch="UniformToFill" IsVisible="{Binding HasThumbnail}" />
+                                        <Button x:Name="ComposerImageThumbnail" IsVisible="{Binding HasThumbnail}" Click="OnOpenAttachmentImage"
+                                                Theme="{StaticResource TransparentButton}" Padding="0"
+                                                HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                                                HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"
+                                                AutomationProperties.Name="{Binding Label}"
+                                                AutomationProperties.HelpText="{x:Static lang:AgentStrings.OpenImagePreview}">
+                                            <Image Source="{Binding Thumbnail}" Stretch="UniformToFill" />
+                                        </Button>
                                         <StackPanel Orientation="Vertical" Spacing="3" Margin="6,0"
                                                     HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding !HasThumbnail}">
                                             <icons:FluentIcon Classes="agent-attachment-icon" Icon="{Binding Icon}" FontSize="23" HorizontalAlignment="Center"
@@ -142,12 +149,12 @@
 
                 <Panel Grid.Column="2">
                     <Button x:Name="StopButton" Width="30" Height="30" Padding="0"
-                            Command="{Binding StopAsync}" IsEnabled="{Binding CanStop}" IsVisible="{Binding ShowStopButton}"
+                            Command="{Binding StopAsync}" IsEnabled="{Binding CanStop}" IsVisible="{Binding !ShowSendButton}"
                             ToolTip.Tip="{x:Static lang:AgentStrings.Stop}" AutomationProperties.Name="{x:Static lang:AgentStrings.Stop}">
                         <icons:FluentIcon Icon="Stop" IconVariant="Filled" FontSize="11" />
                     </Button>
                     <Button x:Name="SendButton" Classes="accent" Width="30" Height="30" Padding="0"
-                            Command="{Binding SendAsync}" IsEnabled="{Binding CanSend}" IsVisible="{Binding !ShowStopButton}"
+                            Command="{Binding SendAsync}" IsEnabled="{Binding CanSend}" IsVisible="{Binding ShowSendButton}"
                             ToolTip.Tip="{Binding SendTooltip}" AutomationProperties.Name="{Binding SendLabel}">
                         <icons:FluentIcon Icon="{Binding SendIcon}" FontSize="16" />
                     </Button>

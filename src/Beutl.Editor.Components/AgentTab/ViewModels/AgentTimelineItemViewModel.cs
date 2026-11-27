@@ -2,9 +2,7 @@
 using System.Collections.ObjectModel;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
-using Avalonia.Media.Imaging;
 using Beutl.Agents;
-using Beutl.Editor.Services.AI;
 using FluentAvalonia.UI.Controls;
 using FluentIcons.Common;
 using LiveMarkdown.Avalonia;
@@ -33,15 +31,53 @@ internal abstract class AgentTimelineItemViewModel(Guid? turnId) : AgentBindable
     public Guid? TurnId { get; } = turnId;
 }
 
-internal sealed class AgentUserItem(AgentUserMessage entry) : AgentTimelineItemViewModel(entry.TurnId)
+internal abstract class AgentMessageItem(Guid? turnId, DateTimeOffset timestamp) : AgentTimelineItemViewModel(turnId)
 {
-    public string Text => entry.Text;
+    public DateTimeOffset Timestamp { get; } = timestamp;
+    public string TimeLabel => Timestamp.ToLocalTime().ToString("HH:mm", CultureInfo.CurrentCulture);
+    public string TimeDetail => Timestamp.ToLocalTime().ToString("F", CultureInfo.CurrentCulture);
+    public bool HasTurn => TurnId.HasValue;
+    public abstract string Text { get; }
 }
 
-internal sealed class AgentAssistantItem(Guid? turnId) : AgentTimelineItemViewModel(turnId)
+internal sealed class AgentUserItem(AgentUserMessage entry) : AgentMessageItem(entry.TurnId, entry.Timestamp), IDisposable
+{
+    public AgentUserMessage Entry { get; } = entry;
+    public override string Text => Entry.Text;
+    public bool HasText => !string.IsNullOrWhiteSpace(Text);
+    public IReadOnlyList<AgentMessageAttachmentItem> Attachments { get; } =
+        entry.Attachments?.Select(attachment => new AgentMessageAttachmentItem(attachment)).ToArray() ?? [];
+
+    public void Dispose()
+    {
+        foreach (var attachment in Attachments)
+            attachment.Preview?.Dispose();
+    }
+}
+
+internal sealed class AgentMessageAttachmentItem(AgentUserAttachment entry) : AgentBindable
+{
+    public string Label => entry.Label;
+    public string Path => entry.Path;
+    public string? Detail => entry.Detail;
+    public AgentImagePreview? Preview { get; private set => Set(ref field, value); } =
+        entry.IsImage ? AgentImagePreview.FromFile(entry.Path, entry.Label) : null;
+    public bool HasPreview => Preview is not null;
+    public Icon Icon => entry.IsImage ? Icon.Image : Icon.Document;
+
+    public void RemoveUnavailablePreview()
+    {
+        var preview = Preview;
+        Preview = null;
+        Notify(nameof(HasPreview));
+        preview?.Dispose();
+    }
+}
+
+internal sealed class AgentAssistantItem(Guid? turnId, DateTimeOffset timestamp) : AgentMessageItem(turnId, timestamp)
 {
     public ObservableStringBuilder Markdown { get; } = new();
-    public string Text => Markdown.ToString();
+    public override string Text => Markdown.ToString();
     public bool CanCopy { get; private set => Set(ref field, value); }
 
     public void Append(string text)
@@ -63,18 +99,29 @@ internal sealed class AgentAssistantItem(Guid? turnId) : AgentTimelineItemViewMo
     public void Finish() => CanCopy = !string.IsNullOrWhiteSpace(Text);
 }
 
-internal sealed class AgentReasoningItem(Guid? turnId) : AgentTimelineItemViewModel(turnId)
+internal sealed class AgentReasoningItem(Guid? turnId, DateTimeOffset startedAt) : AgentTimelineItemViewModel(turnId)
 {
+    public string Summary { get; private set => Set(ref field, value); } = AgentStrings.Thinking;
+    public bool IsFinished { get; private set; }
+
     public string Text
     {
         get;
         set => Set(ref field, value);
     } = "";
+
+    public void Finish(DateTimeOffset timestamp)
+    {
+        if (IsFinished)
+            return;
+        IsFinished = true;
+        Summary = string.Format(CultureInfo.CurrentCulture, AgentStrings.ThoughtForSeconds,
+            Math.Max(0, (timestamp - startedAt).TotalSeconds));
+    }
 }
 
 internal sealed class AgentToolItem : AgentTimelineItemViewModel, IDisposable
 {
-    private const long MaxImageBytes = 16 * 1024 * 1024;
     private const string BeutlPrefix = "mcp__beutl__";
 
     private AgentToolStatus _status = AgentToolStatus.Running;
@@ -82,25 +129,46 @@ internal sealed class AgentToolItem : AgentTimelineItemViewModel, IDisposable
     private string? _backgroundTitle;
     private bool _isBackground;
     private string? _scopedActivity;
+    private bool _hasImageOutput;
+    private bool _stopping;
 
     public AgentToolItem(AgentToolCallStarted entry) : base(entry.TurnId)
     {
+        ToolCallId = entry.ToolCallId;
         Describe(entry);
         Children.CollectionChanged += (_, _) => NotifyHierarchy();
     }
 
     public ObservableCollection<AgentTimelineItemViewModel> Children { get; } = [];
+    public string ToolCallId { get; }
     internal AgentToolItem? Parent { get; set; }
+    internal AgentToolGroupItem? Group { get; set; }
     public int ChildToolCount => Children.Count(item => item is AgentToolItem);
     public string ChildToolCountLabel => string.Format(CultureInfo.CurrentCulture, AgentStrings.SubagentToolCount, ChildToolCount);
     public bool HasChildTools => ChildToolCount > 0;
     public bool IsBackground => _isBackground;
     public bool IsSubagent => _subagent is not null || ToolName is "Agent" or "Task" || (!IsBackground && Children.Count > 0);
     public bool IsBackgroundWork => IsSubagent || IsBackground;
+    public bool ShowStop => StopAction is not null && IsBackgroundWork && IsInProgress;
+    public bool CanStop => ShowStop && !_stopping;
+    internal Func<AgentToolItem, Task>? StopAction
+    {
+        get;
+        set
+        {
+            if (Set(ref field, value))
+                NotifyStop();
+        }
+    }
     public string Title => _subagent?.Description ?? _backgroundTitle ?? _subagent?.Role ?? (IsSubagent ? AgentStrings.Subagent : ToolName);
     public string WorkKindLabel => IsSubagent ? _subagent?.Role ?? AgentStrings.Subagent : AgentStrings.BackgroundCommand;
     public string WorkPreview => _scopedActivity ?? ActivitySummary;
     public bool CanExpand => HasDetails || IsBackgroundWork || Children.Count > 0;
+    public bool CanGroup => TurnId.HasValue && Parent is null && IsSuccessful && !IsBackgroundWork && !_hasImageOutput
+        && (ToolName is "Read" or "Glob" or "Grep" or "LS" or "WebSearch" or "WebFetch"
+            || (string.Equals(ServerName, "beutl", StringComparison.OrdinalIgnoreCase)
+                && (ToolName.StartsWith("get_", StringComparison.Ordinal) || ToolName.StartsWith("list_", StringComparison.Ordinal)
+                    || ToolName.StartsWith("inspect_", StringComparison.Ordinal))));
 
     public string ToolName
     {
@@ -125,7 +193,7 @@ internal sealed class AgentToolItem : AgentTimelineItemViewModel, IDisposable
         private set => Set(ref field, value);
     }
 
-    public IReadOnlyList<Bitmap> Images
+    public IReadOnlyList<AgentImagePreview> Images
     {
         get;
         private set => Set(ref field, value);
@@ -153,6 +221,23 @@ internal sealed class AgentToolItem : AgentTimelineItemViewModel, IDisposable
 
     public string ActivitySummary => Preview(Output) ?? Status;
 
+    public async Task StopAsync()
+    {
+        if (!CanStop || StopAction is not { } stop)
+            return;
+        _stopping = true;
+        NotifyStop();
+        try
+        {
+            await stop(this);
+        }
+        finally
+        {
+            _stopping = false;
+            NotifyStop();
+        }
+    }
+
     public void Describe(AgentToolCallStarted entry)
     {
         bool beutlTool = entry.ToolName.StartsWith(BeutlPrefix, StringComparison.Ordinal);
@@ -170,6 +255,7 @@ internal sealed class AgentToolItem : AgentTimelineItemViewModel, IDisposable
 
     private void NotifyHierarchy()
     {
+        NotifyStop();
         Notify(nameof(IsSubagent));
         Notify(nameof(IsBackgroundWork));
         Notify(nameof(CanExpand));
@@ -226,13 +312,14 @@ internal sealed class AgentToolItem : AgentTimelineItemViewModel, IDisposable
         if (completed.Outputs is not { Count: > 0 } outputs)
             return;
 
-        var images = new List<Bitmap>();
+        var images = new List<AgentImagePreview>();
         var text = new List<string>();
         foreach (var output in outputs)
         {
             if (output.Type == "image")
             {
-                if (DecodeImage(output) is { } image)
+                _hasImageOutput = true;
+                if (AgentImagePreview.FromToolOutput(output, Title) is { } image)
                     images.Add(image);
                 else
                     text.Add(AgentStrings.ToolImageUnavailable);
@@ -253,6 +340,7 @@ internal sealed class AgentToolItem : AgentTimelineItemViewModel, IDisposable
 
     private void NotifyActivity()
     {
+        NotifyStop();
         Notify(nameof(ActivitySummary));
         Notify(nameof(WorkPreview));
         Notify(nameof(HasDetails));
@@ -264,38 +352,10 @@ internal sealed class AgentToolItem : AgentTimelineItemViewModel, IDisposable
         Notify(nameof(StatusIcon));
     }
 
-    private static Bitmap? DecodeImage(AgentToolOutput output)
+    private void NotifyStop()
     {
-        try
-        {
-            using Stream? stream = OpenImage(output);
-            if (stream is null)
-                return null;
-            AiImageDecodeValidator.ValidateEncoded(stream, MaxImageBytes);
-            using var source = new Bitmap(stream);
-            var size = source.PixelSize;
-            double scale = Math.Min(1, Math.Min(320d / size.Width, 240d / size.Height));
-            return source.CreateScaledBitmap(new Avalonia.PixelSize(
-                Math.Max(1, (int)(size.Width * scale)), Math.Max(1, (int)(size.Height * scale))));
-        }
-        catch (Exception ex) when (ex is IOException or FormatException or ArgumentException
-            or UnauthorizedAccessException or InvalidOperationException or NotSupportedException)
-        {
-            return null;
-        }
-    }
-
-    private static Stream? OpenImage(AgentToolOutput output)
-    {
-        if (output.Data is { Length: > 0 } data)
-        {
-            if (data.Length > (MaxImageBytes + 2) / 3 * 4)
-                return null;
-            return new MemoryStream(Convert.FromBase64String(data), writable: false);
-        }
-        return Uri.TryCreate(output.Uri, UriKind.Absolute, out var uri) && uri.IsFile
-            && !uri.IsUnc && string.IsNullOrEmpty(uri.Host)
-            ? File.OpenRead(uri.LocalPath) : null;
+        Notify(nameof(ShowStop));
+        Notify(nameof(CanStop));
     }
 
     public void Dispose()
@@ -303,6 +363,88 @@ internal sealed class AgentToolItem : AgentTimelineItemViewModel, IDisposable
         foreach (var image in Images)
             image.Dispose();
     }
+}
+
+internal sealed class AgentToolGroupItem(Guid? turnId) : AgentTimelineItemViewModel(turnId)
+{
+    public ObservableCollection<AgentToolItem> Tools { get; } = [];
+    public string Label => string.Format(CultureInfo.CurrentCulture, AgentStrings.ToolGroupChecks, Tools.Count);
+
+    public void SetTools(IReadOnlyList<AgentToolItem> tools)
+    {
+        Tools.Clear();
+        foreach (var tool in tools)
+        {
+            tool.Group = this;
+            Tools.Add(tool);
+        }
+        Notify(nameof(Label));
+    }
+}
+
+internal sealed class AgentTurnStatsItem(AgentTurnCompleted entry) : AgentTimelineItemViewModel(entry.TurnId)
+{
+    public string WorkTime => Duration is { } duration
+        ? string.Format(CultureInfo.CurrentCulture, AgentStrings.TurnWorkedFor, duration)
+        : UsageSummary;
+    public string UsageSummary => Tokens ?? "";
+    public bool CanExpand => entry.DurationMs.HasValue && UsageSummary.Length > 0;
+
+    public string Detail => string.Join(Environment.NewLine, new[]
+    {
+        Duration,
+        FormatCount(entry.InputTokens, AgentStrings.TurnInputTokens),
+        FormatCount(entry.OutputTokens, AgentStrings.TurnOutputTokens),
+        FormatCount(entry.CachedInputTokens, AgentStrings.TurnCachedInputTokens)
+    }.Where(value => !string.IsNullOrWhiteSpace(value)));
+
+    private string? Duration => entry.DurationMs is { } milliseconds
+        ? AgentTurnTime.Format(milliseconds, fractionalSeconds: true) : null;
+
+    private string? Tokens => (entry.InputTokens, entry.OutputTokens) switch
+    {
+        (null, null) => FormatCount(entry.CachedInputTokens, AgentStrings.TurnCachedInputTokens, compact: true),
+        (var input, var output) => FormatCount((decimal)(input ?? 0) + (output ?? 0), AgentStrings.TurnTokens, compact: true)
+    };
+
+    private static string? FormatCount(decimal? count, string format, bool compact = false)
+    {
+        if (count is not decimal value)
+            return null;
+        string number = value.ToString("N0", CultureInfo.CurrentCulture);
+        if (compact && value >= 1_000_000)
+            number = string.Format(CultureInfo.CurrentCulture, AgentStrings.TokensMillions, value / 1_000_000);
+        else if (compact && value >= 1_000)
+            number = string.Format(CultureInfo.CurrentCulture, AgentStrings.TokensThousands, value / 1_000);
+        return string.Format(CultureInfo.CurrentCulture, format, number);
+    }
+}
+
+internal static class AgentTurnTime
+{
+    public static string Format(long milliseconds, bool fractionalSeconds = false)
+    {
+        long elapsed = Math.Max(0, milliseconds);
+        long seconds = elapsed / 1000;
+        var culture = CultureInfo.CurrentCulture;
+        if (seconds >= 3600)
+            return string.Format(culture, AgentStrings.TurnDurationHours, seconds / 3600, seconds / 60 % 60, seconds % 60);
+        if (seconds >= 60)
+            return string.Format(culture, AgentStrings.TurnDurationMinutes, seconds / 60, seconds % 60);
+        return string.Format(culture, AgentStrings.TurnDuration, fractionalSeconds ? elapsed / 1000d : seconds);
+    }
+}
+
+internal sealed class AgentModelChangeItem(AgentThreadModelChanged entry) : AgentTimelineItemViewModel(entry.TurnId)
+{
+    public AgentThreadModelChanged Entry { get; } = entry;
+}
+
+internal sealed class AgentTimelineDividerItem(Guid? turnId, string text, Icon icon, bool animate = false) : AgentTimelineItemViewModel(turnId)
+{
+    public string Text { get; } = text;
+    public Icon Icon { get; } = icon;
+    public bool Animate { get; } = animate;
 }
 
 internal sealed class AgentPlanItem(AgentPlanUpdated entry) : AgentTimelineItemViewModel(entry.TurnId)
@@ -357,6 +499,11 @@ internal sealed class AgentHistoryItem(AgentTurnHistoryRecorded entry, Func<Agen
     : AgentTimelineItemViewModel(entry.TurnId)
 {
     public int TransactionCount => entry.TransactionCount;
+    public IReadOnlyList<string> Changes => entry.Changes ?? [];
+    public bool HasChanges => Changes.Count > 0;
+    public bool HasMoreChanges => HasChanges && TransactionCount > Changes.Count;
+    public string MoreChanges => string.Format(CultureInfo.CurrentCulture, AgentStrings.MoreHistoryChanges,
+        TransactionCount - Changes.Count);
     public string Summary => string.Format(CultureInfo.CurrentCulture, AgentStrings.TurnEditCount, TransactionCount);
     public string DisplayText => Result ?? Summary;
     public bool CanRevert

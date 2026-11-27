@@ -1,0 +1,649 @@
+using System.Text.Json;
+using Avalonia;
+using Avalonia.Automation;
+using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
+using Avalonia.Headless;
+using Avalonia.Headless.NUnit;
+using Avalonia.Input;
+using Avalonia.Input.Platform;
+using Avalonia.Input.Raw;
+using Avalonia.Media.Imaging;
+using Avalonia.Styling;
+using Avalonia.VisualTree;
+using Beutl.Agents;
+using Beutl.Editor.Components.AgentTab;
+using Beutl.Editor.Components.AgentTab.ViewModels;
+using Beutl.Editor.Components.AgentTab.Views;
+using Beutl.Language;
+using Beutl.Testing.Headless;
+using FluentIcons.Avalonia.Fluent;
+using FluentIcons.Common;
+using SkiaSharp;
+
+namespace Beutl.HeadlessUITests;
+
+[TestFixture]
+public sealed class AgentTabPhase3Tests
+{
+    [AvaloniaTest]
+    public async Task RendersSentAttachmentsReadGroupHistoryAndCodeAndOpensAllImageSources()
+    {
+        using var theme = AgentTabViewTests.UseDockTheme(ThemeVariant.Dark);
+        await using var workspace = new AgentTabTestWorkspace
+        {
+            TransactionCount = 2,
+            TransactionChanges = ["Move opening title into the safe area", "Shorten the title fade to 12 frames"]
+        };
+        using var model = workspace.CreateWorkspace(workspace.Editor);
+        await model.InitializeAsync();
+        string framePath = Path.Combine(workspace.Root, "frame.png");
+        string encoded = CreateFrame(framePath);
+        string notesPath = Path.Combine(workspace.Root, "timing-notes.txt");
+        await File.WriteAllTextAsync(notesPath, "Keep the title inside the safe area.");
+
+        workspace.Bridge.Script = async (request, ct) =>
+        {
+            var (thread, turn, _, _) = request;
+            var now = DateTimeOffset.UtcNow;
+            workspace.Bridge.Emit(new AgentReasoningDelta(thread, turn, now, "Check the title against the edge of the frame."));
+            foreach (var (id, name, server) in new[] { ("1", "Read", (string?)null), ("2", "get_scene", "beutl"), ("3", "inspect_element", "beutl") })
+            {
+                workspace.Bridge.Emit(new AgentToolCallStarted(thread, turn, now.AddSeconds(1.8), id, name, server));
+                workspace.Bridge.Emit(new AgentToolCallCompleted(thread, turn, now.AddSeconds(1.8), id, AgentToolStatus.Completed));
+            }
+            workspace.Bridge.Emit(new AgentToolCallStarted(thread, turn, now, "frame", "render_still", "beutl"));
+            workspace.Bridge.Emit(new AgentToolCallCompleted(thread, turn, now, "frame", AgentToolStatus.Completed,
+                [new AgentToolOutput("image", Data: encoded)]));
+            workspace.Bridge.Emit(new AgentAssistantMessageCompleted(thread, turn, now, """
+                The opening title now sits inside the safe area. The fade ends after 12 frames.
+
+                ```json
+                {
+                  "titleFadeFrames": 12
+                }
+                ```
+                """));
+            workspace.Bridge.Emit(new AgentTurnUsageUpdated(thread, turn, now, 1024, 216, 800, "GPT-6.2 Sol"));
+            await Task.Delay(350, ct);
+        };
+
+        var view = new AgentTabView { DataContext = model };
+        var window = AgentTabViewTests.CreateDockWindow(view, ThemeVariant.Dark, 390, 995);
+        try
+        {
+            window.Show();
+            await model.CaptureFrameAsync();
+            await model.AddFilesAsync([notesPath]);
+            HeadlessTestHelpers.Render(5);
+            Click(Find<Button>(view, "ComposerImageThumbnail"));
+            var preview = await LightboxAsync(window);
+            HeadlessTestHelpers.Click(Find<Border>(preview, "Backdrop"), new Point(4, 4), ticks: 3);
+            await HeadlessTestHelpers.WaitUntilAsync(() => !window.OwnedWindows.Contains(preview));
+
+            model.Prompt = "Check the opening title against this frame and my timing notes.";
+            await model.SendAsync();
+            await HeadlessTestHelpers.WaitUntilAsync(() => TryFind<Button>(view, "PART_CopyButton") is { IsEffectivelyVisible: true });
+            HeadlessTestHelpers.Render(5);
+            var sender = model.Timeline.OfType<AgentUserItem>().Single();
+            var bubble = Find<Border>(view, "SentUserBubble", sender);
+            var footer = Find<StackPanel>(view, "UserMessageFooter", sender);
+            Assert.That(footer.TranslatePoint(default, bubble)!.Value.Y, Is.GreaterThanOrEqualTo(bubble.Bounds.Height));
+            Assert.That(Find<Button>(footer, "CopyUserMessage"), Is.Not.Null);
+            Assert.That(Find<Button>(footer, "EditUserMessage"), Is.Not.Null);
+            Assert.That(Find<Button>(footer, "ForkUserMessage"), Is.Not.Null);
+            Assert.That(footer.Children.OfType<TextBlock>().Single().Text, Is.EqualTo(sender.TimeLabel));
+            Assert.That(sender.Entry.Attachments!.Select(file => file.Path), Is.EqualTo(new[] { framePath, notesPath }));
+            Assert.That(Find<Button>(view, "SentImageThumbnail").IsEffectivelyVisible, Is.True);
+            Assert.That(view.GetVisualDescendants().OfType<Border>().Any(border => border.Name == "SentFileChip"
+                && border.IsEffectivelyVisible && border.DataContext is AgentMessageAttachmentItem { Label: "timing-notes.txt" }), Is.True);
+
+            var group = model.Timeline.OfType<AgentToolGroupItem>().Single();
+            var toggle = Find<ToggleButton>(view, "ToolGroupToggle");
+            Assert.That(group.Tools.Select(tool => tool.ToolName), Is.EqualTo(new[] { "Read", "get_scene", "inspect_element" }));
+            Assert.That(toggle.IsChecked, Is.Not.True);
+            Assert.That(Find<Button>(view, "ToolImageThumbnail").IsEffectivelyVisible, Is.True);
+            Click(toggle);
+            Assert.That(view.GetVisualDescendants().OfType<AgentToolView>().Count(tool => tool.IsEffectivelyVisible), Is.EqualTo(4));
+            Click(toggle);
+
+            var history = Find<ToggleButton>(view, "HistoryToggle");
+            Assert.That(VisibleText(view, "Move opening title into the safe area"), Is.False);
+            Click(history);
+            Assert.That(VisibleText(view, "Move opening title into the safe area"), Is.True);
+            Assert.That(view.GetVisualDescendants().OfType<Button>().Any(button => button.IsEffectivelyVisible
+                && AutomationProperties.GetName(button) == AgentStrings.RevertTurn), Is.True);
+
+            var code = Find<Button>(view, "PART_CopyButton");
+            Click(code);
+            Assert.That((await window.Clipboard!.TryGetTextAsync())?.ReplaceLineEndings("\n"),
+                Is.EqualTo("{\n  \"titleFadeFrames\": 12\n}"));
+            Assert.That(((FluentIcon)code.Content!).Icon, Is.EqualTo(Icon.Checkmark));
+            await HeadlessTestHelpers.WaitUntilAsync(() => ((FluentIcon)code.Content!).Icon == Icon.Copy);
+            var stats = Find<TextBlock>(view, "TurnStatsFooter");
+            Assert.That(stats.IsEffectivelyVisible, Is.False);
+            Click(Find<ToggleButton>(view, "TurnStatsToggle"));
+            Assert.That(stats.IsEffectivelyVisible, Is.True);
+            Assert.That(stats.Text, Is.EqualTo(CompactTokens(1240)));
+            Assert.That(ToolTip.GetTip(stats), Does.Contain(1024.ToString("N0")).And.Contain("216").And.Contain("800")
+                .And.Not.Contain("GPT-6.2 Sol"));
+            Assert.That(view.GetVisualDescendants().OfType<TextBlock>().Any(text => Equals(ToolTip.GetTip(text), sender.TimeDetail)
+                && text.Text == sender.TimeLabel), Is.True);
+            var scroll = Find<ScrollViewer>(view, "TimelineScroll");
+            scroll.Offset = default;
+            HeadlessTestHelpers.Render(5);
+            Assert.That(stats.TranslatePoint(new Point(0, stats.Bounds.Height), scroll)!.Value.Y,
+                Is.LessThan(scroll.Viewport.Height));
+            Capture(view, window, "phase3-timeline-rich");
+
+            Click(Find<Button>(view, "SentImageThumbnail"));
+            preview = await LightboxAsync(window);
+            var image = Find<Image>(preview, "FullImage");
+            Assert.That(((Bitmap)image.Source!).PixelSize, Is.EqualTo(new PixelSize(720, 432)));
+            double fit = image.Width;
+            Click(Find<Button>(preview, "ZoomInButton"));
+            Assert.That(image.Width, Is.GreaterThan(fit));
+            Capture(preview, preview, "phase3-lightbox");
+            Click(Find<Button>(preview, "ZoomOutButton"));
+            Assert.That(image.Width, Is.EqualTo(fit).Within(0.5));
+            Click(Find<Button>(preview, "ActualSizeButton"));
+            Assert.That(image.Width, Is.EqualTo(720 / preview.RenderScaling));
+            Click(Find<Button>(preview, "FitImageButton"));
+            Assert.That(image.Width, Is.EqualTo(fit).Within(0.5));
+            Click(Find<Button>(preview, "CopyImagePathButton"));
+            Assert.That(await preview.Clipboard!.TryGetTextAsync(), Is.EqualTo(framePath));
+            Click(Find<Button>(preview, "CopyImageButton"));
+            Assert.That((await preview.Clipboard!.TryGetBitmapAsync())?.PixelSize, Is.EqualTo(new PixelSize(720, 432)));
+            preview.KeyPressQwerty(PhysicalKey.Escape, RawInputModifiers.None);
+            await HeadlessTestHelpers.WaitUntilAsync(() => !window.OwnedWindows.Contains(preview));
+
+            Click(Find<Button>(view, "ToolImageThumbnail"));
+            preview = await LightboxAsync(window);
+            Assert.That(((Bitmap)Find<Image>(preview, "FullImage").Source!).PixelSize, Is.EqualTo(new PixelSize(720, 432)));
+            Assert.That(Find<Button>(preview, "CopyImagePathButton").IsEffectivelyVisible, Is.False);
+            Click(Find<Button>(preview, "CloseImageButton"));
+            await HeadlessTestHelpers.WaitUntilAsync(() => !window.OwnedWindows.Contains(preview));
+
+            File.Delete(framePath);
+            Click(Find<Button>(view, "SentImageThumbnail"));
+            await HeadlessTestHelpers.WaitUntilAsync(() => !sender.Attachments[0].HasPreview);
+            Assert.That(view.GetVisualDescendants().OfType<Border>().Any(border => border.Name == "SentFileChip"
+                && border.IsEffectivelyVisible && ReferenceEquals(border.DataContext, sender.Attachments[0])), Is.True);
+        }
+        finally
+        {
+            window.Close();
+            HeadlessTestHelpers.Settle();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task ToolGroupsKeepFailedImageAndBackgroundCallsVisibleAcrossTurnBoundaries()
+    {
+        await using var workspace = new AgentTabTestWorkspace();
+        string path = Path.Combine(workspace.Root, "frame.png");
+        string encoded = CreateFrame(path);
+        var transcript = new AgentThreadTimeline();
+        var thread = Guid.NewGuid();
+        var turn = Guid.NewGuid();
+        var now = DateTimeOffset.UtcNow;
+        try
+        {
+            Complete("read", "Read", AgentToolStatus.Completed);
+            Complete("glob", "Glob", AgentToolStatus.Completed);
+            Complete("failed", "Grep", AgentToolStatus.Failed);
+            Complete("image", "get_preview", AgentToolStatus.Completed,
+                [new AgentToolOutput("image", Data: encoded)], server: "beutl");
+            Complete("other", "LS", AgentToolStatus.Completed);
+            Complete("background", "Read", AgentToolStatus.Completed, background: true);
+            turn = Guid.NewGuid();
+            Complete("later", "Read", AgentToolStatus.Completed);
+            Assert.That(transcript.Items.OfType<AgentToolGroupItem>().Single().Tools.Select(tool => tool.ToolCallId),
+                Is.EqualTo(new[] { "read", "glob" }));
+            Assert.That(transcript.Items.OfType<AgentToolItem>().Select(tool => tool.ToolCallId),
+                Is.EqualTo(new[] { "failed", "image", "other", "background", "later" }));
+        }
+        finally
+        {
+            transcript.Clear();
+        }
+
+        void Complete(string id, string name, AgentToolStatus status, IReadOnlyList<AgentToolOutput>? outputs = null,
+            string? server = null, bool background = false)
+        {
+            transcript.ApplyEntry(new AgentToolCallStarted(thread, turn, now, id, name, server, IsBackground: background));
+            transcript.ApplyEntry(new AgentToolCallCompleted(thread, turn, now, id, status, outputs));
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task ScrollButtonAppearsAwayFromTheEndAndReturnsToTheLatestTurn()
+    {
+        using var theme = AgentTabViewTests.UseDockTheme(ThemeVariant.Dark);
+        await using var workspace = new AgentTabTestWorkspace();
+        var store = new AgentThreadStore(workspace.Root);
+        var thread = await workspace.Runtime.CreateThreadAsync(workspace.ProjectPath, workspace.GetProviders().Single(), "Opening title review");
+        for (int i = 0; i < 8; i++)
+        {
+            var turn = Guid.NewGuid();
+            var then = DateTimeOffset.UtcNow.AddMinutes(i - 8);
+            await store.AppendAsync(workspace.ProjectPath, new AgentUserMessage(thread.Id, turn, then,
+                i == 0 ? "Review the opening title before export." : "Check the next title placement."));
+            await store.AppendAsync(workspace.ProjectPath, new AgentAssistantMessageCompleted(thread.Id, turn, then,
+                "The title stays within the safe area. Its fade begins with the scene and ends before the first cut."));
+            await store.AppendAsync(workspace.ProjectPath, new AgentTurnCompleted(thread.Id, turn, then,
+                i == 0 ? 131_000 : 2_190, 940, 189, 620, "GPT-6.2 Sol"));
+        }
+
+        using var model = workspace.CreateWorkspace(workspace.Editor);
+        await model.InitializeAsync();
+        var view = new AgentTabView { DataContext = model };
+        var window = AgentTabViewTests.CreateDockWindow(view, ThemeVariant.Dark, 390, 580);
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render(5);
+            var scroll = Find<ScrollViewer>(view, "TimelineScroll");
+            var button = Find<Button>(view, "ScrollToBottomButton");
+            Assert.That(scroll.Extent.Height, Is.GreaterThan(scroll.Viewport.Height + 48));
+            scroll.ScrollToEnd();
+            HeadlessTestHelpers.Render(3);
+            Assert.That(button.IsEffectivelyVisible, Is.False);
+            scroll.Offset = default;
+            HeadlessTestHelpers.Render(3);
+            Assert.That(button.IsEffectivelyVisible, Is.True);
+            Assert.That(VisibleText(view, string.Format(AgentStrings.TurnWorkedFor,
+                string.Format(AgentStrings.TurnDurationMinutes, 2, 11))), Is.True);
+            Capture(view, window, "phase3-scroll-to-bottom");
+            Click(button);
+            Assert.That(scroll.Extent.Height - scroll.Viewport.Height - scroll.Offset.Y, Is.LessThan(1));
+            Assert.That(button.IsEffectivelyVisible, Is.False);
+        }
+        finally
+        {
+            window.Close();
+            HeadlessTestHelpers.Settle();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task CopyForkEditAndRetryUseTheSelectedTurnAndSynchronizeTheOriginalThread()
+    {
+        using var theme = AgentTabViewTests.UseDockTheme(ThemeVariant.Dark);
+        await using var workspace = new AgentTabTestWorkspace();
+        using var model = workspace.CreateWorkspace(workspace.Editor);
+        using var subscriber = workspace.CreateWorkspace(workspace.Editor);
+        await model.InitializeAsync();
+        workspace.Bridge.Script = (request, _) =>
+        {
+            workspace.Bridge.Emit(new AgentAssistantMessageCompleted(request.ThreadId, request.TurnId, DateTimeOffset.UtcNow,
+                request.Text.StartsWith("Check", StringComparison.Ordinal) ? "Checked the opening." : "Updated the title."));
+            return Task.CompletedTask;
+        };
+        model.Prompt = "Check the opening";
+        await model.SendAsync();
+        var source = model.SelectedThread!;
+        await subscriber.InitializeAsync();
+        Assert.That(subscriber.SelectedThread!.Id, Is.EqualTo(source.Id));
+
+        string notes = Path.Combine(workspace.Root, "notes.txt");
+        await File.WriteAllTextAsync(notes, "Ready to send");
+        model.Prompt = "Update the title";
+        model.IncludeSceneContext = false;
+        await model.AddFilesAsync([notes]);
+        await model.SendAsync();
+        var messages = model.Timeline.OfType<AgentUserItem>().ToArray();
+
+        var view = new AgentTabView { DataContext = model };
+        var window = AgentTabViewTests.CreateDockWindow(view, ThemeVariant.Dark, 390, 670);
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render(5);
+            Click(Find<Button>(view, "CopyUserMessage", messages[1]));
+            Assert.That(await window.Clipboard!.TryGetTextAsync(), Is.EqualTo("Update the title"));
+
+            Click(Find<Button>(view, "ForkAssistantMessage", model.Timeline.OfType<AgentAssistantItem>().First()));
+            await HeadlessTestHelpers.WaitUntilAsync(() => model.SelectedThread!.Id != source.Id && model.CanActOnMessages);
+            var forkId = model.SelectedThread!.Id;
+            Assert.That(model.Timeline.OfType<AgentUserItem>().Select(item => item.Text), Is.EqualTo(new[] { "Check the opening" }));
+            Assert.That(model.Timeline.OfType<AgentAssistantItem>().Single().Text, Is.EqualTo("Checked the opening."));
+            Assert.That(subscriber.Timeline.OfType<AgentUserItem>(), Has.Exactly(2).Items);
+
+            await model.SelectThreadAsync(source);
+            HeadlessTestHelpers.Render(5);
+            Click(Find<Button>(view, "EditUserMessage", messages[1]));
+            await HeadlessTestHelpers.WaitUntilAsync(() => model.SelectedThread!.Id != source.Id && model.CanActOnMessages);
+            Assert.Multiple(() =>
+            {
+                Assert.That(model.SelectedThread!.Id, Is.Not.EqualTo(forkId));
+                Assert.That(model.Prompt, Is.EqualTo("Update the title"));
+                Assert.That(model.IncludeSceneContext, Is.False);
+                Assert.That(model.Attachments.Single().Path, Is.EqualTo(notes));
+                Assert.That(model.Timeline.OfType<AgentUserItem>().Single().Text, Is.EqualTo("Check the opening"));
+                Assert.That(subscriber.Timeline.OfType<AgentUserItem>().Last(), Is.SameAs(messages[1]));
+            });
+
+            await model.SelectThreadAsync(source);
+            HeadlessTestHelpers.Render(5);
+            Click(Find<Button>(view, "RetryAssistantMessage", model.Timeline.OfType<AgentAssistantItem>().Last()));
+            await HeadlessTestHelpers.WaitUntilAsync(() => !model.IsRunning && model.CanActOnMessages
+                && subscriber.Timeline.OfType<AgentUserItem>().Any(item => item.Text == "Update the title" && item.TurnId != messages[1].TurnId));
+            var retried = subscriber.Timeline.OfType<AgentUserItem>().Last();
+            Assert.Multiple(() =>
+            {
+                Assert.That(model.SelectedThread.Id, Is.EqualTo(source.Id));
+                Assert.That(subscriber.Timeline.OfType<AgentUserItem>(), Has.Exactly(2).Items);
+                Assert.That(model.Timeline.OfType<AgentUserItem>().Last(), Is.SameAs(retried));
+                Assert.That(retried.Entry.Attachments!.Single().Path, Is.EqualTo(notes));
+                Assert.That(workspace.Submissions.Last().IncludeScene, Is.False);
+            });
+        }
+        finally
+        {
+            window.Close();
+            HeadlessTestHelpers.Settle();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task LiveThinkingToolCompactionAndRetryPhasesEndWithTimedReasoningAndStats()
+    {
+        using var theme = AgentTabViewTests.UseDockTheme(ThemeVariant.Dark);
+        await using var workspace = new AgentTabTestWorkspace();
+        using var model = workspace.CreateWorkspace(workspace.Editor);
+        await model.InitializeAsync();
+        var started = new TaskCompletionSource<AgentTurnRequest>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var finish = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        workspace.Bridge.Script = (request, ct) =>
+        {
+            started.TrySetResult(request);
+            return finish.Task.WaitAsync(ct);
+        };
+        var view = new AgentTabView { DataContext = model };
+        var window = AgentTabViewTests.CreateDockWindow(view, ThemeVariant.Dark, 390, 580);
+        try
+        {
+            window.Show();
+            model.Prompt = "Inspect the cut";
+            Task run = model.SendAsync();
+            var request = await started.Task.WaitAsync(TimeSpan.FromSeconds(10));
+            var (thread, turn, _, _) = request;
+            var live = Find<TextBlock>(view, "LiveTurnStatus");
+            var workTime = Find<TextBlock>(view, "LiveTurnWorkTime");
+            await HeadlessTestHelpers.WaitUntilAsync(() => live.IsEffectivelyVisible && live.Text == AgentStrings.ThinkingInProgress);
+            string? workStarted = workTime.Text;
+            Assert.That(workStarted, Is.Not.Null.And.Not.Empty);
+            var now = DateTimeOffset.UtcNow;
+            workspace.Bridge.Emit(new AgentReasoningDelta(thread, turn, now, "Check the title and edit points."));
+            await HeadlessTestHelpers.WaitUntilAsync(() => live.Text is { } text && text.Any(char.IsDigit),
+                message: "The live thinking phase did not show elapsed time.");
+            workspace.Bridge.Emit(new AgentToolCallStarted(thread, turn, now.AddSeconds(2), "inspect", "get_scene", "beutl"));
+            await HeadlessTestHelpers.WaitUntilAsync(() => live.Text == string.Format(AgentStrings.RunningTool, "get_scene"));
+            workspace.Bridge.Emit(new AgentToolCallCompleted(thread, turn, now.AddSeconds(2), "inspect", AgentToolStatus.Completed));
+            workspace.Bridge.Emit(new AgentTurnPhaseChanged(thread, turn, now, AgentTurnPhase.Compacting));
+            await HeadlessTestHelpers.WaitUntilAsync(() => live.Text == AgentStrings.CompactingContext);
+            HeadlessTestHelpers.Render(5);
+            Assert.That(live.IsEffectivelyVisible, Is.False);
+            Assert.That(AutomationProperties.GetName(Find<Grid>(view, "TimelineDivider")), Is.EqualTo(AgentStrings.CompactingContext));
+            Capture(view, window, "phase3-compacting");
+            workspace.Bridge.Emit(new AgentContextCompacted(thread, turn, now));
+            await HeadlessTestHelpers.WaitUntilAsync(() => model.ActiveCompaction is null);
+            Assert.That(model.Timeline.OfType<AgentTimelineDividerItem>().Single().Text, Is.EqualTo(AgentStrings.ContextCompacted));
+            workspace.Bridge.Emit(new AgentTurnPhaseChanged(thread, turn, now, AgentTurnPhase.Retrying));
+            await HeadlessTestHelpers.WaitUntilAsync(() => live.Text == AgentStrings.RetryingTurn);
+            string? retryElapsed = workTime.Text;
+            Assert.That(retryElapsed, Is.Not.EqualTo(workStarted));
+            await HeadlessTestHelpers.WaitUntilAsync(() => workTime.Text != retryElapsed);
+            workspace.Bridge.Emit(new AgentAssistantMessageCompleted(thread, turn, now, "The opening cut is ready."));
+            workspace.Bridge.Emit(new AgentTurnUsageUpdated(thread, turn, now, 800, 400, 200, "Claude Sonnet"));
+            finish.SetResult();
+            await run.WaitAsync(TimeSpan.FromSeconds(10));
+            HeadlessTestHelpers.Render(5);
+            Assert.That(live.IsEffectivelyVisible, Is.False);
+            Assert.That(Find<ToggleButton>(view, "ThinkingToggle").Content, Is.Not.Null);
+            var thought = model.Timeline.OfType<AgentReasoningItem>().Single();
+            Assert.That(thought.IsFinished, Is.True);
+            Assert.That(thought.Summary, Is.EqualTo(AutomationProperties.GetName(Find<ToggleButton>(view, "ThinkingToggle"))));
+            Assert.That(thought.Summary.Any(char.IsDigit), Is.True);
+            Assert.That(Find<TextBlock>(view, "FinishedTurnWorkTime").Text, Is.EqualTo(model.Timeline.OfType<AgentTurnStatsItem>().Single().WorkTime));
+            Click(Find<ToggleButton>(view, "TurnStatsToggle"));
+            Assert.That(Find<TextBlock>(view, "TurnStatsFooter").Text, Is.EqualTo(CompactTokens(1200)));
+        }
+        finally
+        {
+            window.Close();
+            HeadlessTestHelpers.Settle();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task ModelEffortAndCompactionChangesArePersistedAndCenteredInTheConversation()
+    {
+        using var theme = AgentTabViewTests.UseDockTheme(ThemeVariant.Dark);
+        await using var workspace = new AgentTabTestWorkspace { DefaultModel = "gpt-6.2-sol" };
+        using var model = workspace.CreateWorkspace(workspace.Editor);
+        using var subscriber = workspace.CreateWorkspace(workspace.Editor);
+        await model.InitializeAsync();
+        workspace.Bridge.Script = (request, _) =>
+        {
+            var (thread, turn, _, _) = request;
+            var now = DateTimeOffset.UtcNow;
+            bool secondTurn = request.Text.StartsWith("Summarize", StringComparison.Ordinal);
+            if (secondTurn)
+                workspace.Bridge.Emit(new AgentContextCompacted(thread, turn, now));
+            workspace.Bridge.Emit(new AgentAssistantMessageCompleted(thread, turn, now, secondTurn
+                ? "The title sits inside the safe area and fades before the first cut."
+                : "The opening title and timing notes are ready for review."));
+            return Task.CompletedTask;
+        };
+        model.Prompt = "Review the opening title.";
+        await model.SendAsync();
+        await subscriber.InitializeAsync();
+
+        await model.OpenModelPickerAsync();
+        await model.ChooseModelAsync(model.ModelRows.Single(row => row.Model.Id == "gpt-6.2-astra"));
+        await model.ChooseEffortAsync(model.ModelEfforts.Single(row => row.Value == "high"));
+        Assert.That(subscriber.Timeline.OfType<AgentTimelineDividerItem>(), Has.Exactly(2).Items);
+
+        model.Prompt = "Summarize the changes.";
+        await model.SendAsync();
+        var entries = await workspace.Runtime.LoadTimelineAsync(workspace.ProjectPath, model.SelectedThread!.Id);
+        var switches = entries.OfType<AgentThreadModelChanged>().ToArray();
+        Assert.Multiple(() =>
+        {
+            Assert.That(switches, Has.Length.EqualTo(2));
+            Assert.That(switches[0].PreviousModel, Is.EqualTo("gpt-6.2-sol"));
+            Assert.That(switches[0].Model, Is.EqualTo("gpt-6.2-astra"));
+            Assert.That(switches[1].Effort, Is.EqualTo("high"));
+            Assert.That(entries.OfType<AgentContextCompacted>(), Has.Exactly(1).Items);
+        });
+
+        var view = new AgentTabView { DataContext = model };
+        var window = AgentTabViewTests.CreateDockWindow(view, ThemeVariant.Dark, 390, 640);
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render(6);
+            var rows = view.GetVisualDescendants().OfType<Grid>().Where(grid => grid.Name == "TimelineDivider").ToArray();
+            var labels = rows.Select(row => row.GetVisualDescendants().OfType<TextBlock>().Single()).ToArray();
+            Assert.That(labels.Select(label => label.Text), Is.EqualTo(new[]
+            {
+                string.Format(AgentStrings.ModelChangeNotice, "6.2 Sol", "6.2 Astra"),
+                string.Format(AgentStrings.EffortChangeNotice, AgentStrings.EffortDefault, AgentStrings.EffortHigh),
+                AgentStrings.ContextCompacted,
+            }));
+            Assert.That(rows.Zip(labels).All(pair => pair.Second.TextAlignment == Avalonia.Media.TextAlignment.Center
+                && Math.Abs(HeadlessTestHelpers.Center(pair.Second, pair.First).X - pair.First.Bounds.Width / 2) < 16), Is.True);
+            Capture(view, window, "phase3-timeline-markers");
+        }
+        finally
+        {
+            window.Close();
+            HeadlessTestHelpers.Settle();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task RunningComposerSwitchesItsActionAndBackgroundPopupShowsStopWithoutOverflow()
+    {
+        using var theme = AgentTabViewTests.UseDockTheme(ThemeVariant.Dark);
+        await using var workspace = new AgentTabTestWorkspace();
+        using var model = workspace.CreateWorkspace(workspace.Editor);
+        await model.InitializeAsync();
+        string longPath = "/project/reference/" + new string('x', 320) + "/frame-01.png";
+        workspace.Bridge.Script = (request, ct) =>
+        {
+            var (thread, turn, _, _) = request;
+            var now = DateTimeOffset.UtcNow;
+            workspace.Bridge.Emit(new AgentToolCallStarted(thread, turn, now, "command", "Bash",
+                Input: JsonSerializer.SerializeToElement(new { path = longPath }),
+                IsBackground: true, BackgroundTitle: "Render reference frames"));
+            workspace.Bridge.Emit(new AgentToolCallUpdated(thread, turn, now, "command", AgentToolStatus.Running, longPath));
+            workspace.Bridge.Emit(new AgentToolCallStarted(thread, turn, now, "review", "Agent",
+                Subagent: new AgentSubagent("Reviewer", "Check opening titles")));
+            return Task.Delay(Timeout.InfiniteTimeSpan, ct);
+        };
+        var requested = new List<string>();
+        workspace.Bridge.StopTask = (thread, turn, id) =>
+        {
+            requested.Add(id);
+            workspace.Bridge.Emit(new AgentToolCallCompleted(thread, turn, DateTimeOffset.UtcNow, id, AgentToolStatus.Cancelled));
+            return AgentBackgroundStopResult.Requested;
+        };
+
+        bool overlays = TestAppBuilder.HeadlessOptions.OverlayPopups;
+        TestAppBuilder.HeadlessOptions.OverlayPopups = true;
+        var view = new AgentTabView { DataContext = model };
+        var window = AgentTabViewTests.CreateDockWindow(view, ThemeVariant.Dark, 390, 610);
+        try
+        {
+            window.Show();
+            model.Prompt = "Render reference frames and check the opening.";
+            Task run = model.SendAsync();
+            await HeadlessTestHelpers.WaitUntilAsync(() => model.HasSubagents && model.BackgroundCommands.HasItems);
+            HeadlessTestHelpers.Render(5);
+            var composerStop = Find<Button>(view, "StopButton");
+            var composerSend = Find<Button>(view, "SendButton");
+            Assert.That(composerStop.IsEffectivelyVisible, Is.True);
+            Assert.That(composerSend.IsEffectivelyVisible, Is.False);
+            Capture(view, window, "phase3-composer-stop");
+
+            model.Prompt = "Check the margin on the end card too.";
+            HeadlessTestHelpers.Render(5);
+            Assert.That(composerStop.IsEffectivelyVisible, Is.False);
+            Assert.That(composerSend.IsEffectivelyVisible, Is.True);
+
+            var bar = view.GetVisualDescendants().OfType<AgentBackgroundWorkBar>().Single();
+            var section = Find<ContentControl>(bar, "BackgroundCommandSection");
+            var sectionButton = section.GetVisualDescendants().OfType<Button>().Single();
+            Click(sectionButton);
+            var flyout = (Flyout)FlyoutBase.GetAttachedFlyout(Find<Border>(bar, "WorkCard"))!;
+            var body = (Grid)flyout.Content!;
+            await HeadlessTestHelpers.WaitUntilAsync(() => flyout.IsOpen && TryFind<Button>(body, "StopWorkTurnButton") is not null);
+            var presenter = body.FindAncestorOfType<FlyoutPresenter>()!;
+            var expander = body.GetVisualDescendants().OfType<Expander>().First(expander => expander.IsEffectivelyVisible);
+            expander.IsExpanded = true;
+            HeadlessTestHelpers.Render(5);
+            Assert.That(body.ClipToBounds, Is.True);
+            Assert.That(ScrollViewer.GetHorizontalScrollBarVisibility(presenter), Is.EqualTo(ScrollBarVisibility.Disabled));
+            Assert.That(presenter.GetVisualDescendants().OfType<ScrollViewer>().Select(scroll => scroll.HorizontalScrollBarVisibility),
+                Is.Not.Empty.And.All.EqualTo(ScrollBarVisibility.Disabled));
+            Assert.That(body.GetVisualDescendants().OfType<SelectableTextBlock>().Any(text => text.IsEffectivelyVisible && text.Text == longPath
+                && text.Bounds.Width <= body.Bounds.Width), Is.True);
+            expander.IsExpanded = false;
+            var stopTurn = Find<Button>(body, "StopWorkTurnButton");
+            var stopTask = body.GetVisualDescendants().OfType<Button>().First(button => button.IsEffectivelyVisible && button.Name == "StopBackgroundTaskButton");
+            Assert.That(stopTurn.IsEffectivelyVisible && stopTask.IsEffectivelyVisible, Is.True);
+            Capture(view, window, "phase3-background-stop");
+
+            Click(stopTask);
+            await HeadlessTestHelpers.WaitUntilAsync(() => !stopTask.IsEffectivelyVisible);
+            Assert.That(requested, Is.EqualTo(new[] { "command" }));
+            Assert.That(model.IsRunning, Is.True);
+            Click(stopTurn);
+            await run.WaitAsync(TimeSpan.FromSeconds(10));
+            Assert.That(model.IsRunning, Is.False);
+            flyout.Hide();
+
+            model.Prompt = "Render a second reference.";
+            run = model.SendAsync();
+            await HeadlessTestHelpers.WaitUntilAsync(() => model.IsRunning
+                && model.Timeline.OfType<AgentUserItem>().LastOrDefault()?.Text == "Render a second reference.");
+            HeadlessTestHelpers.Render(4);
+            Click(composerStop);
+            await run.WaitAsync(TimeSpan.FromSeconds(10));
+            Assert.That(model.IsRunning, Is.False);
+        }
+        finally
+        {
+            window.Close();
+            HeadlessTestHelpers.Settle();
+            TestAppBuilder.HeadlessOptions.OverlayPopups = overlays;
+        }
+    }
+
+    private static T? TryFind<T>(Control root, string name, object? dataContext = null) where T : Control
+        => root.GetVisualDescendants().OfType<T>().FirstOrDefault(control => control.Name == name
+            && (dataContext is null || ReferenceEquals(control.DataContext, dataContext)));
+
+    private static T Find<T>(Control root, string name, object? dataContext = null) where T : Control
+        => TryFind<T>(root, name, dataContext) ?? throw new InvalidOperationException($"Could not find {name}.");
+
+    private static bool VisibleText(Control root, string value)
+        => root.GetVisualDescendants().OfType<TextBlock>().Any(text => text.IsEffectivelyVisible && text.Text == value);
+
+    private static string CompactTokens(int count) =>
+        string.Format(AgentStrings.TurnTokens, string.Format(AgentStrings.TokensThousands, count / 1000d));
+
+    private static void Click(Control control) => HeadlessTestHelpers.Click(control, move: true, ticks: 4);
+
+    private static void Capture(Control control, Window window, string name)
+    {
+        window.MouseMove(new Point(5, 5));
+        HeadlessTestHelpers.Render(8);
+        HeadlessCapture.SaveIfRequested(control, string.Empty, name);
+    }
+
+    private static async Task<AgentImageLightboxWindow> LightboxAsync(Window owner)
+    {
+        await HeadlessTestHelpers.WaitUntilAsync(() => owner.OwnedWindows.OfType<AgentImageLightboxWindow>().Any());
+        HeadlessTestHelpers.Render(6);
+        return owner.OwnedWindows.OfType<AgentImageLightboxWindow>().Single();
+    }
+
+    private static string CreateFrame(string path)
+    {
+        using var bitmap = new SKBitmap(720, 432);
+        using var canvas = new SKCanvas(bitmap);
+        using var sky = SKShader.CreateLinearGradient(new SKPoint(0, 0), new SKPoint(0, 380),
+            [new SKColor(35, 47, 74), new SKColor(130, 101, 115), new SKColor(211, 152, 111)], null, SKShaderTileMode.Clamp);
+        using var paint = new SKPaint { IsAntialias = true, Shader = sky };
+        canvas.DrawRect(0, 0, 720, 432, paint);
+        paint.Shader = null;
+        paint.Color = new SKColor(248, 193, 145);
+        canvas.DrawCircle(550, 142, 43, paint);
+        using var hills = new SKPathBuilder();
+        hills.MoveTo(-10, 330);
+        hills.LineTo(128, 204);
+        hills.LineTo(269, 344);
+        hills.LineTo(408, 242);
+        hills.LineTo(578, 336);
+        hills.LineTo(729, 253);
+        hills.LineTo(729, 450);
+        hills.LineTo(-10, 450);
+        hills.Close();
+        using var silhouette = hills.Detach();
+        paint.Color = new SKColor(31, 38, 58);
+        canvas.DrawPath(silhouette, paint);
+        using var font = new SKFont(SKTypeface.Default, 54);
+        paint.Color = new SKColor(252, 236, 221);
+        canvas.DrawText("FIELD NOTES", 360, 207, SKTextAlign.Center, font, paint);
+        paint.Color = new SKColor(248, 193, 145);
+        canvas.DrawRect(335, 226, 50, 2, paint);
+        using var png = bitmap.Encode(SKEncodedImageFormat.Png, 100);
+        byte[] data = png.ToArray();
+        File.WriteAllBytes(path, data);
+        return Convert.ToBase64String(data);
+    }
+}

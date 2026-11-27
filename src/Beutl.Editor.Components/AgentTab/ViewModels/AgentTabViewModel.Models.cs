@@ -1,4 +1,5 @@
 using Beutl.Agents;
+using FluentIcons.Common;
 
 namespace Beutl.Editor.Components.AgentTab.ViewModels;
 
@@ -97,7 +98,7 @@ internal sealed partial class AgentTabViewModel
     }
 
     private Task SaveThreadModelAsync(string? model, string? effort)
-        => ConfigureThreadAsync((threadId, ct) => _host.Runtime.SetModelAsync(_projectPath, threadId, model, effort, ct));
+        => ConfigureThreadAsync((controller, ct) => controller.SetModelAsync(model, effort, ct));
 
     private void InvalidateModelCatalogs()
     {
@@ -143,10 +144,34 @@ internal sealed partial class AgentTabViewModel
     {
         if (SelectedProvider is not { } provider)
             return null;
-        var models = Catalog(provider);
-        string? id = EffectiveModel.Id;
-        return id is null ? models.FirstOrDefault(model => model.IsProviderDefault)
+        return FindModel(Catalog(provider), EffectiveModel.Id);
+    }
+
+    private static AgentModelDescriptor? FindModel(IReadOnlyList<AgentModelDescriptor> models, string? id)
+        => id is null ? models.FirstOrDefault(model => model.IsProviderDefault)
             : models.FirstOrDefault(model => model.Id == id) ?? models.FirstOrDefault(model => model.ResolvedModelId == id);
+
+    private AgentTimelineDividerItem BindModelChange(AgentThreadModelChanged change)
+    {
+        string oldEffort = change.PreviousEffort is { } previous ? EffortLabel(previous) : AgentStrings.EffortDefault;
+        string newEffort = change.Effort is { } effort ? EffortLabel(effort) : AgentStrings.EffortDefault;
+        string format = AgentStrings.EffortChangeNotice;
+        string from = oldEffort;
+        string to = newEffort;
+        if (change.PreviousModel != change.Model)
+        {
+            var provider = _detectedProviders.FirstOrDefault(item => item.Descriptor.Id == change.ProviderId);
+            var catalog = provider is not null ? Catalog(provider) : [];
+            from = FindModel(catalog, change.PreviousModel)?.ShortName ?? change.PreviousModel ?? AgentStrings.EffortDefault;
+            to = FindModel(catalog, change.Model)?.ShortName ?? change.Model ?? AgentStrings.EffortDefault;
+            if (change.PreviousEffort != change.Effort)
+            {
+                from = $"{from} / {oldEffort}";
+                to = $"{to} / {newEffort}";
+            }
+            format = AgentStrings.ModelChangeNotice;
+        }
+        return new AgentTimelineDividerItem(change.TurnId, string.Format(CultureInfo.CurrentCulture, format, from, to), Icon.ArrowSwap);
     }
 
     private void RefreshModelSelection()

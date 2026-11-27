@@ -36,11 +36,20 @@
         <FlyoutBase.AttachedFlyout>
             <Flyout Placement="TopEdgeAlignedLeft" VerticalOffset="-5"
                     FlyoutPresenterClasses="agent-background-work" OverlayDismissEventPassThrough="True">
-                <Grid x:Name="WorkFlyoutBody" RowDefinitions="Auto,*">
+                <Grid x:Name="WorkFlyoutBody" RowDefinitions="Auto,*" ClipToBounds="True">
                     <Border BorderThickness="0,0,0,1" BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}" Padding="12,8">
-                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
-                            <TextBlock Text="{x:Static lang:AgentStrings.BackgroundWork}" FontSize="13" FontWeight="SemiBold" />
+                        <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                            <TextBlock Text="{x:Static lang:AgentStrings.BackgroundWork}" FontSize="13" FontWeight="SemiBold"
+                                       VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                             <TextBlock Grid.Column="1" Text="{Binding BackgroundWorkCount}" Classes="agent-caption" VerticalAlignment="Center" />
+                            <Button x:Name="StopWorkTurnButton" Grid.Column="2" Theme="{StaticResource TransparentButton}"
+                                    Command="{Binding StopAsync}" IsVisible="{Binding IsRunning}" IsEnabled="{Binding CanStop}" Padding="6,2"
+                                    ToolTip.Tip="{x:Static lang:AgentStrings.StopTurn}" AutomationProperties.Name="{x:Static lang:AgentStrings.StopTurn}">
+                                <StackPanel Orientation="Horizontal" Spacing="5">
+                                    <icons:FluentIcon Icon="Stop" IconVariant="Filled" FontSize="10" VerticalAlignment="Center" />
+                                    <TextBlock Text="{x:Static lang:AgentStrings.Stop}" FontSize="12" />
+                                </StackPanel>
+                            </Button>
                         </Grid>
                     </Border>
                     <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">

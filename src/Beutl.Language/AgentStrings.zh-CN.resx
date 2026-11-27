@@ -229,4 +229,136 @@
   <data name="PasteFailed" xml:space="preserve">
     <value>无法从剪贴板粘贴。</value>
   </data>
+  <data name="CopyMessage" xml:space="preserve">
+    <value>复制消息</value>
+  </data>
+  <data name="EditFromHere" xml:space="preserve">
+    <value>从此处编辑</value>
+  </data>
+  <data name="ForkFromHere" xml:space="preserve">
+    <value>从此处分支</value>
+  </data>
+  <data name="ForkedThreadTitle" xml:space="preserve">
+    <value>{0}的分支</value>
+  </data>
+  <data name="RetryTurn" xml:space="preserve">
+    <value>重新生成回复</value>
+  </data>
+  <data name="ScrollToBottom" xml:space="preserve">
+    <value>滚动到底部</value>
+  </data>
+  <data name="ThinkingInProgress" xml:space="preserve">
+    <value>正在思考…</value>
+  </data>
+  <data name="ThinkingForSeconds" xml:space="preserve">
+    <value>正在思考… {0:0} 秒</value>
+  </data>
+  <data name="ThoughtForSeconds" xml:space="preserve">
+    <value>已思考 {0:0.#} 秒</value>
+  </data>
+  <data name="RunningTool" xml:space="preserve">
+    <value>正在运行 {0}…</value>
+  </data>
+  <data name="CompactingContext" xml:space="preserve">
+    <value>正在压缩上下文…</value>
+  </data>
+  <data name="RetryingTurn" xml:space="preserve">
+    <value>正在重试…</value>
+  </data>
+  <data name="TurnDuration" xml:space="preserve">
+    <value>{0:0.#} 秒</value>
+  </data>
+  <data name="TurnTokens" xml:space="preserve">
+    <value>{0} 个令牌</value>
+  </data>
+  <data name="TokensThousands" xml:space="preserve">
+    <value>{0:0.#} 千</value>
+  </data>
+  <data name="TokensMillions" xml:space="preserve">
+    <value>{0:0.#} 百万</value>
+  </data>
+  <data name="TurnInputTokens" xml:space="preserve">
+    <value>输入令牌 · {0}</value>
+  </data>
+  <data name="TurnOutputTokens" xml:space="preserve">
+    <value>输出令牌 · {0}</value>
+  </data>
+  <data name="TurnCachedInputTokens" xml:space="preserve">
+    <value>缓存的输入令牌 · {0}</value>
+  </data>
+  <data name="ToolGroupChecks" xml:space="preserve">
+    <value>{0:N0} 项检查</value>
+  </data>
+  <data name="MoreHistoryChanges" xml:space="preserve">
+    <value>另有 {0:N0} 项更改</value>
+  </data>
+  <data name="CopyCode" xml:space="preserve">
+    <value>复制代码</value>
+  </data>
+  <data name="WrapCode" xml:space="preserve">
+    <value>自动换行</value>
+  </data>
+  <data name="OpenImagePreview" xml:space="preserve">
+    <value>打开图片预览</value>
+  </data>
+  <data name="ImagePreview" xml:space="preserve">
+    <value>图片预览</value>
+  </data>
+  <data name="ImageDimensions" xml:space="preserve">
+    <value>{0:N0} × {1:N0} 像素</value>
+  </data>
+  <data name="CloseImagePreview" xml:space="preserve">
+    <value>关闭预览</value>
+  </data>
+  <data name="ZoomImageIn" xml:space="preserve">
+    <value>放大</value>
+  </data>
+  <data name="ZoomImageOut" xml:space="preserve">
+    <value>缩小</value>
+  </data>
+  <data name="FitImage" xml:space="preserve">
+    <value>适应</value>
+  </data>
+  <data name="FitImageTooltip" xml:space="preserve">
+    <value>使图片适应窗口</value>
+  </data>
+  <data name="ActualImageSize" xml:space="preserve">
+    <value>显示实际大小</value>
+  </data>
+  <data name="CopyImage" xml:space="preserve">
+    <value>复制图片</value>
+  </data>
+  <data name="CopyImagePath" xml:space="preserve">
+    <value>复制图片路径</value>
+  </data>
+  <data name="StopTurn" xml:space="preserve">
+    <value>停止本轮</value>
+  </data>
+  <data name="StopBackgroundTask" xml:space="preserve">
+    <value>停止任务</value>
+  </data>
+  <data name="StopBackgroundTaskFailed" xml:space="preserve">
+    <value>无法停止任务。</value>
+  </data>
+  <data name="TurnWorkingFor" xml:space="preserve">
+    <value>工作中 {0}</value>
+  </data>
+  <data name="TurnWorkedFor" xml:space="preserve">
+    <value>已工作 {0}</value>
+  </data>
+  <data name="TurnDurationMinutes" xml:space="preserve">
+    <value>{0} 分 {1} 秒</value>
+  </data>
+  <data name="TurnDurationHours" xml:space="preserve">
+    <value>{0} 小时 {1} 分 {2} 秒</value>
+  </data>
+  <data name="ModelChangeNotice" xml:space="preserve">
+    <value>切换模型 · {0} → {1}</value>
+  </data>
+  <data name="EffortChangeNotice" xml:space="preserve">
+    <value>切换推理强度 · {0} → {1}</value>
+  </data>
+  <data name="ContextCompacted" xml:space="preserve">
+    <value>已压缩上下文</value>
+  </data>
 </root>

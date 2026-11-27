@@ -3,7 +3,6 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:conv="using:Avalonia.Data.Converters"
              xmlns:icons="using:FluentIcons.Avalonia.Fluent"
-             xmlns:imaging="using:Avalonia.Media.Imaging"
              xmlns:lang="using:Beutl.Language"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:views="using:Beutl.Editor.Components.AgentTab.Views"
@@ -42,7 +41,7 @@
         </DataTemplate>
         <DataTemplate DataType="vm:AgentReasoningItem" x:DataType="vm:AgentReasoningItem">
             <StackPanel Margin="4,3" Spacing="3">
-                <TextBlock Classes="agent-caption" Text="{x:Static lang:AgentStrings.Thinking}" />
+                <TextBlock Classes="agent-caption" Text="{Binding Summary}" />
                 <SelectableTextBlock Classes="agent-secondary" Text="{Binding Text}" TextWrapping="Wrap" />
             </StackPanel>
         </DataTemplate>
@@ -71,7 +70,7 @@
                   HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
                   AutomationProperties.Name="{Binding Title}" AutomationProperties.HelpText="{Binding Status}">
             <Expander.Header>
-                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8" Margin="4,0" ToolTip.Tip="{Binding Title}">
+                <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="8" Margin="4,0" ToolTip.Tip="{Binding Title}">
                     <ContentControl Content="{Binding}" ContentTemplate="{StaticResource ToolStatus}" />
                     <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
                         <TextBlock Text="{Binding Title}" FontSize="12.5" TextTrimming="CharacterEllipsis"
@@ -87,6 +86,14 @@
                             Background="{DynamicResource SubtleFillColorSecondaryBrush}">
                         <TextBlock Text="{Binding ChildToolCount}" Classes="agent-caption" />
                     </Border>
+                    <Panel Grid.Column="3" Classes="agent-task-actions" VerticalAlignment="Center">
+                        <Button x:Name="StopBackgroundTaskButton" IsVisible="{Binding ShowStop}" IsEnabled="{Binding CanStop}"
+                                Command="{Binding StopAsync}" Width="24" Height="24" Padding="0"
+                                Theme="{StaticResource ToolTabBarIconButtonTheme}" ToolTip.Tip="{x:Static lang:AgentStrings.StopBackgroundTask}"
+                                AutomationProperties.Name="{x:Static lang:AgentStrings.StopBackgroundTask}">
+                            <icons:FluentIcon Icon="Stop" IconVariant="Filled" FontSize="10" />
+                        </Button>
+                    </Panel>
                 </Grid>
             </Expander.Header>
             <ContentControl Content="{Binding}" ContentTemplate="{StaticResource ToolDetails}" Margin="12,6,4,4" />
@@ -97,11 +104,14 @@
                 <ItemsPanelTemplate><WrapPanel ItemSpacing="5" LineSpacing="5" /></ItemsPanelTemplate>
             </ItemsControl.ItemsPanel>
             <ItemsControl.ItemTemplate>
-                <DataTemplate x:DataType="imaging:Bitmap">
-                    <Border CornerRadius="8" BorderThickness="1" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
-                            ClipToBounds="True" HorizontalAlignment="Left">
-                        <Image Source="{Binding}" Stretch="Uniform" StretchDirection="DownOnly" MaxHeight="156" />
-                    </Border>
+                <DataTemplate x:DataType="vm:AgentImagePreview">
+                    <Button x:Name="ToolImageThumbnail" Theme="{StaticResource TransparentButton}" Padding="0" HorizontalAlignment="Left"
+                            Click="OnOpenToolImage" ToolTip.Tip="{x:Static lang:AgentStrings.OpenImagePreview}"
+                            AutomationProperties.Name="{x:Static lang:AgentStrings.OpenImagePreview}">
+                        <Border CornerRadius="8" BorderThickness="1" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" ClipToBounds="True">
+                            <Image Source="{Binding Thumbnail}" Stretch="Uniform" StretchDirection="DownOnly" MaxHeight="156" />
+                        </Border>
+                    </Button>
                 </DataTemplate>
             </ItemsControl.ItemTemplate>
         </ItemsControl>

@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using Avalonia.Threading;
 using Beutl.Agents;
 using Beutl.Editor.Components.AgentTab.ViewModels;
@@ -15,7 +16,7 @@ internal sealed partial class AgentThreadController : AgentBindable
     private readonly IAgentWorkspaceHost _host;
     private readonly AgentProjectThreadSessions _project;
     private readonly ObservableCollection<AgentQueuedMessage> _queue = [];
-    private readonly AgentThreadTimeline _transcript = new();
+    private readonly AgentThreadTimeline _transcript;
     private Task? _loading;
     private Task? _run;
     private ActiveTurn? _active;
@@ -26,6 +27,7 @@ internal sealed partial class AgentThreadController : AgentBindable
     {
         _host = host;
         _project = project;
+        _transcript = new AgentThreadTimeline(StopBackgroundTaskAsync);
         ThreadId = threadId;
         QueuedMessages = new(_queue);
         PendingPermissions = new(_permissions);
@@ -41,6 +43,10 @@ internal sealed partial class AgentThreadController : AgentBindable
     public bool IsRunning => _active is not null;
     public bool IsSteering => _active?.Steering is not null;
     public bool IsStopping => _active?.StopRequested == true;
+    public string LiveWorkTime => _active is { } turn
+        ? string.Format(CultureInfo.CurrentCulture, AgentStrings.TurnWorkingFor,
+            AgentTurnTime.Format((long)Stopwatch.GetElapsedTime(turn.StartTimestamp).TotalMilliseconds))
+        : "";
     public bool CanConfigure => !_closed && !_configuring && !IsRunning;
     public bool CanSubmit => !_closed && !_configuring && !_project.Lifetime.IsCancellationRequested;
     public bool CanManageQueue => CanSubmit && !IsSteering;
@@ -91,6 +97,53 @@ internal sealed partial class AgentThreadController : AgentBindable
     {
         _configuring = false;
         PublishState();
+    }
+
+    public async Task<AgentThreadMetadata> SetModelAsync(string? model, string? effort, CancellationToken cancellationToken)
+    {
+        var (thread, change) = await _host.Runtime.SetModelAsync(_project.ProjectPath, ThreadId, model, effort, cancellationToken);
+        if (change is not null)
+            _transcript.ApplyEntry(change);
+        return thread;
+    }
+
+    public async Task<AgentThreadMetadata?> ForkThreadAsync(
+        Guid turnId, string title, bool includeTurn, CancellationToken cancellationToken)
+    {
+        if (!TryBeginConfiguration())
+            return null;
+
+        try
+        {
+            var thread = await _host.Runtime.ForkThreadAsync(
+                _project.ProjectPath, ThreadId, turnId, title, includeTurn, cancellationToken);
+            _project.PublishMetadata(thread);
+            return thread;
+        }
+        finally
+        {
+            EndConfiguration();
+        }
+    }
+
+    public async Task RewindTurnAsync(Guid turnId, CancellationToken cancellationToken, AgentQueuedMessage? retry = null)
+    {
+        if (!TryBeginConfiguration())
+            return;
+
+        try
+        {
+            var (thread, entries) = await _host.Runtime.RewindTurnAsync(_project.ProjectPath, ThreadId, turnId, cancellationToken);
+            _transcript.Restore(entries);
+            _project.PublishMetadata(thread);
+        }
+        finally
+        {
+            EndConfiguration();
+        }
+
+        if (retry is not null && !cancellationToken.IsCancellationRequested)
+            _ = SubmitAsync(retry);
     }
 
     public Task SubmitAsync(AgentQueuedMessage message)
@@ -182,12 +235,39 @@ internal sealed partial class AgentThreadController : AgentBindable
         return turn.Cancellation.CancelAsync();
     }
 
+    private async Task StopBackgroundTaskAsync(AgentToolItem item)
+    {
+        if (_active is not { StopRequested: false } turn || turn.Id != item.TurnId || !item.IsInProgress)
+            return;
+        var token = turn.Cancellation.Token;
+        try
+        {
+            var result = await _host.Runtime.StopBackgroundTaskAsync(ThreadId, turn.Id, item.ToolCallId, token);
+            if (result == AgentBackgroundStopResult.Unsupported && _active == turn && item.IsInProgress)
+                await StopAsync();
+        }
+        catch (OperationCanceledException) when (token.IsCancellationRequested)
+        {
+        }
+        catch (Exception ex)
+        {
+            s_logger.LogWarning(ex, "Could not stop background work in agent thread {ThreadId}.", ThreadId);
+            Error = AgentStrings.StopBackgroundTaskFailed;
+        }
+    }
+
     private async Task RunQueueAsync(AgentQueuedMessage first)
     {
         for (AgentQueuedMessage? next = first; next is not null;)
         {
             var message = next;
             using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(_project.Lifetime);
+            using var liveStatusTick = DispatcherTimer.Run(() =>
+            {
+                _transcript.RefreshLiveStatus();
+                Notify(nameof(LiveWorkTime));
+                return true;
+            }, TimeSpan.FromSeconds(1));
             var turn = new ActiveTurn(cancellation);
             _active = turn;
             _queue.Remove(message);
@@ -268,6 +348,7 @@ internal sealed partial class AgentThreadController : AgentBindable
 
     private void PublishState()
     {
+        _transcript.SetStoppableTurn(_active is { StopRequested: false } turn ? turn.Id : null);
         // Related capabilities are derived from the same run/configuration state.
         Notify(null);
         _project.PublishState(ThreadId);
@@ -299,6 +380,7 @@ internal sealed partial class AgentThreadController : AgentBindable
     private sealed class ActiveTurn(CancellationTokenSource cancellation)
     {
         public Guid Id { get; } = Guid.NewGuid();
+        public long StartTimestamp { get; } = Stopwatch.GetTimestamp();
         public CancellationTokenSource Cancellation { get; } = cancellation;
         public bool PromptPublished { get; set; }
         public bool StopRequested { get; set; }

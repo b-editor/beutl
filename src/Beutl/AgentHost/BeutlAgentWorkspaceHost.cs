@@ -94,7 +94,7 @@ internal sealed partial class BeutlAgentWorkspaceHost(
             int count = await Dispatcher.UIThread.InvokeAsync(() => endpoint.TurnHistory.Finish(turn));
             if (count > 0)
             {
-                var entry = new AgentTurnHistoryRecorded(request.ThreadId, request.TurnId, DateTimeOffset.UtcNow, count);
+                var entry = new AgentTurnHistoryRecorded(request.ThreadId, request.TurnId, DateTimeOffset.UtcNow, count, turn.Changes.ToArray());
                 try
                 {
                     await runtime.RecordTurnHistoryAsync(projectPath, entry);

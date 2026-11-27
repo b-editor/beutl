@@ -52,6 +52,18 @@
     <Style Selector="FlyoutPresenter.agent-background-work">
         <Setter Property="Padding" Value="0" />
         <Setter Property="MinWidth" Value="0" />
+        <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled" />
+        <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Disabled" />
+    </Style>
+    <Style Selector="FlyoutPresenter.agent-background-work /template/ ScrollViewer">
+        <Setter Property="HorizontalScrollBarVisibility" Value="Disabled" />
+        <Setter Property="VerticalScrollBarVisibility" Value="Disabled" />
+    </Style>
+    <Style Selector="Panel.agent-task-actions">
+        <Setter Property="IsVisible" Value="False" />
+    </Style>
+    <Style Selector="FlyoutPresenter.agent-background-work Panel.agent-task-actions">
+        <Setter Property="IsVisible" Value="True" />
     </Style>
     <Style Selector="Grid.agent-attachment-card">
         <Setter Property="Height" Value="96" />
@@ -99,6 +111,56 @@
     <Style Selector="TextBlock.agent-caption">
         <Setter Property="FontSize" Value="11" />
         <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+    </Style>
+    <Style Selector="TextBlock.agent-message-time">
+        <Setter Property="FontSize" Value="10.5" />
+        <Setter Property="Foreground" Value="{DynamicResource TextFillColorTertiaryBrush}" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="Margin" Value="0,0,5,0" />
+    </Style>
+    <Style Selector="Button.agent-message-action">
+        <Setter Property="Theme" Value="{StaticResource ToolTabBarIconButtonTheme}" />
+        <Setter Property="Width" Value="23" />
+        <Setter Property="Height" Value="23" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="Foreground" Value="{DynamicResource TextFillColorTertiaryBrush}" />
+    </Style>
+    <Style Selector=".agent-message:pointerover Button.agent-message-action, Button.agent-message-action:focus">
+        <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+    </Style>
+    <Style Selector="Ellipse.agent-turn-dot">
+        <Setter Property="Width" Value="6" />
+        <Setter Property="Height" Value="6" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="Fill" Value="{DynamicResource AccentTextFillColorPrimaryBrush}" />
+    </Style>
+    <Style Selector="TextBlock.agent-turn-time">
+        <Setter Property="FontSize" Value="12.5" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+    </Style>
+    <Style Selector="Border.agent-turn-divider">
+        <Setter Property="Height" Value="1" />
+        <Setter Property="Background" Value="{DynamicResource DividerStrokeColorDefaultBrush}" />
+    </Style>
+    <Style Selector="Ellipse.agent-turn-dot.live">
+        <Style.Animations>
+            <Animation Duration="0:0:1.8" IterationCount="Infinite" Easing="SineEaseInOut">
+                <KeyFrame Cue="0%"><Setter Property="Opacity" Value="0.48" /></KeyFrame>
+                <KeyFrame Cue="50%"><Setter Property="Opacity" Value="1" /></KeyFrame>
+                <KeyFrame Cue="100%"><Setter Property="Opacity" Value="0.48" /></KeyFrame>
+            </Animation>
+        </Style.Animations>
+    </Style>
+    <Style Selector="TextBlock.agent-live-status.live">
+        <Style.Animations>
+            <Animation Duration="0:0:2.4" IterationCount="Infinite" Easing="SineEaseInOut">
+                <KeyFrame Cue="0%"><Setter Property="Opacity" Value="0.74" /></KeyFrame>
+                <KeyFrame Cue="50%"><Setter Property="Opacity" Value="1" /></KeyFrame>
+                <KeyFrame Cue="100%"><Setter Property="Opacity" Value="0.74" /></KeyFrame>
+            </Animation>
+        </Style.Animations>
     </Style>
     <Style Selector="TextBlock.agent-request-label">
         <Setter Property="FontSize" Value="10.5" />

@@ -2,7 +2,7 @@ import { query, type CanUseTool, type McpServerConfig, type Options, type Query,
 import { randomUUID } from "node:crypto";
 import { isAbsolute, normalize } from "node:path";
 import { ProviderProcess } from "./process.js";
-import { type Adapter, type AdapterHost, type ComposerSuggestion, type ModelDescriptor, type PermissionMode, type Question, type Turn, type TurnRequest, type TurnResult, contentOutputs, formatPrompt, planStatus, record, withTimeout } from "./protocol.js";
+import { type Adapter, type AdapterHost, type BackgroundStopResult, type ComposerSuggestion, type ModelDescriptor, type PermissionMode, type Question, type Turn, type TurnRequest, type TurnResult, contentOutputs, formatPrompt, planStatus, record, withTimeout } from "./protocol.js";
 
 const readTools = new Set(["Read", "Glob", "Grep", "LS"]);
 
@@ -80,13 +80,14 @@ export class ClaudeAdapter implements Adapter {
         input.push(this.formatPrompt(turn.request));
         const closeInput = () => input.close();
         turn.signal.addEventListener("abort", closeInput, { once: true });
-        const translate = new ClaudeEvents(turn);
+        const translate = this.events = new ClaudeEvents(turn);
         try {
             turn.signal.throwIfAborted();
             const messages = this.active = query({ prompt: input, options: this.options(turn) });
             for await (const message of messages) {
                 if (message.type === "system" && message.subtype === "init") {
                     this.saveSession(message.session_id);
+                    turn.reportUsage({ model: message.model });
                     this.publishSuggestions(suggestions(await messages.supportedCommands().catch(() => []),
                         message.slash_commands, message.skills));
                 } else if (message.type === "system" && message.subtype === "commands_changed") {
@@ -96,7 +97,19 @@ export class ClaudeAdapter implements Adapter {
                     this.saveSession(message.session_id);
                     if (turn.signal.aborted) return { status: "cancelled" };
                     if (!input.includesAllSteers(message)) continue;
-                    if (message.subtype === "success" && !message.is_error) return { status: "completed" };
+                    if (message.subtype === "success" && !message.is_error) {
+                        const usage = message.usage;
+                        const cachedInputTokens = usage?.cache_read_input_tokens ?? undefined;
+                        // Claude reports fresh input separately from cache reads and writes.
+                        const inputTokens = usage?.input_tokens === undefined ? undefined
+                            : usage.input_tokens + (cachedInputTokens ?? 0) + (usage.cache_creation_input_tokens ?? 0);
+                        turn.reportUsage({
+                            inputTokens, outputTokens: usage?.output_tokens, cachedInputTokens,
+                            model: translate.model ?? Object.keys(message.modelUsage ?? {})[0],
+                        });
+                        turn.durationMs = message.duration_ms;
+                        return { status: "completed" };
+                    }
                     const error = message.subtype === "success" ? message.result : message.errors.join("\n");
                     return { status: "failed", error: error || message.subtype };
                 }
@@ -107,6 +120,7 @@ export class ClaudeAdapter implements Adapter {
             turn.signal.removeEventListener("abort", closeInput);
             input.close();
             this.input = undefined;
+            this.events = undefined;
             this.active?.close();
             this.active = undefined;
             const child = this.process;
@@ -123,6 +137,18 @@ export class ClaudeAdapter implements Adapter {
 
     async steer(turn: Turn, request: TurnRequest): Promise<boolean> {
         return this.input?.turn === turn && this.input.push(this.formatPrompt(request), true);
+    }
+
+    private events?: ClaudeEvents;
+
+    async stopBackgroundTask(toolCallId: string): Promise<BackgroundStopResult> {
+        const query = this.active;
+        if (!query || !this.events) return "unavailable";
+        if (typeof query.stopTask !== "function") return "unsupported";
+        const taskId = this.events.runningTaskId(toolCallId);
+        if (!taskId) return "unavailable";
+        await withTimeout(query.stopTask(taskId), 5000, "Claude Code did not acknowledge the stop request.");
+        return "requested";
     }
 
     private formatPrompt(request: TurnRequest): string {
@@ -350,6 +376,7 @@ interface StreamedTextBlock {
 }
 
 class ClaudeEvents {
+    model?: string;
     private readonly messageIds = new Map<string | null, string>();
     private readonly textBlocks = new Map<string, StreamedTextBlock[]>();
     private readonly calls = new Map<string, { parentToolCallId?: string; background: boolean; asynchronous: boolean }>();
@@ -358,6 +385,14 @@ class ClaudeEvents {
     private readonly finishedTasks = new Set<string>();
 
     constructor(private readonly turn: Turn) {}
+
+    runningTaskId(toolCallId: string): string | undefined {
+        if (this.finishedTasks.has(toolCallId)) return undefined;
+        for (const [taskId, callId] of this.tasks) {
+            if (callId === toolCallId) return taskId;
+        }
+        return undefined;
+    }
 
     accept(message: SDKMessage): void {
         const emit = this.turn.emit;
@@ -377,6 +412,7 @@ class ClaudeEvents {
             }
         } else if (message.type === "assistant") {
             const parent = message.parent_tool_use_id;
+            if (!parent && message.message.model) this.model = message.message.model;
             const parentToolCallId = parent ?? undefined;
             for (const block of message.message.content) {
                 if (block.type === "text") {
@@ -423,6 +459,15 @@ class ClaudeEvents {
             emit({ type: "toolCallUpdated", toolCallId: message.tool_use_id, status: "running",
                 parentToolCallId: message.parent_tool_use_id ?? undefined });
         } else if (message.type === "system") {
+            if (message.subtype === "status" && message.status === "compacting")
+                emit({ type: "turnPhaseChanged", phase: "compacting" });
+            else if (message.subtype === "compact_boundary") {
+                emit({ type: "contextCompacted" });
+                emit({ type: "turnPhaseChanged", phase: "thinking" });
+            } else if (message.subtype === "status" && message.status === null)
+                emit({ type: "turnPhaseChanged", phase: "thinking" });
+            else if (message.subtype === "api_retry")
+                emit({ type: "turnPhaseChanged", phase: "retrying" });
             this.acceptTask(message);
         }
     }

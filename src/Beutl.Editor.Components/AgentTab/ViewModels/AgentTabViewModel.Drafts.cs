@@ -32,7 +32,7 @@ internal sealed partial class AgentTabViewModel
         Notify(nameof(CanEditQueuedMessage));
         Notify(nameof(CanSend));
         Notify(nameof(CanSendAlternate));
-        Notify(nameof(ShowStopButton));
+        Notify(nameof(ShowSendButton));
     }
 
     private async void OnDraftTimerTick(object? sender, EventArgs e) => await SaveDraftAsync();

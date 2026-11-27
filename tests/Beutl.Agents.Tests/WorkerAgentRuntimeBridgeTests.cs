@@ -237,6 +237,88 @@ public sealed class WorkerAgentRuntimeBridgeTests
     }
 
     [Test]
+    public async Task ClaudeNormalizesCompactionRetryUsageAndSentAttachments()
+    {
+        await using var bridge = new WorkerAgentRuntimeBridge();
+        var timeline = Capture(bridge);
+        var session = Session(AgentProviderKind.ClaudeCode, "claude");
+        await bridge.OpenSessionAsync(session, _timeout.Token);
+        AgentUserAttachment[] attachments = [new(Path.Combine(_directory.FullName, "ref.png"), "Reference", "image/png", "PNG", true)];
+        var request = Turn(session, "phase3 metrics") with { Attachments = attachments, IncludeSceneContext = false };
+        var result = await bridge.RunTurnAsync(request, _timeout.Token);
+        Assert.That(result.Status, Is.EqualTo(AgentTurnStatus.Completed), result.Error);
+        var user = timeline.OfType<AgentUserMessage>().Single();
+        var completed = timeline.OfType<AgentTurnCompleted>().Single();
+        Assert.Multiple(() =>
+        {
+            Assert.That(user.Attachments, Is.EqualTo(attachments));
+            Assert.That(user.IncludeSceneContext, Is.False);
+            Assert.That(timeline.OfType<AgentTurnPhaseChanged>().Select(entry => entry.Phase),
+                Is.EqualTo(new[] { AgentTurnPhase.Compacting, AgentTurnPhase.Thinking, AgentTurnPhase.Retrying }));
+            Assert.That(timeline.OfType<AgentTurnUsageUpdated>().Last().InputTokens, Is.EqualTo(1060));
+            Assert.That(timeline.OfType<AgentContextCompacted>(), Has.Exactly(1).Items);
+            Assert.That(completed.DurationMs, Is.EqualTo(3420));
+            Assert.That(completed.InputTokens, Is.EqualTo(1060));
+            Assert.That(completed.OutputTokens, Is.EqualTo(140));
+            Assert.That(completed.CachedInputTokens, Is.EqualTo(800));
+            Assert.That(completed.Model, Is.EqualTo("claude-opus-test"));
+        });
+    }
+
+    [Test]
+    public async Task CodexNormalizesCompactionRetryAndPerTurnUsageFromCumulativeReports()
+    {
+        await using var bridge = new WorkerAgentRuntimeBridge();
+        var timeline = Capture(bridge);
+        var session = Session(AgentProviderKind.Codex, "codex");
+        await bridge.OpenSessionAsync(session, _timeout.Token);
+        for (int i = 0; i < 2; i++)
+        {
+            var request = Turn(session, "phase3 metrics");
+            var result = await bridge.RunTurnAsync(request, _timeout.Token);
+            Assert.That(result.Status, Is.EqualTo(AgentTurnStatus.Completed), result.Error);
+            var entries = timeline.Where(entry => entry.TurnId == request.TurnId).ToArray();
+            var completed = entries.OfType<AgentTurnCompleted>().Single();
+            Assert.Multiple(() =>
+            {
+                Assert.That(entries.OfType<AgentTurnPhaseChanged>().Select(entry => entry.Phase),
+                    Does.Contain(AgentTurnPhase.Compacting).And.Contain(AgentTurnPhase.Thinking).And.Contain(AgentTurnPhase.Retrying));
+                Assert.That(entries.OfType<AgentErrorNotice>(), Is.Empty);
+                Assert.That(entries.OfType<AgentContextCompacted>(), Has.Exactly(1).Items);
+                Assert.That(completed.DurationMs, Is.EqualTo(2470));
+                Assert.That(completed.InputTokens, Is.EqualTo(300));
+                Assert.That(completed.OutputTokens, Is.EqualTo(100));
+                Assert.That(completed.CachedInputTokens, Is.EqualTo(170));
+                Assert.That(completed.Model, Is.EqualTo("gpt-6.2-sol"));
+            });
+        }
+    }
+
+    [Test]
+    public async Task ClaudeStopsTheMappedBackgroundTaskAndFinishesTheTurn()
+    {
+        await using var bridge = new WorkerAgentRuntimeBridge();
+        var timeline = Capture(bridge);
+        var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        bridge.TimelineEventReceived += entry =>
+        {
+            if (entry is AgentToolCallStarted { ToolCallId: "visible-tool-id", IsBackground: true })
+                started.TrySetResult();
+        };
+        var session = Session(AgentProviderKind.ClaudeCode, "claude");
+        await bridge.OpenSessionAsync(session, _timeout.Token);
+        var request = Turn(session, "stop background task");
+        var run = bridge.RunTurnAsync(request, _timeout.Token);
+        await started.Task.WaitAsync(_timeout.Token);
+        Assert.That(await bridge.StopBackgroundTaskAsync(session.ThreadId, request.TurnId, "visible-tool-id", _timeout.Token),
+            Is.EqualTo(AgentBackgroundStopResult.Requested));
+        Assert.That((await run).Status, Is.EqualTo(AgentTurnStatus.Completed));
+        Assert.That(timeline.OfType<AgentToolCallCompleted>().Single(entry => entry.ToolCallId == "visible-tool-id").Status,
+            Is.EqualTo(AgentToolStatus.Cancelled));
+        Assert.That(ReadMockLog(), Does.Contain("claude stop_task actual-task-id"));
+    }
+
+    [Test]
     public async Task ClaudeSteersStreamingInputAndCorrelatesThinkingWithOneReply()
     {
         await using var bridge = new WorkerAgentRuntimeBridge();

@@ -164,7 +164,7 @@ internal sealed partial class AgentTabViewModel : AgentBindable, IToolContext
             }
             Notify(nameof(CanSend));
             Notify(nameof(CanSendAlternate));
-            Notify(nameof(ShowStopButton));
+            Notify(nameof(ShowSendButton));
             Notify(nameof(CanEditQueuedMessage));
         }
     }
@@ -189,7 +189,7 @@ internal sealed partial class AgentTabViewModel : AgentBindable, IToolContext
     private bool SendSteers => IsRunning && _host.SteerOnSend;
     public bool CanSend => CanSubmitPrompt && (!SendSteers || CanPromoteQueuedMessage);
     public bool CanSendAlternate => IsRunning && CanSubmitPrompt && (SendSteers || CanPromoteQueuedMessage);
-    public bool ShowStopButton => IsRunning && !HasPromptContent;
+    public bool ShowSendButton => !IsRunning || HasPromptContent;
     public string SendLabel => SendSteers ? AgentStrings.SteerNow : IsRunning ? AgentStrings.QueueMessage : AgentStrings.Send;
     public string SendTooltip
     {
@@ -362,16 +362,16 @@ internal sealed partial class AgentTabViewModel : AgentBindable, IToolContext
             Notify(nameof(SelectedPermissionMode));
             return Task.CompletedTask;
         }
-        return ConfigureThreadAsync((threadId, ct) => _host.Runtime.SetPermissionModeAsync(_projectPath, threadId, choice.Mode, ct));
+        return ConfigureThreadAsync((controller, ct) => _host.Runtime.SetPermissionModeAsync(_projectPath, controller.ThreadId, choice.Mode, ct));
     }
 
-    private Task ConfigureThreadAsync(Func<Guid, CancellationToken, Task<AgentThreadMetadata>> configure) => ManageAsync(async ct =>
+    private Task ConfigureThreadAsync(Func<AgentThreadController, CancellationToken, Task<AgentThreadMetadata>> configure) => ManageAsync(async ct =>
     {
         if (_controller is not { } controller || !controller.TryBeginConfiguration())
             return;
         try
         {
-            ReplaceThread(await configure(controller.ThreadId, ct));
+            ReplaceThread(await configure(controller, ct));
         }
         finally
         {
@@ -458,7 +458,7 @@ internal sealed partial class AgentTabViewModel : AgentBindable, IToolContext
 
         string text = Prompt?.Trim() is { Length: > 0 } prompt ? prompt : AgentStrings.PastedText;
         var message = new AgentQueuedMessage(_editor, selected.Descriptor, text, IncludeSceneContext,
-            _attachments.Select(attachment => attachment.File).ToArray(), GetInvokedProviderSkills(text), GetAcceptedMentions(text));
+            _attachments.Select(attachment => attachment.Snapshot()).ToArray(), GetInvokedProviderSkills(text), GetAcceptedMentions(text));
         SetError(null);
         if (_controller is null)
         {
@@ -581,6 +581,7 @@ internal sealed partial class AgentTabViewModel : AgentBindable, IToolContext
         Notify(nameof(CanManageSelected));
         Notify(nameof(CanDeleteSelected));
         Notify(nameof(CanConfigure));
+        Notify(nameof(CanActOnMessages));
         Notify(nameof(CanChooseModel));
         NotifySendActions();
         Notify(nameof(IsRunning));
@@ -595,7 +596,7 @@ internal sealed partial class AgentTabViewModel : AgentBindable, IToolContext
     {
         Notify(nameof(CanSend));
         Notify(nameof(CanSendAlternate));
-        Notify(nameof(ShowStopButton));
+        Notify(nameof(ShowSendButton));
         Notify(nameof(SendLabel));
         Notify(nameof(SendTooltip));
         Notify(nameof(SendIcon));

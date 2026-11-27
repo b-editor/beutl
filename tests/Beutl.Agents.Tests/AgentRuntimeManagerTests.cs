@@ -5,6 +5,45 @@ namespace Beutl.Agents.Tests;
 public sealed class AgentRuntimeManagerTests
 {
     [Test]
+    public async Task SuppliesRetainedConversationOnceAfterRewindAndRecordsWallClockMetrics()
+    {
+        var directory = Directory.CreateTempSubdirectory("beutl-agent-retry-");
+        try
+        {
+            var bridge = new PermissionBridge();
+            await using var manager = new AgentRuntimeManager(bridge, new AgentThreadStore(directory.FullName));
+            var provider = AgentProviderDescriptor.Codex with { Command = Environment.ProcessPath! };
+            string project = Path.Combine(directory.FullName, "project.beutl");
+            var thread = await manager.CreateThreadAsync(project, provider, "Thread", AgentPermissionMode.FullAccess);
+            await manager.RunTurnAsync(project, thread.Id, provider, "First", []);
+            var next = await manager.RunTurnAsync(project, thread.Id, provider, "Second", []);
+            await manager.RewindTurnAsync(project, thread.Id, next.TurnId);
+            await manager.RunTurnAsync(project, thread.Id, provider, "Retry", []);
+            Assert.Multiple(() =>
+            {
+                Assert.That(bridge.LastOpen!.ExternalSessionId, Is.Null);
+                Assert.That(bridge.LastRequest!.PreviousMessages, Is.EqualTo(new[] { new AgentConversationMessage("user", "First") }));
+            });
+
+            await manager.RunTurnAsync(project, thread.Id, provider, "Follow-up", []);
+            Assert.That(bridge.LastRequest!.PreviousMessages, Is.Null);
+            var completed = (await manager.LoadTimelineAsync(project, thread.Id)).OfType<AgentTurnCompleted>().Last();
+            Assert.Multiple(() =>
+            {
+                Assert.That(completed.DurationMs, Is.GreaterThanOrEqualTo(0));
+                Assert.That(completed.InputTokens, Is.EqualTo(200));
+                Assert.That(completed.OutputTokens, Is.EqualTo(50));
+                Assert.That(completed.CachedInputTokens, Is.EqualTo(125));
+                Assert.That(completed.Model, Is.EqualTo("test-model"));
+            });
+        }
+        finally
+        {
+            directory.Delete(recursive: true);
+        }
+    }
+
+    [Test]
     public async Task PermissionModesRouteSupervisedAndFullAccess()
     {
         var directory = Directory.CreateTempSubdirectory("beutl-agent-policy-");
@@ -60,6 +99,7 @@ public sealed class AgentRuntimeManagerTests
         public Func<AgentUserQuestionRequest, CancellationToken, Task<IReadOnlyDictionary<string, string[]>>>? QuestionHandler { get; set; }
         public List<AgentPermissionDecision> Decisions { get; } = [];
         public AgentSessionOpenRequest? LastOpen { get; private set; }
+        public AgentTurnRequest? LastRequest { get; private set; }
 
         public Task<AgentWorkerHealth> PingAsync(CancellationToken cancellationToken = default) => throw new NotSupportedException();
 
@@ -79,6 +119,7 @@ public sealed class AgentRuntimeManagerTests
         public async Task<AgentTurnSummary> RunTurnAsync(AgentTurnRequest request, CancellationToken cancellationToken = default)
         {
             var (threadId, turnId, text, _) = request;
+            LastRequest = request;
             TimelineEventReceived?.Invoke(new AgentUserMessage(threadId, turnId, DateTimeOffset.UtcNow, text));
             TimelineEventReceived?.Invoke(new AgentSessionStateChanged(threadId, turnId, DateTimeOffset.UtcNow, AgentSessionState.Open, "saved-id"));
             Decisions.Clear();
@@ -86,6 +127,7 @@ public sealed class AgentRuntimeManagerTests
             {
                 Decisions.Add(await PermissionHandler!(new AgentPermissionRequest(name, threadId, turnId, name, server), cancellationToken));
             }
+            TimelineEventReceived?.Invoke(new AgentTurnUsageUpdated(threadId, turnId, DateTimeOffset.UtcNow, 200, 50, 125, "test-model"));
             TimelineEventReceived?.Invoke(new AgentTurnCompleted(threadId, turnId, DateTimeOffset.UtcNow));
             return new AgentTurnSummary(turnId, AgentTurnStatus.Completed);
         }

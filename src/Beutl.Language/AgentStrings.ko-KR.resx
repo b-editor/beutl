@@ -229,4 +229,136 @@
   <data name="PasteFailed" xml:space="preserve">
     <value>클립보드에서 붙여넣을 수 없습니다.</value>
   </data>
+  <data name="CopyMessage" xml:space="preserve">
+    <value>메시지 복사</value>
+  </data>
+  <data name="EditFromHere" xml:space="preserve">
+    <value>여기서부터 편집</value>
+  </data>
+  <data name="ForkFromHere" xml:space="preserve">
+    <value>여기서부터 분기</value>
+  </data>
+  <data name="ForkedThreadTitle" xml:space="preserve">
+    <value>{0}의 분기</value>
+  </data>
+  <data name="RetryTurn" xml:space="preserve">
+    <value>응답 다시 생성</value>
+  </data>
+  <data name="ScrollToBottom" xml:space="preserve">
+    <value>맨 아래로 스크롤</value>
+  </data>
+  <data name="ThinkingInProgress" xml:space="preserve">
+    <value>생각 중…</value>
+  </data>
+  <data name="ThinkingForSeconds" xml:space="preserve">
+    <value>생각 중… {0:0}초</value>
+  </data>
+  <data name="ThoughtForSeconds" xml:space="preserve">
+    <value>{0:0.#}초 동안 생각함</value>
+  </data>
+  <data name="RunningTool" xml:space="preserve">
+    <value>{0} 실행 중…</value>
+  </data>
+  <data name="CompactingContext" xml:space="preserve">
+    <value>컨텍스트 압축 중…</value>
+  </data>
+  <data name="RetryingTurn" xml:space="preserve">
+    <value>다시 시도 중…</value>
+  </data>
+  <data name="TurnDuration" xml:space="preserve">
+    <value>{0:0.#}초</value>
+  </data>
+  <data name="TurnTokens" xml:space="preserve">
+    <value>{0} 토큰</value>
+  </data>
+  <data name="TokensThousands" xml:space="preserve">
+    <value>{0:0.#}천</value>
+  </data>
+  <data name="TokensMillions" xml:space="preserve">
+    <value>{0:0.#}백만</value>
+  </data>
+  <data name="TurnInputTokens" xml:space="preserve">
+    <value>입력 토큰 · {0}</value>
+  </data>
+  <data name="TurnOutputTokens" xml:space="preserve">
+    <value>출력 토큰 · {0}</value>
+  </data>
+  <data name="TurnCachedInputTokens" xml:space="preserve">
+    <value>캐시된 입력 토큰 · {0}</value>
+  </data>
+  <data name="ToolGroupChecks" xml:space="preserve">
+    <value>확인 {0:N0}건</value>
+  </data>
+  <data name="MoreHistoryChanges" xml:space="preserve">
+    <value>그 외 변경 {0:N0}건</value>
+  </data>
+  <data name="CopyCode" xml:space="preserve">
+    <value>코드 복사</value>
+  </data>
+  <data name="WrapCode" xml:space="preserve">
+    <value>코드 줄 바꿈</value>
+  </data>
+  <data name="OpenImagePreview" xml:space="preserve">
+    <value>이미지 미리보기 열기</value>
+  </data>
+  <data name="ImagePreview" xml:space="preserve">
+    <value>이미지 미리보기</value>
+  </data>
+  <data name="ImageDimensions" xml:space="preserve">
+    <value>{0:N0} × {1:N0} px</value>
+  </data>
+  <data name="CloseImagePreview" xml:space="preserve">
+    <value>미리보기 닫기</value>
+  </data>
+  <data name="ZoomImageIn" xml:space="preserve">
+    <value>확대</value>
+  </data>
+  <data name="ZoomImageOut" xml:space="preserve">
+    <value>축소</value>
+  </data>
+  <data name="FitImage" xml:space="preserve">
+    <value>맞춤</value>
+  </data>
+  <data name="FitImageTooltip" xml:space="preserve">
+    <value>창에 이미지 맞추기</value>
+  </data>
+  <data name="ActualImageSize" xml:space="preserve">
+    <value>실제 크기로 표시</value>
+  </data>
+  <data name="CopyImage" xml:space="preserve">
+    <value>이미지 복사</value>
+  </data>
+  <data name="CopyImagePath" xml:space="preserve">
+    <value>이미지 경로 복사</value>
+  </data>
+  <data name="StopTurn" xml:space="preserve">
+    <value>턴 중지</value>
+  </data>
+  <data name="StopBackgroundTask" xml:space="preserve">
+    <value>작업 중지</value>
+  </data>
+  <data name="StopBackgroundTaskFailed" xml:space="preserve">
+    <value>작업을 중지할 수 없습니다.</value>
+  </data>
+  <data name="TurnWorkingFor" xml:space="preserve">
+    <value>작업 중 {0}</value>
+  </data>
+  <data name="TurnWorkedFor" xml:space="preserve">
+    <value>{0} 동안 작업했습니다</value>
+  </data>
+  <data name="TurnDurationMinutes" xml:space="preserve">
+    <value>{0}분 {1}초</value>
+  </data>
+  <data name="TurnDurationHours" xml:space="preserve">
+    <value>{0}시간 {1}분 {2}초</value>
+  </data>
+  <data name="ModelChangeNotice" xml:space="preserve">
+    <value>모델 변경 · {0} → {1}</value>
+  </data>
+  <data name="EffortChangeNotice" xml:space="preserve">
+    <value>추론 수준 변경 · {0} → {1}</value>
+  </data>
+  <data name="ContextCompacted" xml:space="preserve">
+    <value>컨텍스트를 압축했습니다</value>
+  </data>
 </root>

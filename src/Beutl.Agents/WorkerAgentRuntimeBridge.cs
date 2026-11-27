@@ -80,6 +80,17 @@ public sealed class WorkerAgentRuntimeBridge(string? workerDirectory = null, ILo
     public Task CancelTurnAsync(Guid threadId, Guid turnId, CancellationToken cancellationToken = default)
         => RequestIfRunningAsync("turn/cancel", new { threadId, turnId }, cancellationToken);
 
+    public async Task<AgentBackgroundStopResult> StopBackgroundTaskAsync(
+        Guid threadId, Guid turnId, string toolCallId, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (GetRunningWorker() is not { } worker)
+            return AgentBackgroundStopResult.Unavailable;
+        var result = await worker.Rpc.RequestAsync("turn/stopTask", AgentJson.ToElement(new { threadId, turnId, toolCallId }),
+            cancellationToken).ConfigureAwait(false);
+        return AgentJson.Read<AgentBackgroundStopResult>(result);
+    }
+
     public Task SetPermissionModeAsync(Guid threadId, AgentPermissionMode mode, CancellationToken cancellationToken = default)
         => RequestIfRunningAsync("session/setMode", new { threadId, mode }, cancellationToken);
 

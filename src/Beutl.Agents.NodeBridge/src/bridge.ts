@@ -3,7 +3,7 @@ import { isAbsolute } from "node:path";
 import { AcpAdapter } from "./acp.js";
 import { ClaudeAdapter } from "./claude.js";
 import { CodexAdapter } from "./codex.js";
-import { type Adapter, type AdapterHost, type ComposerSuggestion, type ModelDescriptor, type ModelListOptions, type PermissionMode, type RequestHost, type SessionOptions, type SuggestionListOptions, type TimelineEvent, type TurnRequest, type TurnResult, Turn, errorMessage, withTimeout } from "./protocol.js";
+import { type Adapter, type AdapterHost, type BackgroundStopResult, type ComposerSuggestion, type ModelDescriptor, type ModelListOptions, type PermissionMode, type RequestHost, type SessionOptions, type SuggestionListOptions, type TimelineEvent, type TurnRequest, type TurnResult, Turn, errorMessage, withTimeout } from "./protocol.js";
 
 type Command =
     | { method: "ping" | "shutdown" }
@@ -14,6 +14,7 @@ type Command =
     | { method: "session/close"; params: { threadId: string } }
     | { method: "turn/run"; params: TurnRequest }
     | { method: "turn/steer"; params: TurnRequest }
+    | { method: "turn/stopTask"; params: { threadId: string; turnId: string; toolCallId: string } }
     | { method: "turn/cancel"; params: { threadId: string; turnId: string } };
 
 let emitEvent: (event: string) => void;
@@ -67,6 +68,9 @@ export async function handleCommand(commandJson: string): Promise<string> {
         }
         case "turn/steer":
             return JSON.stringify({ steered: await sessions.get(command.params.threadId)?.steer(command.params) ?? false });
+        case "turn/stopTask":
+            return JSON.stringify(await sessions.get(command.params.threadId)
+                ?.stopBackgroundTask(command.params.turnId, command.params.toolCallId) ?? "unavailable");
         case "turn/cancel":
             await sessions.get(command.params.threadId)?.cancel(command.params.turnId);
             break;
@@ -250,7 +254,7 @@ class Session {
         }, requestHost);
         const active: ActiveTurn = this.active = { turn, stopped: Promise.withResolvers<TurnResult>() };
         turn.emit({ type: "turnStarted" });
-        turn.emit({ type: "userMessage", text: request.text });
+        turn.recordPrompt(request);
 
         let result: TurnResult;
         try {
@@ -264,7 +268,7 @@ class Session {
         if (active.cancellation) result = { status: "cancelled" };
 
         switch (result.status) {
-            case "completed": turn.emit({ type: "turnCompleted" }); break;
+            case "completed": turn.emit({ type: "turnCompleted", durationMs: turn.durationMs, ...turn.usage }); break;
             case "failed": turn.emit({ type: "turnFailed", error: result.error }); break;
             case "cancelled": turn.emit({ type: "turnCancelled" }); break;
         }
@@ -288,7 +292,7 @@ class Session {
 
     private async steerCore(turn: Turn, request: TurnRequest): Promise<boolean> {
         if (!await this.adapter.steer(turn, request)) return false;
-        turn.emit({ type: "userMessage", text: request.text });
+        turn.recordPrompt(request);
         return true;
     }
 
@@ -297,6 +301,13 @@ class Session {
         if (!active || active.turn.request.turnId !== turnId) return;
         active.cancellation ??= this.cancelCore(active);
         await active.cancellation;
+    }
+
+    async stopBackgroundTask(turnId: string, toolCallId: string): Promise<BackgroundStopResult> {
+        const active = this.active;
+        if (!active || active.turn.request.turnId !== turnId || active.turn.signal.aborted || active.finishing)
+            return "unavailable";
+        return await this.adapter.stopBackgroundTask?.(toolCallId) ?? "unsupported";
     }
 
     private async cancelCore(active: ActiveTurn): Promise<void> {

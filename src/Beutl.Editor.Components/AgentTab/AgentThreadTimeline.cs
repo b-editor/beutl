@@ -2,6 +2,7 @@
 using Beutl.Agents;
 using Beutl.Editor.Components.AgentTab.ViewModels;
 using FluentAvalonia.UI.Controls;
+using FluentIcons.Common;
 
 namespace Beutl.Editor.Components.AgentTab;
 
@@ -12,11 +13,30 @@ internal sealed partial class AgentThreadTimeline : AgentBindable
     private readonly Dictionary<(Guid? TurnId, string ToolCallId), AgentToolItem> _tools = new();
     private readonly Dictionary<(Guid? TurnId, string ToolCallId), List<AgentToolItem>> _waitingTools = new();
     private readonly Dictionary<Guid, AgentPlanItem> _plans = new();
-    public AgentThreadTimeline() => Items = new(_timeline);
+    private readonly Func<AgentToolItem, Task>? _stopWork;
+    private Guid? _stopWorkTurn;
+
+    public AgentThreadTimeline(Func<AgentToolItem, Task>? stopWork = null)
+    {
+        _stopWork = stopWork;
+        Items = new(_timeline);
+    }
 
     public ReadOnlyObservableCollection<AgentTimelineItemViewModel> Items { get; }
 
     public void AddInteraction(AgentInteractionItem item) => _timeline.Add(item);
+
+    public void SetStoppableTurn(Guid? turnId)
+    {
+        if (_stopWorkTurn == turnId)
+            return;
+        foreach (var tool in _tools.Values)
+        {
+            if (tool.TurnId == _stopWorkTurn || tool.TurnId == turnId)
+                tool.StopAction = turnId.HasValue && tool.TurnId == turnId ? _stopWork : null;
+        }
+        _stopWorkTurn = turnId;
+    }
 
     public void Restore(IReadOnlyList<AgentTimelineEvent> entries)
     {
@@ -33,8 +53,11 @@ internal sealed partial class AgentThreadTimeline : AgentBindable
     public void Clear()
     {
         ResetBackgroundWork(null);
+        ClearActivity();
         foreach (var tool in _tools.Values)
             tool.Dispose();
+        foreach (var user in _timeline.OfType<AgentUserItem>())
+            user.Dispose();
         _tools.Clear();
         _waitingTools.Clear();
         _messages.Clear();
@@ -49,27 +72,27 @@ internal sealed partial class AgentThreadTimeline : AgentBindable
         {
             case AgentTurnStarted turnStarted:
                 ResetBackgroundWork(turnStarted.TurnId);
+                StartActivity(turnStarted);
                 break;
             case AgentUserMessage user:
                 ResetBackgroundWork(user.TurnId);
+                StartActivity(user);
                 _timeline.Add(new AgentUserItem(user));
                 break;
             case AgentAssistantTextDelta text:
+                RecordResponse(text, text.ParentToolCallId);
                 var streaming = GetAssistantItem(text, text.ParentToolCallId, text.MessageId, out var streamParent);
                 streaming.Append(text.Text);
                 streamParent?.UpdateScopedActivity(text.Text);
                 break;
             case AgentAssistantMessageCompleted message:
+                RecordResponse(message, message.ParentToolCallId);
                 GetAssistantItem(message, message.ParentToolCallId, message.MessageId, out var messageParent).Complete(message.Text);
                 messageParent?.UpdateScopedActivity(message.Text);
                 break;
             case AgentReasoningDelta reasoning:
                 var reasoningParent = GetScope(reasoning, reasoning.ParentToolCallId);
-                var items = reasoningParent?.Children ?? _timeline;
-                if (items.LastOrDefault() is AgentReasoningItem previous && previous.TurnId == reasoning.TurnId)
-                    previous.Text += reasoning.Text;
-                else
-                    items.Add(new AgentReasoningItem(reasoning.TurnId) { Text = reasoning.Text });
+                RecordReasoning(reasoning, reasoningParent);
                 if (reasoningParent is not null)
                 {
                     reasoningParent.UpdateScopedActivity(reasoning.Text);
@@ -77,13 +100,31 @@ internal sealed partial class AgentThreadTimeline : AgentBindable
                 }
                 break;
             case AgentToolCallStarted started:
-                GetTool(started, started.ToolCallId, started.ParentToolCallId, started);
+                var startingTool = GetTool(started, started.ToolCallId, started.ParentToolCallId, started);
+                UpdateGrouping(startingTool);
+                RecordToolActivity(started, startingTool, started.ParentToolCallId);
                 break;
             case AgentToolCallUpdated updated:
-                GetTool(updated, updated.ToolCallId, updated.ParentToolCallId).Update(updated.Status, updated.Message);
+                var updatingTool = GetTool(updated, updated.ToolCallId, updated.ParentToolCallId);
+                updatingTool.Update(updated.Status, updated.Message);
+                UpdateGrouping(updatingTool);
+                RecordToolActivity(updated, updatingTool, updated.ParentToolCallId);
                 break;
             case AgentToolCallCompleted completed:
-                GetTool(completed, completed.ToolCallId, completed.ParentToolCallId).Complete(completed);
+                var completedTool = GetTool(completed, completed.ToolCallId, completed.ParentToolCallId);
+                completedTool.Complete(completed);
+                UpdateGrouping(completedTool);
+                RecordToolActivity(completed, completedTool, completed.ParentToolCallId);
+                break;
+            case AgentTurnPhaseChanged phase:
+                ChangePhase(phase, phase.Phase, phase.ToolName);
+                break;
+            case AgentContextCompacted compacted:
+                ChangePhase(compacted, AgentTurnPhase.Thinking);
+                _timeline.Add(new AgentTimelineDividerItem(compacted.TurnId, AgentStrings.ContextCompacted, Icon.ArrowMinimize));
+                break;
+            case AgentThreadModelChanged changed:
+                _timeline.Add(new AgentModelChangeItem(changed));
                 break;
             case AgentPlanUpdated plan:
                 if (plan.TurnId is Guid id && _plans.TryGetValue(id, out var existing))
@@ -97,20 +138,27 @@ internal sealed partial class AgentThreadTimeline : AgentBindable
                 }
                 break;
             case AgentTurnHistoryRecorded { TransactionCount: > 0 } history:
-                _timeline.Add(new AgentHistoryRecordItem(history));
+                int index = _timeline.Count;
+                if (_timeline.LastOrDefault() is AgentTurnStatsItem stats && stats.TurnId == history.TurnId)
+                    index--;
+                _timeline.Insert(index, new AgentHistoryRecordItem(history));
                 break;
             case AgentErrorNotice notice:
                 AddNotice(notice.TurnId, notice.Message, FAInfoBarSeverity.Warning);
                 break;
             case AgentTurnCompleted turnCompleted:
-                foreach (var item in _messages.Values.Where(item => item.TurnId == turnCompleted.TurnId && !item.CanCopy))
-                    item.Finish();
+                FinishActivity(turnCompleted);
+                if (turnCompleted is { DurationMs: not null } or { InputTokens: not null } or { OutputTokens: not null }
+                    or { CachedInputTokens: not null })
+                    _timeline.Add(new AgentTurnStatsItem(turnCompleted));
                 break;
             case AgentTurnFailed failed:
+                FinishActivity(failed);
                 FinishTools(failed.TurnId, AgentToolStatus.Failed);
                 AddNotice(failed.TurnId, failed.Error, FAInfoBarSeverity.Error);
                 break;
             case AgentTurnCancelled cancelled:
+                FinishActivity(cancelled);
                 FinishTools(cancelled.TurnId, AgentToolStatus.Cancelled);
                 AddNotice(cancelled.TurnId, AgentStrings.TurnStopped, FAInfoBarSeverity.Informational);
                 break;
@@ -123,7 +171,7 @@ internal sealed partial class AgentThreadTimeline : AgentBindable
         var key = (entry.TurnId, parentId, messageId);
         if (!_messages.TryGetValue(key, out var item))
         {
-            item = new AgentAssistantItem(entry.TurnId);
+            item = new AgentAssistantItem(entry.TurnId, entry.Timestamp);
             _messages.Add(key, item);
             (parent?.Children ?? _timeline).Add(item);
             if (parent is not null)
@@ -144,6 +192,8 @@ internal sealed partial class AgentThreadTimeline : AgentBindable
         {
             tool = new AgentToolItem(description ?? new AgentToolCallStarted(
                 entry.ThreadId, entry.TurnId, entry.Timestamp, toolCallId, AgentStrings.Tool));
+            if (_stopWorkTurn.HasValue && entry.TurnId == _stopWorkTurn)
+                tool.StopAction = _stopWork;
             _tools.Add(key, tool);
         }
         else if (description is not null)
@@ -185,9 +235,17 @@ internal sealed partial class AgentThreadTimeline : AgentBindable
                 return;
         }
 
-        _timeline.Remove(child);
         child.Parent = parent;
+        UpdateGrouping(child);
+        int index = _timeline.IndexOf(child);
+        if (index >= 0)
+        {
+            _timeline.RemoveAt(index);
+            if (index > 0 && _timeline[index - 1] is AgentToolItem previous)
+                UpdateGrouping(previous);
+        }
         parent.Children.Add(child);
+        UpdateGrouping(parent);
         TrackBackgroundWork(parent);
     }
 
