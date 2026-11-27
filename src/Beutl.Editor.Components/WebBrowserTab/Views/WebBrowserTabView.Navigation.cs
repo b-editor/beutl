@@ -24,9 +24,13 @@ internal partial class WebBrowserTabView
     private (Uri Request, Uri? Referrer)? _nativeNewWindow;
     private string? _expectedWebView2HtmlPayload;
 
+    private bool ReportsNavigationCommits => _reportsNavigationCommits ?? _nativeBrowserHandler is MacOSBrowserDownloadHandler;
+
     // The page whose document makes the current requests. BlankPage stands for a document of unknown origin.
     private Uri? DocumentReferrer => (_openerPageCommitted ? null : _openerNavigation?.Referrer)
-        ?? (_pageDownloadReferrerUncertain ? WebBrowserTabViewModel.BlankPage : _viewModel?.CurrentUri);
+        ?? (_pageDownloadReferrerUncertain
+            ? (ReportsNavigationCommits ? _viewModel?.CommittedUri : WebBrowserTabViewModel.BlankPage)
+            : _viewModel?.CurrentUri);
 
     internal void OnNativeNavigationCommitted(Uri uri)
     {
