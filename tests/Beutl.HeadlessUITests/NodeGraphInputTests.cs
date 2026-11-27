@@ -186,6 +186,40 @@ public class NodeGraphInputTests
     }
 
     [AvaloniaTest]
+    public async Task Mouse_wheel_stays_in_the_node_text_box_at_both_scroll_limits()
+    {
+        using GraphSession session = await GraphSession.CreateAsync(_ => false);
+        var expression = session.Model.Nodes.Select(node => node.GraphNode).OfType<ExpressionNode>().Single();
+        expression.EditorSize.Value = new NodeEditorSize(CodeEditorHeight: 160);
+        expression.Expression.Property!.SetValue(string.Join('\n', Enumerable.Range(1, 30).Select(line => $"// Line {line:00}")) + "\n1");
+        HeadlessTestHelpers.Render(3);
+
+        TextBox input = session.View.GetVisualDescendants().OfType<TextBox>().Single();
+        ScrollViewer scroll = input.GetVisualDescendants().OfType<ScrollViewer>().Single();
+        Point point = HeadlessTestHelpers.Center(scroll, session.Window);
+        Matrix before = session.Zoom.Matrix;
+        Assert.That(scroll.ScrollBarMaximum.Y, Is.GreaterThan(50));
+
+        session.Window.MouseWheel(point, new Vector(0, -1));
+        Assert.That(scroll.Offset.Y, Is.InRange(1, scroll.ScrollBarMaximum.Y - 1));
+        Assert.That(session.Zoom.Matrix, Is.EqualTo(before));
+        session.Window.MouseWheel(point, new Vector(0, -30));
+        Assert.That(scroll.Offset.Y, Is.EqualTo(scroll.ScrollBarMaximum.Y));
+        session.Window.MouseWheel(point, new Vector(0, -1));
+        HeadlessTestHelpers.Render(3);
+        HeadlessCapture.SaveIfRequested(session.Window, nameof(NodeGraphInputTests), "text-box-scroll-end");
+        Assert.That(session.Zoom.Matrix, Is.EqualTo(before));
+
+        session.Window.MouseWheel(point, new Vector(0, 30));
+        Assert.That(scroll.Offset.Y, Is.Zero);
+        session.Window.MouseWheel(point, new Vector(0, 1));
+        Assert.That(session.Zoom.Matrix, Is.EqualTo(before));
+
+        session.Scroll(new Vector(0, 1));
+        Assert.That(session.Zoom.ZoomX, Is.GreaterThan(before.M11));
+    }
+
+    [AvaloniaTest]
     [TestCase(0.5, 320, false)]
     [TestCase(1, 640, false)]
     [TestCase(2, 640, true)]
