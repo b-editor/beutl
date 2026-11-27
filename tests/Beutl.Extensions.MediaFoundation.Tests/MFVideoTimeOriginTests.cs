@@ -28,6 +28,18 @@ public class MFVideoTimeOriginTests
     public void EmptyEditBeforeMedia_UsesTheMediaTrim()
         => Assert.That(Read(Mp4(Track(new[] { -1L, 200L })), 2_000_000), Is.Zero);
 
+    [TestCase(0, 0L)]
+    [TestCase(0, 5_000_000L)]
+    [TestCase(1, 0L)]
+    [TestCase(1, 5_000_000L)]
+    public void LeadingEmptyEdit_KeepsTheVideoDelay(int version, long firstTimestamp)
+    {
+        byte[] movieHeader = Box("mvhd", UInt32((uint)version << 24), new byte[version == 1 ? 16 : 8], UInt32(8000));
+        byte[] file = Mp4(movieHeader, Track(new[] { -1L, 0L }, version: version));
+
+        Assert.That(Read(file, firstTimestamp), Is.EqualTo(5_000_000));
+    }
+
     [Test]
     public void VersionOne_HandlesMediaTimesBeyond32Bits()
     {
@@ -117,8 +129,8 @@ public class MFVideoTimeOriginTests
         return MFVideoTimeOrigin.GetFirstVideoTime(stream, timestamp);
     }
 
-    private static byte[] Mp4(params byte[][] tracks)
-        => Join(Box("ftyp", "isom"u8.ToArray()), Box("moov", tracks));
+    private static byte[] Mp4(params byte[][] movieBoxes)
+        => Join(Box("ftyp", "isom"u8.ToArray()), Box("moov", movieBoxes));
 
     private static byte[] Track(long[]? edits, uint scale = 1000, int version = 0,
         string handler = "vide", bool enabled = true, uint rate = 0x10000, uint? count = null)

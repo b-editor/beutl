@@ -29,7 +29,7 @@ internal sealed class MFDecoder : IMediaFoundationVideoDecoder
     private readonly IMFSourceReader? _videoSourceReader;
     private readonly IMFAttributes? _attributes;
     private MFMediaInfo _mediaInfo;
-    // The timestamp of the container start; MF leaves an MP4 video edit list's trim in its timestamps.
+    // Subtract this from sample timestamps to place them on the container timeline.
     private long _originTimeStamp = 0;
     // Frames before the first video frame show it.
     private int _firstFrame = 0;
@@ -138,7 +138,9 @@ internal sealed class MFDecoder : IMediaFoundationVideoDecoder
 
         if (frame < currentFrame || (currentFrame + _thresholdFrameCount) < frame)
         {
-            long destTimePosition = TimestampUtilities.ConvertTimeStampFromFrame(frame, _mediaInfo.Fps);
+            // When MF omits a leading empty edit, it also seeks on that shortened timeline.
+            long destTimePosition = Math.Max(0,
+                TimestampUtilities.ConvertTimeStampFromFrame(frame, _mediaInfo.Fps) + Math.Min(0, _originTimeStamp));
             try
             {
                 SeekVideo(destTimePosition);
