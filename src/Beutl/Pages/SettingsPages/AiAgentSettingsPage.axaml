@@ -97,6 +97,31 @@
                     </ctrls:OptionsGroupPanel>
                 </Border>
 
+                <TextBlock Margin="0,12,0,0"
+                           Text="{x:Static lang:SettingsStrings.AiAgents_Notifications}"
+                           Theme="{StaticResource BodyStrongTextBlockStyle}" />
+                <Border Classes="options-group">
+                    <ctrls:OptionsGroupPanel>
+                        <ctrls:OptionsDisplayItem Header="{x:Static lang:SettingsStrings.AiAgents_EnableNotifications}"
+                                                  Description="{x:Static lang:SettingsStrings.AiAgents_EnableNotifications_Description}">
+                            <ctrls:OptionsDisplayItem.ActionButton>
+                                <ToggleSwitch x:Name="EnableAgentNotifications" Classes="left" Theme="{StaticResource CompactToggleSwitchStyle}"
+                                              AutomationProperties.Name="{x:Static lang:SettingsStrings.AiAgents_EnableNotifications}"
+                                              IsChecked="{Binding RuntimeSettings.EnableNotifications.Value, Mode=TwoWay}" />
+                            </ctrls:OptionsDisplayItem.ActionButton>
+                        </ctrls:OptionsDisplayItem>
+                        <ctrls:OptionsDisplayItem Header="{x:Static lang:SettingsStrings.AiAgents_EnableNotificationSound}"
+                                                  Description="{x:Static lang:SettingsStrings.AiAgents_EnableNotificationSound_Description}"
+                                                  IsEnabled="{Binding RuntimeSettings.EnableNotifications.Value}">
+                            <ctrls:OptionsDisplayItem.ActionButton>
+                                <ToggleSwitch x:Name="EnableAgentNotificationSound" Classes="left" Theme="{StaticResource CompactToggleSwitchStyle}"
+                                              AutomationProperties.Name="{x:Static lang:SettingsStrings.AiAgents_EnableNotificationSound}"
+                                              IsChecked="{Binding RuntimeSettings.EnableNotificationSound.Value, Mode=TwoWay}" />
+                            </ctrls:OptionsDisplayItem.ActionButton>
+                        </ctrls:OptionsDisplayItem>
+                    </ctrls:OptionsGroupPanel>
+                </Border>
+
                 <DockPanel Margin="0,12,0,0">
                     <Button x:Name="RuntimeRecheck" DockPanel.Dock="Right"
                             Command="{Binding RuntimeSettings.RecheckProviders}"

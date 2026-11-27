@@ -192,5 +192,6 @@ public sealed record AgentSessionStateChanged(
     Guid ThreadId, Guid? TurnId, DateTimeOffset Timestamp, AgentSessionState State, string? ExternalSessionId = null)
     : AgentTimelineEvent(ThreadId, TurnId, Timestamp);
 
-public sealed record AgentErrorNotice(Guid ThreadId, Guid? TurnId, DateTimeOffset Timestamp, string Message)
+public sealed record AgentErrorNotice(Guid ThreadId, Guid? TurnId, DateTimeOffset Timestamp, string Message,
+    AgentDiagnosticKind? DiagnosticKind = null)
     : AgentTimelineEvent(ThreadId, TurnId, Timestamp);

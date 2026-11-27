@@ -11,10 +11,19 @@ internal sealed partial class AgentThreadBar : UserControl
     private AgentThreadMetadata? _actionThread;
     private Flyout ThreadPicker => (Flyout)ThreadSwitcherButton.Flyout!;
     private Flyout ThreadActionFlyout => (Flyout)FlyoutBase.GetAttachedFlyout(ThreadSwitcherButton)!;
+    internal bool IsThreadPickerOpen => ThreadPicker.IsOpen;
 
     public AgentThreadBar()
     {
         InitializeComponent();
+    }
+
+    internal void OpenThreadPicker()
+    {
+        if (ThreadPicker.IsOpen)
+            ThreadSearchBox.Focus();
+        else
+            ThreadPicker.ShowAt(ThreadSwitcherButton);
     }
 
     private void OnThreadPickerOpening(object? sender, EventArgs e)

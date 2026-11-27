@@ -12,13 +12,16 @@
         <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto" ColumnSpacing="2" VerticalAlignment="Center">
             <Button x:Name="ThreadSwitcherButton" Theme="{StaticResource TransparentButton}" Padding="7,4" MinHeight="28"
                     HorizontalAlignment="Left" HorizontalContentAlignment="Stretch" IsEnabled="{Binding CanManage}"
-                    ToolTip.Tip="{Binding ThreadTitle}" ToolTip.ShowOnDisabled="True"
-                    AutomationProperties.Name="{x:Static lang:AgentStrings.ThreadPicker}" AutomationProperties.HelpText="{Binding ThreadTitle}">
-                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="7">
+                    ToolTip.Tip="{Binding ThreadPickerTooltip}" ToolTip.ShowOnDisabled="True"
+                    AutomationProperties.Name="{x:Static lang:AgentStrings.ThreadPicker}" AutomationProperties.HelpText="{Binding ThreadPickerTooltip}">
+                <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="7">
                     <TextBlock Text="{Binding ThreadTitle}" FontSize="13" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"
                                Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
                     <icons:FluentIcon Grid.Column="1" Icon="ChevronDown" FontSize="11" VerticalAlignment="Center"
                                       Foreground="{DynamicResource TextFillColorTertiaryBrush}" />
+                    <Ellipse Grid.Column="2" x:Name="BackgroundThreadActivityDot" Width="5" Height="5" VerticalAlignment="Center"
+                             Fill="{DynamicResource AccentTextFillColorPrimaryBrush}" IsVisible="{Binding HasBackgroundThreadActivity}"
+                             ToolTip.Tip="{x:Static lang:AgentStrings.BackgroundThreadActivity}" />
                 </Grid>
                 <Button.Flyout>
                     <Flyout Placement="BottomEdgeAlignedLeft" FlyoutPresenterClasses="agent-thread-picker"
@@ -154,7 +157,7 @@
             </Border>
             <Button Grid.Column="2" Theme="{StaticResource ToolTabBarIconButtonTheme}" Command="{Binding NewThreadAsync}"
                     IsEnabled="{Binding CanManage}" Width="26" Height="26" Padding="0"
-                    ToolTip.Tip="{x:Static lang:AgentStrings.NewThread}" AutomationProperties.Name="{x:Static lang:AgentStrings.NewThread}">
+                    ToolTip.Tip="{Binding NewThreadTooltip}" AutomationProperties.Name="{x:Static lang:AgentStrings.NewThread}">
                 <icons:FluentIcon Icon="Add" FontSize="15" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
             </Button>
             <ToggleButton Grid.Column="3" Theme="{StaticResource ToolTabVisibilityToggleButtonTheme}"
@@ -189,7 +192,7 @@
             </Button>
             <Button Grid.Column="4" x:Name="StopForPermission" Theme="{StaticResource ToolTabBarIconButtonTheme}"
                     Width="26" Height="26" Padding="0" IsVisible="{Binding !ShowComposer}" IsEnabled="{Binding CanStop}"
-                    Command="{Binding StopAsync}" ToolTip.Tip="{x:Static lang:AgentStrings.Stop}" AutomationProperties.Name="{x:Static lang:AgentStrings.Stop}">
+                    Command="{Binding StopAsync}" ToolTip.Tip="{Binding StopTooltip}" AutomationProperties.Name="{x:Static lang:AgentStrings.Stop}">
                 <icons:FluentIcon Icon="Stop" IconVariant="Filled" FontSize="11" />
             </Button>
         </Grid>

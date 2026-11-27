@@ -965,4 +965,25 @@
   <data name="AiAgents_RuntimeComposerSendKeyCommandEnter" xml:space="preserve">
     <value>⌘+Enter</value>
   </data>
+  <data name="AiAgents_Notifications" xml:space="preserve">
+    <value>通知</value>
+  </data>
+  <data name="AiAgents_EnableNotifications" xml:space="preserve">
+    <value>アプリ内通知</value>
+  </data>
+  <data name="AiAgents_EnableNotifications_Description" xml:space="preserve">
+    <value>バックグラウンドのスレッドの承認依頼、質問、ターンの結果を表示します。</value>
+  </data>
+  <data name="AiAgents_EnableNotificationSound" xml:space="preserve">
+    <value>通知音</value>
+  </data>
+  <data name="AiAgents_EnableNotificationSound_Description" xml:space="preserve">
+    <value>通知が表示されたときに音を鳴らします。</value>
+  </data>
+  <data name="AiAgents_RuntimeAvailableVersion" xml:space="preserve">
+    <value>v{0} · {1}</value>
+  </data>
+  <data name="AiAgents_RuntimeOutdated" xml:space="preserve">
+    <value>v{0} · 更新が必要（v{1} 以降）&#10;{2}</value>
+  </data>
 </root>

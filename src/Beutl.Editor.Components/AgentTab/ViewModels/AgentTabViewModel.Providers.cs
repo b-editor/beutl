@@ -30,10 +30,11 @@ internal sealed partial class AgentTabViewModel
                 {
                     _permissionMode = PermissionModes.First(item => item.Mode == _host.DefaultPermissionMode);
                     Notify(nameof(SelectedPermissionMode));
+                    Notify(nameof(PermissionModeTooltip));
                 }
             }
         }
-        else
+        else if (args.PropertyName is not (nameof(AiAgentConfig.EnableNotifications) or nameof(AiAgentConfig.EnableNotificationSound)))
         {
             _ = RefreshProvidersAsync();
         }
@@ -53,7 +54,8 @@ internal sealed partial class AgentTabViewModel
                 return;
 
             _detectedProviders = probes.Select(probe =>
-                new AgentProviderChoice(probe.Provider, probe.IsAvailable, probe.Error)).ToArray();
+                new AgentProviderChoice(probe.Provider, probe.IsAvailable, probe.CliVersion,
+                    AgentDiagnosticClassifier.FromProbe(probe))).ToArray();
             InvalidateModelCatalogs();
             UpdateProviderSelection();
             UpdateThreadRows();
@@ -74,9 +76,9 @@ internal sealed partial class AgentTabViewModel
         var selected = _detectedProviders.FirstOrDefault(provider => provider.Descriptor.Id == selectedId);
         if (selected is null && _selectedThread is { } thread)
         {
-            selected = new AgentProviderChoice(
-                new AgentProviderDescriptor(thread.ProviderId, AgentProviderKind.Acp, thread.ProviderId, ""), false,
-                AgentStrings.ProviderUnavailable);
+            var provider = new AgentProviderDescriptor(thread.ProviderId, AgentProviderKind.Acp, thread.ProviderId, "");
+            selected = new AgentProviderChoice(provider, false, null,
+                AgentDiagnosticClassifier.FromProbe(new AgentProviderProbeResult(provider, null, null, AgentStrings.ProviderUnavailable)));
             Providers = [.. _detectedProviders, selected];
         }
         else

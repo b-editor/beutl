@@ -47,7 +47,7 @@
               VerticalAlignment="Center"
               VerticalContentAlignment="Center"
               SelectionChanged="OnSelectionChanged"
-              ToolTip.Tip="{Binding SelectedPermissionMode.Label}"
+              ToolTip.Tip="{Binding PermissionModeTooltip}"
               AutomationProperties.Name="{x:Static lang:AgentStrings.PermissionMode}">
         <ComboBox.ItemTemplate>
             <DataTemplate x:DataType="vm:AgentPermissionChoiceItem">

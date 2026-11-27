@@ -140,7 +140,8 @@ public sealed class AgentTabViewTests
             Click(window, open);
             await HeadlessTestHelpers.WaitUntilAsync(() => viewModel.SelectedThread?.Id == opening.Id && viewModel.CanManage);
             Assert.That(providerPicker.IsEnabled, Is.True);
-            Assert.That(ToolTip.GetTip(providerPicker), Is.EqualTo(viewModel.ProviderStatusLabel));
+            string shortcut = OperatingSystem.IsMacOS() ? "Cmd+M" : "Ctrl+M";
+            Assert.That(ToolTip.GetTip(providerPicker), Is.EqualTo(string.Format(AgentStrings.ShortcutTooltip, viewModel.ProviderStatusLabel, shortcut)));
 
             var overflow = bar.GetVisualDescendants().OfType<Button>()
                 .Single(button => AutomationProperties.GetName(button) == AgentStrings.ThreadActions);

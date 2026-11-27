@@ -10,17 +10,20 @@ internal sealed partial class AgentThreadTimeline : AgentBindable
 {
     private readonly ObservableCollection<AgentTimelineItemViewModel> _timeline = [];
     private readonly Dictionary<(Guid? TurnId, string? ParentId, string? MessageId), AgentAssistantItem> _messages = new();
+    private readonly List<AgentAssistantItem> _assistantItems = [];
     private readonly Dictionary<(Guid? TurnId, string ToolCallId), AgentToolItem> _tools = new();
     private readonly Dictionary<(Guid? TurnId, string ToolCallId), List<AgentToolItem>> _waitingTools = new();
     private readonly Dictionary<Guid, AgentPlanItem> _plans = new();
     private readonly Dictionary<Guid, AgentTurnStatsItem> _turnHeaders = new();
     private readonly Dictionary<Guid, AgentAssistantItem> _replyCandidates = new();
     private readonly Func<AgentToolItem, Task>? _stopWork;
+    private readonly string? _projectDirectory;
     private Guid? _stopWorkTurn;
 
-    public AgentThreadTimeline(Func<AgentToolItem, Task>? stopWork = null)
+    public AgentThreadTimeline(Func<AgentToolItem, Task>? stopWork = null, string? projectDirectory = null)
     {
         _stopWork = stopWork;
+        _projectDirectory = projectDirectory;
         Items = new(_timeline);
     }
 
@@ -79,6 +82,7 @@ internal sealed partial class AgentThreadTimeline : AgentBindable
         {
             ClearReplyCandidate(last);
             FinishActivity(last);
+            TurnLayoutChanged?.Invoke();
         }
     }
 
@@ -90,6 +94,9 @@ internal sealed partial class AgentThreadTimeline : AgentBindable
             tool.Dispose();
         foreach (var user in _timeline.OfType<AgentUserItem>())
             user.Dispose();
+        foreach (var assistant in _assistantItems)
+            assistant.Dispose();
+        _assistantItems.Clear();
         _tools.Clear();
         _waitingTools.Clear();
         _messages.Clear();
@@ -112,11 +119,20 @@ internal sealed partial class AgentThreadTimeline : AgentBindable
             case AgentUserMessage user:
                 ResetBackgroundWork(user.TurnId);
                 StartActivity(user);
-                _timeline.Add(new AgentUserItem(user));
-                if (user.TurnId is { } turnId && !_turnHeaders.ContainsKey(turnId))
+                int segment = 0;
+                if (user.TurnId is { } steeredTurn && _turnHeaders.TryGetValue(steeredTurn, out var previous))
                 {
-                    var header = new AgentTurnStatsItem(turnId, _activityStartedAt);
-                    _turnHeaders.Add(turnId, header);
+                    FinishReasoning(user, null);
+                    ClearReplyCandidate(user);
+                    if (previous.IsRunning)
+                        previous.Finish(user);
+                    segment = previous.Segment + 1;
+                }
+                _timeline.Add(new AgentUserItem(user));
+                if (user.TurnId is { } turnId)
+                {
+                    var header = new AgentTurnStatsItem(turnId, segment == 0 ? _activityStartedAt : user.Timestamp, segment);
+                    _turnHeaders[turnId] = header;
                     _timeline.Add(header);
                 }
                 break;
@@ -224,7 +240,15 @@ internal sealed partial class AgentThreadTimeline : AgentBindable
                     ContextUsage = contextUsage;
                 if (turnCompleted.TurnId is { } completedId && _replyCandidates.Remove(completedId, out var assistant)
                     && !string.IsNullOrWhiteSpace(assistant.Text))
+                {
                     assistant.MarkFinal();
+                    if (_turnHeaders.TryGetValue(completedId, out var section)
+                        && _timeline.IndexOf(assistant) < _timeline.IndexOf(section))
+                    {
+                        _timeline.Remove(assistant);
+                        _timeline.Add(assistant);
+                    }
+                }
                 TurnLayoutChanged?.Invoke();
                 break;
             case AgentTurnFailed failed:
@@ -260,8 +284,9 @@ internal sealed partial class AgentThreadTimeline : AgentBindable
         var key = (entry.TurnId, parentId, messageId);
         if (!_messages.TryGetValue(key, out var item) || (messageId is null && item.ReceivedCompletion))
         {
-            item = new AgentAssistantItem(entry.TurnId, entry.Timestamp);
+            item = new AgentAssistantItem(entry.TurnId, entry.Timestamp, _projectDirectory);
             _messages[key] = item;
+            _assistantItems.Add(item);
             (parent?.Children ?? _timeline).Add(item);
             if (parent is not null)
                 TrackBackgroundWork(parent);

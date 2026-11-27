@@ -129,7 +129,7 @@
 
                 <Button Grid.Column="1" x:Name="ModelButton" Theme="{StaticResource TransparentButton}" MaxWidth="190" Padding="7,3" HorizontalAlignment="Right"
                         Height="30" IsEnabled="{Binding CanChooseModel}"
-                        ToolTip.Tip="{Binding ProviderTooltip}" ToolTip.ShowOnDisabled="True"
+                        ToolTip.Tip="{Binding ModelPickerTooltip}" ToolTip.ShowOnDisabled="True"
                         AutomationProperties.Name="{Binding ModelButtonLabel}" AutomationProperties.HelpText="{x:Static lang:AgentStrings.ModelPicker}">
                     <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="5">
                         <views:AgentProviderIcon Kind="{Binding ProviderKind}" Width="15" Height="15"
@@ -150,7 +150,7 @@
                 <Panel Grid.Column="2">
                     <Button x:Name="StopButton" Width="30" Height="30" Padding="0"
                             Command="{Binding StopAsync}" IsEnabled="{Binding CanStop}" IsVisible="{Binding !ShowSendButton}"
-                            ToolTip.Tip="{x:Static lang:AgentStrings.Stop}" AutomationProperties.Name="{x:Static lang:AgentStrings.Stop}">
+                            ToolTip.Tip="{Binding StopTooltip}" AutomationProperties.Name="{x:Static lang:AgentStrings.Stop}">
                         <icons:FluentIcon Icon="Stop" IconVariant="Filled" FontSize="11" />
                     </Button>
                     <Button x:Name="SendButton" Classes="accent" Width="30" Height="30" Padding="0"

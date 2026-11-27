@@ -135,7 +135,7 @@ internal sealed class AgentAttachment : AgentBindable, IDisposable
                 return new Bitmap(stream);
             return width >= height ? Bitmap.DecodeToWidth(stream, ThumbnailExtent) : Bitmap.DecodeToHeight(stream, ThumbnailExtent);
         }
-        catch (Exception ex) when (ex is IOException or ArgumentException or UnauthorizedAccessException
+        catch (Exception ex) when (ex is IOException or InvalidDataException or ArgumentException or UnauthorizedAccessException
             or InvalidOperationException or NotSupportedException)
         {
             return null;

@@ -50,6 +50,12 @@ public sealed class AgentRuntimeManager : IAsyncDisposable
     public Task<AgentProviderProbeResult> ProbeProviderAsync(AgentProviderDescriptor provider, CancellationToken cancellationToken = default)
         => _locator.ProbeAsync(provider, cancellationToken);
 
+    public async Task<bool?> CheckProviderAuthenticationAsync(AgentProviderDescriptor provider, CancellationToken cancellationToken = default)
+    {
+        var probe = await ProbeProviderAsync(provider, cancellationToken).ConfigureAwait(false);
+        return await _locator.CheckAuthenticationAsync(probe, cancellationToken).ConfigureAwait(false);
+    }
+
     public async Task<IReadOnlyList<AgentModelDescriptor>> ListModelsAsync(
         string projectPath, AgentProviderDescriptor provider, Guid? threadId = null, CancellationToken cancellationToken = default)
     {
@@ -476,7 +482,7 @@ public sealed class AgentRuntimeManager : IAsyncDisposable
         }
     }
 
-    private static string GetWorkingDirectory(string projectPath)
+    public static string GetWorkingDirectory(string projectPath)
     {
         string path = Path.GetFullPath(projectPath);
         return Directory.Exists(path) ? path : Path.GetDirectoryName(path) ?? path;

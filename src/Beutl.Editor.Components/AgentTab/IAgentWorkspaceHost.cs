@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using Avalonia.Controls;
 using Avalonia.Media.Imaging;
 using Beutl.Agents;
 using Beutl.Configuration;
@@ -17,10 +18,13 @@ internal interface IAgentWorkspaceHost
     string? DefaultReasoningEffort { get; }
     bool SteerOnSend { get; }
     AgentComposerSendKey ComposerSendKey { get; }
+    bool EnableNotifications { get; }
+    bool EnableNotificationSound { get; }
     event EventHandler<PropertyChangedEventArgs>? RuntimeSettingsChanged;
     IReadOnlyList<AgentProviderDescriptor> GetProviders();
     IReadOnlyList<AgentComposerSuggestion> BundledSkills { get; }
     AgentTabViewModel? CreateWorkspace(IEditorContext editor);
+    Task OpenAiAgentSettingsAsync(Window owner);
     Task<IReadOnlyList<AgentMentionCandidate>> GetMentionCandidatesAsync(
         IEditorContext editor, string projectPath, CancellationToken cancellationToken);
 

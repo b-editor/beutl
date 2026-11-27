@@ -111,6 +111,8 @@
     "DefaultReasoningEffort": "",
     "SteerOnSend": false,
     "ComposerSendKey": "CtrlEnter",
+    "EnableNotifications": false,
+    "EnableNotificationSound": false,
     "ClaudeCodeExecutablePath": "",
     "CodexExecutablePath": "",
     "CustomRuntimeProvidersJson": "",

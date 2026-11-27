@@ -46,6 +46,18 @@ internal sealed partial class AgentComposerView : UserControl
         PromptBox.CaretIndex = PromptBox.Text?.Length ?? 0;
     }
 
+    internal bool HasOpenSuggestions => SuggestionsPopup.IsOpen;
+    internal bool IsModelPickerOpen => ModelButton.Flyout?.IsOpen == true;
+    internal void DismissSuggestions() => HandleSuggestionKey(Key.Escape);
+
+    internal void OpenModelPicker()
+    {
+        if (IsModelPickerOpen)
+            ModelPicker.FocusSearch();
+        else
+            ModelButton.Flyout?.ShowAt(ModelButton);
+    }
+
     protected override void OnDataContextChanged(EventArgs e)
     {
         base.OnDataContextChanged(e);

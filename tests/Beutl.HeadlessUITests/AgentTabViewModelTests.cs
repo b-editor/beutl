@@ -1,5 +1,6 @@
 ﻿using System.Text.Json.Nodes;
 using System.ComponentModel;
+using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
 using Beutl.Agents;
 using Beutl.Configuration;
@@ -439,11 +440,11 @@ internal sealed class AgentTabTestWorkspace : IAgentWorkspaceHost, IAsyncDisposa
     private readonly AgentAttachmentStore _attachmentStore;
     private Guid? _revertibleTurn;
 
-    public AgentTabTestWorkspace()
+    public AgentTabTestWorkspace(IAgentNotificationSoundPlayer? soundPlayer = null, bool probeVersions = false)
     {
         _attachmentStore = new(Root);
-        Runtime = new AgentRuntimeManager(Bridge, new AgentThreadStore(Root));
-        ThreadSessions = new(Root);
+        Runtime = new AgentRuntimeManager(Bridge, new AgentThreadStore(Root), new AgentBinaryLocator(probeVersions));
+        ThreadSessions = new(Root, soundPlayer);
     }
 
     public AgentRuntimeManager Runtime { get; }
@@ -457,6 +458,9 @@ internal sealed class AgentTabTestWorkspace : IAgentWorkspaceHost, IAsyncDisposa
     public AgentPermissionMode DefaultPermissionMode { get; init; } = AgentPermissionMode.Auto;
     public string? DefaultModel { get; init; }
     public string? DefaultReasoningEffort { get; init; }
+    public bool EnableNotifications { get; set; } = true;
+    public bool EnableNotificationSound { get; set; } = true;
+    public Window? SettingsOwner { get; private set; }
     public bool SteerOnSend
     {
         get;
@@ -490,6 +494,12 @@ internal sealed class AgentTabTestWorkspace : IAgentWorkspaceHost, IAsyncDisposa
     public IReadOnlyList<AgentComposerSuggestion> BundledSkills { get; init; } = [];
 
     public AgentTabViewModel CreateWorkspace(IEditorContext editor) => new(this, editor, ProjectPath);
+
+    public Task OpenAiAgentSettingsAsync(Window owner)
+    {
+        SettingsOwner = owner;
+        return Task.CompletedTask;
+    }
 
     public Task<IReadOnlyList<AgentMentionCandidate>> GetMentionCandidatesAsync(
         IEditorContext editor, string projectPath, CancellationToken cancellationToken) =>

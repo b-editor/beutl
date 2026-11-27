@@ -32,6 +32,8 @@ public class AiAgentConfigTests
             Assert.That(config.DefaultReasoningEffort.Value, Is.Empty);
             Assert.That(config.SteerOnSend.Value, Is.False);
             Assert.That(config.ComposerSendKey.Value, Is.EqualTo(AgentComposerSendKey.Enter));
+            Assert.That(config.EnableNotifications.Value, Is.True);
+            Assert.That(config.EnableNotificationSound.Value, Is.True);
             Assert.That(config.ClaudeCodeExecutablePath.Value, Is.Empty);
             Assert.That(config.CodexExecutablePath.Value, Is.Empty);
             Assert.That(config.CustomRuntimeProvidersJson.Value, Is.Empty);
@@ -60,6 +62,8 @@ public class AiAgentConfigTests
             DefaultReasoningEffort = { Value = "high" },
             SteerOnSend = { Value = true },
             ComposerSendKey = { Value = AgentComposerSendKey.CtrlEnter },
+            EnableNotifications = { Value = false },
+            EnableNotificationSound = { Value = false },
             ClaudeCodeExecutablePath = { Value = "/tools/claude" },
             CodexExecutablePath = { Value = "/tools/codex" },
             CustomRuntimeProvidersJson = { Value = """[{"id":"custom-acp","displayName":"Example","command":"acp","arguments":[]}]""" },
@@ -88,6 +92,8 @@ public class AiAgentConfigTests
             Assert.That(restored.DefaultReasoningEffort.Value, Is.EqualTo("high"));
             Assert.That(restored.SteerOnSend.Value, Is.True);
             Assert.That(restored.ComposerSendKey.Value, Is.EqualTo(AgentComposerSendKey.CtrlEnter));
+            Assert.That(restored.EnableNotifications.Value, Is.False);
+            Assert.That(restored.EnableNotificationSound.Value, Is.False);
             Assert.That(restored.ClaudeCodeExecutablePath.Value, Is.EqualTo(source.ClaudeCodeExecutablePath.Value));
             Assert.That(restored.CodexExecutablePath.Value, Is.EqualTo(source.CodexExecutablePath.Value));
             Assert.That(restored.CustomRuntimeProvidersJson.Value, Is.EqualTo(source.CustomRuntimeProvidersJson.Value));
@@ -105,6 +111,21 @@ public class AiAgentConfigTests
 
         Assert.That(config.DefaultModel.Value, Is.EqualTo("example-model"));
         Assert.That(config.DefaultReasoningEffort.Value, Is.Empty);
+        Assert.That(config.EnableNotifications.Value, Is.True);
+        Assert.That(config.EnableNotificationSound.Value, Is.True);
+    }
+
+    [Test]
+    public void Notification_changes_raise_RuntimeSettingsChanged()
+    {
+        var config = new AiAgentConfig();
+        var changes = new List<string?>();
+        config.RuntimeSettingsChanged += (_, args) => changes.Add(args.PropertyName);
+
+        config.EnableNotifications.Value = false;
+        config.EnableNotificationSound.Value = false;
+
+        Assert.That(changes, Is.EqualTo(new[] { nameof(config.EnableNotifications), nameof(config.EnableNotificationSound) }));
     }
 
     [Test]

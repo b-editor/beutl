@@ -898,4 +898,25 @@
   <data name="AiAgents_RuntimeComposerSendKeyCommandEnter" xml:space="preserve">
     <value>⌘+Enter</value>
   </data>
+  <data name="AiAgents_Notifications" xml:space="preserve">
+    <value>通知</value>
+  </data>
+  <data name="AiAgents_EnableNotifications" xml:space="preserve">
+    <value>应用内通知</value>
+  </data>
+  <data name="AiAgents_EnableNotifications_Description" xml:space="preserve">
+    <value>显示后台会话的审批请求、问题和执行结果。</value>
+  </data>
+  <data name="AiAgents_EnableNotificationSound" xml:space="preserve">
+    <value>通知声音</value>
+  </data>
+  <data name="AiAgents_EnableNotificationSound_Description" xml:space="preserve">
+    <value>显示通知时播放声音。</value>
+  </data>
+  <data name="AiAgents_RuntimeAvailableVersion" xml:space="preserve">
+    <value>v{0} · {1}</value>
+  </data>
+  <data name="AiAgents_RuntimeOutdated" xml:space="preserve">
+    <value>v{0} · 需要更新（v{1} 或更高版本）&#10;{2}</value>
+  </data>
 </root>

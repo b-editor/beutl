@@ -21,12 +21,13 @@ internal sealed partial class AgentThreadController : AgentBindable
     private ActiveTurn? _active;
     private bool _configuring;
     private bool _closed;
+    private string _title = AgentStrings.Title;
 
     public AgentThreadController(IAgentWorkspaceHost host, AgentProjectThreadSessions project, Guid threadId)
     {
         _host = host;
         _project = project;
-        _transcript = new AgentThreadTimeline(StopBackgroundTaskAsync);
+        _transcript = new AgentThreadTimeline(StopBackgroundTaskAsync, AgentRuntimeManager.GetWorkingDirectory(project.ProjectPath));
         ThreadId = threadId;
         QueuedMessages = new(_queue);
         PendingPermissions = new(_permissions);
@@ -45,7 +46,8 @@ internal sealed partial class AgentThreadController : AgentBindable
     public bool CanConfigure => !_closed && !_configuring && !IsRunning;
     public bool CanSubmit => !_closed && !_configuring && !_project.Lifetime.IsCancellationRequested;
     public bool CanManageQueue => CanSubmit && !IsSteering;
-    public string? Error { get; private set => Set(ref field, value); }
+    public AgentDiagnostic? Diagnostic { get; private set => Set(ref field, value); }
+    public void UpdateTitle(string title) => _title = title;
 
     public Task LoadAsync(AgentThreadMetadata thread, CancellationToken cancellationToken)
     {
@@ -56,6 +58,7 @@ internal sealed partial class AgentThreadController : AgentBindable
 
     private async Task LoadCoreAsync(AgentThreadMetadata thread)
     {
+        UpdateTitle(thread.Title);
         var entries = await _host.Runtime.LoadTimelineAsync(_project.ProjectPath, ThreadId, _project.Lifetime);
         var draft = await _project.LoadDraftAsync(ThreadId, _project.Lifetime);
         _project.Lifetime.ThrowIfCancellationRequested();
@@ -223,7 +226,7 @@ internal sealed partial class AgentThreadController : AgentBindable
             _queue.Add(message);
         UpdateQueue();
         PublishState();
-        Error = null;
+        Diagnostic = null;
         try
         {
             var request = message.CreateRequest(ThreadId, turn.Id);
@@ -247,7 +250,7 @@ internal sealed partial class AgentThreadController : AgentBindable
         catch (Exception ex)
         {
             s_logger.LogWarning(ex, "Could not steer agent thread {ThreadId}.", ThreadId);
-            Error = AgentStrings.SteerFailed;
+            Diagnostic = AgentDiagnosticClassifier.FromFailure(AgentStrings.SteerFailed, turn.Message.Provider);
         }
         finally
         {
@@ -283,7 +286,7 @@ internal sealed partial class AgentThreadController : AgentBindable
         catch (Exception ex)
         {
             s_logger.LogWarning(ex, "Could not stop background work in agent thread {ThreadId}.", ThreadId);
-            Error = AgentStrings.StopBackgroundTaskFailed;
+            Diagnostic = AgentDiagnosticClassifier.FromFailure(AgentStrings.StopBackgroundTaskFailed, turn.Message.Provider);
         }
     }
 
@@ -298,11 +301,11 @@ internal sealed partial class AgentThreadController : AgentBindable
                 _transcript.RefreshLiveStatus();
                 return true;
             }, TimeSpan.FromSeconds(1));
-            var turn = new ActiveTurn(cancellation);
+            var turn = new ActiveTurn(cancellation, message);
             _active = turn;
             _queue.Remove(message);
             UpdateQueue();
-            Error = null;
+            Diagnostic = null;
             PublishState();
 
             AgentTurnSummary? outcome = null;
@@ -335,11 +338,21 @@ internal sealed partial class AgentThreadController : AgentBindable
             if (failure is not null && !notices.Any(item => item.Message == failure.Message))
             {
                 s_logger.LogWarning(failure, "Agent thread {ThreadId} could not complete a turn.", ThreadId);
-                Error = failure.Message;
+                Diagnostic = AgentDiagnosticClassifier.FromFailure(failure.Message, message.Provider);
             }
             else if (outcome is { Status: AgentTurnStatus.Failed } && !notices.Any(item => item.Severity == FAInfoBarSeverity.Error))
             {
-                _transcript.AddNotice(turn.Id, outcome.Error ?? AgentStrings.TurnFailed, FAInfoBarSeverity.Error);
+                string error = outcome.Error ?? AgentStrings.TurnFailed;
+                Diagnostic = AgentDiagnosticClassifier.FromFailure(error, message.Provider);
+                _transcript.AddNotice(turn.Id, error, FAInfoBarSeverity.Error);
+            }
+
+            if (!turn.StopRequested && !_project.Lifetime.IsCancellationRequested)
+            {
+                if (failure is not null || outcome is { Status: AgentTurnStatus.Failed })
+                    NotifyTurnFinished(turn, DateTimeOffset.UtcNow, AgentThreadNotificationKind.Failed);
+                else if (outcome is { Status: AgentTurnStatus.Completed })
+                    NotifyTurnFinished(turn, DateTimeOffset.UtcNow, AgentThreadNotificationKind.Completed);
             }
 
             if (!turn.PromptPublished)
@@ -372,9 +385,31 @@ internal sealed partial class AgentThreadController : AgentBindable
         }
         RememberRequestOrder(entry);
         _transcript.ApplyEntry(entry);
-        if (entry is AgentTurnCompleted or AgentTurnFailed or AgentPermissionRequested or AgentUserQuestionRequested)
-            _project.ObserveActivity(_host.Runtime, ThreadId, entry.Timestamp);
+        switch (entry)
+        {
+            case AgentErrorNotice { DiagnosticKind: { } kind } notice:
+                Diagnostic = AgentDiagnosticClassifier.FromFailure(notice.Message, turn.Message.Provider, kind);
+                break;
+            case AgentTurnFailed failed:
+                Diagnostic = AgentDiagnosticClassifier.FromFailure(failed.Error, turn.Message.Provider);
+                NotifyTurnFinished(turn, failed.Timestamp, AgentThreadNotificationKind.Failed);
+                break;
+            case AgentTurnCompleted completed:
+                NotifyTurnFinished(turn, completed.Timestamp, AgentThreadNotificationKind.Completed);
+                break;
+        }
     }
+
+    private void NotifyTurnFinished(ActiveTurn turn, DateTimeOffset timestamp, AgentThreadNotificationKind kind)
+    {
+        if (turn.TerminalNotified)
+            return;
+        turn.TerminalNotified = true;
+        NotifyActivity(turn, timestamp, kind);
+    }
+
+    private void NotifyActivity(ActiveTurn turn, DateTimeOffset timestamp, AgentThreadNotificationKind kind)
+        => _project.NotifyActivity(_host, turn.Message.Editor, ThreadId, _title, timestamp, kind);
 
     private void UpdateQueue() => Notify(nameof(QueuedMessages));
 
@@ -409,10 +444,13 @@ internal sealed partial class AgentThreadController : AgentBindable
         _transcript.Clear();
     }
 
-    private sealed class ActiveTurn(CancellationTokenSource cancellation)
+    private sealed class ActiveTurn(CancellationTokenSource cancellation, AgentQueuedMessage message)
     {
         public Guid Id { get; } = Guid.NewGuid();
         public CancellationTokenSource Cancellation { get; } = cancellation;
+        public AgentQueuedMessage Message { get; } = message;
+        public bool TerminalNotified { get; set; }
+        public HashSet<(AgentThreadNotificationKind Kind, string Id)> NotifiedRequests { get; } = [];
         public bool PromptPublished { get; set; }
         public bool StopRequested { get; set; }
         public Task? Steering { get; set; }

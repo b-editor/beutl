@@ -1,10 +1,8 @@
 <UserControl x:Class="Beutl.Editor.Components.AgentTab.Views.AgentTabView"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:conv="using:Avalonia.Data.Converters"
              xmlns:icons="using:FluentIcons.Avalonia.Fluent"
              xmlns:lang="using:Beutl.Language"
-             xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:views="using:Beutl.Editor.Components.AgentTab.Views"
              xmlns:vm="using:Beutl.Editor.Components.AgentTab.ViewModels"
              x:DataType="vm:AgentTabViewModel">
@@ -13,10 +11,15 @@
     </UserControl.Styles>
 
     <Grid RowDefinitions="Auto,Auto,*,Auto">
-        <views:AgentThreadBar />
-        <ui:FAInfoBar Grid.Row="1" Margin="12,8,12,0" Severity="Error" IsClosable="False"
-                      IsOpen="{Binding Error, Converter={x:Static conv:StringConverters.IsNotNullOrEmpty}}"
-                      Message="{Binding Error}" />
+        <views:AgentThreadBar x:Name="ThreadBar" />
+        <ContentControl Grid.Row="1" Margin="12,8,12,0" HorizontalContentAlignment="Stretch"
+                        Content="{Binding Diagnostic}" IsVisible="{Binding !!Diagnostic}">
+            <ContentControl.ContentTemplate>
+                <DataTemplate DataType="vm:AgentDiagnosticItem" x:DataType="vm:AgentDiagnosticItem">
+                    <views:AgentDiagnosticCard />
+                </DataTemplate>
+            </ContentControl.ContentTemplate>
+        </ContentControl>
 
         <views:AgentTimelineView Grid.Row="2" IsVisible="{Binding !ShowEmptyState}" />
 
@@ -33,7 +36,7 @@
                     <TextBlock Text="{x:Static lang:AgentStrings.EmptyTitle}" FontSize="20" FontWeight="SemiBold"
                                TextWrapping="Wrap" TextAlignment="Center" />
                     <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center">
-                        <Ellipse Classes="agent-provider-dot" Classes.available="{Binding ProviderIsAvailable}" />
+                        <Ellipse Classes="agent-provider-dot" Classes.available="{Binding ProviderIsReady}" />
                         <TextBlock Classes="agent-secondary" Text="{Binding ProviderStatusLabel}" TextTrimming="CharacterEllipsis" />
                     </StackPanel>
                     <ItemsControl x:Name="StarterPrompts" ItemsSource="{Binding StarterPrompts}"
@@ -86,10 +89,13 @@
             </StackPanel>
         </Grid>
 
-        <Grid Grid.Row="3" RowDefinitions="Auto,Auto,Auto">
+        <Grid Grid.Row="3" RowDefinitions="Auto,Auto,Auto,Auto">
             <views:AgentBackgroundWorkBar Margin="10,0,10,4" IsVisible="{Binding HasBackgroundWork}" />
             <views:AgentQueuedMessagesBar Grid.Row="1" Margin="10,0,10,4" IsVisible="{Binding HasQueuedMessages}" />
-            <Panel Grid.Row="2">
+            <TextBlock x:Name="EscapeStopHint" Grid.Row="2" Margin="14,0,14,4" HorizontalAlignment="Right"
+                       IsVisible="{Binding ShowEscapeStopHint}" Classes="agent-caption"
+                       Text="{x:Static lang:AgentStrings.EscapeStopHint}" />
+            <Panel Grid.Row="3">
                 <views:AgentComposerView x:Name="Composer" IsVisible="{Binding ShowComposer}" />
                 <views:AgentPermissionCard x:Name="ActivePermissionCard" Margin="10,4,10,10"
                                            DataContext="{Binding ActivePermission}"

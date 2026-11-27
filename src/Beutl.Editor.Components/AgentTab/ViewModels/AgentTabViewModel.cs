@@ -55,6 +55,7 @@ internal sealed partial class AgentTabViewModel : AgentBindable, IToolContext
         _sessions.StateChanged += OnThreadStateChanged;
         _sessions.MetadataChanged += OnThreadMetadataChanged;
         _sessions.ActivityChanged += OnThreadActivityChanged;
+        _sessions.ActivityNotified += OnActivityNotified;
         _sessions.FlushingDrafts += FlushDraft;
         _draftTimer.Tick += OnDraftTimerTick;
         _providerProbe.DisposeWith(_subscriptions);
@@ -63,13 +64,14 @@ internal sealed partial class AgentTabViewModel : AgentBindable, IToolContext
         Disposable.Create(() => host.RuntimeSettingsChanged -= OnRuntimeSettingsChanged).DisposeWith(_subscriptions);
         Disposable.Create(() => host.Runtime.ComposerSuggestionsChanged -= OnComposerSuggestionsChanged).DisposeWith(_subscriptions);
         host.FollowLiveMcpEdits.GetObservable().Subscribe(_ => Post(() => Notify(nameof(FollowLiveMcpEdits)))).DisposeWith(_subscriptions);
+        IsSelected.Subscribe(OnTabSelectionChanged).DisposeWith(_subscriptions);
         if (editor.GetService(typeof(HistoryManager)) is HistoryManager history)
             history.StateChanged.Subscribe(_ => Post(UpdateRevertButtons)).DisposeWith(_subscriptions);
     }
 
     public ToolTabExtension Extension => AgentTabExtension.Instance;
     public IReactiveProperty<bool> IsSelected { get; } = new ReactivePropertySlim<bool>();
-    public IReadOnlyReactiveProperty<string> Header { get; } = new ReactivePropertySlim<string>(AgentStrings.Title);
+    public IReadOnlyReactiveProperty<string> Header => _header;
     public ReadOnlyObservableCollection<AgentThreadMetadata> Threads { get; }
     public ReadOnlyObservableCollection<AgentTimelineItemViewModel> Timeline { get; }
     public ReadOnlyObservableCollection<AgentAttachment> Attachments { get; }
@@ -112,17 +114,21 @@ internal sealed partial class AgentTabViewModel : AgentBindable, IToolContext
             Notify(nameof(CanSendAlternate));
             Notify(nameof(ProviderName));
             Notify(nameof(ProviderIsAvailable));
+            Notify(nameof(ProviderIsReady));
             Notify(nameof(ProviderStatusLabel));
             Notify(nameof(ProviderTooltip));
+            Notify(nameof(ModelPickerTooltip));
+            UpdateDiagnostic();
             ResetComposerSuggestions();
         }
     }
 
     public string ProviderName => SelectedProvider?.Name ?? AgentStrings.Provider;
     public bool ProviderIsAvailable => SelectedProvider?.IsAvailable == true;
+    public bool ProviderIsReady => ProviderIsAvailable && SelectedProvider?.Diagnostic?.Kind != AgentDiagnosticKind.OutdatedCli;
     public string ProviderStatusLabel => SelectedProvider is { } provider
         ? $"{provider.Name} · {provider.Availability}" : AgentStrings.NoProvider;
-    public string ProviderTooltip => SelectedProvider?.Error ?? ProviderStatusLabel;
+    public string ProviderTooltip => ProviderStatusLabel;
 
     public AgentPermissionChoiceItem SelectedPermissionMode => _permissionMode;
 
@@ -160,9 +166,6 @@ internal sealed partial class AgentTabViewModel : AgentBindable, IToolContext
             Notify(nameof(CanEditQueuedMessage));
         }
     }
-
-    public string? Error => _error ?? _controller?.Error;
-    private string? _error;
 
     internal AgentThreadController? Controller => _controller;
     public bool IsRunning => _controller?.IsRunning == true;
@@ -261,14 +264,14 @@ internal sealed partial class AgentTabViewModel : AgentBindable, IToolContext
     });
 
     internal Task SelectThreadAsync(AgentThreadMetadata thread)
-        => ManageAsync(ct => LoadThreadAsync(_threads.FirstOrDefault(item => item.Id == thread.Id) ?? thread, ct));
+        => ManageAsync(ct => LoadThreadAsync(_threads.FirstOrDefault(item => item.Id == thread.Id) ?? thread, ct, markRead: true));
 
-    private async Task LoadThreadAsync(AgentThreadMetadata? thread, CancellationToken ct, bool sendingDraft = false)
+    private async Task LoadThreadAsync(AgentThreadMetadata? thread, CancellationToken ct, bool sendingDraft = false, bool markRead = false)
     {
         if (_draftLoaded && thread?.Id == _selectedThread?.Id)
         {
             ApplyThread(thread, preserveDraft: true);
-            if (thread is not null)
+            if (thread is not null && (IsSelected.Value || markRead))
                 await _sessions.MarkReadAsync(_host.Runtime, thread.Id, ct);
             return;
         }
@@ -288,7 +291,7 @@ internal sealed partial class AgentTabViewModel : AgentBindable, IToolContext
         AttachController(controller);
         ApplyThread(thread is null ? null : _threads.FirstOrDefault(item => item.Id == thread.Id) ?? thread);
         await RestoreDraftAsync(draft.Draft, ct);
-        if (thread is not null)
+        if (thread is not null && (IsSelected.Value || markRead))
             await _sessions.MarkReadAsync(_host.Runtime, thread.Id, ct);
     }
 
@@ -321,10 +324,12 @@ internal sealed partial class AgentTabViewModel : AgentBindable, IToolContext
         }
         Notify(nameof(SelectedThread));
         Notify(nameof(ThreadTitle));
+        Notify(nameof(ThreadPickerTooltip));
         Notify(nameof(ThreadPinLabel));
         Notify(nameof(ThreadArchiveLabel));
         Notify(nameof(ProviderTooltip));
         Notify(nameof(SelectedPermissionMode));
+        Notify(nameof(PermissionModeTooltip));
         NotifyAvailability();
     }
 
@@ -363,6 +368,7 @@ internal sealed partial class AgentTabViewModel : AgentBindable, IToolContext
             _useDefaultPermission = false;
             _permissionMode = choice;
             Notify(nameof(SelectedPermissionMode));
+            Notify(nameof(PermissionModeTooltip));
             return Task.CompletedTask;
         }
         return ConfigureThreadAsync((controller, ct) => _host.Runtime.SetPermissionModeAsync(_projectPath, controller.ThreadId, choice.Mode, ct));
@@ -510,6 +516,16 @@ internal sealed partial class AgentTabViewModel : AgentBindable, IToolContext
             _restoreNewThread = id == "draft";
             _restoredThreadId = Guid.TryParse(id, out Guid parsed) ? parsed : null;
         }
+        if (json["AgentCollapsedWork"] is JsonArray sections)
+        {
+            foreach (var node in sections.OfType<JsonObject>())
+            {
+                if (node["ThreadId"] is JsonValue thread && thread.TryGetValue(out Guid threadId)
+                    && node["TurnId"] is JsonValue turn && turn.TryGetValue(out Guid turnId)
+                    && node["Segment"] is JsonValue segment && segment.TryGetValue(out int index) && index >= 0)
+                    _collapsedWork.Add((threadId, turnId, index));
+            }
+        }
     }
 
     public void WriteToJson(JsonObject json)
@@ -519,6 +535,17 @@ internal sealed partial class AgentTabViewModel : AgentBindable, IToolContext
             json["AgentThreadId"] = id.Value.ToString("D");
         else if (_draftLoaded || _restoreNewThread)
             json["AgentThreadId"] = "draft";
+        if (_collapsedWork.Count > 0)
+        {
+            var sections = new JsonArray();
+            foreach (var (threadId, turnId, segment) in _collapsedWork)
+                sections.Add(new JsonObject { ["ThreadId"] = threadId, ["TurnId"] = turnId, ["Segment"] = segment });
+            json["AgentCollapsedWork"] = sections;
+        }
+        else
+        {
+            json.Remove("AgentCollapsedWork");
+        }
     }
 
     public void Dispose()
@@ -526,11 +553,13 @@ internal sealed partial class AgentTabViewModel : AgentBindable, IToolContext
         if (_disposed)
             return;
         _disposed = true;
+        ClearEscapeStopHint();
         _draftTimer.Stop();
         _ = SaveDraftAsync();
         _sessions.StateChanged -= OnThreadStateChanged;
         _sessions.MetadataChanged -= OnThreadMetadataChanged;
         _sessions.ActivityChanged -= OnThreadActivityChanged;
+        _sessions.ActivityNotified -= OnActivityNotified;
         _sessions.FlushingDrafts -= FlushDraft;
         CancelThreadBodySearch();
         _lifetime.Cancel();
@@ -538,7 +567,7 @@ internal sealed partial class AgentTabViewModel : AgentBindable, IToolContext
         _subscriptions.Dispose();
         AttachController(null);
         ClearAttachments();
-        (Header as IDisposable)?.Dispose();
+        _header.Dispose();
         IsSelected.Dispose();
     }
 
@@ -583,16 +612,10 @@ internal sealed partial class AgentTabViewModel : AgentBindable, IToolContext
             SetError(ex.Message);
     }
 
-    private void SetError(string? error)
-    {
-        if (_error == error)
-            return;
-        _error = error;
-        Notify(nameof(Error));
-    }
-
     private void NotifyAvailability()
     {
+        if (_escapeStopTurn.HasValue && (!CanStop || _escapeStopTurn != _controller?.ActiveTurnId))
+            ClearEscapeStopHint();
         Notify(nameof(CanManage));
         Notify(nameof(CanManageSelected));
         Notify(nameof(CanDeleteSelected));
@@ -627,10 +650,13 @@ internal sealed partial class AgentTabViewModel : AgentBindable, IToolContext
 
 }
 
-internal sealed record AgentProviderChoice(AgentProviderDescriptor Descriptor, bool IsAvailable, string? Error)
+internal sealed record AgentProviderChoice(AgentProviderDescriptor Descriptor, bool IsAvailable, string? CliVersion, AgentDiagnostic? Diagnostic)
 {
     public string Name => Descriptor.DisplayName;
-    public string Availability => IsAvailable ? AgentStrings.ProviderAvailable : AgentStrings.ProviderUnavailable;
+    public string Availability => Diagnostic?.Kind == AgentDiagnosticKind.OutdatedCli
+        ? string.Format(AgentStrings.ProviderOutdatedVersion, CliVersion)
+        : CliVersion is { } version ? string.Format(AgentStrings.ProviderAvailableVersion, version)
+        : IsAvailable ? AgentStrings.ProviderAvailable : AgentStrings.ProviderUnavailable;
 }
 
 internal sealed record AgentPermissionChoiceItem(AgentPermissionMode Mode, string Label, string ShortLabel, string Description, Icon Icon);

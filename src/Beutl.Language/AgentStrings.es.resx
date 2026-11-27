@@ -418,4 +418,100 @@
   <data name="ToolGroupFailures" xml:space="preserve">
     <value>Algunas operaciones fallaron</value>
   </data>
+  <data name="AttentionTabHeader" xml:space="preserve">
+    <value>! {0}</value>
+  </data>
+  <data name="UnreadTabHeader" xml:space="preserve">
+    <value>• {0}</value>
+  </data>
+  <data name="BackgroundThreadActivity" xml:space="preserve">
+    <value>Actividad en otros hilos</value>
+  </data>
+  <data name="NotificationApproval" xml:space="preserve">
+    <value>El agente necesita aprobación</value>
+  </data>
+  <data name="NotificationQuestion" xml:space="preserve">
+    <value>El agente espera una respuesta</value>
+  </data>
+  <data name="NotificationCompleted" xml:space="preserve">
+    <value>El agente ha terminado</value>
+  </data>
+  <data name="ShortcutTooltip" xml:space="preserve">
+    <value>{0} ({1})</value>
+  </data>
+  <data name="StopShortcutKeys" xml:space="preserve">
+    <value>Esc dos veces</value>
+  </data>
+  <data name="EscapeStopHint" xml:space="preserve">
+    <value>Pulsa Esc de nuevo para detener</value>
+  </data>
+  <data name="ProviderOutdatedVersion" xml:space="preserve">
+    <value>v{0} · Requiere actualización</value>
+  </data>
+  <data name="ProviderAvailableVersion" xml:space="preserve">
+    <value>v{0}</value>
+  </data>
+  <data name="DiagnosticCliMissing" xml:space="preserve">
+    <value>CLI no disponible</value>
+  </data>
+  <data name="DiagnosticAuthRequired" xml:space="preserve">
+    <value>Debes iniciar sesión</value>
+  </data>
+  <data name="DiagnosticOutdatedCli" xml:space="preserve">
+    <value>Debes actualizar la CLI</value>
+  </data>
+  <data name="DiagnosticRateLimited" xml:space="preserve">
+    <value>Se alcanzó el límite del proveedor</value>
+  </data>
+  <data name="DiagnosticMcpUnavailable" xml:space="preserve">
+    <value>Beutl MCP no disponible</value>
+  </data>
+  <data name="DiagnosticGeneric" xml:space="preserve">
+    <value>Error del agente</value>
+  </data>
+  <data name="DiagnosticInstall" xml:space="preserve">
+    <value>Instala {0} en un terminal y vuelve a comprobar.</value>
+  </data>
+  <data name="DiagnosticExecutablePath" xml:space="preserve">
+    <value>Comprueba la ruta del ejecutable de {0} en los ajustes del agente.</value>
+  </data>
+  <data name="DiagnosticSignIn" xml:space="preserve">
+    <value>Inicia sesión en {0} desde un terminal y vuelve a comprobar.</value>
+  </data>
+  <data name="DiagnosticCredentials" xml:space="preserve">
+    <value>Comprueba las credenciales configuradas para {0}.</value>
+  </data>
+  <data name="DiagnosticVersion" xml:space="preserve">
+    <value>Actualiza {0} de la versión {1} a la {2} o posterior y vuelve a comprobar.</value>
+  </data>
+  <data name="DiagnosticUpdate" xml:space="preserve">
+    <value>Actualiza {0} a una versión compatible y vuelve a comprobar.</value>
+  </data>
+  <data name="DiagnosticRetryLater" xml:space="preserve">
+    <value>Espera un momento y vuelve a intentarlo, o elige otro modelo o proveedor.</value>
+  </data>
+  <data name="DiagnosticCheckMcp" xml:space="preserve">
+    <value>Abre los ajustes del agente y comprueba la configuración de Beutl MCP.</value>
+  </data>
+  <data name="DiagnosticReviewDetails" xml:space="preserve">
+    <value>Revisa los detalles técnicos y vuelve a intentarlo.</value>
+  </data>
+  <data name="DiagnosticDismiss" xml:space="preserve">
+    <value>Cerrar</value>
+  </data>
+  <data name="DiagnosticCopyCommand" xml:space="preserve">
+    <value>Copiar comando</value>
+  </data>
+  <data name="DiagnosticOpenSettings" xml:space="preserve">
+    <value>Abrir ajustes</value>
+  </data>
+  <data name="DiagnosticOpenAiAgentSettings" xml:space="preserve">
+    <value>Abrir ajustes del agente</value>
+  </data>
+  <data name="DiagnosticRecheck" xml:space="preserve">
+    <value>Volver a comprobar</value>
+  </data>
+  <data name="DiagnosticTechnicalDetails" xml:space="preserve">
+    <value>Detalles técnicos</value>
+  </data>
 </root>

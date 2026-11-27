@@ -84,6 +84,8 @@ public sealed class AiAgentRuntimeSettingsViewModel : IDisposable
             : SettingsStrings.AiAgents_RuntimeComposerSendKeyCtrlEnter)
     ];
     public ReactivePropertySlim<AgentComposerSendKeyOption?> ComposerSendKey { get; }
+    public IProperty<bool> EnableNotifications => _config.EnableNotifications;
+    public IProperty<bool> EnableNotificationSound => _config.EnableNotificationSound;
     public ReactivePropertySlim<string> DefaultModel { get; }
     public ReactivePropertySlim<string> ClaudeCodeExecutablePath { get; }
     public ReactivePropertySlim<string> CodexExecutablePath { get; }
@@ -133,6 +135,8 @@ public sealed class AiAgentRuntimeSettingsViewModel : IDisposable
                 ComposerSendKey.Value = ReadComposerSendKey();
                 break;
             case nameof(AiAgentConfig.DefaultModel):
+            case nameof(AiAgentConfig.EnableNotifications):
+            case nameof(AiAgentConfig.EnableNotificationSound):
                 break;
             default:
                 ReloadProviders(updateChoices: args.PropertyName == nameof(AiAgentConfig.CustomRuntimeProvidersJson));
@@ -198,9 +202,7 @@ public sealed class AiAgentRuntimeSettingsViewModel : IDisposable
             var probes = await Task.Run(() => Task.WhenAll(providers.Select(provider => _locator.ProbeAsync(provider, ct))), ct);
             if (!ct.IsCancellationRequested)
             {
-                var statuses = probes.ToDictionary(probe => probe.Provider.Id, probe => probe.ExecutablePath is { } path
-                    ? string.Format(SettingsStrings.AiAgents_RuntimeAvailable, path)
-                    : SettingsStrings.AiAgents_RuntimeNotFound);
+                var statuses = probes.ToDictionary(probe => probe.Provider.Id, FormatProbeStatus);
                 ApplyStatuses(providers, provider => statuses[provider.Id]);
             }
         }
@@ -214,6 +216,17 @@ public sealed class AiAgentRuntimeSettingsViewModel : IDisposable
             s_logger.LogWarning(ex, "Could not locate agent runtime executables.");
             ApplyStatuses(providers, _ => SettingsStrings.AiAgents_RuntimeProbeFailed);
         }
+    }
+
+    private static string FormatProbeStatus(AgentProviderProbeResult probe)
+    {
+        if (probe.ExecutablePath is not { } path)
+            return SettingsStrings.AiAgents_RuntimeNotFound;
+        if (probe.IsOutdated)
+            return string.Format(SettingsStrings.AiAgents_RuntimeOutdated, probe.CliVersion, probe.MinimumVersion, path);
+        return probe.CliVersion is { } version
+            ? string.Format(SettingsStrings.AiAgents_RuntimeAvailableVersion, version, path)
+            : string.Format(SettingsStrings.AiAgents_RuntimeAvailable, path);
     }
 
     private void ApplyStatuses(IReadOnlyList<AgentProviderDescriptor> providers, Func<AgentProviderDescriptor, string> status)

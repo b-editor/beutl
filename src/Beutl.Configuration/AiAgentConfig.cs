@@ -64,6 +64,10 @@ public sealed partial class AiAgentConfig : ConfigurationBase
 
     public IProperty<AgentComposerSendKey> ComposerSendKey { get; } = Property.CreateValue(AgentComposerSendKey.Enter);
 
+    public IProperty<bool> EnableNotifications { get; } = Property.CreateValue(true);
+
+    public IProperty<bool> EnableNotificationSound { get; } = Property.CreateValue(true);
+
     public IProperty<string> ClaudeCodeExecutablePath { get; } = Property.CreateValue("");
 
     public IProperty<string> CodexExecutablePath { get; } = Property.CreateValue("");
@@ -89,6 +93,7 @@ public sealed partial class AiAgentConfig : ConfigurationBase
 
         if (args.PropertyName is nameof(DefaultRuntimeProviderId) or nameof(DefaultPermissionMode) or nameof(DefaultModel)
             or nameof(DefaultReasoningEffort) or nameof(SteerOnSend) or nameof(ComposerSendKey)
+            or nameof(EnableNotifications) or nameof(EnableNotificationSound)
             or nameof(ClaudeCodeExecutablePath) or nameof(CodexExecutablePath) or nameof(CustomRuntimeProvidersJson))
         {
             RuntimeSettingsChanged?.Invoke(this, args);

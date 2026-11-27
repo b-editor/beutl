@@ -121,7 +121,7 @@ internal sealed partial class AgentModelPickerView : UserControl
 
     private async void OnSearchBoxKeyDown(object? sender, KeyEventArgs e)
     {
-        if (DataContext is not AgentTabViewModel viewModel)
+        if (DataContext is not AgentTabViewModel viewModel || e.KeyModifiers != KeyModifiers.None || AgentTabView.IsComposing(e))
             return;
 
         if (e.Key is Key.Up or Key.Down && ModelRows.ItemCount > 0)

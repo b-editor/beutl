@@ -5,7 +5,6 @@
              xmlns:icons="using:FluentIcons.Avalonia.Fluent"
              xmlns:lang="using:Beutl.Language"
              xmlns:md="using:LiveMarkdown.Avalonia"
-             xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:views="using:Beutl.Editor.Components.AgentTab.Views"
              xmlns:vm="using:Beutl.Editor.Components.AgentTab.ViewModels"
              x:DataType="vm:AgentTabViewModel">
@@ -157,6 +156,22 @@
         <DataTemplate DataType="vm:AgentAssistantItem" x:DataType="vm:AgentAssistantItem">
             <StackPanel Classes="agent-message" Margin="2,2,2,0" Spacing="3">
                 <views:AgentMarkdownRenderer MarkdownBuilder="{Binding Markdown}" />
+                <ItemsControl ItemsSource="{Binding Images}" IsVisible="{Binding !!Images.Count}" Margin="0,2,0,2">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate><WrapPanel ItemSpacing="5" LineSpacing="5" /></ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:AgentImagePreview">
+                            <Button x:Name="AssistantImageThumbnail" Theme="{StaticResource TransparentButton}" Padding="0" HorizontalAlignment="Left"
+                                    Click="OnOpenAssistantImage" ToolTip.Tip="{Binding Caption}" AutomationProperties.Name="{Binding Caption}"
+                                    AutomationProperties.HelpText="{x:Static lang:AgentStrings.OpenImagePreview}">
+                                <Border CornerRadius="8" BorderThickness="1" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" ClipToBounds="True">
+                                    <Image Source="{Binding Thumbnail}" Stretch="Uniform" StretchDirection="DownOnly" MaxHeight="156" />
+                                </Border>
+                            </Button>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
                 <StackPanel x:Name="AssistantFooter" Orientation="Horizontal" Spacing="1" IsVisible="{Binding IsFinalTurnResponse}">
                     <TextBlock Classes="agent-message-time" Text="{Binding TimeLabel}" ToolTip.Tip="{Binding TimeDetail}" />
                     <StackPanel Orientation="Horizontal" Spacing="1" IsVisible="{Binding CanCopy}">
@@ -327,7 +342,10 @@
         </DataTemplate>
 
         <DataTemplate DataType="vm:AgentNoticeItem" x:DataType="vm:AgentNoticeItem">
-            <ui:FAInfoBar IsOpen="True" IsClosable="False" Severity="{Binding Severity}" Message="{Binding Message}" />
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="6" Margin="4,3" ToolTip.Tip="{Binding Message}">
+                <icons:FluentIcon Icon="{Binding StatusIcon}" Classes="agent-status" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="1" Text="{Binding DisplayMessage}" Classes="agent-secondary" TextWrapping="Wrap" />
+            </Grid>
         </DataTemplate>
     </UserControl.DataTemplates>
 

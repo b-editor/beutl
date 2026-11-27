@@ -56,8 +56,8 @@ internal sealed class AgentMarkdownRenderer : MarkdownRenderer
         var builder = new MarkdownPipelineBuilder().UseAdvancedExtensions().UseCodeBlockSpanFixer().DisableHtml();
         builder.DocumentProcessed += document =>
         {
-            // Agent-provided Markdown can include tracking URLs. Tool images use the
-            // explicit image output path instead of the Markdown image loader.
+            // Only independently validated local files get thumbnails. Never hand an
+            // agent-provided image destination to the Markdown image loader.
             foreach (var image in document.Descendants<LinkInline>().Where(link => link.IsImage).ToArray())
             {
                 image.MoveChildrenAfter(image);

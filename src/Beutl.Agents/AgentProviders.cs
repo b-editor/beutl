@@ -31,9 +31,25 @@ public sealed record AgentCustomProviderConfig(
 }
 
 public sealed record AgentProviderProbeResult(
-    AgentProviderDescriptor Provider, string? ExecutablePath, string? SearchPath, string? Error)
+    AgentProviderDescriptor Provider, string? ExecutablePath, string? SearchPath, string? Error, string? CliVersion = null)
 {
+    private static readonly Version s_minimumClaudeCodeVersion = new(2, 1, 0);
+
     public bool IsAvailable => ExecutablePath != null;
+    public Version? MinimumVersion => Provider.Kind == AgentProviderKind.ClaudeCode ? s_minimumClaudeCodeVersion : null;
+    public bool IsOutdated
+    {
+        get
+        {
+            if (MinimumVersion is not { } minimum || CliVersion is not { } version)
+                return false;
+            var core = version.AsSpan();
+            int suffix = core.IndexOfAny('-', '+');
+            bool prerelease = suffix >= 0 && core[suffix] == '-';
+            return Version.TryParse(suffix < 0 ? core : core[..suffix], out var current)
+                && (current < minimum || current == minimum && prerelease);
+        }
+    }
 }
 
 public enum AgentPermissionMode { Supervised, AutoAcceptEdits, Auto, FullAccess }

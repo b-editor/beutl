@@ -64,6 +64,8 @@ public partial class PropertyConversionGoldenTests
                 ProjectRoot = { Value = "/golden" },
                 InstallSubagents = { Value = false },
                 ComposerSendKey = { Value = AgentComposerSendKey.CtrlEnter },
+                EnableNotifications = { Value = false },
+                EnableNotificationSound = { Value = false },
                 FollowLiveMcpEdits = { Value = true },
             }),
             ["ProxyStore"] = CoreSerializer.SerializeToJsonObject(new ProxyStoreConfig

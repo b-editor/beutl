@@ -83,6 +83,8 @@ internal sealed partial class AgentTabViewModel
         if (!RecentThreads.SequenceEqual(recent))
             RecentThreads = recent;
         FilterThreadRows();
+        Notify(nameof(HasBackgroundThreadActivity));
+        Notify(nameof(ThreadPickerTooltip));
     }
 
     private string ProviderDisplayName(string id)
@@ -155,7 +157,12 @@ internal sealed partial class AgentTabViewModel
     }
 
     private void OnThreadStateChanged(Guid threadId)
-        => _threadRows.FirstOrDefault(row => row.Thread.Id == threadId)?.UpdateState(_sessions.Find(threadId));
+    {
+        _threadRows.FirstOrDefault(row => row.Thread.Id == threadId)?.UpdateState(_sessions.Find(threadId));
+        Notify(nameof(HasBackgroundThreadActivity));
+        Notify(nameof(ThreadPickerTooltip));
+        UpdateNotificationHeader();
+    }
 
     private void OnThreadActivityChanged(Guid threadId, DateTimeOffset? activity, DateTimeOffset? read)
     {
@@ -221,6 +228,8 @@ internal sealed partial class AgentTabViewModel
 
         if (index >= 0)
             _threads.RemoveAt(index);
+        if (_notifiedThreads.Remove(threadId))
+            UpdateNotificationHeader();
         UpdateThreadRows();
         if (_selectedThread?.Id == threadId)
         {

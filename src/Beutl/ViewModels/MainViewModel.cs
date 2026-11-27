@@ -12,6 +12,7 @@ using Beutl.Api.Services;
 using Beutl.Configuration;
 using Beutl.Editor;
 using Beutl.Editor.Components.AiWorkspaceTab.Services;
+using Beutl.Editor.Components.AgentTab;
 using Beutl.Editor.Components.VersionControl.ViewModels;
 using Beutl.Editor.Services.AI;
 using Beutl.Editor.Services.Captions;
@@ -136,7 +137,8 @@ public sealed partial class MainViewModel : BasePageViewModel
         _agentRuntimeManager = new AgentRuntimeManager(new WorkerAgentRuntimeBridge(logger: agentLogger),
             new AgentThreadStore(beutlHome), logger: agentLogger);
         _editorService.AgentWorkspaceHost = new BeutlAgentWorkspaceHost(
-            _agentRuntimeManager, _agentHostEndpoint, Configuration.AiAgentConfig, beutlHome);
+            _agentRuntimeManager, _agentHostEndpoint, Configuration.AiAgentConfig, beutlHome, CreateSettingsDialog,
+            appServices.GetService<IAgentNotificationSoundPlayer>());
         ContextCommandManager = _beutlClients.GetResource<ContextCommandManager>();
         _aiJobCompletionNotifier = new AiJobCompletionNotifier(
             _beutlClients.GetResource<IAiJobMonitor>().Snapshot,

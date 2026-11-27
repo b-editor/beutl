@@ -10,7 +10,8 @@ internal sealed partial class AgentTabViewModel
 {
     private static readonly AgentThreadTimeline s_emptyTranscript = new();
     private readonly ObservableCollection<AgentTimelineItemViewModel> _timeline = [];
-    private readonly Dictionary<Guid, AgentTurnWorkItem> _workSections = [];
+    private readonly Dictionary<AgentTurnStatsItem, AgentTurnWorkItem> _workSections = [];
+    private readonly HashSet<(Guid ThreadId, Guid TurnId, int Segment)> _collapsedWork = [];
     public ObservableCollection<AgentTimelineItemViewModel> DisplayTimeline { get; } = [];
     private AgentThreadTimeline Transcript => _controller?.Transcript ?? s_emptyTranscript;
 
@@ -139,18 +140,17 @@ internal sealed partial class AgentTabViewModel
     {
         if (_controller is not null)
         {
-            _sessions.DetachViewer(_controller.ThreadId);
             _controller.PropertyChanged -= OnControllerChanged;
             _controller.Transcript.PropertyChanged -= OnTranscriptChanged;
             _controller.Transcript.TurnLayoutChanged -= SyncDisplayTimeline;
             ((INotifyCollectionChanged)_controller.Timeline).CollectionChanged -= OnTimelineChanged;
         }
         _controller = controller;
+        UpdateThreadViewer();
         _timeline.Clear();
         _workSections.Clear();
         if (controller is not null)
         {
-            _sessions.AttachViewer(controller.ThreadId);
             foreach (var item in controller.Timeline)
             {
                 _timeline.Add(item is AgentQuestionItem { TurnId: { } turnId } question
@@ -210,18 +210,36 @@ internal sealed partial class AgentTabViewModel
     private void SyncDisplayTimeline()
     {
         var display = new List<AgentTimelineItemViewModel>();
-        var work = new Dictionary<Guid, List<AgentTimelineItemViewModel>>();
+        var latest = new Dictionary<Guid, List<AgentTimelineItemViewModel>>();
+        var work = new Dictionary<AgentTurnWorkItem, List<AgentTimelineItemViewModel>>();
         foreach (var item in _timeline)
         {
-            if (item is AgentTurnStatsItem header && item.TurnId is { } id)
+            if (item is AgentTurnStatsItem header && header.TurnId is { } id && _controller is { } controller)
             {
-                if (!_workSections.TryGetValue(id, out var section))
-                    _workSections.Add(id, section = new AgentTurnWorkItem(header));
-                work.Add(id, []);
+                if (!_workSections.TryGetValue(header, out var section))
+                {
+                    var key = (controller.ThreadId, id, header.Segment);
+                    section = new AgentTurnWorkItem(header, !_collapsedWork.Contains(key), expanded =>
+                    {
+                        if (expanded)
+                            _collapsedWork.Remove(key);
+                        else
+                            _collapsedWork.Add(key);
+                    });
+                    _workSections.Add(header, section);
+                }
+                var entries = new List<AgentTimelineItemViewModel>();
+                latest[id] = entries;
+                work.Add(section, entries);
                 display.Add(section);
             }
+            else if (item is AgentUserItem && item.TurnId is { } userTurn)
+            {
+                latest.Remove(userTurn);
+                display.Add(item);
+            }
             else if (item is not AgentAssistantItem { IsFinalTurnResponse: true }
-                && item.TurnId is { } turnId && work.TryGetValue(turnId, out var entries))
+                && item.TurnId is { } turnId && latest.TryGetValue(turnId, out var entries))
             {
                 entries.Add(item);
             }
@@ -231,8 +249,8 @@ internal sealed partial class AgentTabViewModel
             }
         }
 
-        foreach (var (id, entries) in work)
-            SyncItems(_workSections[id].Entries, entries);
+        foreach (var (section, entries) in work)
+            SyncItems(section.Entries, entries);
         display.RemoveAll(item => item is AgentTurnWorkItem { Header.IsRunning: false, Entries.Count: 0 });
         SyncItems(DisplayTimeline, display);
         Notify(nameof(ShowStandaloneLiveStatus));
@@ -258,9 +276,9 @@ internal sealed partial class AgentTabViewModel
 
     private void OnControllerChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(AgentThreadController.Error))
+        if (e.PropertyName == nameof(AgentThreadController.Diagnostic))
         {
-            Notify(nameof(Error));
+            UpdateDiagnostic();
             return;
         }
         if (e.PropertyName == nameof(AgentThreadController.QueuedMessages))
@@ -268,7 +286,7 @@ internal sealed partial class AgentTabViewModel
             NotifyQueue();
             return;
         }
-        Notify(nameof(Error));
+        UpdateDiagnostic();
         Notify(nameof(ShowLiveStatus));
         Notify(nameof(ShowStandaloneLiveStatus));
         Notify(nameof(ActivePermission));

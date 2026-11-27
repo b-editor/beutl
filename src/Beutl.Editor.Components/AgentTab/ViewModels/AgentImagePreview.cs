@@ -16,8 +16,10 @@ internal sealed class AgentImagePreview(Bitmap thumbnail, string caption, string
 
     public void Dispose() => Thumbnail.Dispose();
 
-    public static AgentImagePreview? FromFile(string path, string caption)
-        => AgentAttachment.DecodeThumbnail(path) is { } bitmap ? new(bitmap, caption, path, () => LoadFile(path)) : null;
+    public static AgentImagePreview? FromFile(string path, string caption, Func<string, bool>? canOpen = null)
+        => canOpen?.Invoke(path) != false && AgentAttachment.DecodeThumbnail(path) is { } bitmap
+            ? new(bitmap, caption, path, () => canOpen?.Invoke(path) != false ? LoadFile(path) : null)
+            : null;
 
     public static Bitmap? LoadFile(string path) => Decode(() => File.OpenRead(path), AgentAttachment.MaxImageBytes);
 
@@ -53,7 +55,7 @@ internal sealed class AgentImagePreview(Bitmap thumbnail, string caption, string
             return (double)width / maxWidth >= (double)height / maxHeight
                 ? Bitmap.DecodeToWidth(stream, maxWidth) : Bitmap.DecodeToHeight(stream, maxHeight);
         }
-        catch (Exception ex) when (ex is IOException or FormatException or ArgumentException
+        catch (Exception ex) when (ex is IOException or InvalidDataException or FormatException or ArgumentException
             or UnauthorizedAccessException or InvalidOperationException or NotSupportedException)
         {
             return null;

@@ -898,4 +898,25 @@
   <data name="AiAgents_RuntimeComposerSendKeyCommandEnter" xml:space="preserve">
     <value>⌘+Enter</value>
   </data>
+  <data name="AiAgents_Notifications" xml:space="preserve">
+    <value>알림</value>
+  </data>
+  <data name="AiAgents_EnableNotifications" xml:space="preserve">
+    <value>앱 내 알림</value>
+  </data>
+  <data name="AiAgents_EnableNotifications_Description" xml:space="preserve">
+    <value>백그라운드 스레드의 승인 요청, 질문 및 작업 결과를 표시합니다.</value>
+  </data>
+  <data name="AiAgents_EnableNotificationSound" xml:space="preserve">
+    <value>알림음</value>
+  </data>
+  <data name="AiAgents_EnableNotificationSound_Description" xml:space="preserve">
+    <value>알림이 표시될 때 소리를 재생합니다.</value>
+  </data>
+  <data name="AiAgents_RuntimeAvailableVersion" xml:space="preserve">
+    <value>v{0} · {1}</value>
+  </data>
+  <data name="AiAgents_RuntimeOutdated" xml:space="preserve">
+    <value>v{0} · 업데이트 필요(v{1} 이상)&#10;{2}</value>
+  </data>
 </root>

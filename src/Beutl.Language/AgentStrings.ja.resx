@@ -636,4 +636,100 @@
   <data name="ToolGroupFailures" xml:space="preserve">
     <value>一部失敗</value>
   </data>
+  <data name="AttentionTabHeader" xml:space="preserve">
+    <value>! {0}</value>
+  </data>
+  <data name="UnreadTabHeader" xml:space="preserve">
+    <value>• {0}</value>
+  </data>
+  <data name="BackgroundThreadActivity" xml:space="preserve">
+    <value>ほかのスレッドに新しいアクティビティがあります</value>
+  </data>
+  <data name="NotificationApproval" xml:space="preserve">
+    <value>エージェントが承認を求めています</value>
+  </data>
+  <data name="NotificationQuestion" xml:space="preserve">
+    <value>エージェントが回答を待っています</value>
+  </data>
+  <data name="NotificationCompleted" xml:space="preserve">
+    <value>エージェントの作業が完了しました</value>
+  </data>
+  <data name="ShortcutTooltip" xml:space="preserve">
+    <value>{0}（{1}）</value>
+  </data>
+  <data name="StopShortcutKeys" xml:space="preserve">
+    <value>Esc を2回</value>
+  </data>
+  <data name="EscapeStopHint" xml:space="preserve">
+    <value>もう一度 Esc で停止</value>
+  </data>
+  <data name="ProviderOutdatedVersion" xml:space="preserve">
+    <value>v{0} · 更新が必要</value>
+  </data>
+  <data name="ProviderAvailableVersion" xml:space="preserve">
+    <value>v{0}</value>
+  </data>
+  <data name="DiagnosticCliMissing" xml:space="preserve">
+    <value>CLI が見つかりません</value>
+  </data>
+  <data name="DiagnosticAuthRequired" xml:space="preserve">
+    <value>ログインが必要です</value>
+  </data>
+  <data name="DiagnosticOutdatedCli" xml:space="preserve">
+    <value>CLI の更新が必要です</value>
+  </data>
+  <data name="DiagnosticRateLimited" xml:space="preserve">
+    <value>プロバイダーの利用上限に達しました</value>
+  </data>
+  <data name="DiagnosticMcpUnavailable" xml:space="preserve">
+    <value>Beutl MCP を利用できません</value>
+  </data>
+  <data name="DiagnosticGeneric" xml:space="preserve">
+    <value>エージェントでエラーが発生しました</value>
+  </data>
+  <data name="DiagnosticInstall" xml:space="preserve">
+    <value>ターミナルで {0} をインストールし、再確認してください。</value>
+  </data>
+  <data name="DiagnosticExecutablePath" xml:space="preserve">
+    <value>AI エージェント設定で {0} の実行ファイルのパスを確認してください。</value>
+  </data>
+  <data name="DiagnosticSignIn" xml:space="preserve">
+    <value>ターミナルで {0} にログインし、再確認してください。</value>
+  </data>
+  <data name="DiagnosticCredentials" xml:space="preserve">
+    <value>{0} の認証情報を確認してください。</value>
+  </data>
+  <data name="DiagnosticVersion" xml:space="preserve">
+    <value>{0} v{1} を v{2} 以降に更新してから、再確認してください。</value>
+  </data>
+  <data name="DiagnosticUpdate" xml:space="preserve">
+    <value>{0} を対応バージョンに更新し、再確認してください。</value>
+  </data>
+  <data name="DiagnosticRetryLater" xml:space="preserve">
+    <value>時間をおいて再試行するか、別のモデルやプロバイダーを選んでください。</value>
+  </data>
+  <data name="DiagnosticCheckMcp" xml:space="preserve">
+    <value>AI エージェント設定を開き、Beutl MCP の構成を確認してください。</value>
+  </data>
+  <data name="DiagnosticReviewDetails" xml:space="preserve">
+    <value>技術的な詳細を確認し、再試行してください。</value>
+  </data>
+  <data name="DiagnosticDismiss" xml:space="preserve">
+    <value>閉じる</value>
+  </data>
+  <data name="DiagnosticCopyCommand" xml:space="preserve">
+    <value>コマンドをコピー</value>
+  </data>
+  <data name="DiagnosticOpenSettings" xml:space="preserve">
+    <value>設定を開く</value>
+  </data>
+  <data name="DiagnosticOpenAiAgentSettings" xml:space="preserve">
+    <value>AI エージェント設定を開く</value>
+  </data>
+  <data name="DiagnosticRecheck" xml:space="preserve">
+    <value>再確認</value>
+  </data>
+  <data name="DiagnosticTechnicalDetails" xml:space="preserve">
+    <value>技術的な詳細</value>
+  </data>
 </root>

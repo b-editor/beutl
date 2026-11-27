@@ -51,7 +51,7 @@ internal sealed partial class AgentThreadController
             await Dispatcher.UIThread.InvokeAsync(() =>
             {
                 ct.ThrowIfCancellationRequested();
-                if (threadId != ThreadId || card.TurnId != ActiveTurnId || _closed)
+                if (threadId != ThreadId || _active is not { } turn || card.TurnId != turn.Id || _closed)
                     throw new OperationCanceledException(ct);
                 int order = _requestOrder.GetValueOrDefault(requestId, int.MaxValue);
                 _interactionOrder.Add(card, order);
@@ -62,6 +62,9 @@ internal sealed partial class AgentThreadController
                 if (card is AgentPermissionItem && ActivePermissionIndex > 0 && index <= ActivePermissionIndex)
                     ActivePermissionIndex++;
                 PublishState();
+                var kind = card is AgentPermissionItem ? AgentThreadNotificationKind.Approval : AgentThreadNotificationKind.Question;
+                if (turn.NotifiedRequests.Add((kind, requestId)))
+                    NotifyActivity(turn, DateTimeOffset.UtcNow, kind);
             }, DispatcherPriority.Normal, ct);
             return await answer.WaitAsync(ct).ConfigureAwait(false);
         }

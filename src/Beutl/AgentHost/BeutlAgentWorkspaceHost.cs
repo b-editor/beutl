@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Text.Json;
+using Avalonia.Controls;
 using Avalonia.Threading;
 using Beutl.Agents;
 using Beutl.AgentToolkit.Installation;
@@ -9,7 +10,9 @@ using Beutl.Editor.Components.AgentTab;
 using Beutl.Editor.Components.AgentTab.ViewModels;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Graphics;
+using Beutl.Helpers;
 using Beutl.Logging;
+using Beutl.Pages;
 using Beutl.ProjectSystem;
 using Beutl.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
@@ -19,13 +22,16 @@ using AvaloniaBitmap = Avalonia.Media.Imaging.Bitmap;
 namespace Beutl.AgentHost;
 
 internal sealed partial class BeutlAgentWorkspaceHost(
-    AgentRuntimeManager runtime, AgentHostEndpoint endpoint, AiAgentConfig config, string beutlHome) : IAgentWorkspaceHost
+    AgentRuntimeManager runtime, AgentHostEndpoint endpoint, AiAgentConfig config, string beutlHome,
+    Func<SettingsDialogViewModel>? createDialog = null, IAgentNotificationSoundPlayer? soundPlayer = null) : IAgentWorkspaceHost
 {
     private static readonly ILogger s_logger = Log.CreateLogger<BeutlAgentWorkspaceHost>();
     private static readonly Lazy<BundledSkill[]> s_bundledSkills = new(LoadBundledSkills);
     private readonly AgentAttachmentStore _attachmentStore = new(beutlHome);
+    private SettingsDialog? _dialog;
+    private SettingsDialogViewModel? _settingsViewModel;
     public AgentRuntimeManager Runtime => runtime;
-    public AgentThreadSessionHub ThreadSessions { get; } = new(beutlHome);
+    public AgentThreadSessionHub ThreadSessions { get; } = new(beutlHome, soundPlayer);
     public IProperty<bool> FollowLiveMcpEdits => config.FollowLiveMcpEdits;
     public string DefaultProviderId => config.DefaultRuntimeProviderId.Value?.Trim() ?? "";
     public string? DefaultModel => string.IsNullOrWhiteSpace(config.DefaultModel.Value) ? null : config.DefaultModel.Value.Trim();
@@ -34,6 +40,8 @@ internal sealed partial class BeutlAgentWorkspaceHost(
     public AgentPermissionMode DefaultPermissionMode => AgentRuntimeConfiguration.ParsePermissionMode(config.DefaultPermissionMode.Value);
     public bool SteerOnSend => config.SteerOnSend.Value;
     public AgentComposerSendKey ComposerSendKey => config.ComposerSendKey.Value;
+    public bool EnableNotifications => config.EnableNotifications.Value;
+    public bool EnableNotificationSound => config.EnableNotificationSound.Value;
     public IReadOnlyList<AgentComposerSuggestion> BundledSkills => s_bundledSkills.Value.Select(skill => skill.Suggestion).ToArray();
 
     public event EventHandler<PropertyChangedEventArgs>? RuntimeSettingsChanged
@@ -64,6 +72,34 @@ internal sealed partial class BeutlAgentWorkspaceHost(
         return uri is { IsFile: true } ? new AgentTabViewModel(this, editor, Path.GetFullPath(uri.LocalPath)) : null;
     }
 
+    public async Task OpenAiAgentSettingsAsync(Window owner)
+    {
+        if (_dialog != null)
+        {
+            _settingsViewModel!.GoToAiAgentSettingsPage();
+            _dialog.Activate();
+            return;
+        }
+        if (createDialog is null)
+            return;
+
+        using var vm = createDialog();
+        var dialog = new SettingsDialog { DataContext = vm };
+        HostServices.CopyFrom(dialog, owner);
+        _settingsViewModel = vm;
+        _dialog = dialog;
+        try
+        {
+            vm.GoToAiAgentSettingsPage();
+            await dialog.ShowDialog(owner);
+        }
+        finally
+        {
+            _dialog = null;
+            _settingsViewModel = null;
+        }
+    }
+
     public async Task<AgentTurnSummary> RunTurnAsync(
         IEditorContext editor, string projectPath, AgentProviderDescriptor provider, AgentTurnRequest request,
         bool includeSceneContext, IReadOnlyList<AgentAttachedFile> attachments, IReadOnlyList<AgentContextMention>? mentions,
@@ -75,7 +111,8 @@ internal sealed partial class BeutlAgentWorkspaceHost(
             () => CaptureContext(edit, projectPath, includeSceneContext, attachments, mentions),
             DispatcherPriority.Normal, cancellationToken);
         IReadOnlyList<McpServerSpec> servers = await GetMcpServersAsync(request.ThreadId,
-            message => callbacks.Timeline(new AgentErrorNotice(request.ThreadId, request.TurnId, DateTimeOffset.UtcNow, message)),
+            message => callbacks.Timeline(new AgentErrorNotice(request.ThreadId, request.TurnId, DateTimeOffset.UtcNow, message,
+                AgentDiagnosticKind.McpUnavailable)),
             cancellationToken);
         var turn = await Dispatcher.UIThread.InvokeAsync(() =>
         {

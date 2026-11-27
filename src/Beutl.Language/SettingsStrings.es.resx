@@ -898,4 +898,25 @@
   <data name="AiAgents_RuntimeComposerSendKeyCommandEnter" xml:space="preserve">
     <value>⌘+Enter</value>
   </data>
+  <data name="AiAgents_Notifications" xml:space="preserve">
+    <value>Notificaciones</value>
+  </data>
+  <data name="AiAgents_EnableNotifications" xml:space="preserve">
+    <value>Notificaciones en la aplicación</value>
+  </data>
+  <data name="AiAgents_EnableNotifications_Description" xml:space="preserve">
+    <value>Muestra las solicitudes de aprobación, las preguntas y los resultados de hilos en segundo plano.</value>
+  </data>
+  <data name="AiAgents_EnableNotificationSound" xml:space="preserve">
+    <value>Sonido de notificación</value>
+  </data>
+  <data name="AiAgents_EnableNotificationSound_Description" xml:space="preserve">
+    <value>Reproduce un sonido cuando aparece una notificación.</value>
+  </data>
+  <data name="AiAgents_RuntimeAvailableVersion" xml:space="preserve">
+    <value>v{0} · {1}</value>
+  </data>
+  <data name="AiAgents_RuntimeOutdated" xml:space="preserve">
+    <value>v{0} · Requiere actualización (v{1} o posterior)&#10;{2}</value>
+  </data>
 </root>

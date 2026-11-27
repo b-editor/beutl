@@ -418,4 +418,100 @@
   <data name="ToolGroupFailures" xml:space="preserve">
     <value>部分失败</value>
   </data>
+  <data name="AttentionTabHeader" xml:space="preserve">
+    <value>! {0}</value>
+  </data>
+  <data name="UnreadTabHeader" xml:space="preserve">
+    <value>• {0}</value>
+  </data>
+  <data name="BackgroundThreadActivity" xml:space="preserve">
+    <value>其他会话有新动态</value>
+  </data>
+  <data name="NotificationApproval" xml:space="preserve">
+    <value>智能体需要审批</value>
+  </data>
+  <data name="NotificationQuestion" xml:space="preserve">
+    <value>智能体正在等待回答</value>
+  </data>
+  <data name="NotificationCompleted" xml:space="preserve">
+    <value>智能体已完成工作</value>
+  </data>
+  <data name="ShortcutTooltip" xml:space="preserve">
+    <value>{0}（{1}）</value>
+  </data>
+  <data name="StopShortcutKeys" xml:space="preserve">
+    <value>按两次 Esc</value>
+  </data>
+  <data name="EscapeStopHint" xml:space="preserve">
+    <value>再按一次 Esc 停止</value>
+  </data>
+  <data name="ProviderOutdatedVersion" xml:space="preserve">
+    <value>v{0} · 需要更新</value>
+  </data>
+  <data name="ProviderAvailableVersion" xml:space="preserve">
+    <value>v{0}</value>
+  </data>
+  <data name="DiagnosticCliMissing" xml:space="preserve">
+    <value>找不到 CLI</value>
+  </data>
+  <data name="DiagnosticAuthRequired" xml:space="preserve">
+    <value>需要登录</value>
+  </data>
+  <data name="DiagnosticOutdatedCli" xml:space="preserve">
+    <value>需要更新 CLI</value>
+  </data>
+  <data name="DiagnosticRateLimited" xml:space="preserve">
+    <value>已达到提供商的使用限额</value>
+  </data>
+  <data name="DiagnosticMcpUnavailable" xml:space="preserve">
+    <value>Beutl MCP 不可用</value>
+  </data>
+  <data name="DiagnosticGeneric" xml:space="preserve">
+    <value>智能体出错</value>
+  </data>
+  <data name="DiagnosticInstall" xml:space="preserve">
+    <value>在终端中安装 {0}，然后重新检查。</value>
+  </data>
+  <data name="DiagnosticExecutablePath" xml:space="preserve">
+    <value>请在 AI 智能体设置中检查 {0} 的可执行文件路径。</value>
+  </data>
+  <data name="DiagnosticSignIn" xml:space="preserve">
+    <value>在终端中登录 {0}，然后重新检查。</value>
+  </data>
+  <data name="DiagnosticCredentials" xml:space="preserve">
+    <value>请检查为 {0} 配置的凭据。</value>
+  </data>
+  <data name="DiagnosticVersion" xml:space="preserve">
+    <value>将 {0} 从 v{1} 更新到 v{2} 或更高版本，然后重新检查。</value>
+  </data>
+  <data name="DiagnosticUpdate" xml:space="preserve">
+    <value>将 {0} 更新到受支持的版本，然后重新检查。</value>
+  </data>
+  <data name="DiagnosticRetryLater" xml:space="preserve">
+    <value>请稍后重试，或选择其他模型或提供商。</value>
+  </data>
+  <data name="DiagnosticCheckMcp" xml:space="preserve">
+    <value>打开 AI 智能体设置，检查 Beutl MCP 配置。</value>
+  </data>
+  <data name="DiagnosticReviewDetails" xml:space="preserve">
+    <value>请查看技术详情后重试。</value>
+  </data>
+  <data name="DiagnosticDismiss" xml:space="preserve">
+    <value>关闭</value>
+  </data>
+  <data name="DiagnosticCopyCommand" xml:space="preserve">
+    <value>复制命令</value>
+  </data>
+  <data name="DiagnosticOpenSettings" xml:space="preserve">
+    <value>打开设置</value>
+  </data>
+  <data name="DiagnosticOpenAiAgentSettings" xml:space="preserve">
+    <value>打开 AI 智能体设置</value>
+  </data>
+  <data name="DiagnosticRecheck" xml:space="preserve">
+    <value>重新检查</value>
+  </data>
+  <data name="DiagnosticTechnicalDetails" xml:space="preserve">
+    <value>技术详情</value>
+  </data>
 </root>

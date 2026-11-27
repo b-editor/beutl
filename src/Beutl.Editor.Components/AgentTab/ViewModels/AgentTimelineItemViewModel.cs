@@ -74,13 +74,15 @@ internal sealed class AgentMessageAttachmentItem(AgentUserAttachment entry) : Ag
     }
 }
 
-internal sealed class AgentAssistantItem(Guid? turnId, DateTimeOffset timestamp) : AgentMessageItem(turnId, timestamp)
+internal sealed class AgentAssistantItem(Guid? turnId, DateTimeOffset timestamp, string? projectDirectory)
+    : AgentMessageItem(turnId, timestamp), IDisposable
 {
     public ObservableStringBuilder Markdown { get; } = new();
     public override string Text => Markdown.ToString();
     public bool ReceivedCompletion { get; private set; }
     public bool IsFinalTurnResponse { get; private set => Set(ref field, value); }
     public bool CanCopy => IsFinalTurnResponse && !string.IsNullOrWhiteSpace(Text);
+    public IReadOnlyList<AgentImagePreview> Images { get; private set => Set(ref field, value); } = [];
 
     public void Append(string text)
     {
@@ -90,18 +92,37 @@ internal sealed class AgentAssistantItem(Guid? turnId, DateTimeOffset timestamp)
 
     public void Complete(string text)
     {
+        bool refreshImages = !ReceivedCompletion || Text != text;
         ReceivedCompletion = true;
         if (Text != text)
         {
             Markdown.Clear();
             Append(text);
         }
+        if (refreshImages)
+            UpdateImages(text);
     }
 
     public void MarkFinal()
     {
+        if (!ReceivedCompletion)
+            UpdateImages(Text);
         IsFinalTurnResponse = true;
         Notify(nameof(CanCopy));
+    }
+
+    private void UpdateImages(string text)
+    {
+        Dispose();
+        Images = AgentMarkdownImages.GetPreviews(text, projectDirectory);
+    }
+
+    public void Dispose()
+    {
+        var images = Images;
+        Images = [];
+        foreach (var image in images)
+            image.Dispose();
     }
 }
 
@@ -405,11 +426,12 @@ internal sealed class AgentToolGroupItem(Guid? turnId) : AgentTimelineItemViewMo
     }
 }
 
-internal sealed class AgentTurnStatsItem(Guid? turnId, DateTimeOffset startedAt) : AgentTimelineItemViewModel(turnId)
+internal sealed class AgentTurnStatsItem(Guid? turnId, DateTimeOffset startedAt, int segment = 0) : AgentTimelineItemViewModel(turnId)
 {
     private AgentTurnCompleted? _completed;
     private long? _elapsedMs;
 
+    public int Segment { get; } = segment;
     public bool IsRunning => _elapsedMs is null;
     public string WorkTime => Duration is { } duration
         ? string.Format(CultureInfo.CurrentCulture, AgentStrings.TurnWorkedFor, duration)
@@ -421,7 +443,7 @@ internal sealed class AgentTurnStatsItem(Guid? turnId, DateTimeOffset startedAt)
     public void Finish(AgentTimelineEvent entry)
     {
         _completed = entry as AgentTurnCompleted;
-        _elapsedMs = _completed?.DurationMs ?? (long)(entry.Timestamp - startedAt).TotalMilliseconds;
+        _elapsedMs = (Segment == 0 ? _completed?.DurationMs : null) ?? (long)(entry.Timestamp - startedAt).TotalMilliseconds;
         Notify(null);
     }
 
@@ -471,11 +493,20 @@ internal sealed class AgentTimelineDividerItem(Guid? turnId, string text, Icon i
     public Icon Icon { get; } = icon;
 }
 
-internal sealed class AgentTurnWorkItem(AgentTurnStatsItem header) : AgentTimelineItemViewModel(header.TurnId)
+internal sealed class AgentTurnWorkItem(AgentTurnStatsItem header, bool expanded, Action<bool> setExpanded)
+    : AgentTimelineItemViewModel(header.TurnId)
 {
     public AgentTurnStatsItem Header { get; } = header;
     public ObservableCollection<AgentTimelineItemViewModel> Entries { get; } = [];
-    public bool IsExpanded { get; set => Set(ref field, value); } = true;
+    public bool IsExpanded
+    {
+        get;
+        set
+        {
+            if (Set(ref field, value))
+                setExpanded(value);
+        }
+    } = expanded;
 }
 
 internal sealed class AgentPlanItem(AgentPlanUpdated entry) : AgentTimelineItemViewModel(entry.TurnId)
@@ -519,6 +550,8 @@ internal sealed class AgentNoticeItem(Guid? turnId, string message, FAInfoBarSev
 {
     public string Message { get; } = message;
     public FAInfoBarSeverity Severity { get; } = severity;
+    public string DisplayMessage => Severity == FAInfoBarSeverity.Error ? AgentStrings.TurnFailed : Message;
+    public Icon StatusIcon => Severity is FAInfoBarSeverity.Error or FAInfoBarSeverity.Warning ? Icon.Warning : Icon.Info;
 }
 
 internal sealed class AgentHistoryRecordItem(AgentTurnHistoryRecorded entry) : AgentTimelineItemViewModel(entry.TurnId)

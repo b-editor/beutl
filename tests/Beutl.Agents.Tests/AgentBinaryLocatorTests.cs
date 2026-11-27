@@ -4,6 +4,52 @@ namespace Beutl.Agents.Tests;
 
 public sealed class AgentBinaryLocatorTests
 {
+    [TestCase(".cmd")]
+    [TestCase(".bat")]
+    public async Task ReadsSupportedCliVersionAndRefreshesWhenTheExecutableChanges(string extension)
+    {
+        var directory = Directory.CreateTempSubdirectory("beutl-cli-version-");
+        try
+        {
+            string path = Path.Combine(directory.FullName, "cli %PATH% & !" + extension);
+            WriteVersion("2.0.9");
+            var provider = AgentProviderDescriptor.ClaudeCode with { Command = path };
+            var locator = new AgentBinaryLocator();
+            var outdated = await locator.ProbeAsync(provider);
+            Assert.Multiple(() =>
+            {
+                Assert.That(outdated.CliVersion, Is.EqualTo("2.0.9"));
+                Assert.That(outdated.IsOutdated, Is.True);
+            });
+
+            DateTime originalTimestamp = File.GetLastWriteTimeUtc(path);
+            WriteVersion("2.1.0");
+            File.SetLastWriteTimeUtc(path, originalTimestamp);
+            Assert.That((await locator.ProbeAsync(provider)).CliVersion, Is.EqualTo("2.0.9"));
+            File.SetLastWriteTimeUtc(path, originalTimestamp.AddSeconds(3));
+            var supported = await locator.ProbeAsync(provider);
+            Assert.Multiple(() =>
+            {
+                Assert.That(supported.CliVersion, Is.EqualTo("2.1.0"));
+                Assert.That(supported.IsOutdated, Is.False);
+            });
+            Assert.That((await new AgentBinaryLocator(probeVersions: false).ProbeAsync(provider)).CliVersion, Is.Null);
+
+            void WriteVersion(string version)
+            {
+                File.WriteAllText(path, OperatingSystem.IsWindows()
+                    ? $"@echo off\r\necho {version} (Claude Code)\r\n"
+                    : $"#!/bin/sh\nprintf '%s\\n' '{version} (Claude Code)'\n");
+                if (!OperatingSystem.IsWindows())
+                    File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+            }
+        }
+        finally
+        {
+            directory.Delete(recursive: true);
+        }
+    }
+
     [Test]
     public async Task ResolvesConfiguredPathAndChecksExecutableBit()
     {

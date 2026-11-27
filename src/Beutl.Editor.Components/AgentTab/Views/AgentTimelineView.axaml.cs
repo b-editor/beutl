@@ -62,6 +62,12 @@ internal sealed partial class AgentTimelineView : UserControl
             attachment.RemoveUnavailablePreview();
     }
 
+    private static async void OnOpenAssistantImage(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Button { DataContext: AgentImagePreview preview } button)
+            await AgentImageLightboxWindow.OpenAsync(button, preview);
+    }
+
     private void OnTimelineScrollChanged(object? sender, ScrollChangedEventArgs e)
     {
         if (!ReferenceEquals(e.Source, TimelineScroll))

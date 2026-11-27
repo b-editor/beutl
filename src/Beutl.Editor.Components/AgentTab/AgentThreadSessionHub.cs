@@ -1,10 +1,13 @@
 using Beutl.Agents;
 using Beutl.Logging;
+using Beutl.Services;
+using Beutl.Utilities;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.Editor.Components.AgentTab;
 
-internal sealed class AgentThreadSessionHub(string beutlHome) : IAsyncDisposable
+internal sealed class AgentThreadSessionHub(string beutlHome, IAgentNotificationSoundPlayer? soundPlayer = null) : IAsyncDisposable
 {
     private readonly AgentDraftStore _drafts = new(beutlHome);
     private readonly CancellationTokenSource _lifetime = new();
@@ -16,7 +19,7 @@ internal sealed class AgentThreadSessionHub(string beutlHome) : IAsyncDisposable
         ObjectDisposedException.ThrowIf(_lifetime.IsCancellationRequested, this);
         string path = Path.TrimEndingDirectorySeparator(Path.GetFullPath(projectPath));
         if (!_projects.TryGetValue(path, out var project))
-            _projects.Add(path, project = new(path, _drafts, _lifetime.Token));
+            _projects.Add(path, project = new(path, _drafts, _lifetime.Token, soundPlayer));
         return project;
     }
 
@@ -32,7 +35,10 @@ internal sealed class AgentThreadSessionHub(string beutlHome) : IAsyncDisposable
     }
 }
 
-internal sealed class AgentProjectThreadSessions(string path, AgentDraftStore drafts, CancellationToken lifetime)
+internal enum AgentThreadNotificationKind { Approval, Question, Completed, Failed }
+
+internal sealed class AgentProjectThreadSessions(string path, AgentDraftStore drafts, CancellationToken lifetime,
+    IAgentNotificationSoundPlayer? soundPlayer)
 {
     private static readonly ILogger s_logger = Log.CreateLogger<AgentProjectThreadSessions>();
     private readonly Dictionary<Guid, AgentThreadController> _controllers = [];
@@ -45,6 +51,7 @@ internal sealed class AgentProjectThreadSessions(string path, AgentDraftStore dr
     public event Action<Guid>? StateChanged;
     public event Action<Guid, AgentThreadMetadata?>? MetadataChanged;
     public event Action<Guid, DateTimeOffset?, DateTimeOffset?>? ActivityChanged;
+    public event Action<Guid>? ActivityNotified;
     public event Action? FlushingDrafts;
 
     public AgentThreadController GetOrCreate(IAgentWorkspaceHost host, Guid threadId)
@@ -59,7 +66,11 @@ internal sealed class AgentProjectThreadSessions(string path, AgentDraftStore dr
 
     public void PublishState(Guid threadId) => StateChanged?.Invoke(threadId);
 
-    public void PublishMetadata(AgentThreadMetadata thread) => MetadataChanged?.Invoke(thread.Id, thread);
+    public void PublishMetadata(AgentThreadMetadata thread)
+    {
+        Find(thread.Id)?.UpdateTitle(thread.Title);
+        MetadataChanged?.Invoke(thread.Id, thread);
+    }
 
     public void AttachViewer(Guid threadId) => _viewers[threadId] = _viewers.GetValueOrDefault(threadId) + 1;
 
@@ -71,12 +82,64 @@ internal sealed class AgentProjectThreadSessions(string path, AgentDraftStore dr
             _viewers.Remove(threadId);
     }
 
-    public void ObserveActivity(AgentRuntimeManager runtime, Guid threadId, DateTimeOffset timestamp)
+    public void NotifyActivity(IAgentWorkspaceHost host, IEditorContext editor, Guid threadId, string title,
+        DateTimeOffset timestamp, AgentThreadNotificationKind kind)
     {
         bool viewed = _viewers.ContainsKey(threadId);
         ActivityChanged?.Invoke(threadId, timestamp, viewed ? timestamp : null);
+        ActivityNotified?.Invoke(threadId);
         if (viewed)
-            _ = MarkReadAsync(runtime, threadId, lifetime, timestamp);
+        {
+            _ = MarkReadAsync(host.Runtime, threadId, lifetime, timestamp);
+            return;
+        }
+
+        if (!host.EnableNotifications || lifetime.IsCancellationRequested)
+            return;
+
+        try
+        {
+            if (editor.GetService<INotificationService>() is { } notifications)
+            {
+                switch (kind)
+                {
+                    case AgentThreadNotificationKind.Approval:
+                        notifications.ShowWarning(AgentStrings.NotificationApproval, title);
+                        break;
+                    case AgentThreadNotificationKind.Question:
+                        notifications.ShowWarning(AgentStrings.NotificationQuestion, title);
+                        break;
+                    case AgentThreadNotificationKind.Completed:
+                        notifications.ShowInformation(AgentStrings.NotificationCompleted, title);
+                        break;
+                    case AgentThreadNotificationKind.Failed:
+                        notifications.ShowError(AgentStrings.TurnFailed, title);
+                        break;
+                }
+            }
+        }
+        catch (Exception ex) when (!ExceptionHelpers.ContainsFatalFailure(ex))
+        {
+            s_logger.LogDebug(ex, "Could not show an agent notification.");
+        }
+
+        if (host.EnableNotificationSound && soundPlayer is not null)
+            _ = PlaySoundAsync(soundPlayer);
+    }
+
+    private async Task PlaySoundAsync(IAgentNotificationSoundPlayer player)
+    {
+        try
+        {
+            await player.PlayAsync(lifetime).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (lifetime.IsCancellationRequested)
+        {
+        }
+        catch (Exception ex) when (!ExceptionHelpers.ContainsFatalFailure(ex))
+        {
+            s_logger.LogDebug(ex, "Could not play an agent notification sound.");
+        }
     }
 
     public Task MarkReadAsync(
