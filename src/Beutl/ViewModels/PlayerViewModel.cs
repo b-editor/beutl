@@ -365,7 +365,7 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
             return;
         }
 
-        QueueRender();
+        QueueRender(coalesceSceneEdits: true);
     }
 
     // The preview only needs to re-render when an edit touches a currently visible frame.

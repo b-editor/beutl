@@ -17,6 +17,10 @@ namespace Beutl.ViewModels;
 
 public partial class PlayerViewModel
 {
+    // Guarded by _renderRequestLock. Scene edits can request one follow-up while a preview is in flight.
+    private bool _previewRenderScheduled;
+    private bool _previewEditPending;
+
     // Both displayed images retain their own reference; the caller still owns the supplied frames.
     private void UpdateImage(Ref<Bitmap> source, Ref<Bitmap>? cleanSource, MediaTime time, long playbackId = 0,
         IEditingStageProvider? editingStage = null, GraphEditingFrame? graphEditingFrame = null)
@@ -98,36 +102,25 @@ public partial class PlayerViewModel
     // playback path (e.g. a PreviewSourceMode switch) invalidates the shown frame while paused.
     public void QueuePreviewRender() => QueueRender();
 
-    private void QueueRender()
+    private void QueueRender(bool coalesceSceneEdits = false)
     {
-        CancellationTokenSource cts;
         CancellationTokenSource? previousCts;
-        CancellationToken token;
         lock (_renderRequestLock)
         {
             if (_isDisposing || _isPausing)
                 return;
 
-            cts = new CancellationTokenSource();
-            token = cts.Token;
-            previousCts = _cts;
-            _cts = cts;
+            // Fast drags can outpace rendering. Keep the current render and fold the newer scene edits
+            // into one follow-up, so the preview can keep presenting frames while the pointer moves.
+            if (coalesceSceneEdits && _cts is not null && _previewRenderScheduled)
+            {
+                _previewEditPending = true;
+                return;
+            }
 
-            // Serialize the UI-side handoff with DisposeAsync. Once disposal claims this lock,
-            // no callback can enqueue more render-thread work behind its teardown barrier.
-            Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(
-                () =>
-                {
-                    lock (_renderRequestLock)
-                    {
-                        if (!_isDisposing && !_isPausing && !token.IsCancellationRequested)
-                        {
-                            RenderOnRenderThread(token);
-                        }
-                    }
-                },
-                Avalonia.Threading.DispatcherPriority.Background,
-                token);
+            previousCts = _cts;
+            _cts = new CancellationTokenSource();
+            SchedulePreviewRender(_cts.Token);
         }
 
         if (previousCts is not null)
@@ -140,6 +133,49 @@ public partial class PlayerViewModel
             {
                 previousCts.Dispose();
             }
+        }
+    }
+
+    // Called with _renderRequestLock held. The UI handoff shares the lock with pause and teardown.
+    private void SchedulePreviewRender(CancellationToken token)
+    {
+        _previewRenderScheduled = true;
+        _previewEditPending = false;
+        Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(
+            () =>
+            {
+                lock (_renderRequestLock)
+                {
+                    if (_isDisposing || _isPausing || _cts?.Token != token)
+                        return;
+
+                    // This render already includes edits that arrived before the handoff.
+                    _previewEditPending = false;
+                    try
+                    {
+                        RenderOnRenderThread(token);
+                    }
+                    catch
+                    {
+                        _previewRenderScheduled = false;
+                        throw;
+                    }
+                }
+            },
+            Avalonia.Threading.DispatcherPriority.Background,
+            token);
+    }
+
+    private void CompletePreviewRender(CancellationToken token)
+    {
+        lock (_renderRequestLock)
+        {
+            if (_cts?.Token != token)
+                return;
+
+            _previewRenderScheduled = false;
+            if (_previewEditPending && !_isDisposing && !_isPausing)
+                SchedulePreviewRender(token);
         }
     }
 
@@ -258,6 +294,10 @@ public partial class PlayerViewModel
                 useOnionSkin, onionSampleCount, frame);
             UpdatePreviewRenderStatus(MessageStrings.FrameDrawingException, warning: null,
                 () => !token.IsCancellationRequested);
+        }
+        finally
+        {
+            CompletePreviewRender(token);
         }
     }
 
