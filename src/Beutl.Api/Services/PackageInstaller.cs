@@ -1,4 +1,5 @@
 ﻿using System.Collections.Concurrent;
+using System.Net;
 using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text;
@@ -359,7 +360,8 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
         bool useSavedSelection,
         ILogger? logger,
         CancellationToken cancellationToken,
-        SourceRepository? stagedSource = null)
+        SourceRepository? stagedSource = null,
+        ExtensionInstallArchive? selectedArchive = null)
     {
         PackageIdentity? package = null;
         try
@@ -380,11 +382,15 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
                     useSavedSelection && ResolvedPackageDependencies.TryLoadSelection(package, nuGetFramework, out IReadOnlyList<PackageIdentity>? selection)
                         ? selection.ToDictionary(item => item.Id, StringComparer.OrdinalIgnoreCase)
                         : null;
-                SourceRepository[] sources = stagedSource == null
-                    ? GetInstallSources()
-                    : [stagedSource, CreateInstalledPackagesRepository()];
+                SourceRepository? selectedSource = selectedArchive is null ? null : _sourceRepositoryProvider.CreateRepository(
+                    new PackageSource(Path.GetDirectoryName(selectedArchive.Path)!));
+                SourceRepository[] sources = selectedSource is not null ? [selectedSource, .. GetInstallSources()]
+                    : stagedSource is not null ? [stagedSource, CreateInstalledPackagesRepository()] : GetInstallSources();
                 SourcePackageDependencyInfo[] packagesToInstall = await ResolvePackageGraphAsync(
                     package, nuGetFramework, sources, selectedPackages, logger, cancellationToken).ConfigureAwait(false);
+                if (selectedSource is not null && packagesToInstall.FirstOrDefault(package.Equals)?.Source?.PackageSource.Source
+                    != selectedSource.PackageSource.Source)
+                    throw new InvalidDataException($"The supplied archive for '{package}' could not be resolved.");
 
                 // Staged and installed sources both resolve to local archives. Check the selected graph
                 // before extraction so a manual install can still collect every required license.
@@ -404,7 +410,13 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
                         continue;
                     }
 
-                    if (Helper.PackagePathResolver.GetInstalledPath(packageToInstall) == null)
+                    if (selectedArchive is not null && package.Equals(packageToInstall))
+                    {
+                        await InstallSelectedArchiveAsync(selectedArchive, packageExtractionContext, cancellationToken)
+                            .ConfigureAwait(false);
+                        continue;
+                    }
+                    if (Helper.PackagePathResolver.GetInstalledPath(packageToInstall) is null)
                     {
                         await InstallResolvedPackageAsync(
                                 packageToInstall,
@@ -413,6 +425,12 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
                                 logger,
                                 cancellationToken)
                             .ConfigureAwait(false);
+                    }
+
+                    if (selectedArchive is not null)
+                    {
+                        using var reader = new PackageFolderReader(Helper.ResolveInstalledDirectory(packageToInstall));
+                        RequireAcceptedLicense(packageToInstall, reader.NuspecReader);
                     }
                 }
 
@@ -425,7 +443,7 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
         }
         finally
         {
-            if (package is { })
+            if (package is { } && selectedArchive is null)
             {
                 _installingContexts.TryRemove(package, out _);
             }
@@ -479,18 +497,20 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
             logger, cancellationToken)
             .ConfigureAwait(false);
 
-        await ExtractDownloadedPackageAsync(
-            downloadResult,
-            packageToInstall,
-            source.PackageSource.Source,
-            packageExtractionContext,
-            cancellationToken)
-            .ConfigureAwait(false);
+        using (await LockPackageExtractionAsync(cancellationToken).ConfigureAwait(false))
+        {
+            if (Helper.PackagePathResolver.GetInstalledPath(packageToInstall) is null)
+            {
+                await ExtractDownloadedPackageAsync(
+                    downloadResult, packageToInstall, source.PackageSource.Source, packageExtractionContext, cancellationToken)
+                    .ConfigureAwait(false);
+            }
+        }
 
         string? installedPath = Helper.PackagePathResolver.GetInstalledPath(packageToInstall);
         if (installedPath != null)
         {
-            var reader = new PackageFolderReader(installedPath);
+            using var reader = new PackageFolderReader(installedPath);
             NuspecReader nuspec = reader.NuspecReader;
 
             if (nuspec.GetRequireLicenseAcceptance()
@@ -500,6 +520,9 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
             }
         }
     }
+
+    private static Task<FileStream> LockPackageExtractionAsync(CancellationToken cancellationToken)
+        => PackageFileLock.AcquireAsync(Path.Combine(Helper.AppRoot, ".package-extraction.lock"), cancellationToken);
 
     // NuGet reports a package it could not find, or a cancelled download, as a result with neither a
     // stream nor a reader instead of throwing. A plugin-backed source hands over an available package
@@ -542,29 +565,60 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
         }
     }
 
+    private const int MaxPackageDownloadRedirects = 10;
+
     private async Task Download(
         string url,
         Stream destination,
         IProgress<double>? progress,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool authorizeApiOrigin = true)
     {
         var apiOrigin = new Uri(BeutlApiApplication.BaseUrl);
         Uri downloadUri = new(apiOrigin, url);
-        using var request = new HttpRequestMessage(HttpMethod.Get, downloadUri);
-        await AuthorizeIfApiOriginAsync(request, apiOrigin, downloadUri, cancellationToken).ConfigureAwait(false);
-
-        using (HttpResponseMessage response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false))
+        for (int redirects = 0; ; redirects++)
         {
+            using var request = new HttpRequestMessage(HttpMethod.Get, downloadUri);
+            if (authorizeApiOrigin)
+                await AuthorizeIfApiOriginAsync(request, apiOrigin, downloadUri, cancellationToken).ConfigureAwait(false);
+
+            using HttpResponseMessage response = await _httpClient
+                .SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
+            if (IsRedirect(response.StatusCode))
+            {
+                // The package-installer client does not follow redirects, so every hop can be checked.
+                if (redirects >= MaxPackageDownloadRedirects)
+                    throw new HttpRequestException("The package download exceeded the redirect limit.");
+                if (response.Headers.Location is not { } location)
+                    throw new HttpRequestException("The package download returned a redirect without a location.");
+
+                Uri nextUri = location.IsAbsoluteUri ? location : new Uri(downloadUri, location);
+                if (downloadUri.Scheme == Uri.UriSchemeHttps && nextUri.Scheme != Uri.UriSchemeHttps)
+                {
+                    throw new HttpRequestException(
+                        $"The package download was redirected from HTTPS to '{nextUri.Scheme}'.");
+                }
+
+                downloadUri = nextUri;
+                continue;
+            }
+
             response.EnsureSuccessStatusCode();
             long? contentLength = response.Content.Headers.ContentLength;
 
-            using (Stream download = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false))
-            {
-                await CopyWithProgressAsync(download, destination, contentLength, progress, cancellationToken)
-                    .ConfigureAwait(false);
-            }
+            using Stream download = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+            await CopyWithProgressAsync(download, destination, contentLength, progress, cancellationToken)
+                .ConfigureAwait(false);
+            return;
         }
     }
+
+    private static bool IsRedirect(HttpStatusCode statusCode)
+        => statusCode is HttpStatusCode.MovedPermanently
+            or HttpStatusCode.Redirect
+            or HttpStatusCode.RedirectMethod
+            or HttpStatusCode.TemporaryRedirect
+            or HttpStatusCode.PermanentRedirect;
 
     // Credentials only go to the API origin; a download hosted elsewhere is fetched anonymously.
     private async Task AuthorizeIfApiOriginAsync(

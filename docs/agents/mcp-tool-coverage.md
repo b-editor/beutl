@@ -4,6 +4,18 @@ The installed `beutl-agent` stdio server edits project files directly. Pass `ins
 
 Extensions can add live tools through `McpToolExtension`. The stdio server lists and forwards those tools when an editor that provides them is running. See the [MCP tool extension guide](../extension-authoring/mcp-tools.md).
 
+## Extensions
+
+| Tool | Usage |
+| --- | --- |
+| `search_extensions` | Search the Beutl Store with `query`. Use `offset` and `limit` for pagination. |
+| `install_extension` | Pass a Store `packageId` with an optional exact `version`, an absolute `path` to a local `.nupkg`, or an HTTPS `url` serving the archive. The Store defaults to the latest compatible release. |
+| `list_installed_extensions` | Reports versions installed in the profile, versions loaded by the target editor, and pending extension changes. |
+
+Use `instanceId` from `list_instances` when calling from stdio. These tools work before a project is open. Installation returns `installed` when the extension is loaded, `already_installed` for the same version, or `restart_required` when restricted mode defers loading until the next normal start. A different installed version returns `extension_version_conflict`, and a pending install or uninstall for the same package returns `extension_change_pending`. Store ownership and required license acceptance use Beutl's existing records.
+
+After an immediate install, refresh `tools/list` to discover any tools the extension provides.
+
 ## Projects and scenes
 
 | Editor feature | Built-in MCP tools | Coverage |

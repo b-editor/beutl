@@ -314,9 +314,17 @@ public sealed partial class MainViewModel : BasePageViewModel
     {
         IsRunningStartupTasks.Value = true;
         var startup = new Startup(_beutlClients, _projectService, _editorService);
+        _editorService.ExtensionStartupRestrictedMode = GetExtensionStartupModeAsync(startup);
+        _agentHostEndpoint.StartInBackground();
         startup.WaitAll().ContinueWith(_ => IsRunningStartupTasks.Value = false);
 
         return startup;
+    }
+
+    private static async Task<bool> GetExtensionStartupModeAsync(Startup startup)
+    {
+        await startup.WaitLoadingExtensions().ConfigureAwait(false);
+        return startup.GetTask<CrashRecoveryPromptTask>().IsRestrictedMode;
     }
 
     public void RegisterServices()
@@ -325,8 +333,6 @@ public sealed partial class MainViewModel : BasePageViewModel
         {
             RegisterExitHandler(lifetime);
         }
-
-        _agentHostEndpoint.StartInBackground();
     }
 
     internal static bool TryGetCurrent([NotNullWhen(true)] out MainViewModel? main)

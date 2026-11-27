@@ -25,7 +25,7 @@ public partial class PackageInstaller
             {
                 _logger.LogInformation("Cleaning unnecessary packages.");
 
-                PackageIdentity[] installedPackages = _installedPackageRepository.GetLocalPackages()
+                PackageIdentity[] installedPackages = _installedPackageRepository.GetProfilePackages()
                     .Except(unnecessaryPackages, PackageIdentityComparer.Default)
                     .ToArray();
 
@@ -39,7 +39,8 @@ public partial class PackageInstaller
             return new PackageUninstallContext(uninstallPackage, installedPath)
             {
                 UnnecessaryPackages = unnecessaryPackages,
-                SizeToBeReleased = size
+                SizeToBeReleased = size,
+                RecheckDependencies = clean
             };
         });
     }
@@ -52,17 +53,46 @@ public partial class PackageInstaller
         TrackSyncOperation(() =>
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (_installedPackageRepository.RestoreFailed)
-            {
-                throw new InvalidOperationException(
-                    "Cannot uninstall packages because installedPackages.json could not be restored.");
-            }
-
-            context.FailedPackages = RemovePackageDirectories(
-                context.UnnecessaryPackages,
-                context.SizeToBeReleased,
-                progress,
-                out _);
+            using var lease = PackageFileLock.Acquire(PackageFileChangesLockPath, cancellationToken);
+            UninstallCore(context, progress, cancellationToken);
         });
+    }
+
+    // Callers on the UI thread await this instead of blocking while another editor changes package files.
+    public Task UninstallAsync(
+        PackageUninstallContext context,
+        IProgress<double> progress,
+        CancellationToken cancellationToken = default)
+    {
+        return TrackSyncOperationAsync(async () =>
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            using FileStream lease = await PackageFileLock.AcquireAsync(PackageFileChangesLockPath, cancellationToken)
+                .ConfigureAwait(false);
+            UninstallCore(context, progress, cancellationToken);
+        });
+    }
+
+    private void UninstallCore(
+        PackageUninstallContext context,
+        IProgress<double> progress,
+        CancellationToken cancellationToken)
+    {
+        if (!_installedPackageRepository.TryGetCompleteProfilePackages(out PackageIdentity[] installed))
+        {
+            throw new InvalidOperationException(
+                "Cannot uninstall packages because installedPackages.json could not be restored.");
+        }
+
+        PackageIdentity[] unnecessary = context.RecheckDependencies
+            ? [.. context.UnnecessaryPackages.Except(
+                GetRequiredPackages(installed.Where(package => !package.Equals(context.Id))), PackageIdentityComparer.Default)]
+            : context.UnnecessaryPackages;
+        context.FailedPackages = RemovePackageDirectories(
+            unnecessary,
+            installed,
+            context.SizeToBeReleased,
+            progress,
+            out _);
     }
 }

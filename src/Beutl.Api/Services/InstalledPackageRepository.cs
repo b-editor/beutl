@@ -16,56 +16,63 @@ namespace Beutl.Api.Services;
 public class InstalledPackageRepository : IBeutlApiResource
 {
     private readonly ILogger _logger = Log.CreateLogger<InstalledPackageRepository>();
-    private readonly HashSet<PackageIdentity> _packages = [];
-    private readonly Dictionary<string, string?> _resolvedBeutlVersions = new(StringComparer.OrdinalIgnoreCase);
     private readonly Subject<(PackageIdentity Package, bool Exists)> _subject = new();
-    private bool _saveBlocked;
-    private const string FileName = "installedPackages.json";
+    private static string FilePath => Path.Combine(Helper.AppRoot, "installedPackages.json");
+    private Snapshot _current;
 
     public InstalledPackageRepository()
     {
-        Restore();
+        _current = ReadSnapshot();
     }
 
-    public bool RestoreFailed => _saveBlocked;
+    private Snapshot Current => Volatile.Read(ref _current);
 
-    public IEnumerable<PackageIdentity> GetLocalPackages()
-    {
-        return _packages;
-    }
+    public bool RestoreFailed => Current.Incomplete;
+
+    public IEnumerable<PackageIdentity> GetLocalPackages() => Current.Packages.Keys;
 
     public IEnumerable<PackageIdentity> GetLocalPackages(string name)
+        => GetLocalPackages().Where(package => HasName(package, name));
+
+    // Live extensions are per process. Installed package records belong to the profile.
+    internal PackageIdentity[] GetProfilePackages() => [.. ReadSnapshot().Packages.Keys];
+
+    internal bool TryGetCompleteProfilePackages(out PackageIdentity[] packages)
     {
-        return _packages.Where(x => StringComparer.OrdinalIgnoreCase.Equals(x.Id, name));
+        Snapshot snapshot = ReadSnapshot();
+        packages = [.. snapshot.Packages.Keys];
+        return !RestoreFailed && !snapshot.Incomplete;
+    }
+
+    internal void RequireNoReplacement(PackageIdentity package)
+    {
+        if (GetProfilePackages().FirstOrDefault(item => HasName(item, package.Id) && !package.Equals(item)) is { } installed)
+            throw new PackageVersionConflictException(installed);
     }
 
     internal PackageIdentity? GetLatestLocalPackage(string name)
-    {
-        return GetLocalPackages(name).MaxBy(x => x.Version);
-    }
+        => GetLocalPackages(name).MaxBy(package => package.Version);
 
-    internal Action UpgradePackagesAndDeferNotifications(PackageIdentity package)
+    internal Action UpgradePackagesAndDeferNotifications(PackageIdentity package, bool allowReplacement = true)
     {
-        if (_saveBlocked)
+        using var lease = PackageFileLock.Acquire(FilePath + ".lock");
+        if (ReadForWrite() is not { } packages)
         {
             throw new InvalidOperationException(
                 "Cannot register an installed package because installedPackages.json could not be restored.");
         }
 
-        _logger.LogInformation("Upgrading package: {PackageId} to version: {PackageVersion}", package.Id, package.Version);
-        PackageIdentity[] removedItems = [];
-        if (_subject.HasObservers)
+        PackageIdentity[] removedItems = [.. packages.Keys.Where(item => HasName(item, package.Id))];
+        foreach (PackageIdentity item in removedItems)
         {
-            removedItems = GetLocalPackages(package.Id).ToArray();
+            if (!allowReplacement && !package.Equals(item))
+                throw new PackageVersionConflictException(item);
+            packages.Remove(item);
         }
-        PackageIdentity[] upgraded = [.. _packages.Where(x => !StringComparer.OrdinalIgnoreCase.Equals(x.Id, package.Id)), package];
-        // Persist a candidate snapshot before publishing the new registration in memory.
-        Save(upgraded.Select(x => new S_Package(x.Id, x.Version.ToString(),
-            StringComparer.OrdinalIgnoreCase.Equals(x.Id, package.Id)
-                ? BeutlApplication.Version : _resolvedBeutlVersions.GetValueOrDefault(x.Id))));
-        _packages.RemoveWhere(x => StringComparer.OrdinalIgnoreCase.Equals(x.Id, package.Id));
-        _packages.Add(package);
-        _resolvedBeutlVersions[package.Id] = BeutlApplication.Version;
+
+        _logger.LogInformation("Registering package {PackageId} version {PackageVersion}.", package.Id, package.Version);
+        packages.Add(package, BeutlApplication.Version);
+        PublishSnapshot(packages);
 
         return () =>
         {
@@ -99,51 +106,39 @@ public class InstalledPackageRepository : IBeutlApiResource
     }
 
     public void RemovePackage(PackageIdentity package)
-    {
-        _logger.LogInformation("Removing package: {PackageId} with version: {PackageVersion}", package.Id, package.Version);
-        if (_packages.Remove(package))
-        {
-            _resolvedBeutlVersions.Remove(package.Id);
-            Save();
-            _subject.OnNext((package, false));
-        }
-        _logger.LogInformation("Removed package: {PackageId} with version: {PackageVersion}", package.Id, package.Version);
-    }
+        => RemovePackagesWhere(package.Equals);
 
     public void RemovePackages(string name)
+        => RemovePackagesWhere(package => HasName(package, name));
+
+    private void RemovePackagesWhere(Func<PackageIdentity, bool> matches)
     {
-        _logger.LogInformation("Removing all packages with name: {PackageName}", name);
-        PackageIdentity[] removed = [];
-        if (_subject.HasObservers)
+        PackageIdentity[] removed;
+        using (PackageFileLock.Acquire(FilePath + ".lock"))
         {
-            removed = GetLocalPackages(name).ToArray();
+            if (ReadForWrite() is not { } packages) return;
+            removed = [.. packages.Keys.Where(matches)];
+            if (removed.Length == 0) return;
+            foreach (PackageIdentity package in removed)
+                packages.Remove(package);
+            PublishSnapshot(packages);
         }
-        _packages.RemoveWhere(x => StringComparer.OrdinalIgnoreCase.Equals(x.Id, name));
-        _resolvedBeutlVersions.Remove(name);
-        Save();
+
         foreach (PackageIdentity package in removed)
         {
+            _logger.LogInformation("Removed package {PackageId} version {PackageVersion}.", package.Id, package.Version);
             _subject.OnNext((package, false));
         }
-        _logger.LogInformation("Removed {Count} packages with name: {PackageName}", removed.Length, name);
     }
 
     public bool ExistsPackage(PackageIdentity package)
-    {
-        return _packages.Contains(package);
-    }
+        => Current.Packages.ContainsKey(package);
 
     public bool ExistsPackage(string name, string version)
-    {
-        var nugetVersion = new NuGetVersion(version);
-        return _packages.Any(
-            x => StringComparer.OrdinalIgnoreCase.Equals(x.Id, name) && x.Version == nugetVersion);
-    }
+        => ExistsPackage(new PackageIdentity(name, new NuGetVersion(version)));
 
     public bool ExistsPackage(string name)
-    {
-        return _packages.Any(x => StringComparer.OrdinalIgnoreCase.Equals(x.Id, name));
-    }
+        => GetLocalPackages(name).Any();
 
     public IObservable<bool> GetObservable(string name)
     {
@@ -158,52 +153,44 @@ public class InstalledPackageRepository : IBeutlApiResource
     public PackageIdentity[] GetPackagesNeedingDependencyReResolution()
     {
         string currentVersion = BeutlApplication.Version;
-        return [.. _packages.Where(p =>
-        {
-            _resolvedBeutlVersions.TryGetValue(p.Id, out string? ver);
-            return ver != currentVersion;
-        })];
+        return [.. Current.Packages.Where(item => item.Value != currentVersion).Select(item => item.Key)];
     }
 
     public void SetResolvedBeutlVersion(string packageId, string beutlVersion)
     {
-        _resolvedBeutlVersions[packageId] = beutlVersion;
-        Save();
+        using var lease = PackageFileLock.Acquire(FilePath + ".lock");
+        if (ReadForWrite() is not { } packages) return;
+        PackageIdentity[] resolved = [.. packages.Keys.Where(package => HasName(package, packageId))];
+        if (resolved.Length == 0) return;
+        foreach (PackageIdentity package in resolved)
+            packages[package] = beutlVersion;
+        PublishSnapshot(packages);
     }
 
-    private void Save()
-        => Save(_packages.Select(x => new S_Package(x.Id, x.Version.ToString(), _resolvedBeutlVersions.GetValueOrDefault(x.Id))));
-
-    private void Save(IEnumerable<S_Package> packages)
+    private Dictionary<PackageIdentity, string?>? ReadForWrite()
     {
-        if (_saveBlocked)
-        {
-            _logger.LogWarning(
-                "Skipping save of installed packages because installedPackages.json could not be restored.");
-            return;
-        }
-
-        _logger.LogInformation("Saving installed packages to file.");
-        string fileName = Path.Combine(Helper.AppRoot, FileName);
-        JsonSerializer.SerializeToNode(packages.ToArray())!.JsonSave(fileName);
+        // Reload under the file lock so a running process cannot overwrite a change from another.
+        if (!RestoreFailed && ReadSnapshot() is { Incomplete: false } snapshot)
+            return snapshot.Packages;
+        _logger.LogWarning("Skipping save of installed packages because installedPackages.json could not be restored.");
+        return null;
     }
 
-    private void Restore()
+    private void PublishSnapshot(Dictionary<PackageIdentity, string?> packages)
     {
-        _logger.LogInformation("Restoring installed packages from file.");
-        string fileName = Path.Combine(Helper.AppRoot, FileName);
-        if (!File.Exists(fileName))
-        {
-            _logger.LogWarning("No installed packages file found.");
-            return;
-        }
+        var entries = packages.Select(x => new S_Package(x.Key.Id, x.Key.Version.ToString(), x.Value));
+        JsonSerializer.SerializeToNode(entries.ToArray())!.JsonSave(FilePath);
+        Volatile.Write(ref _current, new Snapshot(packages, Incomplete: false));
+    }
 
+    private Snapshot ReadSnapshot()
+    {
+        string fileName = FilePath;
+        var packages = new Dictionary<PackageIdentity, string?>(PackageIdentityComparer.Default);
         int skipped = 0;
-        _packages.Clear();
-        _resolvedBeutlVersions.Clear();
         try
         {
-            using FileStream stream = File.OpenRead(fileName);
+            using var stream = new FileStream(fileName, FileMode.Open, FileAccess.Read, FileShare.Read | FileShare.Delete);
             using JsonDocument document = JsonDocument.Parse(stream);
             if (document.RootElement.ValueKind != JsonValueKind.Array)
                 throw new JsonException("The installed packages file does not contain an array.");
@@ -214,49 +201,37 @@ public class InstalledPackageRepository : IBeutlApiResource
                 index++;
                 try
                 {
-                    S_Package? pkg = element.Deserialize<S_Package>();
-                    if (pkg is null)
+                    S_Package? package = element.Deserialize<S_Package>();
+                    if (package is null)
                     {
                         skipped++;
                         _logger.LogWarning("Skipping a null installed package entry at index {Index}.", index);
                         continue;
                     }
 
-                    _packages.Add(new PackageIdentity(pkg.Name, new NuGetVersion(pkg.Version)));
-                    if (pkg.BeutlVersion is { } beutlVersion)
-                    {
-                        _resolvedBeutlVersions[pkg.Name] = beutlVersion;
-                    }
+                    packages[new PackageIdentity(package.Name, new NuGetVersion(package.Version))] = package.BeutlVersion;
                 }
                 catch (Exception ex) when (ex is JsonException or ArgumentException or FormatException)
                 {
                     skipped++;
-                    _logger.LogWarning(
-                        ex,
-                        "Skipping invalid installed package entry at index {Index}.", index);
+                    _logger.LogWarning(ex, "Skipping invalid installed package entry at index {Index}.", index);
                 }
             }
+        }
+        catch (Exception ex) when (ex is FileNotFoundException or DirectoryNotFoundException)
+        {
+            return new Snapshot(packages, Incomplete: false);
         }
         catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException or NotSupportedException)
         {
             _logger.LogError(ex, "Failed to restore packages from file; keeping the file unchanged.");
             KeepBackup(fileName);
-            _saveBlocked = true;
-            return;
+            return new Snapshot(packages, Incomplete: true);
         }
 
-        if (skipped > 0)
-        {
-            // Keep the incomplete registry unchanged so the protection remains active
-            // after the next start, including for clean.
-            KeepBackup(fileName);
-            _saveBlocked = true;
-        }
-
-        _logger.LogInformation(
-            "Restored {Count} packages from file ({Skipped} invalid entries skipped).",
-            _packages.Count,
-            skipped);
+        // Keep the incomplete registry unchanged so protection remains active after restart.
+        if (skipped > 0) KeepBackup(fileName);
+        return new Snapshot(packages, Incomplete: skipped > 0);
     }
 
     private string? KeepBackup(string fileName)
@@ -276,6 +251,11 @@ public class InstalledPackageRepository : IBeutlApiResource
 
     // Serializable
     private record S_Package(string Name, string Version, string? BeutlVersion = null);
+
+    private sealed record Snapshot(Dictionary<PackageIdentity, string?> Packages, bool Incomplete);
+
+    private static bool HasName(PackageIdentity package, string name)
+        => StringComparer.OrdinalIgnoreCase.Equals(package.Id, name);
 
     private sealed class _Observable : LightweightObservableBase<bool>
     {
@@ -357,4 +337,10 @@ public class InstalledPackageRepository : IBeutlApiResource
             return _repository.GetLatestLocalPackage(_name);
         }
     }
+}
+
+internal sealed class PackageVersionConflictException(PackageIdentity installed)
+    : InvalidOperationException($"'{installed.Id}' version {installed.Version} is already installed.")
+{
+    public PackageIdentity Installed { get; } = installed;
 }

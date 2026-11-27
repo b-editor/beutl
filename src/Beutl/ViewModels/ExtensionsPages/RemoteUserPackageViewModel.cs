@@ -155,6 +155,11 @@ public sealed class RemoteUserPackageViewModel : IUserPackageViewModel
 
             StatusText.Value = ExtensionsStrings.Uninstalling;
 
+            using var lease = await _app.Lock.LockAsync();
+            // A project can open while this waits for the lock, and unloading must not race it.
+            if (!await _handler.EnsureProjectClosed())
+                return;
+
             if (await _handler.UnloadAndUninstallAsync(Package.Name))
             {
                 PackageNotifications.Uninstalled(_handler.Notifications, Package.Name);

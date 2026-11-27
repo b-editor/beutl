@@ -36,9 +36,9 @@ public partial class PackageInstaller
             RejectDataInstallLink(path);
             try
             {
-                return new FileStream(path, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+                return PackageFileLock.Open(path);
             }
-            catch (IOException ex) when (waitForContention && IsDataInstallLockContention(ex))
+            catch (IOException ex) when (waitForContention && PackageFileLock.IsContention(ex))
             {
                 if (!reportedContention)
                 {
@@ -52,11 +52,6 @@ public partial class PackageInstaller
             }
         }
     }
-
-    private static bool IsDataInstallLockContention(IOException exception)
-        // .NET reports ERROR_SHARING_VIOLATION on Windows and raw EWOULDBLOCK on Unix.
-        => exception.HResult == (OperatingSystem.IsWindows() ? unchecked((int)0x80070020)
-            : OperatingSystem.IsMacOS() || OperatingSystem.IsFreeBSD() ? 35 : 11);
 
     // Run before fonts, templates, extension registration, or directory watchers read
     // payloads. The same gate protects publication in another application process.
