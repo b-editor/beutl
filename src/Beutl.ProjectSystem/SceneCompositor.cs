@@ -6,6 +6,7 @@ using Beutl.Composition;
 using Beutl.Configuration;
 using Beutl.Engine;
 using Beutl.Graphics;
+using Beutl.Graphics.Effects;
 using Beutl.Graphics.Transitions;
 using Beutl.Media;
 using Beutl.Media.Decoding;
@@ -35,15 +36,11 @@ public sealed partial class SceneCompositor : ICompositor
     private volatile AudioEligibilitySnapshot? _audioEligibility;
     private int _audioEligibilityVersion;
 
-    private readonly EditorConfig? _editorConfig;
-    private readonly ProxyStoreConfig? _proxyConfig;
-
-    public SceneCompositor(Scene scene, FontManager? fonts, EditorConfig? editorConfig = null, ProxyStoreConfig? proxyConfig = null, DecoderRegistry? decoders = null)
+    public SceneCompositor(Scene scene, SceneRenderServices services)
     {
-        Fonts = fonts;
-        Decoders = decoders;
-        _editorConfig = editorConfig;
-        _proxyConfig = proxyConfig;
+        ArgumentNullException.ThrowIfNull(services);
+
+        Services = services;
         Scene = scene;
         _layerQueries = new(this, CreateLayerQuery);
         _audioQueries = new(this, CreateAudioQuery);
@@ -58,9 +55,11 @@ public sealed partial class SceneCompositor : ICompositor
         }
     }
 
-    public FontManager? Fonts { get; }
+    public SceneRenderServices Services { get; }
 
-    public DecoderRegistry? Decoders { get; }
+    public FontManager? Fonts => Services.Fonts;
+
+    public DecoderRegistry? Decoders => Services.Decoders;
 
     public Scene Scene { get; }
 
@@ -83,16 +82,16 @@ public sealed partial class SceneCompositor : ICompositor
     {
         SceneCompositor? parent = (context as CompositorContext)?.Compositor
             ?? context.EvaluationServices?.SessionIdentity as SceneCompositor;
-        EditorConfig? editorConfig = parent?._editorConfig;
-        ProxyStoreConfig? proxyConfig = parent?._proxyConfig;
+        SceneRenderServices services = (parent?.Services ?? SceneRenderServices.Empty) with
+        {
+            Fonts = context.Fonts,
+            Decoders = context.Decoders,
+        };
         bool forceOriginalSource = !context.PreferProxy;
         if (field?.Scene != scene
             || field?.DisableResourceShare != context.DisableResourceShare
             || field?.ForceOriginalSource != forceOriginalSource
-            || !ReferenceEquals(field?.Fonts, context.Fonts)
-            || !ReferenceEquals(field?.Decoders, context.Decoders)
-            || !ReferenceEquals(field?._editorConfig, editorConfig)
-            || !ReferenceEquals(field?._proxyConfig, proxyConfig))
+            || field?.Services != services)
         {
             field?.Dispose();
             field = null;
@@ -100,7 +99,7 @@ public sealed partial class SceneCompositor : ICompositor
 
         if (scene != null && field == null)
         {
-            field = new SceneCompositor(scene, context.Fonts, editorConfig, proxyConfig, context.Decoders)
+            field = new SceneCompositor(scene, services)
             {
                 DisableResourceShare = context.DisableResourceShare,
                 ForceOriginalSource = forceOriginalSource,
@@ -131,10 +130,10 @@ public sealed partial class SceneCompositor : ICompositor
                 Fonts = compositor.Fonts,
                 Decoders = compositor.Decoders,
                 PreferProxy = !compositor.ForceOriginalSource
-                    && (compositor._editorConfig?.PreviewSourceMode.Value ?? PreviewSourceMode.PreferProxy) == PreviewSourceMode.PreferProxy,
-                PreferredProxyPreset = ToPreset(compositor._proxyConfig?.DefaultPreset.Value ?? ProxyStoreConfig.DefaultPresetValue),
+                    && (compositor.Services.EditorConfig?.PreviewSourceMode.Value ?? PreviewSourceMode.PreferProxy) == PreviewSourceMode.PreferProxy,
+                PreferredProxyPreset = ToPreset(compositor.Services.ProxyConfig?.DefaultPreset.Value ?? ProxyStoreConfig.DefaultPresetValue),
                 TargetDomain = new Rect(default, compositor.Scene.FrameSize.Value.ToSize(1)),
-                FrameRate = compositor.Scene.FindHierarchicalParent<Project>().GetFrameRate(),
+                FrameRate = compositor.Scene.GetFrameRate(),
                 EvaluationServices = services?.Fork(compositor, this) ?? new EvaluationServices(compositor, this),
                 DisabledObjects = compositor.DisabledObjects,
                 ColorStagesSkipped = compositor.ColorStagesSkipped,
@@ -204,10 +203,7 @@ public sealed partial class SceneCompositor : ICompositor
         {
             using var tmpObjects = new PooledList<EngineObject>();
             MediaTime time = Time;
-            if (FrameTime is { } frameTime)
-            {
-                Time = element.CoversGraphicsTime(frameTime) ? frameTime : SideTime ?? time;
-            }
+            Time = GetPortalInputTime(element, time, FrameTime, SideTime);
 
             try
             {
@@ -230,10 +226,14 @@ public sealed partial class SceneCompositor : ICompositor
     internal CompositionFrame EvaluateGraphicsWithContext(MediaTime time, CompositionContext conditions)
         => EvaluateGraphics(time, null, null, conditions);
 
+    internal CompositionFrame EvaluateGraphicsWithBypassedFilterEffect(MediaTime time, FilterEffect effect)
+        => EvaluateGraphics(time, null, null, bypassedFilterEffect: effect);
+
     // Inherited conditions bring their own cancellation and frame rate; cancellationToken and frameRate apply
     // only without them.
     private CompositionFrame EvaluateGraphics(MediaTime time, int? layer, EvaluationServices? services,
-        CompositionContext? conditions = null, CancellationToken cancellationToken = default, Rational? frameRate = null)
+        CompositionContext? conditions = null, CancellationToken cancellationToken = default, Rational? frameRate = null,
+        FilterEffect? bypassedFilterEffect = null)
     {
         CancellationToken token = conditions?.CancellationToken ?? cancellationToken;
         token.ThrowIfCancellationRequested();
@@ -248,6 +248,8 @@ public sealed partial class SceneCompositor : ICompositor
         using var allResources = new PooledList<EngineObject.Resource>();
         var ctx = new CompositorContext(time, this, flow, currentElements, CompositionTarget.Graphics);
         ctx.InheritConditions(conditions);
+        if (bypassedFilterEffect is not null)
+            ctx.Conditions = ctx.Conditions with { BypassedFilterEffect = bypassedFilterEffect };
         if (conditions is null)
         {
             ctx.CancellationToken = cancellationToken;
@@ -260,6 +262,7 @@ public sealed partial class SceneCompositor : ICompositor
         // frame's own evaluation, not a query for one layer, records what each element added.
         FrameBeneath? beneath = layer is null && Scene.HasTransitions ? new FrameBeneath(allResources, flow) : null;
         ctx.FrameBeneath = beneath;
+        if (beneath is not null) ctx.GraphicsState!.Evaluated = [];
 
         // 途中でcurrentElementsが変わる可能性があるのでforループで回す
         for (int index = 0; index < currentElements.Count; index++)
@@ -287,6 +290,8 @@ public sealed partial class SceneCompositor : ICompositor
             ((EvaluationServices)ctx.EvaluationServices!).Frame = frame;
         return frame;
     }
+
+    internal int AudioEligibilityVersion => Volatile.Read(ref _audioEligibilityVersion);
 
     public CompositionFrame EvaluateAudio(TimeRange timeRange) => EvaluateAudio(timeRange, null);
 
@@ -333,7 +338,10 @@ public sealed partial class SceneCompositor : ICompositor
             [.. allResources],
             timeRange,
             Scene.FrameSize.Value,
-            eligibility.Objects.WithChanges(activeObjects, eligibleObjects));
+            eligibility.Objects.WithChanges(activeObjects, eligibleObjects))
+        {
+            AudioLayerId = GetLayerSnapshot().GetLayerId
+        };
     }
 
     // Analyze a selected element through the same flow as playback, including its SoundGroups and
@@ -353,7 +361,7 @@ public sealed partial class SceneCompositor : ICompositor
 
     private AudioEligibilitySnapshot GetAudioEligibility()
     {
-        int version = Volatile.Read(ref _audioEligibilityVersion);
+        int version = AudioEligibilityVersion;
         if (_audioEligibility is { } cached && cached.Version == version) return cached;
 
         SceneLayerSnapshot layers = GetLayerSnapshot();
@@ -382,9 +390,7 @@ public sealed partial class SceneCompositor : ICompositor
             && GetTransitionParticipants().Contains(element)
             && ElementTransitions.TryGetActive(element, context.Time, out TransitionBoundary boundary))
         {
-            if (context.IsMatteSource
-                || boundary.Outgoing?.IsVisibleInOutput.Value == true
-                || boundary.Incoming?.IsVisibleInOutput.Value == true)
+            if (context.IsMatteSource || boundary.HasVisibleSide)
             {
                 CollectTransition(boundary, context);
             }
@@ -543,10 +549,8 @@ public sealed partial class SceneCompositor : ICompositor
         {
             int z = element.ZIndex.Value;
             if (z >= layer || element.CoversGraphicsTime(frameTime)) continue;
-            if (participants.Contains(element)
-                && ElementTransitions.TryGetActive(element, frameTime, out TransitionBoundary running)
-                && running.Region.Contains(sideTime)) continue;
-            if (context.GraphicsState?.Evaluated.Contains(element) == true) continue;
+            if (RunsTransitionInto(element, sideTime, frameTime, participants)) continue;
+            if (context.GraphicsState?.Evaluated?.Contains(element) == true) continue;
             if (portalled.Exists(span => z >= span.Start && z <= span.End)) continue;
 
             held.Add(element);
@@ -618,7 +622,7 @@ public sealed partial class SceneCompositor : ICompositor
             {
                 if (obj is PortalObject { IsEnabled.Value: true } portal)
                 {
-                    spans.Add((portal.ZIndex.Value + 1, portal.ZIndex.Value + context.Get(portal.Count)));
+                    spans.Add(portal.GetInputLayerSpan(context.Get(portal.Count)));
                 }
             }
         }
@@ -665,26 +669,9 @@ public sealed partial class SceneCompositor : ICompositor
         }
         else
         {
-            foreach (Element input in inputs)
-            {
-                if (IsShared(input, sideTime, frameTime, participants)) sideInputs.Add(input);
-            }
-
             using var atSideTime = new PooledList<Element>();
             SortLayers(sideTime, atSideTime, CompositionTarget.Graphics, ignoreSolo: context.IsMatteSource);
-            foreach (Element element in atSideTime)
-            {
-                // A transition the frame runs into this time reaches the side through its frame element above.
-                if (!element.CoversGraphicsTime(frameTime)
-                    && !(participants.Contains(element)
-                         && ElementTransitions.TryGetActive(element, frameTime, out TransitionBoundary running)
-                         && running.Region.Contains(sideTime)))
-                {
-                    sideInputs.Add(element);
-                }
-            }
-
-            Scene.ElementIndex.Sort(sideInputs);
+            CollectHeldSideInputs(Scene.ElementIndex, sideTime, frameTime, inputs, atSideTime, participants, sideInputs);
         }
 
         using var offered = new PooledList<Element>(sideInputs.Count);
@@ -704,21 +691,42 @@ public sealed partial class SceneCompositor : ICompositor
             context.SideTime = outerSideTime;
         }
 
-        if (sideInputs.Count == offered.Count) return;
+        RemoveConsumedSideInputs(elements, sideInputs, offered.Span);
+    }
+
+    internal static MediaTime GetPortalInputTime(Element element, MediaTime time, MediaTime? frameTime, MediaTime? sideTime)
+        => frameTime is { } frame ? element.CoversGraphicsTime(frame) ? frame : sideTime ?? time : time;
+
+    internal static void CollectHeldSideInputs(SceneElementIndex index, MediaTime sideTime, MediaTime frameTime,
+        ReadOnlySpan<Element> inputs, PooledList<Element> atSideTime, HashSet<Element> participants, PooledList<Element> sideInputs)
+    {
+        foreach (Element input in inputs)
+        {
+            if (IsShared(input, sideTime, frameTime, participants)) sideInputs.Add(input);
+        }
+
+        foreach (Element element in atSideTime)
+        {
+            // A transition the frame runs into this time reaches the side through its frame element.
+            if (!element.CoversGraphicsTime(frameTime)
+                && !RunsTransitionInto(element, sideTime, frameTime, participants))
+            {
+                sideInputs.Add(element);
+            }
+        }
+
+        index.Sort(sideInputs);
+    }
+
+    internal static void RemoveConsumedSideInputs(IList<Element> elements, PooledList<Element> sideInputs,
+        ReadOnlySpan<Element> offered)
+    {
+        if (sideInputs.Count == offered.Length) return;
 
         var remaining = new HashSet<Element>(sideInputs, ReferenceEqualityComparer.Instance);
         foreach (Element element in offered)
         {
-            if (remaining.Contains(element)) continue;
-
-            for (int i = 0; i < elements.Count; i++)
-            {
-                if (ReferenceEquals(elements[i], element))
-                {
-                    elements.RemoveAt(i);
-                    break;
-                }
-            }
+            if (!remaining.Contains(element)) elements.Remove(element);
         }
     }
 
@@ -737,17 +745,8 @@ public sealed partial class SceneCompositor : ICompositor
             {
                 if (obj is not PortalObject { IsEnabled.Value: true } portal) continue;
 
-                int start = portal.ZIndex.Value + 1;
-                int end = portal.ZIndex.Value + context.Get(portal.Count);
-                foreach (Element input in inputs)
-                {
-                    if (input.ZIndex.Value >= start && input.ZIndex.Value <= end
-                        && HasPortal(input) && FeedsGraphicsFlowOperator(input)
-                        && IsShared(input, sideTime, frameTime, participants))
-                    {
-                        return true;
-                    }
-                }
+                if (ReachesSharedFlowOperator(portal.GetInputLayerSpan(context.Get(portal.Count)), inputs,
+                        sideTime, frameTime, participants)) return true;
             }
 
             return false;
@@ -758,14 +757,35 @@ public sealed partial class SceneCompositor : ICompositor
         }
     }
 
+    internal static bool ReachesSharedFlowOperator((int First, int Last) span, ReadOnlySpan<Element> inputs,
+        MediaTime sideTime, MediaTime frameTime, HashSet<Element> participants)
+    {
+        foreach (Element input in inputs)
+        {
+            if (input.ZIndex.Value >= span.First && input.ZIndex.Value <= span.Last
+                && HasPortal(input) && FeedsGraphicsFlowOperator(input)
+                && IsShared(input, sideTime, frameTime, participants))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     // Whether a side at sideTime shares the frame's input with the frame, which plays it at the frame's
     // time: sideTime covers it too, or a transition it runs at the frame's time reaches sideTime.
     private static bool IsShared(Element input, MediaTime sideTime, MediaTime frameTime, HashSet<Element> participants)
     {
-        return input.CoversGraphicsTime(sideTime)
-               || (participants.Contains(input)
-                   && ElementTransitions.TryGetActive(input, frameTime, out TransitionBoundary running)
-                   && running.Region.Contains(sideTime));
+        return input.CoversGraphicsTime(sideTime) || RunsTransitionInto(input, sideTime, frameTime, participants);
+    }
+
+    // Whether a transition that element runs at frameTime reaches sideTime.
+    private static bool RunsTransitionInto(Element element, MediaTime sideTime, MediaTime frameTime, HashSet<Element> participants)
+    {
+        return participants.Contains(element)
+               && ElementTransitions.TryGetActive(element, frameTime, out TransitionBoundary running)
+               && running.Region.Contains(sideTime);
     }
 
     // Whether element draws through a flow operator in the graphics pass, selected as Element.CollectObjects
@@ -784,7 +804,7 @@ public sealed partial class SceneCompositor : ICompositor
         return false;
     }
 
-    private static bool HasPortal(Element element)
+    internal static bool HasPortal(Element element)
     {
         foreach (EngineObject obj in element.Objects)
         {
@@ -803,7 +823,7 @@ public sealed partial class SceneCompositor : ICompositor
             && !element.IsVisibleInOutput.Value) return;
         // Cyclic matte references have no source contribution at the repeated element.
         if (context.GraphicsState is { } state && !state.Evaluating.Add(element)) return;
-        context.GraphicsState?.Evaluated.Add(element);
+        context.GraphicsState?.Evaluated?.Add(element);
         using var flow = new PooledList<EngineObject.Resource>();
         var oldFlow = context.Flow;
         context.Flow = flow;
@@ -816,8 +836,7 @@ public sealed partial class SceneCompositor : ICompositor
                 flow.Add(GetOrCreateResource(obj, context));
             }
 
-            if (context.GraphicsState is { } frame && element.MatteMode.Value != MatteMode.None
-                && (element.MatteSourceKind.Value != MatteSourceKind.Layer || element.MatteSourceZIndex.Value != null))
+            if (context.GraphicsState is { } frame && element.HasTrackMatte)
             {
                 ApplyTrackMatte(element, element.GetMatteSourceZIndex(Scene, frame.Time), context, flow);
             }
@@ -939,24 +958,28 @@ public sealed partial class SceneCompositor : ICompositor
 
     // timeに掛かるElementを、solo/muteでフィルタしつつZIndex順に振り分ける
     private void SortLayers(MediaTime time, PooledList<Element> currentElements, CompositionTarget target, bool ignoreSolo = false)
+        => CollectFrameElements(Scene, time, currentElements, target,
+            target == CompositionTarget.Graphics ? GetTransitionParticipants() : null, GetLayerSnapshot(), ignoreSolo);
+
+    internal static void CollectFrameElements(Scene scene, MediaTime time, PooledList<Element> currentElements,
+        CompositionTarget target, HashSet<Element>? participants, SceneLayerSnapshot? layers = null, bool ignoreSolo = false)
     {
-        SceneLayerSnapshot snapshot = GetLayerSnapshot();
         bool graphics = target == CompositionTarget.Graphics;
-        SceneElementIndex index = Scene.ElementIndex;
+        SceneElementIndex index = scene.ElementIndex;
         using var candidates = new PooledList<Element>();
         MediaTime tolerance = graphics ? ElementTransitions.AdjacencyTolerance : MediaTime.Zero;
         index.Query(time - tolerance, time + tolerance, candidates);
         foreach (Element item in candidates)
         {
             if (!item.IsEnabled.Value || !(graphics ? item.CoversGraphicsTime(time) : item.Range.Contains(time))) continue;
-            if (snapshot.ShouldSkip(item.ZIndex.Value, target, ignoreSolo)) continue;
+            if (layers?.ShouldSkip(item.ZIndex.Value, target, ignoreSolo) == true) continue;
             currentElements.Add(item);
         }
         index.Sort(currentElements);
 
-        if (graphics)
+        if (participants != null)
         {
-            KeepOneElementPerTransition(time, currentElements);
+            KeepOneElementPerTransition(time, currentElements, participants);
         }
     }
 
@@ -964,9 +987,8 @@ public sealed partial class SceneCompositor : ICompositor
     // overlap, or touch within the tolerance) only the first stays in the list to collect it. Past the
     // transition the incoming element has taken over, so an outgoing element that runs on beyond it (the
     // two overlap and the span stops at the incoming element's middle) stays hidden.
-    private void KeepOneElementPerTransition(MediaTime time, PooledList<Element> currentElements)
+    private static void KeepOneElementPerTransition(MediaTime time, PooledList<Element> currentElements, HashSet<Element> participants)
     {
-        HashSet<Element> participants = GetTransitionParticipants();
         if (participants.Count == 0) return;
 
         for (int i = currentElements.Count - 1; i >= 0; i--)

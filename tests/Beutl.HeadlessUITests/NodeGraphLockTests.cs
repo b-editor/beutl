@@ -81,7 +81,7 @@ public class NodeGraphLockTests
         var nodeMenu = (FAMenuFlyout)handle.ContextFlyout!;
         nodeMenu.ShowAt(handle);
         HeadlessTestHelpers.Render(3);
-        FAMenuFlyoutItem rename = nodeMenu.Items.OfType<FAMenuFlyoutItem>().Single(item => Equals(item.Text, Strings.Rename));
+        FAMenuFlyoutItem rename = nodeMenu.Items.OfType<FAMenuFlyoutItem>().Single(item => Equals(item.Text, Strings.RenameMenu));
         bool renameEnabled = rename.IsEnabled;
         bool resetSizeEnabled = nodeMenu.Items.OfType<FAMenuFlyoutItem>()
             .Single(item => item.Text == CommandNames.ResetNodeSize).IsEffectivelyEnabled;

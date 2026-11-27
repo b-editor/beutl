@@ -18,8 +18,13 @@ public partial class PlayerViewModel : IPreviewEyedropper
 
     Task<BtlPoint?> IPreviewEyedropper.PickPointAsync(Action<BtlPoint?> hovered, CancellationToken cancellationToken)
     {
+        StopPuppetPinPlacement();
+        return StartPointPick(new PreviewPointPick(hovered), cancellationToken);
+    }
+
+    private Task<BtlPoint?> StartPointPick(PreviewPointPick pick, CancellationToken cancellationToken)
+    {
         PointPick.Value?.Cancel();
-        var pick = new PreviewPointPick(hovered);
         CancellationTokenRegistration registration = cancellationToken.Register(() =>
         {
             if (Dispatcher.UIThread.CheckAccess())
@@ -64,11 +69,14 @@ public partial class PlayerViewModel : IPreviewEyedropper
 }
 
 // A click on the frame that a tool tab waits for; see IPreviewEyedropper.PickPointAsync.
-internal sealed class PreviewPointPick(Action<BtlPoint?> hovered)
+internal sealed class PreviewPointPick(Action<BtlPoint?> hovered, CoreObject? localOwner = null,
+    Func<BtlPoint, bool>? accepts = null)
 {
     private readonly TaskCompletionSource<BtlPoint?> _result = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
     public Task<BtlPoint?> Task => _result.Task;
+
+    public CoreObject? LocalOwner { get; } = localOwner;
 
     public event Action? Ended;
 
@@ -78,7 +86,11 @@ internal sealed class PreviewPointPick(Action<BtlPoint?> hovered)
             hovered(point);
     }
 
-    public void Complete(BtlPoint point) => End(point);
+    public void Complete(BtlPoint point)
+    {
+        if (accepts?.Invoke(point) != false)
+            End(point);
+    }
 
     public void Cancel() => End(null);
 

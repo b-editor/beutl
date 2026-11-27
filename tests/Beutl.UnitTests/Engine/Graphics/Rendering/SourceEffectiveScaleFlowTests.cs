@@ -8,6 +8,8 @@ using Beutl.Graphics.Rendering.Requests;
 using Beutl.Graphics.Shaders;
 using Beutl.Graphics.Transformation;
 using Beutl.Media;
+using Beutl.Media.Source;
+using Beutl.Models;
 using Beutl.UnitTests.Engine.Graphics.Backend;
 using Beutl.UnitTests.Engine.Graphics.Rendering.Failure;
 using Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
@@ -69,6 +71,57 @@ public class SourceEffectiveScaleFlowTests
         Assert.That(measurement.HasFragments, Is.True);
         Assert.That(measurement.EffectiveScale.Value, Is.EqualTo(expectedW).Within(1e-4),
             $"maxWorkingScale {maxWorkingScale} did not cap the working scale through the node");
+    }
+
+    [TestCase(0.25f, 1f, false, true)]
+    [TestCase(0.25f, 0.5f, false, true)]
+    [TestCase(0.5f, 1f, false, false)]
+    [TestCase(1f, 0.5f, false, false)]
+    [TestCase(0.625f, 0.55f, false, true)]
+    [TestCase(0.25f, 1f, true, false)]
+    public void PreviewFrame_ReportsWorkingScaleClampForVisibleMosaic(
+        float imageScale, float outputScale, bool outsideViewport, bool expectClamp)
+    {
+        var source = new ImageSource();
+        source.ReadFrom(TestMediaHelper.CreateTestImageUri(64, 48));
+        using var image = source.ToResource(CompositionContext.Default);
+        using var pipeline = ScaleRecordingTestHelper.Pipeline(
+            new ImageSourceRenderNode(image, Brushes.Resource.White, null),
+            new TransformRenderNode(Matrix.CreateScale(imageScale, imageScale)
+                * Matrix.CreateTranslation(outsideViewport ? 100 : 0, 0), TransformOperator.Prepend),
+            MosaicNode());
+
+        float ceiling = WorkingScaleCeiling.Preview(outputScale);
+        var viewport = new Rect(0, 0, 64, 48);
+        var request = new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            Purpose = RenderRequestPurpose.Frame,
+            OutputScale = outputScale,
+            MaxWorkingScale = ceiling,
+            TargetDomain = viewport,
+            RequestedRegion = viewport,
+            CacheOptions = RenderCacheOptions.Disabled,
+        };
+        using var renderer = new RenderNodeRenderer(pipeline, request);
+        using var target = new CpuRenderTarget(PixelRect.FromRect(viewport, outputScale).Size);
+        using var canvas = new ImmediateCanvas(target, RenderIntent.Preview, outputScale, ceiling);
+
+        float previewDensity = renderer.Measure().EffectiveScale.Value;
+        float exportDensity = renderer.Measure(request with
+        {
+            Intent = RenderIntent.Delivery,
+            OutputScale = 1,
+            MaxWorkingScale = WorkingScaleCeiling.Export(),
+        }).EffectiveScale.Value;
+        PreviewRenderDiagnostics diagnostics = renderer.RenderWithDiagnostics(canvas, request, default);
+        Assert.Multiple(() =>
+        {
+            Assert.That(exportDensity, Is.EqualTo(1 / imageScale));
+            Assert.That(previewDensity, Is.EqualTo(Math.Min(ceiling, exportDensity)));
+            Assert.That(diagnostics.IsWorkingScaleClamped, Is.EqualTo(expectClamp));
+            Assert.That(diagnostics.Warning, Is.Null);
+        });
     }
 
     [Test]
@@ -506,7 +559,7 @@ public class SourceEffectiveScaleFlowTests
             Assert.That(observations, Has.Count.EqualTo(2));
             Assert.That(
                 observations.Select(static item => item.InputSupplies),
-                Is.All.Matches<IReadOnlyList<EffectiveScale>>(static supplies => supplies.Count == 1));
+                Is.All.Matches<IReadOnlyList<EffectiveScale>>(static supplies => supplies is { Count: 1 }));
             Assert.That(
                 observations.Select(static item => item.InputSupplies.Single()),
                 Is.EqualTo(new[] { EffectiveScale.At(0.5f), EffectiveScale.At(2) }));
@@ -1384,7 +1437,7 @@ public class SourceEffectiveScaleFlowTests
         {
             Assert.That(mismatchRequest.ExecutionPlan.ShaderRuns.Count(), Is.EqualTo(2));
             Assert.That(mismatchRequest.ExecutionPlan.ShaderRuns, Has.All.Matches<CompiledShaderRun>(
-                static run => run.StageFragmentIndices.Length == 1));
+                static run => run is { StageFragmentIndices.Length: 1 }));
             Assert.That(mismatchRequest.ExecutionPlan.ShaderRuns.Last().GetInput(mismatchRequest.Graph),
                 Is.SameAs(mismatchRequest.ExecutionPlan.ShaderRuns.First().GetOutput(mismatchRequest.Graph)));
             Assert.That(sameDensityRequest.ExecutionPlan.ShaderRuns.Single().StageFragmentIndices,

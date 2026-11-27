@@ -79,21 +79,7 @@ public partial class TextBlock : Drawable
                 }
 
                 using var transform = context.PushTransform(VerticalTextLayout.GetTransform(run, center, top));
-                if (!resource.SplitByCharacters)
-                {
-                    context.DrawText(text, fill, pen);
-                }
-                else
-                {
-                    ReadOnlySpan<Geometry.Resource> geometries = text.ToGeometries();
-                    for (int i = 0; i < geometries.Length; i++)
-                    {
-                        if (text.GetNonOutlineGlyph(i) is { } glyph)
-                            context.DrawText(glyph, fill, pen);
-                        else
-                            context.DrawGeometry(geometries[i], fill, pen);
-                    }
-                }
+                context.DrawText(text, fill, pen);
             }
             right -= column.Width;
         }
@@ -139,50 +125,34 @@ public partial class TextBlock : Drawable
         }
     }
 
-    private static void DrawSplitted(GraphicsContext2D context, Resource resource, float width, bool strokesBelowFill)
+    private static void DrawSplit(GraphicsContext2D context, Resource resource, bool strokesBelowFill,
+        TextPartLayout parts, long occurrence)
     {
-        var elements = resource.GetTextElements();
-        float prevBottom = 0;
-        foreach (Span<FormattedText> line in elements.Lines)
+        foreach (TextPartLayout.Run run in parts.Runs)
         {
-            Size lineBounds = MeasureLine(line);
-            float ascent = MinAscent(line);
-            float yPosition = prevBottom - ascent;
-
-            float prevRight = GetLineOffset(resource.TextAlignment, width, lineBounds.Width);
-            foreach (FormattedText item in line)
+            FormattedText text = run.Text;
+            if (!TrySelectPaint(strokesBelowFill, text.Brush ?? resource.Fill, text.Pen ?? resource.Pen,
+                    out Brush.Resource? fill, out Pen.Resource? pen))
             {
-                if (item.Text.Length > 0)
-                {
-                    Rect elementBounds = item.Bounds;
-
-                    if (TrySelectPaint(strokesBelowFill, item.Brush ?? resource.Fill, item.Pen ?? resource.Pen,
-                            out Brush.Resource? fill, out Pen.Resource? pen))
-                    {
-                        ReadOnlySpan<Geometry.Resource> geometries = item.ToGeometries();
-                        var offset = Matrix.CreateTranslation(prevRight + item.Spacing / 2, yPosition);
-                        for (int i = 0; i < geometries.Length; i++)
-                        {
-                            using (context.PushTransform(offset))
-                            {
-                                if (item.GetNonOutlineGlyph(i) is { } glyph)
-                                {
-                                    context.DrawText(glyph, fill, pen);
-                                }
-                                else
-                                {
-                                    context.DrawGeometry(geometries[i], fill, pen);
-                                }
-                            }
-                        }
-                    }
-
-                    prevRight += elementBounds.Width + item.Spacing;
-                }
+                continue;
             }
 
-            prevBottom += lineBounds.Height;
+            using var transform = context.PushTransform(run.Transform);
+            ReadOnlySpan<Geometry.Resource> geometries = text.ToGeometries();
+            for (int i = 0; i < geometries.Length; i++)
+            {
+                DrawSplitGlyph(context, text, geometries[i], i, fill, pen, parts.CreateTag(occurrence, run.Glyphs[i]));
+            }
         }
+    }
+
+    private static void DrawSplitGlyph(GraphicsContext2D context, FormattedText text, Geometry.Resource geometry,
+        int index, Brush.Resource? fill, Pen.Resource? pen, TextPartTag tag)
+    {
+        if (text.GetNonOutlineGlyph(index) is { } glyph)
+            context.DrawText(glyph, fill, pen, tag);
+        else
+            context.DrawGeometry(geometry, fill, pen, tag);
     }
 
     private static bool IsStrokeBelowFill(Pen.Resource? pen)
@@ -205,7 +175,7 @@ public partial class TextBlock : Drawable
         return !strokesBelowFill || below;
     }
 
-    private static float GetLineOffset(TextAlignment alignment, float width, float lineWidth)
+    internal static float GetLineOffset(TextAlignment alignment, float width, float lineWidth)
     {
         return alignment switch
         {
@@ -215,7 +185,7 @@ public partial class TextBlock : Drawable
         };
     }
 
-    private static Size MeasureLine(Span<FormattedText> items)
+    internal static Size MeasureLine(Span<FormattedText> items)
     {
         float width = 0;
         float height = 0;
@@ -235,7 +205,7 @@ public partial class TextBlock : Drawable
         return new Size(width, height);
     }
 
-    private static float MinAscent(Span<FormattedText> items)
+    internal static float MinAscent(Span<FormattedText> items)
     {
         float ascent = 0;
         foreach (FormattedText item in items)
@@ -252,6 +222,9 @@ public partial class TextBlock : Drawable
         private (Brush.Resource Resource, int Version)? _fillCache;
         private TextElements? _elements;
         private VerticalTextLayout? _verticalLayout;
+        private TextPartLayout? _textPartLayout;
+        private int _textPartLayoutRevision;
+        private long _textPartFontRevision;
         private Dictionary<(SKTypeface Typeface, string Cluster), bool>? _verticalAlternates;
         private bool _isDirty = true;
         private long _fontRevision;
@@ -261,6 +234,25 @@ public partial class TextBlock : Drawable
         {
             ObjectDisposedException.ThrowIf(IsDisposed, this);
             return _verticalLayout ??= new VerticalTextLayout(GetTextElements(), _verticalAlternates ??= []);
+        }
+
+        internal TextPartLayout GetTextPartLayout()
+        {
+            ObjectDisposedException.ThrowIf(IsDisposed, this);
+            long fontRevision = _fonts?.Revision ?? 0;
+            // FormattedText can reshape on a font revision before the drawable reconciles again.
+            if (_textPartLayout is { } layout && layout.WritingMode == WritingMode
+                && layout.Positions.Alignment == TextAlignment && _textPartFontRevision == fontRevision)
+                return layout;
+
+            VerticalTextLayout? vertical = WritingMode == Media.WritingMode.VerticalRl ? GetVerticalLayout() : null;
+            float width = vertical is null && TextAlignment != Media.TextAlignment.Start
+                ? MeasureCore(Graphics.Size.Infinity).Width
+                : 0;
+            layout = TextPartLayout.Create(
+                GetTextElements(), vertical, WritingMode, TextAlignment, width, ++_textPartLayoutRevision);
+            _textPartFontRevision = fontRevision;
+            return _textPartLayout = layout;
         }
 
         public FontStyle FontStyle { get; private set; }
@@ -297,29 +289,29 @@ public partial class TextBlock : Drawable
 
         protected override void OnDraw(GraphicsContext2D context)
         {
+            TextPartLayout? parts = SplitByCharacters ? GetTextPartLayout() : null;
+            long occurrence = parts is null ? 0 : context.GetTextPartOccurrence();
             // A stroke placed below the fill goes below every fill in the block, not only its own, so all those
             // strokes are drawn in a pass of their own before any fill.
             if (HasStrokeBelowFill())
-                DrawText(context, strokesBelowFill: true);
+                DrawText(context, strokesBelowFill: true, parts, occurrence);
 
-            DrawText(context, strokesBelowFill: false);
+            DrawText(context, strokesBelowFill: false, parts, occurrence);
         }
 
-        private void DrawText(GraphicsContext2D context, bool strokesBelowFill)
+        private void DrawText(GraphicsContext2D context, bool strokesBelowFill, TextPartLayout? parts, long occurrence)
         {
-            if (WritingMode == Media.WritingMode.VerticalRl)
+            if (parts is not null)
+            {
+                DrawSplit(context, this, strokesBelowFill, parts, occurrence);
+            }
+            else if (WritingMode == Media.WritingMode.VerticalRl)
             {
                 DrawVertical(context, this, strokesBelowFill);
-                return;
-            }
-            float width = TextAlignment == Media.TextAlignment.Start ? 0 : MeasureCore(context.Size).Width;
-
-            if (SplitByCharacters)
-            {
-                DrawSplitted(context, this, width, strokesBelowFill);
             }
             else
             {
+                float width = TextAlignment == Media.TextAlignment.Start ? 0 : MeasureCore(context.Size).Width;
                 DrawGrouped(context, this, width, strokesBelowFill);
             }
         }
@@ -367,6 +359,7 @@ public partial class TextBlock : Drawable
 
         partial void PostDispose(bool disposing)
         {
+            _textPartLayout = null;
             _pen?.Dispose();
             _verticalLayout?.Dispose();
             _verticalLayout = null;
@@ -453,6 +446,7 @@ public partial class TextBlock : Drawable
             if (_isDirty)
             {
                 Version++;
+                _textPartLayout = null;
                 _verticalLayout?.Dispose();
                 _verticalLayout = null;
                 _elements?.Dispose();

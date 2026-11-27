@@ -1,13 +1,17 @@
 ﻿using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
+using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
+using Avalonia.Logging;
 
+using Beutl.Extensibility;
 using Beutl.Reactive;
 
 namespace Beutl.Controls.PropertyEditors;
@@ -41,8 +45,9 @@ public abstract class VectorEditorBase : PropertyEditor
     // The scrub of a header.
     private HeaderScrubGesture _scrub;
     private Control? _editSource;
+    private (RoutedEventArgs Args, int EditedComponents, bool IsUnderlyingEdit)? _valueChange;
 
-    private protected bool IsRelativeEdit => _editSource is not TextBox;
+    private bool IsRelativeEdit => _editSource is not TextBox;
 
     // With componentHeaders, each component has a header that scrubs that component alone; otherwise only the
     // editor's header scrubs, and it scrubs every component.
@@ -81,7 +86,28 @@ public abstract class VectorEditorBase : PropertyEditor
     internal void SetText(int index, string value)
     {
         if (_editSource == null || _editSource != _textBoxes[index])
+        {
+            // The text is the editor's own unless an edit already holds the source.
+            using var edit = new PropertyEditorEditScope(ref _editSource, _editSource ?? this);
             SetAndRaise(_textProperties[index], ref _texts[index], value);
+        }
+    }
+
+    internal bool IsTextBoxFocused(int index)
+        => index >= 0 && index < _textBoxes.Length && _textBoxes[index]?.IsFocused == true;
+
+    internal void RaiseValueChanged(RoutedEventArgs args, int editedComponents, bool isUnderlyingEdit = false)
+    {
+        var previous = _valueChange;
+        _valueChange = (args, editedComponents, isUnderlyingEdit);
+        try
+        {
+            RaiseEvent(args);
+        }
+        finally
+        {
+            _valueChange = previous;
+        }
     }
 
     internal bool SetComponent<T>(DirectPropertyBase<T> property, ref T field, T value)
@@ -116,7 +142,14 @@ public abstract class VectorEditorBase : PropertyEditor
         var valueHandlers = new ComponentValueHandlers(
             OnInnerTextBoxGotFocus, OnInnerTextBoxLostFocus, OnInnerTextBoxTextChanged, OnInnerTextBoxPointerWheelChanged);
         foreach (TextBox? textBox in _textBoxes)
+        {
+            if (textBox == null) continue;
             valueHandlers.Subscribe(textBox, _disposables);
+            textBox.AddDisposableHandler(TextInputEvent, OnInnerTextBoxTextInput, RoutingStrategies.Tunnel)
+                .DisposeWith(_disposables);
+            textBox.AddDisposableHandler(TextBox.PastingFromClipboardEvent, OnInnerTextBoxPasting)
+                .DisposeWith(_disposables);
+        }
 
         if (values.CanScrub)
         {
@@ -147,6 +180,35 @@ public abstract class VectorEditorBase : PropertyEditor
             box.Classes.Add(ScrubBox);
             TextBoxAttachment.SetEnterDownBehavior(box, TextBoxAttachment.EnterBehaviorMode.LostFocus);
         }
+    }
+
+    // bind binds the boxes; show puts a preview's result in them and, after a confirmation, the value the context kept.
+    private protected void ConnectComponents<TEdit>(
+        IValueEditorContext<TEdit> context, Action<CompositeDisposable> bind, Action<TEdit> show,
+        bool reportsMismatch = true)
+    {
+        CompositeDisposable connection = StartConnection();
+        TEdit shown = default!;
+        context.EditValue.Subscribe(value => shown = value).DisposeWith(connection);
+        bind(connection);
+        this.AddDisposableHandler(ValueChangedEvent, (s, e) =>
+            {
+                if ((reportsMismatch ? e.Expect<TEdit>(s) : e as PropertyEditorValueChangedEventArgs<TEdit>) is { } args)
+                {
+                    if (_valueChange is { } change && ReferenceEquals(change.Args, e))
+                    {
+                        show(change.IsUnderlyingEdit
+                            ? PreviewFocusedEdit(context, args.NewValue)
+                            : PreviewEdit(context, args.NewValue, IsRelativeEdit, change.EditedComponents));
+                    }
+                    else
+                    {
+                        show(PreviewEdit(context, args.NewValue, IsRelativeEdit));
+                    }
+                }
+            })
+            .DisposeWith(connection);
+        ConfirmEdits(context, connection, () => show(shown));
     }
 
     // Shows one component of the context's value in property.
@@ -197,6 +259,12 @@ public abstract class VectorEditorBase : PropertyEditor
         if (!DataValidationErrors.GetHasErrors(this))
         {
             Values!.Snapshot();
+            int index = Array.IndexOf(_textBoxes, sender as TextBox);
+            if (index >= 0)
+            {
+                using var edit = new PropertyEditorEditScope(ref _editSource, this);
+                Values.FormatText(index, focused: true);
+            }
         }
     }
 
@@ -204,8 +272,17 @@ public abstract class VectorEditorBase : PropertyEditor
     {
         if (!DataValidationErrors.GetHasErrors(this))
         {
-            Values!.FormatTexts();
+            int index = Array.IndexOf(_textBoxes, sender as TextBox);
+            using var edit = new PropertyEditorEditScope(ref _editSource, this);
             Values!.RaiseConfirmedIfChanged();
+            if (index >= 0)
+            {
+                Values.FormatText(index, focused: false);
+            }
+            else
+            {
+                Values.FormatTexts();
+            }
         }
     }
 
@@ -218,6 +295,46 @@ public abstract class VectorEditorBase : PropertyEditor
         }
 
         UpdateErrors();
+    }
+
+    // Replacing a selection with identical text raises no text change, but can still change the linked components.
+    private void OnInnerTextBoxTextInput(object? sender, TextInputEventArgs e)
+    {
+        if (IsUniformValue && !IsReadOnly && sender is TextBox { IsReadOnly: false } box
+            && e.Text is { Length: > 0 } input && input == box.SelectedText)
+        {
+            OnInnerTextBoxTextChanged(box, box.Text, box.Text);
+        }
+    }
+
+    private async void OnInnerTextBoxPasting(object? sender, RoutedEventArgs e)
+    {
+        if (!IsUniformValue || IsReadOnly || sender is not TextBox { IsReadOnly: false, IsKeyboardFocusWithin: true } box
+            || box.SelectionStart == box.SelectionEnd || TopLevel.GetTopLevel(box)?.Clipboard is not { } clipboard)
+        {
+            return;
+        }
+
+        e.Handled = true;
+        string? input;
+        try
+        {
+            input = await clipboard.TryGetTextAsync();
+        }
+        catch (Exception ex) when (ex is TimeoutException or OperationCanceledException or UnauthorizedAccessException or COMException)
+        {
+            Logger.TryGet(LogEventLevel.Warning, LogArea.Control)?.Log(this, "Failed to read text from clipboard: {Error}", ex);
+            return;
+        }
+
+        if (string.IsNullOrEmpty(input) || !box.IsKeyboardFocusWithin || !Array.Exists(_textBoxes, part => ReferenceEquals(part, box)))
+            return;
+
+        string? oldText = box.Text;
+        bool hadSelection = box.SelectionStart != box.SelectionEnd;
+        box.SelectedText = input;
+        if (IsUniformValue && hadSelection && box.SelectionStart == box.SelectionEnd && box.Text == oldText)
+            OnInnerTextBoxTextChanged(box, box.Text, oldText);
     }
 
     private void UpdateErrors()
@@ -261,11 +378,8 @@ public abstract class VectorEditorBase : PropertyEditor
             && _scrub.IsActive
             && sender is TextBlock header)
         {
-            Values!.Scrub(Array.IndexOf(_componentHeaders, header), ref _scrub, header, e);
-
+            ScrubComponent(Array.IndexOf(_componentHeaders, header), ref _scrub, header, e);
             e.Handled = true;
-
-            UpdateErrors();
         }
     }
 
@@ -289,14 +403,24 @@ public abstract class VectorEditorBase : PropertyEditor
         if (!_scrub.IsActive) return;
 
         // Ended before confirming, so a confirmation that rebuilds the header cannot end it twice.
-        _scrub.End();
+        StopScrub();
         Values!.RaiseConfirmedIfChanged();
+        CompleteValueDrag();
+    }
+
+    private void StopScrub()
+    {
+        if (_scrub.IsActive)
+            _scrub.End();
     }
 
     // Scrubs the component of box, or every component while they are one value.
     private void ScrubBoxComponent(ref HeaderScrubGesture gesture, Control box, PointerEventArgs e)
+        => ScrubComponent(IsUniformValue ? -1 : Array.IndexOf(_textBoxes, box as TextBox), ref gesture, box, e);
+
+    private void ScrubComponent(int index, ref HeaderScrubGesture gesture, Control part, PointerEventArgs e)
     {
-        Values!.Scrub(IsUniformValue ? -1 : Array.IndexOf(_textBoxes, box as TextBox), ref gesture, box, e);
+        Values!.Scrub(index, ref gesture, part, e);
         UpdateErrors();
     }
 
@@ -306,11 +430,14 @@ public abstract class VectorEditorBase : PropertyEditor
         {
             PointerPoint pointerPoint = e.GetCurrentPoint(header);
             if (pointerPoint.Properties.IsLeftButtonPressed
+                && ValueDragOwner is null
                 && !IsReadOnly
                 && !DataValidationErrors.GetHasErrors(this))
             {
+                EndTextEditing();
                 Values!.Snapshot();
                 _scrub.Begin(header, pointerPoint.Position);
+                BeginValueDrag(header, e.Pointer, StopScrub);
                 e.Handled = true;
             }
         }

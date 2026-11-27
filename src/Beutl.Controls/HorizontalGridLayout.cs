@@ -9,34 +9,16 @@ namespace Beutl.Controls;
 
 /// <summary>Wraps items into rows and stretches their widths to fill the available space.</summary>
 /// <remarks>Requires finite width. Disable horizontal scrolling on a containing ScrollViewer.</remarks>
-public class HorizontalGridLayout : NonVirtualizingLayout
+public partial class HorizontalGridLayout : NonVirtualizingLayout
 {
-    public static readonly StyledProperty<double> ColumnSpacingProperty =
-        AvaloniaProperty.Register<HorizontalGridLayout, double>(nameof(ColumnSpacing));
+    [GeneratedStyledProperty]
+    public partial double ColumnSpacing { get; set; }
 
-    public static readonly StyledProperty<double> RowSpacingProperty =
-        AvaloniaProperty.Register<HorizontalGridLayout, double>(nameof(RowSpacing));
+    [GeneratedStyledProperty]
+    public partial double RowSpacing { get; set; }
 
-    public static readonly StyledProperty<double> MinItemWidthProperty =
-        AvaloniaProperty.Register<HorizontalGridLayout, double>(nameof(MinItemWidth));
-
-    public double ColumnSpacing
-    {
-        get => GetValue(ColumnSpacingProperty);
-        set => SetValue(ColumnSpacingProperty, value);
-    }
-
-    public double RowSpacing
-    {
-        get => GetValue(RowSpacingProperty);
-        set => SetValue(RowSpacingProperty, value);
-    }
-
-    public double MinItemWidth
-    {
-        get => GetValue(MinItemWidthProperty);
-        set => SetValue(MinItemWidthProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial double MinItemWidth { get; set; }
 
     protected override Size MeasureOverride(NonVirtualizingLayoutContext context, Size availableSize)
     {

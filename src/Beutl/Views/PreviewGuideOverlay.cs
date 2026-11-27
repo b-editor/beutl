@@ -16,11 +16,8 @@ namespace Beutl.Views;
 // Safe areas and composition guides over the preview. They are a layer of the player view alone, so they never reach
 // a rendered frame, the presentation window or an export. The overlay draws again only when the settings, its size
 // or the zoom change: a new preview frame leaves it alone, so the guides cost playback nothing.
-internal sealed class PreviewGuideOverlay : Control
+internal sealed partial class PreviewGuideOverlay : Control
 {
-    public static readonly StyledProperty<double> ZoomProperty =
-        AvaloniaProperty.Register<PreviewGuideOverlay, double>(nameof(Zoom), 1.0);
-
     private const double LineThickness = 1.0;
     private const double HaloThickness = 3.0;
     private const double HaloOpacity = 0.6;
@@ -52,11 +49,8 @@ internal sealed class PreviewGuideOverlay : Control
     }
 
     // The preview's zoom, which the lines divide out to stay one pixel wide on screen.
-    public double Zoom
-    {
-        get => GetValue(ZoomProperty);
-        set => SetValue(ZoomProperty, value);
-    }
+    [GeneratedStyledProperty(DefaultValue = 1.0)]
+    public partial double Zoom { get; set; }
 
     // The guides drawn now: none while the guides are turned off.
     internal PreviewGuideKinds Kinds => _kinds;

@@ -51,7 +51,8 @@ internal sealed class NativeProofHandler(HttpClient transport, Func<AuthResponse
                 // Keep the key captured with the request's token across a concurrent refresh.
                 AuthResponse? auth = s_requestAuthentication.Value;
                 if (auth?.Token != authorization.Parameter) auth = currentAuthentication();
-                privateKey ??= auth?.Token == authorization.Parameter ? auth.DpopPrivateKey : null;
+                if (auth is not null && auth.Token == authorization.Parameter)
+                    privateKey ??= auth.DpopPrivateKey;
                 if (privateKey is null) throw new InvalidOperationException("The device key for this token is unavailable.");
             }
             if (privateKey is not null)

@@ -6,10 +6,23 @@ using Beutl.IO;
 
 namespace Beutl.Serialization;
 
+internal enum CoreSerializationVisitAction
+{
+    Continue,
+    SkipChildren,
+    Stop,
+}
+
 public static partial class CoreSerializer
 {
     // Reports each saved value at its member, but expands a shared object only once and never saves its file.
     public static bool Visit(object? root, Func<CoreSerializationVisit, bool> visitor)
+    {
+        ArgumentNullException.ThrowIfNull(visitor);
+        return Visit(root, visit => visitor(visit) ? CoreSerializationVisitAction.Stop : CoreSerializationVisitAction.Continue);
+    }
+
+    internal static bool Visit(object? root, Func<CoreSerializationVisit, CoreSerializationVisitAction> visitor)
     {
         ArgumentNullException.ThrowIfNull(visitor);
         var visited = new HashSet<object>(ReferenceEqualityComparer.Instance);
@@ -26,7 +39,9 @@ public static partial class CoreSerializer
 
             if (value is null or Unit) return false;
             var visit = new CoreSerializationVisit(value, parent, member, index, key);
-            if (visitor(visit)) return true;
+            CoreSerializationVisitAction action = visitor(visit);
+            if (action == CoreSerializationVisitAction.Stop) return true;
+            if (action == CoreSerializationVisitAction.SkipChildren) return false;
             if (value is string or IFileSource or IReference or JsonNode) return false;
             if (!value.GetType().IsValueType && !visited.Add(value)) return false;
 

@@ -5,6 +5,7 @@ using Beutl.Configuration;
 using Beutl.Editor.VersionControl;
 using Beutl.Extensibility;
 using Beutl.Language;
+using Beutl.ProjectSystem;
 using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.ViewModels.Dialogs;
@@ -101,12 +102,13 @@ public class CreateNewProjectDialogTests
             await viewModel.Create.ExecuteAsync();
 
             Project project = TestShell.Project.CurrentProject.Value!;
-            System.Text.Json.Nodes.JsonNode file = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(project.Uri!.LocalPath))!;
+            Scene scene = project.Items.OfType<Scene>().Single();
+            System.Text.Json.Nodes.JsonNode file = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(scene.Uri!.LocalPath))!;
             Assert.Multiple(() =>
             {
-                Assert.That(project.ChannelLayout.Value, Is.EqualTo(SpeakerLayout.Surround71));
+                Assert.That(scene.ChannelLayout.Value, Is.EqualTo(SpeakerLayout.Surround71));
                 Assert.That((int?)file["ChannelLayout"], Is.EqualTo((int)SpeakerLayout.Surround71));
-                Assert.That(project.FrameRate.Value, Is.EqualTo(new Rational(30000, 1001)));
+                Assert.That(scene.FrameRate.Value, Is.EqualTo(new Rational(30000, 1001)));
                 Assert.That((string?)file["FrameRate"], Is.EqualTo("30000/1001"));
             });
         }

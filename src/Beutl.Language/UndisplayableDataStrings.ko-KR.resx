@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
+  <data name="Title" xml:space="preserve"><value>표시할 수 없는 데이터</value></data>
+  <data name="WholeProject" xml:space="preserve"><value>프로젝트 전체</value></data>
+  <data name="CurrentScene" xml:space="preserve"><value>현재 장면</value></data>
+  <data name="Scope" xml:space="preserve"><value>검색 범위</value></data>
+  <data name="NoIssues" xml:space="preserve"><value>표시할 수 없는 데이터가 없습니다</value></data>
+  <data name="EmptyDescription" xml:space="preserve"><value>누락된 유형과 편집기에 표시할 수 없는 데이터가 여기에 나타납니다.</value></data>
+  <data name="Locate" xml:space="preserve"><value>위치로 이동</value></data>
+  <data name="ShowDetails" xml:space="preserve"><value>자세히 보기</value></data>
+  <data name="TypeNotFound" xml:space="preserve"><value>누락된 유형</value></data>
+  <data name="DeserializationFailed" xml:space="preserve"><value>불러오기 실패</value></data>
+  <data name="UnreadableElement" xml:space="preserve"><value>읽을 수 없는 클립 파일</value></data>
+  <data name="LegacyNodeTree" xml:space="preserve"><value>Beutl 1.x 노드 트리</value></data>
+  <data name="LegacyOperator" xml:space="preserve"><value>Beutl 1.x 연산자</value></data>
+  <data name="UnknownMembers" xml:space="preserve"><value>알 수 없는 멤버</value></data>
+  <data name="UnknownAnimations" xml:space="preserve"><value>알 수 없는 애니메이션</value></data>
+  <data name="UnknownExpressions" xml:space="preserve"><value>알 수 없는 표현식</value></data>
+  <data name="LossyEasing" xml:space="preserve"><value>대체된 이징</value></data>
+  <data name="DroppedValue" xml:space="preserve"><value>누락된 값</value></data>
+  <data name="TypeName" xml:space="preserve"><value>직렬화된 유형 ($type)</value></data>
+  <data name="UnknownKeys" xml:space="preserve"><value>알 수 없는 키</value></data>
+  <data name="JsonPreview" xml:space="preserve"><value>원본 JSON</value></data>
+  <data name="OriginalFileContents" xml:space="preserve"><value>원본 파일 내용</value></data>
+  <data name="RecoveryProtected" xml:space="preserve"><value>복구 보호 중</value></data>
+  <data name="ClipLocation" xml:space="preserve"><value>{0} ({1}, {2}–{3})</value></data>
+  <data name="LayerLocation" xml:space="preserve"><value>레이어 {0}</value></data>
+  <data name="Marker" xml:space="preserve"><value>마커</value></data>
+  <data name="MarkerLocation" xml:space="preserve"><value>{0} ({1})</value></data>
+  <data name="KeyframeLocation" xml:space="preserve"><value>키프레임 ({0})</value></data>
+  <data name="ClipIssueSummary" xml:space="preserve"><value>이 클립에 표시할 수 없는 데이터가 있습니다&#10;{0}</value></data>
+  <data name="IssueCount" xml:space="preserve"><value>{0} ({1}개)</value></data>
+  <data name="ScanFailed" xml:space="preserve"><value>표시할 수 없는 데이터를 검색하지 못했습니다.</value></data>
+  <data name="LegacyContent" xml:space="preserve"><value>마이그레이션되지 않은 Beutl 1.x 콘텐츠</value></data>
+</root>

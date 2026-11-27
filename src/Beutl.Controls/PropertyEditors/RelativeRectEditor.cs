@@ -1,12 +1,9 @@
-﻿using System.Reactive.Disposables;
-using System.Reactive.Linq;
+﻿using System.Reactive.Linq;
 
 using Avalonia;
 using Avalonia.Data;
-using Avalonia.Interactivity;
 using Beutl.Extensibility;
 using Beutl.Language;
-using Beutl.Reactive;
 
 namespace Beutl.Controls.PropertyEditors;
 
@@ -87,39 +84,32 @@ public class RelativeRectEditor : Vector4Editor, IValueEditorControl<Graphics.Re
 
     public void Connect(IValueEditorContext<Graphics.RelativeRect> context)
     {
-        CompositeDisposable connection = StartConnection();
-        Graphics.RelativeRect shown = default;
-        context.EditValue.Subscribe(value => shown = value).DisposeWith(connection);
-        _values.ReadIncrementValues = () =>
-        {
-            var value = context.GetIncrementValue(new Graphics.RelativeRect(new Graphics.Rect(FirstValue, SecondValue, ThirdValue, FourthValue), Unit));
-            return [value.Rect.X, value.Rect.Y, value.Rect.Width, value.Rect.Height];
-        };
-        BindComponent(FirstValueProperty, context.EditValue.Select(v => v.Rect.X), connection);
-        BindComponent(SecondValueProperty, context.EditValue.Select(v => v.Rect.Y), connection);
-        BindComponent(ThirdValueProperty, context.EditValue.Select(v => v.Rect.Width), connection);
-        BindComponent(FourthValueProperty, context.EditValue.Select(v => v.Rect.Height), connection);
-        BindComponent(UnitProperty, context.EditValue.Select(v => v.Unit), connection);
-        this.AddDisposableHandler(ValueChangedEvent, (_, e) =>
+        ConnectComponents(
+            context,
+            connection =>
             {
-                if (e is PropertyEditorValueChangedEventArgs<Graphics.RelativeRect> args)
+                _values.ReadIncrementValues = () =>
                 {
-                    Graphics.RelativeRect coerced = PreviewEdit(context, args.NewValue, IsRelativeEdit);
-                    FirstValue = coerced.Rect.X;
-                    SecondValue = coerced.Rect.Y;
-                    ThirdValue = coerced.Rect.Width;
-                    FourthValue = coerced.Rect.Height;
-                    Unit = coerced.Unit;
-                }
-            })
-            .DisposeWith(connection);
-        ConfirmEdits(context, connection, () =>
-        {
-            FirstValue = shown.Rect.X;
-            SecondValue = shown.Rect.Y;
-            ThirdValue = shown.Rect.Width;
-            FourthValue = shown.Rect.Height;
-            Unit = shown.Unit;
-        });
+                    var value = context.GetIncrementValue(new Graphics.RelativeRect(new Graphics.Rect(FirstValue, SecondValue, ThirdValue, FourthValue), Unit));
+                    return [value.Rect.X, value.Rect.Y, value.Rect.Width, value.Rect.Height];
+                };
+                _values.ReadFocusedValues = () => context.TryGetFocusedEditValue(out var focused)
+                    ? ([focused.Rect.X, focused.Rect.Y, focused.Rect.Width, focused.Rect.Height], focused.Unit)
+                    : null;
+                BindComponent(FirstValueProperty, context.EditValue.Select(v => v.Rect.X), connection);
+                BindComponent(SecondValueProperty, context.EditValue.Select(v => v.Rect.Y), connection);
+                BindComponent(ThirdValueProperty, context.EditValue.Select(v => v.Rect.Width), connection);
+                BindComponent(FourthValueProperty, context.EditValue.Select(v => v.Rect.Height), connection);
+                BindComponent(UnitProperty, context.EditValue.Select(v => v.Unit), connection);
+            },
+            value =>
+            {
+                FirstValue = value.Rect.X;
+                SecondValue = value.Rect.Y;
+                ThirdValue = value.Rect.Width;
+                FourthValue = value.Rect.Height;
+                Unit = value.Unit;
+            },
+            reportsMismatch: false);
     }
 }

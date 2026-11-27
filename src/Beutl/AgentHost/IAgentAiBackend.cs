@@ -1,4 +1,5 @@
-﻿using Beutl.NodeGraph.Generative;
+﻿using Beutl.Editor.Components.AiWorkspaceTab.Services;
+using Beutl.NodeGraph.Generative;
 using Beutl.ProjectSystem;
 
 namespace Beutl.AgentHost;
@@ -14,12 +15,18 @@ public sealed record AgentTranscript(
     IReadOnlyList<AgentTranscriptSegment> Segments,
     IReadOnlyList<AgentTranscriptWord>? Words);
 
+internal readonly record struct AgentTranscriptionRetry(string Key, string? RequestedModel);
+
+internal sealed record AgentTranscriptionResult(AgentTranscript Transcript, string? ModelId);
+
 /// <summary>
 /// The application's AI services as the agent host's AI tools use them: the signed-in account,
 /// its models, and the executor the AI nodes run on, so agents pay through the same safeguards.
 /// </summary>
 internal interface IAgentAiBackend
 {
+    AiRequestRecoveryContext? RecoveryContext { get; }
+
     /// <summary>Null when the account can run AI generations; otherwise why it cannot.</summary>
     Task<string?> GetUnavailableReasonAsync(CancellationToken cancellationToken);
 
@@ -36,10 +43,11 @@ internal interface IAgentAiBackend
 
     Task<bool> RequiresPromptAsync(string imageEditTask, CancellationToken cancellationToken);
 
-    Task<AgentTranscript> TranscribeAsync(
+    Task<AgentTranscriptionResult> TranscribeAsync(
         string path,
         string? language,
         string? modelId,
         IProgress<string> progress,
-        CancellationToken cancellationToken);
+        CancellationToken cancellationToken,
+        AgentTranscriptionRetry? retry = null);
 }

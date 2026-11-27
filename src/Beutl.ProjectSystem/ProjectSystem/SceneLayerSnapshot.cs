@@ -14,7 +14,10 @@ internal sealed class SceneLayerSnapshot
     {
         _byZIndex = byZIndex;
         _hasSolo = hasSolo;
+        GetLayerId = zIndex => _byZIndex.TryGetValue(zIndex, out TimelineLayer? layer) ? layer.Id.Value : Guid.Empty;
     }
+
+    public Func<int, Guid> GetLayerId { get; }
 
     public static SceneLayerSnapshot Build(Scene scene)
     {

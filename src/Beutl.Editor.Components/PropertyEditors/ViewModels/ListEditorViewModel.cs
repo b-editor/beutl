@@ -333,6 +333,7 @@ public sealed class ListEditorViewModel<TItem> : PropertyEditorViewModel, IListE
 
     public override void Reset()
     {
+        if (HasExpression.Value) return;
         try
         {
             Initialize();

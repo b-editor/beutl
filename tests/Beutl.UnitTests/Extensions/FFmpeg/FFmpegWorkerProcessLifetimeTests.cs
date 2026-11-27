@@ -513,9 +513,9 @@ public class FFmpegWorkerProcessLifetimeTests
             releaseReplacement.Set();
             if (failReplacement)
             {
-                InvalidOperationException failure = await Assert.CatchAsync<InvalidOperationException>(async () =>
+                InvalidOperationException? failure = await Assert.CatchAsync<InvalidOperationException>(async () =>
                     await startup.WaitAsync(TimeSpan.FromSeconds(10)));
-                Assert.That(failure.InnerException?.Message, Is.EqualTo("Configured replacement startup failure."));
+                Assert.That(failure?.InnerException?.Message, Is.EqualTo("Configured replacement startup failure."));
                 await Assert.CatchAsync<InvalidOperationException>(async () =>
                     await restart!.WaitAsync(TimeSpan.FromSeconds(10)));
                 Assert.That(worker.IsRunning, Is.False);

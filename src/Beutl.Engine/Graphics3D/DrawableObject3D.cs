@@ -20,7 +20,7 @@ namespace Beutl.Graphics3D;
 /// <see cref="Object3D.Rotation"/> and <see cref="Object3D.Scale"/> then move it about the content's center.
 /// </remarks>
 [Display(Name = nameof(GraphicsStrings.DrawableObject3D), ResourceType = typeof(GraphicsStrings))]
-public sealed partial class DrawableObject3D : Object3D, IFlowOperator
+public sealed partial class DrawableObject3D : Object3D, IFlowInputOperator
 {
     public DrawableObject3D()
     {
@@ -34,6 +34,12 @@ public sealed partial class DrawableObject3D : Object3D, IFlowOperator
     [SuppressResourceClassGeneration]
     [Display(Name = nameof(GraphicsStrings.Children), ResourceType = typeof(GraphicsStrings))]
     public IListProperty<Drawable> Children { get; } = Property.CreateList<Drawable>();
+
+    FlowInputKind IFlowInputOperator.RequiredInput => FlowInputKind.Drawable;
+
+    bool IFlowInputOperator.HasNestedInput => Children.Count > 0;
+
+    string IFlowInputOperator.MissingInputMessage => MessageStrings.FlowInputMissingDrawable;
 
     public partial class Resource
     {

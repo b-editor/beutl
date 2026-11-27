@@ -2,6 +2,8 @@
 using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Reconciliation;
 using Beutl.AgentToolkit.Sessions;
+using Beutl.Editor;
+using Beutl.Editor.VersionControl;
 using Beutl.ProjectSystem;
 using Beutl.Services;
 using Beutl.ViewModels;
@@ -12,7 +14,8 @@ namespace Beutl.AgentHost;
 public sealed class EditorProjectSessionGateway(
     ProjectService projectService,
     EditorService editorService,
-    AgentEditFollower? follower = null) : IProjectSessionGateway
+    AgentEditFollower? follower = null)
+    : IProjectSessionGateway, IProjectSceneRemovalGateway, ILiveProjectVersionControlGateway, ILiveProjectAssetGateway
 {
     public async ValueTask<ProjectSessionResult> OpenProjectAsync(string fullPath, CancellationToken cancellationToken = default)
     {
@@ -120,9 +123,102 @@ public sealed class EditorProjectSessionGateway(
             }
             // Bind the new scene without selecting it. Subsequent calls still name their own
             // sceneId rather than inheriting this operation's target or the visible editor.
-            LiveEditingSession session = BindScene(scene);
+            LiveEditingSession session = BindScene(scene, inheritDockLayout: true);
             return new ProjectSceneResult(scene, project, session);
         });
+    }
+
+    async ValueTask<SceneRemovalResult> IProjectSceneRemovalGateway.RemoveSceneAsync(
+        Guid sceneId, CancellationToken cancellationToken)
+    {
+        return await Dispatcher.UIThread.InvokeAsync(async () =>
+        {
+            Project project = projectService.CurrentProject.Value ?? throw new SessionUnavailableException();
+            Scene scene = ProjectOperations.FindScene(project, sceneId);
+            return await editorService.RemoveSceneFromProjectAsync(projectService, project, scene, cancellationToken);
+        });
+    }
+
+    async ValueTask<ProjectAssetService.Inspection> ILiveProjectAssetGateway.InspectProjectAssetsAsync(
+        Guid? sceneId, CancellationToken cancellationToken)
+    {
+        return await Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            var (project, assets) = ResolveProjectAssets(sceneId);
+            return assets.InspectAsync(project, cancellationToken);
+        });
+    }
+
+    async ValueTask<ProjectAssetItem[]> ILiveProjectAssetGateway.OrganizeProjectAssetsAsync(
+        Guid? sceneId, ProjectAssetAction action, Func<ProjectAssetPreview, ProjectAssetItem[]> select,
+        CancellationToken cancellationToken)
+    {
+        return await Dispatcher.UIThread.InvokeAsync(async () =>
+        {
+            var (project, assets) = ResolveProjectAssets(sceneId);
+            ProjectAssetPreview preview = await assets.PreviewAsync(project, cancellationToken);
+            ProjectAssetItem[] selected = select(preview);
+            await assets.ApplyAsync(project, preview, action, selected, cancellationToken);
+            return selected;
+        });
+    }
+
+    private (Project Project, ProjectAssetCoordinator Assets) ResolveProjectAssets(Guid? sceneId)
+    {
+        if (projectService.CurrentTransition is not null || projectService.CurrentProject.Value is not { } project
+            || editorService.ProjectAssets is not { } assets)
+        {
+            throw new SessionUnavailableException();
+        }
+
+        // A scene ID identifies the open project without creating or selecting an editor tab.
+        if (sceneId is { } id)
+            ProjectOperations.FindScene(project, id);
+
+        return (project, assets);
+    }
+
+    IProjectVersionControlService? ILiveProjectVersionControlGateway.GetVersionControl(IEditingSession activeSession)
+        => activeSession.ReadOnSession(() =>
+        {
+            RequireOpenProject(activeSession);
+            return editorService.ProjectVersionControlService.Value;
+        });
+
+    async ValueTask<CommitResult> ILiveProjectVersionControlGateway.CommitAsync(
+        IEditingSession activeSession, string message, CancellationToken cancellationToken)
+    {
+        return await Dispatcher.UIThread.InvokeAsync(async () =>
+        {
+            if (activeSession is not LiveEditingSession live || !live.IsAlive)
+                throw new SessionUnavailableException();
+
+            Project project = RequireOpenProject(activeSession);
+            if (editorService.ProjectVersionControlCoordinator is not VersionControlCoordinator coordinator)
+                throw new VersionControlLifecycleUnavailableException("Version control is not available.");
+
+            try
+            {
+                return await coordinator.CommitForAgentAsync(project, message, cancellationToken);
+            }
+            catch (VersionControlLifecycleUnavailableException ex)
+            {
+                throw new ReconcileException(new ToolError(ErrorCode.ValidationRejected, ex.Message, "project"));
+            }
+        });
+    }
+
+    private Project RequireOpenProject(IEditingSession activeSession)
+    {
+        if (projectService.CurrentTransition is not null
+            || projectService.CurrentProject.Value is not { } project
+            || activeSession.Root is not Scene scene
+            || !project.Items.Contains(scene))
+        {
+            throw new SessionUnavailableException();
+        }
+
+        return project;
     }
 
     private static void RequireSameProject(Project current, string requestedFullPath)
@@ -149,14 +245,14 @@ public sealed class EditorProjectSessionGateway(
         return new ProjectSessionResult(BindScene(scene), project);
     }
 
-    private LiveEditingSession BindScene(Scene scene)
+    private LiveEditingSession BindScene(Scene scene, bool inheritDockLayout = false)
     {
         // Closing keeps the project published while its captured tabs are being disposed.
         // Do not bind a new context that would escape that transition's close snapshot.
         if (projectService.CurrentTransition is not null)
             throw new SessionUnavailableException();
 
-        EditorTabItem? tab = editorService.GetOrCreateBackgroundTabItem(scene);
+        EditorTabItem? tab = editorService.GetOrCreateBackgroundTabItem(scene, inheritDockLayout);
         if (tab?.Context.Value is not EditViewModel editViewModel
             || !ReferenceEquals(editViewModel.Scene, scene))
         {

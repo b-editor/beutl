@@ -1,4 +1,5 @@
 ﻿using Beutl.Animation;
+using Beutl.Animation.Easings;
 using Beutl.Composition;
 using Beutl.Graphics;
 using Beutl.Media;
@@ -225,6 +226,35 @@ public class SourceVideoSpeedTest
         Assert.That(resource.RequestedPosition.ToSeconds(), Is.EqualTo(1.3667).Within(0.05));
     }
 
+    [TestCase(true, 200f, 5.0)]
+    [TestCase(true, 50f, 20.0)]
+    [TestCase(false, 200f, 10.0)]
+    public void TryGetOriginalDuration_WithOffsetClip_ReachesTheSourceEnd(
+        bool useGlobalClock, float speedAfterStart, double expectedDuration)
+    {
+        MediaTime start = MediaTime.FromSeconds(10);
+        _sourceVideo!.TimeRange.Value = new TimeRange(start, MediaTime.FromSeconds(30));
+        var animation = new KeyFrameAnimation<float> { UseGlobalClock = { Value = useGlobalClock } };
+        animation.KeyFrames.Add(new KeyFrame<float> { Value = { Value = 100f } });
+        animation.KeyFrames.Add(new KeyFrame<float>
+        {
+            KeyTime = { Value = start },
+            Value = { Value = speedAfterStart },
+            Easing = { Value = new HoldEasing() }
+        });
+        _sourceVideo.Speed.SetKeyFrameAnimation(animation);
+
+        Assert.That(_sourceVideo.TryGetOriginalDuration(out MediaTime duration, _decoders), Is.True);
+        SourceVideo.Resource resource = EvaluateAt(start + duration);
+        TestContext.Out.WriteLine($"Fitted duration: {duration.ToSeconds():F6}s; playback endpoint: {resource.RequestedPosition.ToSeconds():F6}s");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(duration.ToSeconds(), Is.EqualTo(expectedDuration).Within(1.0 / 30));
+            Assert.That(resource.RequestedPosition.ToSeconds(), Is.EqualTo(10.0).Within(1.0 / 60));
+        });
+    }
+
     [Test]
     public void CalculateOriginalTime_WithVerySlowSpeed_ShouldExpandUpperBound()
     {
@@ -240,6 +270,33 @@ public class SourceVideoSpeedTest
         // Assert: 10秒の動画を5%速度で再生すると、元の時間は200秒
         Assert.That(originalTime, Is.Not.Null);
         Assert.That(originalTime!.Value.ToSeconds(), Is.EqualTo(200.0).Within(5.0));
+    }
+
+    [Test]
+    public void Reconcile_ReusesResourceAndMapsAnInsertedSpeedKey()
+    {
+        var animation = new KeyFrameAnimation<float>();
+        animation.KeyFrames.Add(new KeyFrame<float> { Value = { Value = 100f } });
+        animation.KeyFrames.Add(new KeyFrame<float>
+        {
+            KeyTime = { Value = MediaTime.FromSeconds(6) },
+            Value = { Value = 100f },
+            Easing = { Value = new HoldEasing() }
+        });
+        _sourceVideo!.Speed.SetKeyFrameAnimation(animation);
+        MediaTime time = MediaTime.FromSeconds(3.5);
+        SourceVideo.Resource resource = EvaluateAt(time);
+        Assert.That(resource.RequestedPosition, Is.EqualTo(time));
+
+        animation.KeyFrames.Insert(1, new KeyFrame<float>
+        {
+            KeyTime = { Value = MediaTime.FromSeconds(2) },
+            Value = { Value = 300f },
+            Easing = { Value = new HoldEasing() }
+        });
+        ReconcileAt(time);
+
+        Assert.That(resource.RequestedPosition.ToSeconds(), Is.EqualTo(6.5).Within(1e-8));
     }
 
     // A loop wrapped only the position the speed gives, but the frame is read OffsetPosition later, so the last

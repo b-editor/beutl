@@ -239,14 +239,12 @@ public sealed class SessionToolsTests
                 Is.All.EqualTo(elementRelativePath));
             Assert.That(opened.Value.RecoveryIncidents,
                 Has.One.Matches<RecoveryIncident>(incident =>
-                    incident.Reason == nameof(FallbackReason.TypeNotFound)
-                    && incident.TypeName == MissingType
-                    && incident.Message is null));
+                    incident is { Reason: nameof(FallbackReason.TypeNotFound), TypeName: MissingType, Message: null }));
             Assert.That(opened.Value.RecoveryIncidents,
                 Has.One.Matches<RecoveryIncident>(incident =>
-                    incident.Reason == nameof(FallbackReason.TypeNotFound)
+                    incident is { Reason: nameof(FallbackReason.TypeNotFound), Message: { } message }
                     && incident.TypeName == "[Missing.Assembly]Missing.Namespace:MissingEasing"
-                    && incident.Message!.Contains("could not be resolved", StringComparison.Ordinal)));
+                    && message.Contains("could not be resolved", StringComparison.Ordinal)));
         });
     }
 
@@ -674,11 +672,12 @@ public sealed class SessionToolsTests
 
         Assert.That(created.IsSuccess, Is.True, created.Error?.Message);
         Project project = ((FileEditingSession)source.CurrentSession!).Project;
-        JsonObject file = JsonNode.Parse(File.ReadAllText(created.Value!.SavedPath))!.AsObject();
+        Scene scene = project.Items.OfType<Scene>().Single();
+        JsonObject sceneFile = JsonNode.Parse(File.ReadAllText(scene.Uri!.LocalPath))!.AsObject();
         Assert.Multiple(() =>
         {
-            Assert.That(project.FrameRate.Value.ToString(), Is.EqualTo(saved));
-            Assert.That((string?)file["FrameRate"], Is.EqualTo(saved));
+            Assert.That(scene.FrameRate.Value.ToString(), Is.EqualTo(saved));
+            Assert.That((string?)sceneFile["FrameRate"], Is.EqualTo(saved));
         });
     }
 

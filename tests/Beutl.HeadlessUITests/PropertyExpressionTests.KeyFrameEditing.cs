@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
@@ -22,6 +23,7 @@ using Beutl.Language;
 using Beutl.Media;
 using Beutl.PropertyAdapters;
 using Beutl.Testing.Headless;
+using FluentAvalonia.UI.Controls;
 using FluentIcons.Common;
 using Moq;
 using Reactive.Bindings;
@@ -53,13 +55,16 @@ public partial class PropertyExpressionTests
         });
 
         TextBox box = scope.WidthEditor.GetVisualDescendants().OfType<TextBox>().Single(x => x.Name == "PART_InnerTextBox");
+        Assert.That(box.Text, Is.EqualTo("450"));
         box.Focus();
+        Assert.That(box.Text, Is.EqualTo("400"), "Focusing shows the keyframe value before the expression.");
         box.SelectAll();
         host.Window.KeyTextInput("300");
         host.Window.KeyPressQwerty(PhysicalKey.Enter, RawInputModifiers.None);
         HeadlessTestHelpers.Render();
         Assert.That(key.Value.Value, Is.EqualTo(300));
         Assert.That(scope.WidthEditor.Value, Is.EqualTo(350));
+        Assert.That(box.Text, Is.EqualTo("350"));
         Assert.That(scope.History.UndoCount, Is.EqualTo(1));
         scope.History.Undo();
         Assert.That(scope.WidthEditor.Value, Is.EqualTo(450));
@@ -235,17 +240,128 @@ public partial class PropertyExpressionTests
             if (!ReferenceEquals(context, combined)) context.Dispose();
         combined.Accept(scope.Services);
         Assert.That(combined.SetExpression("new Size(Time * 10, Time * 20)", out string? error), Is.True, error);
-        scope.Shape.Width.SetKeyFrameAnimation(scope.WidthAnimation);
-        scope.Shape.Height.SetKeyFrameAnimation(scope.HeightAnimation);
+        Assert.Multiple(() =>
+        {
+            Assert.That(scope.Shape.Width.GetKeyFrameAnimation(), Is.SameAs(scope.WidthAnimation));
+            Assert.That(scope.Shape.Height.GetKeyFrameAnimation(), Is.SameAs(scope.HeightAnimation));
+        });
         using var group = new PropertyEditorGroupContext([combined], "Size", isFirst: true);
         using var host = new ControlHost(new PropertyEditorGroup { DataContext = group }, width: 500, height: 120);
         PropertyEditorMenu menu = host.Window.GetVisualDescendants().OfType<PropertyEditorMenu>().Single(x => x.IsEffectivelyVisible);
         AssertMenuIcon(menu, animation: true, expression: true, onKey: false);
         var editor = host.Window.GetVisualDescendants().OfType<Vector2Editor<float>>().Single();
         Assert.That((editor.FirstValue, editor.SecondValue), Is.EqualTo((20f, 40f)));
+        TextBox[] boxes = editor.GetVisualDescendants().OfType<TextBox>().ToArray();
+        Assert.That((boxes[0].Text, boxes[1].Text), Is.EqualTo(("20", "40")));
+        boxes[0].Focus();
+        HeadlessTestHelpers.Render();
+        Assert.That((boxes[0].Text, boxes[1].Text), Is.EqualTo(("400", "40")),
+            "Focusing a combined box shows the keyframe value before the expression.");
+        boxes[1].Focus();
+        HeadlessTestHelpers.Render();
+        Assert.That((boxes[0].Text, boxes[1].Text), Is.EqualTo(("20", "300")));
         scope.Time.Value = MediaTime.FromSeconds(2);
         AssertMenuIcon(menu, animation: true, expression: true, onKey: true);
         HeadlessCapture.SaveIfRequested(host.Window, nameof(PropertyExpressionTests), "combined-animation-expression");
+    }
+
+    [AvaloniaTest]
+    public void Editing_an_expression_from_the_menu_keeps_the_existing_animation()
+    {
+        using var scope = new KeyFrameEditScope(0, 1);
+        scope.Shape.Height.Expression = null;
+        scope.History.Commit();
+        int before = scope.History.UndoCount;
+
+        var menu = new PropertyEditorMenu { DataContext = scope.HeightModel, VerticalAlignment = VerticalAlignment.Top };
+        using var host = new ControlHost(menu, width: 640, height: 480);
+        try
+        {
+            Button button = menu.GetVisualDescendants().OfType<Button>().First();
+            var contextMenu = (FAMenuFlyout)button.ContextFlyout!;
+            contextMenu.Items.OfType<FAMenuFlyoutItem>().Single(item => item.Name == "editExpressionItem")
+                .RaiseEvent(new RoutedEventArgs(FAMenuFlyoutItem.ClickEvent));
+            HeadlessTestHelpers.Render();
+
+            var popup = ExpressionEditors(host.Window).Single();
+            var presenter = (ExpressionEditorFlyoutPresenter)popup.Child!;
+            presenter.GetVisualDescendants().OfType<TextBox>().Single(text => text.Name == "ExpressionTextBox")
+                .Text = "Value + 25";
+            presenter.GetVisualDescendants().OfType<Button>().Single(accept => accept.Name == "AcceptButton")
+                .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            HeadlessTestHelpers.Render();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(popup.IsOpen, Is.False);
+                Assert.That(scope.Shape.Height.HasExpression, Is.True);
+                Assert.That(scope.Shape.Height.Expression!.ExpressionString, Is.EqualTo("Value + 25"));
+                Assert.That(scope.Shape.Height.GetKeyFrameAnimation(), Is.SameAs(scope.HeightAnimation));
+                Assert.That(scope.HeightAnimation.KeyFrames, Has.Count.EqualTo(3));
+                Assert.That(scope.HeightEditor.Value, Is.EqualTo(325f));
+                Assert.That(scope.History.UndoCount, Is.EqualTo(before + 1));
+            });
+
+            AssertMenuIcon(menu, animation: true, expression: true, onKey: false);
+
+            scope.History.Undo();
+            HeadlessTestHelpers.Render();
+            Assert.Multiple(() =>
+            {
+                Assert.That(scope.Shape.Height.HasExpression, Is.False);
+                Assert.That(scope.Shape.Height.GetKeyFrameAnimation(), Is.SameAs(scope.HeightAnimation));
+                Assert.That(scope.HeightAnimation.KeyFrames, Has.Count.EqualTo(3));
+                Assert.That(scope.HeightEditor.Value, Is.EqualTo(300f));
+            });
+        }
+        finally
+        {
+            foreach (var popup in host.Window.OpenedPopups.ToArray())
+                popup.Close();
+        }
+    }
+
+    [AvaloniaTest]
+    public void Clicking_the_diamond_with_animation_and_expression_inserts_and_removes_keyframes()
+    {
+        using var scope = new KeyFrameEditScope(0, 1);
+        var menu = new PropertyEditorMenu { DataContext = scope.WidthModel, VerticalAlignment = VerticalAlignment.Top };
+        using var host = new ControlHost(menu, width: 640, height: 480);
+        try
+        {
+            Button button = menu.GetVisualDescendants().OfType<Button>().First();
+            AssertMenuIcon(menu, animation: true, expression: true, onKey: false);
+            Assert.That(scope.WidthAnimation.KeyFrames, Has.Count.EqualTo(3));
+
+            // Off a keyframe: clicking the diamond inserts a keyframe instead of opening the expression popup.
+            HeadlessTestHelpers.Click(button);
+            Assert.Multiple(() =>
+            {
+                Assert.That(ExpressionEditors(host.Window), Is.Empty);
+                Assert.That(scope.WidthAnimation.KeyFrames, Has.Count.EqualTo(4));
+                Assert.That(scope.WidthAnimation.KeyFrames.Select(k => k.KeyTime.Value), Does.Contain(MediaTime.FromSeconds(1)));
+                Assert.That(scope.Shape.Width.HasExpression, Is.True);
+                Assert.That(scope.Shape.Width.Expression!.ExpressionString, Is.EqualTo("Value + 50"));
+            });
+            AssertMenuIcon(menu, animation: true, expression: true, onKey: true);
+
+            // On a keyframe: clicking the filled diamond removes that keyframe instead of opening the expression popup.
+            HeadlessTestHelpers.Click(button);
+            Assert.Multiple(() =>
+            {
+                Assert.That(ExpressionEditors(host.Window), Is.Empty);
+                Assert.That(scope.WidthAnimation.KeyFrames, Has.Count.EqualTo(3));
+                Assert.That(scope.WidthAnimation.KeyFrames.Select(k => k.KeyTime.Value), Does.Not.Contain(MediaTime.FromSeconds(1)));
+                Assert.That(scope.Shape.Width.HasExpression, Is.True);
+                Assert.That(scope.Shape.Width.Expression!.ExpressionString, Is.EqualTo("Value + 50"));
+            });
+            AssertMenuIcon(menu, animation: true, expression: true, onKey: false);
+        }
+        finally
+        {
+            foreach (var popup in host.Window.OpenedPopups.ToArray())
+                popup.Close();
+        }
     }
 
     private static void AssertMenuIcon(PropertyEditorMenu menu, bool animation, bool expression, bool onKey)

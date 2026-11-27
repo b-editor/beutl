@@ -1,5 +1,4 @@
 ﻿using System.Numerics;
-using System.Reactive.Disposables;
 using System.Reactive.Linq;
 
 using Avalonia;
@@ -7,10 +6,8 @@ using Avalonia.Controls;
 using Avalonia.Controls.Metadata;
 using Avalonia.Controls.Primitives;
 using Avalonia.Data;
-using Avalonia.Interactivity;
 
 using Beutl.Extensibility;
-using Beutl.Reactive;
 
 namespace Beutl.Controls.PropertyEditors;
 
@@ -108,25 +105,24 @@ public class Vector4Editor<TElement> : Vector4Editor, IValueEditorControl<(TElem
 
     public void Connect(IValueEditorContext<(TElement, TElement, TElement, TElement)> context)
     {
-        CompositeDisposable connection = StartConnection();
-        (TElement, TElement, TElement, TElement) shown = (TElement.Zero, TElement.Zero, TElement.Zero, TElement.Zero);
-        context.EditValue.Subscribe(value => shown = value).DisposeWith(connection);
-        _values.ReadIncrementValues = () =>
-        {
-            var value = context.GetIncrementValue((FirstValue, SecondValue, ThirdValue, FourthValue));
-            return [value.Item1, value.Item2, value.Item3, value.Item4];
-        };
-        BindComponent(FirstValueProperty, context.EditValue.Select(v => v.Item1), connection);
-        BindComponent(SecondValueProperty, context.EditValue.Select(v => v.Item2), connection);
-        BindComponent(ThirdValueProperty, context.EditValue.Select(v => v.Item3), connection);
-        BindComponent(FourthValueProperty, context.EditValue.Select(v => v.Item4), connection);
-        this.AddDisposableHandler(ValueChangedEvent, (s, e) =>
+        ConnectComponents(
+            context,
+            connection =>
             {
-                if (e.Expect<(TElement, TElement, TElement, TElement)>(s) is { } args)
-                    (FirstValue, SecondValue, ThirdValue, FourthValue) = PreviewEdit(context, args.NewValue, IsRelativeEdit);
-            })
-            .DisposeWith(connection);
-        ConfirmEdits(context, connection, () => (FirstValue, SecondValue, ThirdValue, FourthValue) = shown);
+                _values.ReadIncrementValues = () =>
+                {
+                    var value = context.GetIncrementValue((FirstValue, SecondValue, ThirdValue, FourthValue));
+                    return [value.Item1, value.Item2, value.Item3, value.Item4];
+                };
+                _values.ReadFocusedValues = () => context.TryGetFocusedEditValue(out var focused)
+                    ? [focused.Item1, focused.Item2, focused.Item3, focused.Item4]
+                    : null;
+                BindComponent(FirstValueProperty, context.EditValue.Select(v => v.Item1), connection);
+                BindComponent(SecondValueProperty, context.EditValue.Select(v => v.Item2), connection);
+                BindComponent(ThirdValueProperty, context.EditValue.Select(v => v.Item3), connection);
+                BindComponent(FourthValueProperty, context.EditValue.Select(v => v.Item4), connection);
+            },
+            value => (FirstValue, SecondValue, ThirdValue, FourthValue) = value);
     }
 }
 
@@ -139,7 +135,7 @@ public class Vector4Editor<TElement> : Vector4Editor, IValueEditorControl<(TElem
 [TemplatePart("PART_InnerThirdTextBox", typeof(TextBox))]
 [TemplatePart("PART_InnerFourthTextBox", typeof(TextBox))]
 [TemplatePart("PART_BackgroundBorder", typeof(Border))]
-public class Vector4Editor : VectorEditorBase
+public partial class Vector4Editor : VectorEditorBase
 {
     public static readonly DirectProperty<Vector4Editor, string> FirstTextProperty =
         AvaloniaProperty.RegisterDirect<Vector4Editor, string>(
@@ -168,26 +164,6 @@ public class Vector4Editor : VectorEditorBase
             o => o.FourthText,
             (o, v) => o.FourthText = v,
             defaultBindingMode: BindingMode.TwoWay);
-
-    public static readonly StyledProperty<string?> FirstHeaderProperty =
-        AvaloniaProperty.Register<Vector4Editor, string?>(nameof(FirstHeader));
-
-    public static readonly StyledProperty<string?> SecondHeaderProperty =
-        AvaloniaProperty.Register<Vector4Editor, string?>(nameof(SecondHeader));
-
-    public static readonly StyledProperty<string?> ThirdHeaderProperty =
-        AvaloniaProperty.Register<Vector4Editor, string?>(nameof(ThirdHeader));
-
-    public static readonly StyledProperty<string?> FourthHeaderProperty =
-        AvaloniaProperty.Register<Vector4Editor, string?>(nameof(FourthHeader));
-
-    public static readonly StyledProperty<bool> IsUniformProperty =
-        AvaloniaProperty.Register<Vector4Editor, bool>(nameof(IsUniform));
-
-    public static readonly StyledProperty<string?> NumberFormatProperty =
-        AvaloniaProperty.Register<Vector4Editor, string?>(
-            nameof(NumberFormat),
-            defaultValue: null);
 
     public Vector4Editor()
         : base(
@@ -221,41 +197,23 @@ public class Vector4Editor : VectorEditorBase
         set => SetText(3, value);
     }
 
-    public string? FirstHeader
-    {
-        get => GetValue(FirstHeaderProperty);
-        set => SetValue(FirstHeaderProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial string? FirstHeader { get; set; }
 
-    public string? SecondHeader
-    {
-        get => GetValue(SecondHeaderProperty);
-        set => SetValue(SecondHeaderProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial string? SecondHeader { get; set; }
 
-    public string? ThirdHeader
-    {
-        get => GetValue(ThirdHeaderProperty);
-        set => SetValue(ThirdHeaderProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial string? ThirdHeader { get; set; }
 
-    public string? FourthHeader
-    {
-        get => GetValue(FourthHeaderProperty);
-        set => SetValue(FourthHeaderProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial string? FourthHeader { get; set; }
 
-    public bool IsUniform
-    {
-        get => GetValue(IsUniformProperty);
-        set => SetValue(IsUniformProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial bool IsUniform { get; set; }
 
-    public string? NumberFormat
-    {
-        get => GetValue(NumberFormatProperty);
-        set => SetValue(NumberFormatProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial string? NumberFormat { get; set; }
 
     protected override Type StyleKeyOverride => typeof(Vector4Editor);
 

@@ -146,7 +146,7 @@ public class SilenceSplitTests
         }
 
         // Normal playback still uses its silent fallback, even after analysis failed.
-        using var compositor = new SceneCompositor(h.Scene, TestFonts.Manager, decoders: _decoders);
+        using var compositor = new SceneCompositor(h.Scene, new SceneRenderServices(TestFonts.Manager, _decoders));
         using var composer = new Composer();
         using var output = composer.Compose(Range(1, 2), compositor.EvaluateAudio(Range(1, 2)));
         Assert.That(output, Is.Not.Null);
@@ -435,7 +435,8 @@ public class SilenceSplitTests
     public async Task NestedSounds_KeepTheirSourcePositionsAfterCutsAndUndo(SilenceSplitMode? mode, bool animated, bool anchoredGroup)
     {
         using var h = new SceneHistoryHarness("silence-nested-cuts");
-        var project = new Project { SampleRate = { Value = 44100 }, Items = { h.Scene } };
+        h.Scene.SampleRate.Value = 44100;
+        var project = new Project { Items = { h.Scene } };
         _ = new BeutlApplication { Project = { Value = project } };
         Element audio = h.AddElement(Seconds(10), Seconds(10));
         var source = new SourceSound
@@ -577,7 +578,8 @@ public class SilenceSplitTests
 
         Element[] Populate(SceneHistoryHarness h)
         {
-            var project = new Project { SampleRate = { Value = 48000 } };
+            h.Scene.SampleRate.Value = 48000;
+            var project = new Project();
             project.Items.Add(h.Scene);
             var audio = h.AddElement(Seconds(10), Seconds(10));
             var sound = new SourceSound { OffsetPosition = { Value = Seconds(1) } };
@@ -639,8 +641,7 @@ public class SilenceSplitTests
     public void Plan_RoundsInwardAtFractionalFrameRate_AndPreservesOffGridClipEdges()
     {
         using var h = new SceneHistoryHarness("silence-frames");
-        var project = new Project { FrameRate = { Value = new Rational(30000, 1001) } };
-        project.Items.Add(h.Scene);
+        h.Scene.FrameRate.Value = new Rational(30000, 1001);
         var e = h.AddElement(Seconds(1.001), Seconds(4.002));
         var plan = SilenceSplitService.Plan(h.Scene, e, [Range(0, 0.5), Range(1.01, 1.02), Range(2, 4.002)]);
         Assert.That(plan, Has.Count.EqualTo(2));

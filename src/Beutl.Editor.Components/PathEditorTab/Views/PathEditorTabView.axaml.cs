@@ -10,6 +10,7 @@ using Avalonia.Styling;
 using Avalonia.Threading;
 using Beutl.Composition;
 using Beutl.Controls.PropertyEditors;
+using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.PathEditorTab.ViewModels;
 using Beutl.Editor.Components.Views;
 using Beutl.Editor.Services;
@@ -35,6 +36,10 @@ public partial class PathEditorTabView : PathEditorViewBase
         InitializeComponent();
         PointProperties.Bind(DataContextProperty, this.GetObservable(DataContextProperty));
         InitializeEditor(canvas, view, delta => Matrix *= Matrix.CreateTranslation(delta), Zoom, Fit, ToolSlot);
+        PathEditorInteraction.SetShortcutToolTip(ZoomOutButton, "zoomOut", Strings.PathEditor_ZoomOut);
+        PathEditorInteraction.SetShortcutToolTip(ZoomValueButton, "resetZoom", Strings.ResetZoom);
+        PathEditorInteraction.SetShortcutToolTip(ZoomInButton, "zoomIn", Strings.PathEditor_ZoomIn);
+        PathEditorInteraction.SetShortcutToolTip(FitButton, "fitAll", Strings.PathEditor_Fit);
 
         PointPropertyList.AddHandler(PropertyEditor.ValueChangedEvent, OnInspectorPropertyChanged, handledEventsToo: true);
         PointPropertyList.AddHandler(PropertyEditor.ValueConfirmedEvent, OnInspectorPropertyChanged, handledEventsToo: true);
@@ -243,9 +248,7 @@ public partial class PathEditorTabView : PathEditorViewBase
     private void OnMagnify(object? sender, PointerDeltaEventArgs e)
     {
         if (!new Rect(canvas.Bounds.Size).Contains(e.GetPosition(canvas))) return;
-        // Native magnification already reports the relative scale change.
-        double factor = 1 + e.Delta.X;
-        if (!SkipUpdatePosition && double.IsFinite(factor) && factor > 0)
+        if (!SkipUpdatePosition && NativeScrollInput.TryGetMagnifyFactor(e, out double factor))
             Zoom(factor, e.GetPosition(canvas));
         e.Handled = true;
     }

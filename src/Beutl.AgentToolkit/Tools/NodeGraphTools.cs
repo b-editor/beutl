@@ -9,6 +9,7 @@ using Beutl.Editor.Services;
 using Beutl.Media.Decoding;
 using Beutl.NodeGraph;
 using Beutl.ProjectSystem;
+using Beutl.Services;
 using ModelContextProtocol.Server;
 
 namespace Beutl.AgentToolkit.Tools;
@@ -58,8 +59,13 @@ public sealed record EditNodeGraphResponse(
 
 // Builds and edits node graphs, the declarative way to compose GPU shader passes and other node-based content.
 [McpServerToolType]
-public sealed class NodeGraphTools(AgentSessionManager sessions, DecoderRegistry? decoders = null) : ToolBase
+public sealed class NodeGraphTools(AgentSessionManager sessions, DecoderRegistry? decoders, LibraryService? library) : ToolBase
 {
+    public NodeGraphTools(AgentSessionManager sessions, DecoderRegistry? decoders = null)
+        : this(sessions, decoders, null)
+    {
+    }
+
     // What undo and read_history call one edit_node_graph call.
     public const string HistoryEntryName = "Agent node graph edit";
 
@@ -80,8 +86,7 @@ public sealed class NodeGraphTools(AgentSessionManager sessions, DecoderRegistry
     {
         return Execute(() =>
         {
-            NodeTypeCatalog.EnsureBuiltInNodesRegistered();
-            IReadOnlyList<NodeTypeEntry> entries = NodeTypeCatalog.GetEntries();
+            IReadOnlyList<NodeTypeEntry> entries = NodeTypeCatalog.GetEntries(library);
             string[] categories = entries.Select(entry => entry.Category).Distinct(StringComparer.Ordinal).ToArray();
             IEnumerable<NodeTypeEntry> selected = entries;
             List<string>? unmatched = null;
@@ -97,7 +102,7 @@ public sealed class NodeGraphTools(AgentSessionManager sessions, DecoderRegistry
                 unmatched = [];
                 foreach (string token in type.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
                 {
-                    if (NodeTypeCatalog.Resolve(token, out _) is { } entry)
+                    if (NodeTypeCatalog.Resolve(token, out _, entries) is { } entry)
                     {
                         resolved.Add(entry);
                     }
@@ -178,7 +183,7 @@ public sealed class NodeGraphTools(AgentSessionManager sessions, DecoderRegistry
     }
 
     [McpServerTool(Name = "edit_node_graph")]
-    [Description("Edits a node graph with a list of operations (add, update, remove, connect, disconnect), applied in order as one undoable history entry. Every call runs on a copy of the scene first: an operation that cannot apply is refused with its index, and an edit that brings an error the graph did not have, such as GLSL that does not compile (returned with its stage and line), a value that does not convert or a missing connection, is not applied. The response lists the new nodes' Ids, the diagnostics (isNew marks what the edit brought) and the ports of the nodes it touched. Pass validateOnly:true to check without applying. get_node_graph_guide has the contract and examples. In live MCP, pass sceneId on each call.")]
+    [Description("Edits a node graph with a list of operations (add, update, remove, connect, disconnect), applied in order as one undoable history entry. Operations run on a copy of the scene first: an operation that cannot apply is refused with its index, and an edit that brings an error the graph did not have, such as GLSL that does not compile (returned with its stage and line), a value that does not convert or a missing connection, is not applied. The response lists the new nodes' Ids, the diagnostics (isNew marks what the edit brought) and the ports of the nodes it touched. Pass validateOnly:true to check without applying. get_node_graph_guide has the contract and examples. In live MCP, pass sceneId on each call.")]
     public ToolResult<EditNodeGraphResponse> EditNodeGraph(
         [Description("The Id of a NodeGraphFilterEffect, a NodeGraphDrawable, or a group or loop node inside one.")]
         string graphId,
@@ -196,7 +201,20 @@ public sealed class NodeGraphTools(AgentSessionManager sessions, DecoderRegistry
             {
                 Scene scene = RequireSceneRoot(session);
                 NodeGraphTarget live = NodeGraphLocator.Locate(scene, graphId);
-                Rational? frameRate = scene.FindHierarchicalParent<Project>()?.GetFrameRate();
+                if (steps.Count == 0)
+                {
+                    return new EditNodeGraphResponse(
+                        SchemaVersion.Current,
+                        Applied: false,
+                        Valid: true,
+                        graphId,
+                        Created: [],
+                        Diagnostics: [],
+                        Ports: new Dictionary<string, IReadOnlyList<PortSummary>>(),
+                        Hint: "No operations were provided. Nothing was applied.");
+                }
+
+                Rational? frameRate = scene.GetFrameRate();
                 Guid[] nodeIds = NodeGraphEditor.MintNodeIds(steps);
 
                 NodeGraphTarget copy = NodeGraphLocator.Locate(SceneSnapshot.Create(scene), graphId);
@@ -217,7 +235,7 @@ public sealed class NodeGraphTools(AgentSessionManager sessions, DecoderRegistry
                     .Select(node => new CreatedNodeSummary(editor.RefOf(node), node.Id.Value.ToString(), NodeGraphMembers.FormatType(node.GetType())))
                     .ToArray();
 
-                if (brokeSomething || validateOnly || steps.Count == 0)
+                if (brokeSomething || validateOnly)
                 {
                     return new EditNodeGraphResponse(
                         SchemaVersion.Current,

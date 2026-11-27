@@ -1,4 +1,5 @@
-﻿using System.Text.Json.Nodes;
+﻿using System.Globalization;
+using System.Text.Json.Nodes;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
@@ -11,6 +12,7 @@ using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using Beutl.Api;
 using Beutl.Api.Services;
 using Beutl.Configuration;
 using Beutl.Controls;
@@ -32,6 +34,7 @@ using Beutl.Views;
 using Dock.Model.Core;
 using FluentAvalonia.UI.Controls;
 using FluentIcons.Avalonia.Fluent;
+using Moq;
 using static Beutl.HeadlessUITests.GitTestSupport;
 
 namespace Beutl.HeadlessUITests;
@@ -39,6 +42,86 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public class VersionControlTabViewTests
 {
+    [AvaloniaTest]
+    public async Task Pull_progress_shows_transfer_percentages_and_disappears_when_canceled()
+    {
+        var started = new TaskCompletionSource<IProgress<string>>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var coordinator = new Mock<IProjectVersionControlCoordinator>();
+        coordinator.Setup(x => x.PullAsync(It.IsAny<IProgress<string>>(), It.IsAny<CancellationToken>()))
+            .Returns<IProgress<string>, CancellationToken>(async (progress, cancellationToken) =>
+            {
+                started.SetResult(progress);
+                await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+                return new RemoteOpResult.Success();
+            });
+        using MockedVersionControlTab tab = await MockedVersionControlTab.CreateAsync(
+            Path.GetTempPath(),
+            [new CommitInfo("0123456789abcdef", "0123456", "Update project", "Editor", DateTimeOffset.UtcNow, SnapshotKind.Manual)],
+            [],
+            string.Empty,
+            status: new WorkspaceStatus("main", 0, 2, [], false),
+            coordinator: coordinator.Object,
+            remote: new RemoteInfo("origin", "https://example.invalid/project.git"));
+        var view = new VersionControlTabView { DataContext = tab.ViewModel };
+        var window = new Window { Content = view, Width = 380, Height = 460, RequestedThemeVariant = ThemeVariant.Dark };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+            var bar = view.FindControl<ProgressBar>("RemoteProgressBar")!;
+            var label = view.FindControl<TextBlock>("RemoteProgressText")!;
+            Assert.That(bar.IsEffectivelyVisible, Is.False);
+
+            tab.ViewModel.PullCommand.Execute();
+            IProgress<string> progress = await started.Task.WaitAsync(TimeSpan.FromSeconds(2));
+            HeadlessTestHelpers.Render(3);
+            Assert.Multiple(() =>
+            {
+                Assert.That(bar.IsEffectivelyVisible, Is.True);
+                Assert.That(bar.IsIndeterminate, Is.True);
+                Assert.That(label.Text, Is.EqualTo(Strings.VersionControl_Pulling));
+            });
+            if (HeadlessCapture.IsRequested)
+            {
+                // Let the indeterminate indicator move into the visible part of the track.
+                await Task.Delay(250);
+                HeadlessTestHelpers.Render();
+                HeadlessCapture.SaveIfRequested(window, nameof(VersionControlTabViewTests), "pull-connecting");
+            }
+
+            progress.Report("remote: Receiving objects:  64% (64/100)");
+            HeadlessTestHelpers.Render();
+            Assert.Multiple(() =>
+            {
+                Assert.That(bar.IsIndeterminate, Is.False);
+                Assert.That(bar.Value, Is.EqualTo(64));
+                Assert.That(label.Text, Is.EqualTo("Receiving objects"));
+            });
+            HeadlessCapture.SaveIfRequested(window, nameof(VersionControlTabViewTests), "pull-receiving");
+
+            progress.Report(Strings.VersionControl_FetchingLfs);
+            Assert.That(bar.IsIndeterminate, Is.True);
+            progress.Report("Downloading LFS objects: 50% (1/2), 12 MB | 4 MB/s");
+            HeadlessTestHelpers.Render();
+            Assert.Multiple(() =>
+            {
+                Assert.That(bar.IsIndeterminate, Is.False);
+                Assert.That(bar.Value, Is.EqualTo(50));
+                Assert.That(label.Text, Is.EqualTo("Downloading LFS objects · 12 MB | 4 MB/s"));
+            });
+            HeadlessCapture.SaveIfRequested(window, nameof(VersionControlTabViewTests), "pull-downloading-lfs");
+
+            tab.ViewModel.CancelRemoteOperationCommand.Execute();
+            await tab.ViewModel.RemoteOperationCompletion.WaitAsync(TimeSpan.FromSeconds(2));
+            HeadlessTestHelpers.Render();
+            Assert.That(bar.IsEffectivelyVisible, Is.False);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     [AvaloniaTest]
     public async Task Title_bar_branch_widget_is_hidden_until_a_tracked_project_is_ready()
     {
@@ -377,7 +460,7 @@ public class VersionControlTabViewTests
                 view.FindControl<TextBox>("CommitMessageTextBox")!;
             Grid commitComposer =
                 view.FindControl<Grid>("CommitComposer")!;
-            var primaryActionFlyout = (MenuFlyout)primaryAction.Flyout!;
+            var primaryActionFlyout = (FAMenuFlyout)primaryAction.Flyout!;
             Assert.Multiple(() =>
             {
                 Assert.That(
@@ -390,45 +473,21 @@ public class VersionControlTabViewTests
                 Assert.That(commitMessageTextBox.TextWrapping, Is.EqualTo(TextWrapping.Wrap));
                 Assert.That(commitComposer.Parent, Is.TypeOf<Grid>());
                 Assert.That(primaryActionFlyout.Placement.ToString(), Is.EqualTo("Pointer"));
-                Assert.That(
-                    primaryActionFlyout.Items,
-                    Has.Count.EqualTo(5));
             });
 
-            Task<string?> remoteUrlTask =
-                viewModel.RequestRemoteUrlAsync(
-                    "https://example.invalid/old.git",
-                    CancellationToken.None);
+            primaryActionFlyout.ShowAt(primaryAction);
             HeadlessTestHelpers.Render();
-
-            VersionControlPickerFlyout tabPrompt = view.PromptFlyout;
-            Button acceptButton = GetPickerButton(tabPrompt, "AcceptButton");
-            Button dismissButton = GetPickerButton(tabPrompt, "DismissButton");
+            FAMenuFlyoutItem[] items = primaryActionFlyout.Items.OfType<FAMenuFlyoutItem>().ToArray();
+            FAMenuFlyoutItem openOnWeb = items.Single(item => item.Text == Strings.HostedGit_OpenOnWeb);
+            FAMenuFlyoutItem cancel = items.Single(item => item.Name == "CancelRemoteOperationMenuItem");
             Assert.Multiple(() =>
             {
-                Assert.That(tabPrompt.IsOpen, Is.True);
-                Assert.That(tabPrompt.Target, Is.SameAs(primaryAction));
-                Assert.That(
-                    tabPrompt.TitleTextBlock.Text,
-                    Is.EqualTo(Strings.VersionControl_SetRemoteTitle));
-                Assert.That(
-                    tabPrompt.PrimaryTextBox.Text,
-                    Is.EqualTo("https://example.invalid/old.git"));
-                Assert.That(tabPrompt.PrimaryTextBox.IsVisible, Is.True);
-                Assert.That(tabPrompt.Presenter, Is.TypeOf<FAPickerFlyoutPresenter>());
-                Assert.That(acceptButton.IsVisible, Is.True);
-                Assert.That(dismissButton.IsVisible, Is.True);
+                Assert.That(openOnWeb.IsVisible, Is.False);
+                Assert.That(cancel.IsVisible, Is.False);
             });
+            primaryActionFlyout.Hide();
 
-            tabPrompt.PrimaryTextBox.Text = "https://example.invalid/new.git";
-            acceptButton.RaiseEvent(
-                new RoutedEventArgs(Button.ClickEvent));
-            Assert.That(
-                await remoteUrlTask,
-                Is.EqualTo("https://example.invalid/new.git"));
-            await WaitUntilAsync(
-                () => !viewModel.IsLoading.Value && viewModel.Commits.Count > 0);
-
+            VersionControlPickerFlyout tabPrompt = view.PromptFlyout;
             CommitInfo selectedCommitInfo = viewModel.Commits[0].Commit;
             Task<string?> branchNameTask =
                 viewModel.RequestBranchNameAsync(selectedCommitInfo);
@@ -446,7 +505,7 @@ public class VersionControlTabViewTests
                 Assert.That(tabPrompt.MessageTextBlock.IsVisible, Is.False);
             });
 
-            dismissButton = GetPickerButton(tabPrompt, "DismissButton");
+            Button dismissButton = GetPickerButton(tabPrompt, "DismissButton");
             dismissButton.RaiseEvent(
                 new RoutedEventArgs(Button.ClickEvent));
             Assert.That(await branchNameTask, Is.Null);
@@ -889,16 +948,18 @@ public class VersionControlTabViewTests
     }
 
     [AvaloniaTest]
-    public async Task Remote_url_prompt_accepts_credentials_and_prefills_the_clean_url()
+    public async Task Custom_git_url_dialog_accepts_credentials_and_prefills_the_clean_url()
     {
         await using RealGitScope git = await RealGitScope.StartAsync();
+        var previousCulture = CultureInfo.CurrentUICulture;
+        CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("en-US");
         var window = new Window
         {
             Width = 420,
             Height = 480,
             RequestedThemeVariant = ThemeVariant.Dark,
         };
-        VersionControlPickerFlyout? prompt = null;
+        ConnectRemoteDialog? dialog = null;
         try
         {
             Project project = await git.CreateProjectAsync(
@@ -915,20 +976,24 @@ public class VersionControlTabViewTests
                 "config", "credential.helper", "store --file .git/test-credentials");
             HeadlessTestHelpers.Settle();
             IEditorContext editorContext = TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+            Assert.That(editorContext.GetService(typeof(BeutlApiApplication)), Is.SameAs(TestShell.MainViewModel._beutlClients));
             Assert.That(VersionControlTabExtension.Instance.TryCreateContext(editorContext, out IToolContext? context), Is.True);
             using var viewModel = (VersionControlTabViewModel)context!;
             var view = new VersionControlTabView { DataContext = viewModel };
-            prompt = view.PromptFlyout;
             window.Content = view;
             window.Show();
             await viewModel.Initialization;
             HeadlessTestHelpers.Render();
 
             Task configure = viewModel.SetRemoteAsync();
+            dialog = await FindDialogAsync();
+            dialog.GetVisualDescendants().OfType<TabStrip>().Single().SelectedIndex = 2;
             HeadlessTestHelpers.Render();
-            Assert.That(prompt.IsOpen, Is.True);
-            prompt.PrimaryTextBox.Text = "https://user:secret@example.invalid/repository.git";
-            GetPickerButton(prompt, "AcceptButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            dialog.GetVisualDescendants().OfType<TextBox>().Single(box => box.IsEffectivelyVisible).Text
+                = "https://user:secret@example.invalid/repository.git";
+            HeadlessTestHelpers.Render();
+            dialog.GetVisualDescendants().OfType<Button>().Single(button => Equals(button.Content, Strings.HostedGit_Connect))
+                .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             await configure;
             HeadlessTestHelpers.Render();
             const string remoteUrl = "https://example.invalid/repository.git";
@@ -939,20 +1004,37 @@ public class VersionControlTabViewTests
             });
 
             Task configureAgain = viewModel.SetRemoteAsync();
+            dialog = await FindDialogAsync();
+            Assert.That(dialog.GetVisualDescendants().OfType<TextBlock>().Any(block =>
+                block.IsEffectivelyVisible && block.Text == Strings.HostedGit_ReplaceOrigin), Is.True);
+            dialog.GetVisualDescendants().OfType<TabStrip>().Single().SelectedIndex = 2;
             HeadlessTestHelpers.Render();
-            Assert.That(prompt.PrimaryTextBox.Text, Is.EqualTo(remoteUrl));
+            Assert.That(dialog.GetVisualDescendants().OfType<TextBox>().Single(box => box.IsEffectivelyVisible).Text,
+                Is.EqualTo(remoteUrl));
+            if (Environment.GetEnvironmentVariable("BEUTL_THEME_CAPTURE_DIR") is not null)
+            {
+                await Task.Delay(350);
+                HeadlessTestHelpers.Render(4);
+                ThemeCaptureTests.Capture(window, "connect-custom-git.png");
+            }
 
-            GetPickerButton(prompt, "DismissButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            dialog.Hide();
             await configureAgain;
         }
         finally
         {
-            if (prompt?.IsOpen == true)
-            {
-                prompt.Hide();
-            }
+            if (dialog?.IsAttachedToVisualTree() == true)
+                dialog.Hide();
 
             window.Close();
+            CultureInfo.CurrentUICulture = previousCulture;
+        }
+
+        async Task<ConnectRemoteDialog> FindDialogAsync()
+        {
+            await WaitUntilAsync(() => window.GetVisualDescendants().OfType<ConnectRemoteDialog>().Any());
+            HeadlessTestHelpers.Render();
+            return window.GetVisualDescendants().OfType<ConnectRemoteDialog>().Single();
         }
     }
 

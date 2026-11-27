@@ -10,7 +10,7 @@
              xmlns:usage="using:Beutl.Editor.Components.Helpers"
              xmlns:views="using:Beutl.Editor.Components.TimelineTab.Views"
              xmlns:vm="using:Beutl.Editor.Components.TimelineTab.ViewModels"
-             Height="{DynamicResource LayerHeight}"
+             Height="{CompiledBinding Timeline.LayerRowHeight.Value}"
              Margin="{Binding Margin.Value}"
              HorizontalAlignment="Stretch"
              VerticalAlignment="Top"
@@ -37,7 +37,7 @@
             </ui:FAMenuFlyoutItem>
             <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="Timeline.DeleteCurrentAnimationCommand"
                                  Command="{Binding DeleteCurrentAnimationCommand}"
-                                 Text="{x:Static lang:Strings.Delete}">
+                                 Text="{x:Static lang:CommandNames.DeleteAnimation}">
                 <ui:FAMenuFlyoutItem.IconSource>
                     <icons:FluentIconSource Icon="Delete" />
                 </ui:FAMenuFlyoutItem.IconSource>

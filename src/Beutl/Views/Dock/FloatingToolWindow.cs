@@ -87,11 +87,14 @@ internal sealed class FloatingToolWindow : HostWindow
     private void OnKeyDownLeftByTools(object? sender, KeyEventArgs e)
     {
         // A dialog keeps its keys, as in the main window, whose overlays lie outside MainView.
-        if ((e.Source as Visual)?.FindAncestorOfType<OverlayLayer>() is not null
-            || AppHelper.GetContextCommandManager?.Invoke() is not { } commands)
-        {
+        if ((e.Source as Visual)?.FindAncestorOfType<OverlayLayer>() is not null)
             return;
-        }
+
+        if (_editor.IsEnabled.Value)
+            _editor.Player.HandleEffectComparisonEscape(e);
+
+        if (e.Handled || AppHelper.GetContextCommandManager?.Invoke() is not { } commands)
+            return;
 
         // The main window's editor view takes no keys while the editor is suspended.
         if (_editor.IsEnabled.Value)

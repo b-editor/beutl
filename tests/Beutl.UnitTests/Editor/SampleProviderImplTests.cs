@@ -25,9 +25,9 @@ public class SampleProviderImplTests
         {
             var scene = new Scene(32, 32, "export-layout")
             {
-                Duration = { Value = MediaTime.FromSamples(samples, rate) }
+                Duration = { Value = MediaTime.FromSamples(samples, rate) },
+                ChannelLayout = { Value = layout },
             };
-            var project = new Project { ChannelLayout = { Value = layout }, Items = { scene } };
             var element = new Element { Length = { Value = scene.Duration.Value } };
             element.AddObject(new SourceSound
             {
@@ -36,14 +36,14 @@ public class SampleProviderImplTests
             });
             scene.Children.Add(element);
 
-            using var playbackComposer = new SceneComposer(scene, TestFonts.Manager, disableResourceShare: true, forceOriginalSource: true, decoders: _decoders)
+            using var playbackComposer = new SceneComposer(scene, new SceneRenderServices(TestFonts.Manager, _decoders), disableResourceShare: true, forceOriginalSource: true)
             {
                 SampleRate = rate,
-                ChannelLayout = project.GetChannelLayout()
+                ChannelLayout = scene.GetChannelLayout()
             };
             using var composed = playbackComposer.Compose(new TimeRange(MediaTime.Zero, scene.Duration.Value))!;
             using AudioBuffer? folded = layout == SpeakerLayout.Stereo ? null
-                : AudioChannelMatrix.Create(project.GetChannelLayout(), AudioChannelLayout.Stereo).Apply(composed);
+                : AudioChannelMatrix.Create(scene.GetChannelLayout(), AudioChannelLayout.Stereo).Apply(composed);
             AudioBuffer expected = folded ?? composed;
             Assert.That(expected.GetChannelData(0).ToArray().Any(value => value != 0), Is.True);
             if (layout == SpeakerLayout.Surround51)
@@ -53,10 +53,10 @@ public class SampleProviderImplTests
                 Assert.That(composed.GetChannelData(2).ToArray().Any(value => value != 0), Is.True);
             }
 
-            using var exportComposer = new SceneComposer(scene, TestFonts.Manager, disableResourceShare: true, forceOriginalSource: true, decoders: _decoders)
+            using var exportComposer = new SceneComposer(scene, new SceneRenderServices(TestFonts.Manager, _decoders), disableResourceShare: true, forceOriginalSource: true)
             {
                 SampleRate = rate,
-                ChannelLayout = project.GetChannelLayout()
+                ChannelLayout = scene.GetChannelLayout()
             };
             using var progress = new Subject<MediaTime>();
             using var provider = new SampleProviderImpl(scene, exportComposer, rate, progress);

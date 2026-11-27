@@ -30,16 +30,19 @@ public sealed partial class MenuBarViewModel
             ?? throw new ArgumentNullException(nameof(versionControlSession));
         IsProjectOpened = _projectService.IsOpened;
 
-        IObservable<bool> isSceneOpened = _editorService.SelectedTabItem
-            .Select(item => item?.Context.Select(context => context is EditViewModel)
-                ?? Observable.Return(false))
+        IObservable<EditViewModel?> selectedSceneEditor = _editorService.SelectedTabItem
+            .Select(item => item?.Context.Select(context => context as EditViewModel)
+                ?? Observable.Return<EditViewModel?>(null))
+            .Switch();
+        IObservable<bool> isSceneOpened = selectedSceneEditor.Select(editor => editor != null).DistinctUntilChanged();
+        ExportSubtitles = new AsyncReactiveCommand(selectedSceneEditor
+            .Select(editor => editor?.IsEnabled.AsObservable() ?? Observable.Return(false))
             .Switch()
-            .DistinctUntilChanged();
+            .DistinctUntilChanged());
 
         InitializeFilesCommands();
         InitializeSceneCommands(isSceneOpened);
         InitializeViewCommands(isSceneOpened);
-        InitializeAiCommands(isSceneOpened);
 
         Undo = new AsyncReactiveCommand(IsProjectOpened)
             .WithSubscribe(OnUndo);

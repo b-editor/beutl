@@ -1,4 +1,8 @@
-﻿using Beutl.Editor.VersionControl;
+﻿using Beutl.Api;
+using Beutl.Api.Objects;
+using Beutl.Api.Services;
+using Beutl.Editor.Components.VersionControl.ViewModels;
+using Beutl.Editor.VersionControl;
 using Beutl.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -7,6 +11,15 @@ namespace Beutl.Editor.Components.VersionControlTab.ViewModels;
 
 internal partial class VersionControlTabViewModel
 {
+    private string? _currentOrigin;
+    private string? _currentBranch;
+    private HostedGitRemoteUrl? _hostedRemote;
+
+    internal Dictionary<(string Owner, string Name), Guid> RepositoryCreationIds { get; } = [];
+    internal Func<ConnectRemoteContext, Func<GitRemoteUrl, CancellationToken, Task>, CancellationToken, Task<bool>>?
+        RequestRemoteConnectionAsync
+    { get; set; }
+
     public async Task SetRemoteAsync()
     {
         RemoteMutationLease? lease = TryAcquireRemoteMutation();
@@ -14,7 +27,7 @@ internal partial class VersionControlTabViewModel
         {
             try
             {
-                await ConfigureRemoteAsync(lease);
+                await ConfigureRemoteAsync(publish: false);
             }
             finally
             {
@@ -36,7 +49,7 @@ internal partial class VersionControlTabViewModel
         _remoteOperationCompletion = publishCompletion;
         try
         {
-            if (await ConfigureRemoteAsync(lease))
+            if (await ConfigureRemoteAsync(publish: true))
             {
                 await RunRemoteOperationAsync(
                     (progress, cancellationToken) => _versionControlCoordinator!.PushAsync(
@@ -62,7 +75,7 @@ internal partial class VersionControlTabViewModel
             : null;
     }
 
-    private async Task<bool> ConfigureRemoteAsync(RemoteMutationLease lease)
+    private async Task<bool> ConfigureRemoteAsync(bool publish)
     {
         if (!TryCaptureServiceContext(
                 out IProjectVersionControlCoordinator? coordinator,
@@ -80,21 +93,53 @@ internal partial class VersionControlTabViewModel
         _isConfiguringRemote.Value = true;
         try
         {
-            string? remoteUrl = await RequestRemoteUrlAsync(
-                HasRemote.Value ? RemoteUrl.Value : null,
-                cancellationToken);
-            if (!IsCurrentService(service, revision, cancellationToken)
-                || string.IsNullOrWhiteSpace(remoteUrl))
+            string? normalizedUrl = null;
+            if (RequestRemoteConnectionAsync is { } showDialog)
             {
-                return false;
+                string? expectedOrigin = (await service.GetRemotesAsync(cancellationToken)).FirstOrDefault()?.Url;
+                if (!IsCurrentService(service, revision, cancellationToken))
+                    return false;
+
+                if (publish && expectedOrigin is not null)
+                {
+                    SetOrigin(expectedOrigin);
+                    StatusMessage.Value = Strings.HostedGit_OriginAlreadyConfigured;
+                    return false;
+                }
+
+                Project? project = (_editorContext.Object as IHierarchical)?.FindHierarchicalParent<Project>();
+                string? projectName = project?.Name.Value;
+                if (string.IsNullOrWhiteSpace(projectName))
+                {
+                    projectName = project?.Uri is { IsFile: true } projectUri
+                        ? Path.GetFileNameWithoutExtension(projectUri.LocalPath)
+                        : Path.GetFileName(service.Repository?.ProjectRoot) ?? string.Empty;
+                }
+                var context = new ConnectRemoteContext(projectName, expectedOrigin is not null,
+                    GetRemoteUrlForPresentation(expectedOrigin), publish);
+                if (!await showDialog(context, ApplyRemoteAsync, cancellationToken))
+                    return false;
+
+                async Task ApplyRemoteAsync(GitRemoteUrl url, CancellationToken token)
+                {
+                    token.ThrowIfCancellationRequested();
+                    await coordinator.SetRemoteAsync(url, expectedOrigin, token);
+                    normalizedUrl = url.Url;
+                }
+            }
+            else
+            {
+                string? remoteUrl = await RequestRemoteUrlAsync(
+                    HasRemote.Value ? RemoteUrl.Value : null, cancellationToken);
+                if (!IsCurrentService(service, revision, cancellationToken) || string.IsNullOrWhiteSpace(remoteUrl))
+                    return false;
+
+                normalizedUrl = remoteUrl.Trim();
+                await coordinator.SetRemoteAsync(normalizedUrl, cancellationToken);
             }
 
-            string normalizedUrl = remoteUrl.Trim();
-            await coordinator.SetRemoteAsync(normalizedUrl, cancellationToken);
             if (!IsCurrentService(service, revision, cancellationToken))
-            {
                 return false;
-            }
 
             await RefreshRemotesAsync(
                 service,
@@ -106,12 +151,12 @@ internal partial class VersionControlTabViewModel
                 return false;
             }
 
-            string presentedUrl = GetRemoteUrlForPresentation(normalizedUrl);
-            if (!string.IsNullOrEmpty(presentedUrl))
+            if (normalizedUrl is not null && (!HasRemote.Value
+                || RequestRemoteConnectionAsync is null && GetRemoteUrlForPresentation(normalizedUrl).Length > 0))
             {
-                RemoteUrl.Value = presentedUrl;
+                SetOrigin(normalizedUrl);
             }
-            HasRemote.Value = true;
+
             StatusMessage.Value = Strings.VersionControl_RemoteConnected;
             return true;
         }
@@ -169,7 +214,7 @@ internal partial class VersionControlTabViewModel
     public Task PullAsync()
     {
         return RunRemoteOperationAsync(
-            (_, cancellationToken) => _versionControlCoordinator!.PullAsync(cancellationToken),
+            (progress, cancellationToken) => _versionControlCoordinator!.PullAsync(progress, cancellationToken),
             Strings.VersionControl_Pulling);
     }
 
@@ -194,8 +239,72 @@ internal partial class VersionControlTabViewModel
             return;
         }
 
-        HasRemote.Value = remote is not null;
-        RemoteUrl.Value = GetRemoteUrlForPresentation(remote?.Url);
+        SetOrigin(remote?.Url);
+    }
+
+    private readonly HostedGitRemoteLookup _hostedLookup = new();
+
+    private void SetOrigin(string? origin)
+    {
+        _currentOrigin = origin;
+        HasRemote.Value = origin is not null;
+        RemoteUrl.Value = GetRemoteUrlForPresentation(origin);
+        BeutlApiApplication? api = origin is null ? null : _editorContext.GetService<BeutlApiApplication>();
+        _hostedLookup.Update(origin, api, _serviceBindingCancellation?.Token ?? CancellationToken.None, _postToUi, hosted =>
+        {
+            _hostedRemote = hosted;
+            HostedRepositoryId.Value = hosted?.RepositoryId;
+        });
+    }
+
+    internal async Task OpenOnWebAsync(string? commit = null)
+    {
+        if (_hostedRemote is { } remote)
+            await LaunchUriAsync(remote.GetRepositoryUri(commit ?? _currentBranch));
+    }
+
+    private async Task ReconnectHostedRemoteAsync(IProjectVersionControlService expectedService, string id, AuthenticatedUser owner)
+    {
+        if (HostedRepositoryId.Value != id
+            || !TryCaptureServiceContext(out var coordinator, out var service, out int revision, out CancellationToken token)
+            || !ReferenceEquals(service, expectedService)
+            || _editorContext.GetService<BeutlApiApplication>() is not { } api
+            || !ReferenceEquals(api.AuthenticatedUser.Value, owner)
+            || TryAcquireRemoteMutation() is not { } lease)
+            return;
+
+        TaskCompletionSource completion = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        _configureRemoteCompletion = completion;
+        _isConfiguringRemote.Value = true;
+        string? origin = _currentOrigin;
+        try
+        {
+            var hosted = api.GetResource<HostedGitRepositoryService>();
+            var repository = await hosted.GetAsync(Guid.Parse(id), token, owner);
+            await HostedGitRepositoryConnection.ConfigureAsync(hosted, owner, repository,
+                (remote, ct) => coordinator.SetRemoteAsync(remote, origin, ct), token);
+            if (IsCurrentService(service, revision, token))
+            {
+                await RefreshRemotesAsync(service, token, serviceRevision: revision);
+                if (IsCurrentService(service, revision, token))
+                    StatusMessage.Value = Strings.HostedGit_Reconnected;
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception ex)
+        {
+            if (IsCurrentService(service, revision, token))
+                _editorContext.GetRequiredService<INotificationService>().ShowError(Strings.VersionControl_ErrorTitle, ex.Message);
+        }
+        finally
+        {
+            lease.Release();
+            if (!_disposed)
+                _isConfiguringRemote.Value = false;
+            completion.TrySetResult();
+        }
     }
 
     private static string GetRemoteUrlForPresentation(string? url)
@@ -262,8 +371,8 @@ internal partial class VersionControlTabViewModel
         Debug.Assert(_remoteOperationCancellation is null);
         _remoteOperationCancellation = operationCancellation;
         Volatile.Write(ref _remoteOperationUserCancellation, 0);
+        RemoteProgress.Value = new(initialProgress);
         IsRemoteOperationRunning.Value = true;
-        RemoteProgress.Value = initialProgress;
         CancellationToken serviceBindingToken = _serviceBindingCancellation!.Token;
         bool IsCurrentOperation() =>
             !operationFinished
@@ -285,7 +394,7 @@ internal partial class VersionControlTabViewModel
                 {
                     if (IsCurrentOperation())
                     {
-                        RemoteProgress.Value = value;
+                        RemoteProgress.Value = VersionControlRemoteProgress.FromOutput(value);
                     }
                 });
             }
@@ -397,6 +506,18 @@ internal partial class VersionControlTabViewModel
 
     private Task ShowRemoteResultNotificationAsync(RemoteOpResult result)
     {
+        if (result is RemoteOpResult.AuthFailed authFailed && _service is { } service
+            && HostedRepositoryId.Value is { } id
+            && _editorContext.GetService<BeutlApiApplication>()?.AuthenticatedUser.Value is { } owner)
+        {
+            _editorContext.GetRequiredService<INotificationService>().ShowError(
+                Strings.VersionControl_ErrorTitle,
+                WithStderr($"{authFailed.Guidance} {Strings.HostedGit_ReconnectHint}", authFailed.Stderr),
+                actions: [new NotificationAction(Strings.HostedGit_Reconnect,
+                    () => _ = ReconnectHostedRemoteAsync(service, id, owner))]);
+            return Task.CompletedTask;
+        }
+
         string message = GetRemoteResultMessage(result);
         if (!string.IsNullOrWhiteSpace(message))
         {

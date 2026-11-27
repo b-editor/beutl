@@ -92,6 +92,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Beutl.Api\Beutl.Api.csproj" />
     <ProjectReference Include="..\Beutl.AgentToolkit\Beutl.AgentToolkit.csproj" />
+    <ProjectReference Include="..\Beutl.Agents\Beutl.Agents.csproj" />
     <ProjectReference Include="..\Beutl.BundledFonts\Beutl.BundledFonts.csproj" />
     <ProjectReference Include="..\Beutl.Controls\Beutl.Controls.csproj" />
     <ProjectReference Include="..\Beutl.Editor\Beutl.Editor.csproj" />
@@ -119,6 +120,9 @@
   <ItemGroup Condition="'$(NukePublish)'!='True'">
     <ProjectReference Include="..\Beutl.FFmpegWorker\Beutl.FFmpegWorker.csproj"
                       ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\Beutl.Agents.Worker\Beutl.Agents.Worker.csproj"
+                      ReferenceOutputAssembly="false"
+                      Private="false" />
   </ItemGroup>
 
   <!-- Skip the outer pass of the multi-targeting build, where TargetFramework and OutDir are empty. -->
@@ -134,6 +138,27 @@
     </ItemGroup>
     <Copy SourceFiles="@(_FFmpegWorkerOutput)"
           DestinationFiles="@(_FFmpegWorkerOutput->'$(OutDir)FFmpegWorker\%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+  </Target>
+
+  <Target Name="CopyAgentWorkerForApp"
+          AfterTargets="Build"
+          Condition="'$(NukePublish)'!='True' And '$(TargetFramework)' != ''">
+    <!-- The worker targets the platform-neutral framework even when this app targets Windows. -->
+    <MSBuild Projects="..\Beutl.Agents.Worker\Beutl.Agents.Worker.csproj"
+             Targets="GetTargetPath"
+             Properties="Configuration=$(Configuration);RuntimeIdentifier=$(RuntimeIdentifier)"
+             RemoveProperties="TargetFramework">
+      <Output TaskParameter="TargetOutputs" PropertyName="_AgentWorkerTargetPath" />
+    </MSBuild>
+    <PropertyGroup>
+      <_AgentWorkerOutDir>$([System.IO.Path]::GetDirectoryName('$(_AgentWorkerTargetPath)'))</_AgentWorkerOutDir>
+    </PropertyGroup>
+    <ItemGroup>
+      <_AgentWorkerOutput Include="$(_AgentWorkerOutDir)\**\*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_AgentWorkerOutput)"
+          DestinationFiles="@(_AgentWorkerOutput->'$(OutDir)Beutl.Agents.Worker\%(RecursiveDir)%(Filename)%(Extension)')"
           SkipUnchangedFiles="true" />
   </Target>
 

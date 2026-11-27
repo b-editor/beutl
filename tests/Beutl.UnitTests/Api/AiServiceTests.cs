@@ -20,16 +20,17 @@ public sealed partial class AiCapabilityServiceTests
     public void Transcription_rejects_excessive_segment_counts_before_deserializing_segments()
     {
         string body = "{\"segments\":[" + string.Join(",", Enumerable.Repeat("{}", 10001)) + "]}";
-        var error = Assert.Throws<AiProviderErrorException>(() => AiTranscriptionService.ReadTranscriptionResult(body));
+        var error = Assert.Throws<AiResultUnavailableException>(() => AiTranscriptionService.ReadTranscriptionResult(body));
         Assert.That(error!.InnerException!.Message, Does.Contain("segment count"));
     }
 
     [TestCase("[]")]
     [TestCase("null")]
     [TestCase("{}")]
-    public void Transcription_rejects_invalid_response_shapes(string body)
+    [TestCase("{")]
+    public void An_unreadable_transcription_result_keeps_the_paid_request_recoverable(string body)
     {
-        Assert.Throws<AiProviderErrorException>(() => AiTranscriptionService.ReadTranscriptionResult(body));
+        Assert.Throws<AiResultUnavailableException>(() => AiTranscriptionService.ReadTranscriptionResult(body));
     }
 
     [Test]

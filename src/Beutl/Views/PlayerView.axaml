@@ -44,18 +44,30 @@
                         <Setter Property="Padding" Value="7,6,5,6" />
                     </Style>
                 </StackPanel.Styles>
-                <RadioButton AutomationProperties.Name="{x:Static lang:Strings.Move}" IsChecked="{Binding IsMoveMode.Value}" ToolTip.Tip="{x:Static lang:Strings.Move}">
+                <local:PreviewToolButton Name="moveToolButton"
+                                         AutomationProperties.Name="{x:Static lang:Strings.Move}"
+                                         IsChecked="{Binding IsMoveMode.Value, Mode=OneWay}"
+                                         ToolTip.Tip="{x:Static lang:Strings.Move}">
                     <icons:FluentIcon Icon="Cursor" />
-                </RadioButton>
-                <RadioButton AutomationProperties.Name="{x:Static lang:Strings.Hand}" IsChecked="{Binding IsHandMode.Value}" ToolTip.Tip="{x:Static lang:Strings.Hand}">
+                </local:PreviewToolButton>
+                <local:PreviewToolButton Name="handToolButton"
+                                         AutomationProperties.Name="{x:Static lang:Strings.Hand}"
+                                         IsChecked="{Binding IsHandMode.Value, Mode=OneWay}"
+                                         ToolTip.Tip="{x:Static lang:Strings.Hand}">
                     <icons:FluentIcon Icon="HandLeft" />
-                </RadioButton>
-                <RadioButton AutomationProperties.Name="{x:Static lang:Strings.CropSelection}" IsChecked="{Binding IsCropMode.Value}" ToolTip.Tip="{x:Static lang:Strings.CropSelection}">
+                </local:PreviewToolButton>
+                <local:PreviewToolButton Name="cropToolButton"
+                                         AutomationProperties.Name="{x:Static lang:Strings.CropSelection}"
+                                         IsChecked="{Binding IsCropMode.Value, Mode=OneWay}"
+                                         ToolTip.Tip="{x:Static lang:Strings.CropSelection}">
                     <icons:FluentIcon Icon="Crop" />
-                </RadioButton>
-                <RadioButton AutomationProperties.Name="{x:Static lang:Strings.Camera3DControl}" IsChecked="{Binding IsCameraMode.Value}" ToolTip.Tip="{x:Static lang:Strings.Camera3DControl}">
+                </local:PreviewToolButton>
+                <local:PreviewToolButton Name="cameraToolButton"
+                                         AutomationProperties.Name="{x:Static lang:Strings.Camera3DControl}"
+                                         IsChecked="{Binding IsCameraMode.Value, Mode=OneWay}"
+                                         ToolTip.Tip="{x:Static lang:Strings.Camera3DControl}">
                     <icons:FluentIcon Icon="Video" />
-                </RadioButton>
+                </local:PreviewToolButton>
                 <!--  Gizmo Mode Selection  -->
                 <Border Margin="0,8,0,0"
                         BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}"
@@ -182,6 +194,15 @@
                               ToolTip.Tip="{x:Static lang:Strings.TogglePreviewCheckerboard}">
                     <icons:FluentIcon Icon="TransparencySquare" />
                 </ToggleButton>
+                <ToggleButton Name="effectComparisonToggle"
+                              Padding="5,6,5,6"
+                              IsChecked="{Binding IsEffectComparisonActive.Value, Mode=OneWay}"
+                              Click="OnEffectComparisonToggleClick"
+                              Theme="{StaticResource TransparentToggleButton}"
+                              AutomationProperties.Name="{x:Static lang:Strings.CompareFilterEffect}"
+                              ToolTip.Tip="{x:Static lang:Strings.CompareFilterEffect}">
+                    <icons:FluentIcon Icon="SplitVertical" />
+                </ToggleButton>
             </StackPanel>
         </Player.InnerRightContent>
         <Player.FooterRightContent>
@@ -245,6 +266,15 @@
         <Player.Content>
             <!--  An HDR preview's native view covers this whole grid, under the transformed frame panel. See SwapImageControl.  -->
             <Grid Name="previewViewport">
+                <Grid.Styles>
+                    <Style Selector="Border#previewWorkingScaleIndicator">
+                        <Setter Property="VerticalAlignment" Value="Top" />
+                    </Style>
+                    <!-- Keep the comparison labels clear when the frame fills the viewport. -->
+                    <Style Selector="Border#previewWorkingScaleIndicator.comparingEffect">
+                        <Setter Property="VerticalAlignment" Value="Bottom" />
+                    </Style>
+                </Grid.Styles>
                 <!--  Under the frame panel and outside its transform, so its squares keep their size at any zoom.  -->
                 <local:PreviewCheckerboardBackground Name="checkerboardBackground" IsVisible="False" />
 
@@ -267,6 +297,132 @@
                 </Panel>
 
                 <Panel Name="pathToolsHost" />
+
+                <Canvas Name="effectComparisonOverlay" ClipToBounds="True" IsVisible="False">
+                    <Canvas.Styles>
+                        <Style Selector="Button.effectComparisonLabel">
+                            <Setter Property="Padding" Value="8,4" />
+                            <Setter Property="FontSize" Value="12" />
+                            <Setter Property="Cursor" Value="Hand" />
+                            <Setter Property="ToolTip.Tip" Value="{x:Static lang:Strings.CompareFilterEffect}" />
+                        </Style>
+                    </Canvas.Styles>
+                    <Panel Name="effectComparisonDivider"
+                           Width="24"
+                           Background="Transparent"
+                           Cursor="SizeWestEast"
+                           AutomationProperties.Name="{x:Static lang:Strings.EffectComparisonDivider}"
+                           PointerPressed="OnEffectComparisonDividerPressed"
+                           PointerMoved="OnEffectComparisonDividerMoved"
+                           PointerReleased="OnEffectComparisonDividerReleased">
+                        <Border Width="3" HorizontalAlignment="Center" Background="#C0000000" IsHitTestVisible="False">
+                            <Border Width="1" HorizontalAlignment="Center" Background="White" />
+                        </Border>
+                        <Border Width="20"
+                                Height="28"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center"
+                                Background="{DynamicResource SolidBackgroundFillColorBaseBrush}"
+                                BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
+                                BorderThickness="1"
+                                CornerRadius="{DynamicResource ControlCornerRadius}"
+                                IsHitTestVisible="False">
+                            <icons:FluentIcon Width="12" Height="12" Icon="ReOrderDotsVertical" />
+                        </Border>
+                    </Panel>
+                    <Grid Name="effectComparisonLabels" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                        <Button Name="beforeEffectComparisonLabel"
+                                Classes="effectComparisonLabel"
+                                HorizontalAlignment="Left"
+                                Click="OnEffectComparisonLabelClick">
+                            <TextBlock Name="beforeEffectComparisonText" TextTrimming="CharacterEllipsis" />
+                        </Button>
+                        <Button Name="afterEffectComparisonLabel"
+                                Grid.Column="1"
+                                Classes="effectComparisonLabel"
+                                Click="OnEffectComparisonLabelClick"
+                                Content="{x:Static lang:Strings.EffectComparisonAfter}" />
+                    </Grid>
+                </Canvas>
+
+                <Border Name="effectComparisonPrompt"
+                        Margin="12"
+                        Padding="10,7"
+                        MaxWidth="420"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Top"
+                        Background="{DynamicResource SolidBackgroundFillColorBaseBrush}"
+                        BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
+                        BorderThickness="1"
+                        CornerRadius="{DynamicResource ControlCornerRadius}"
+                        IsHitTestVisible="False"
+                        IsVisible="{Binding IsSelectingEffectForComparison.Value}">
+                    <live:SafeLiveRegionTextBlock AutomationProperties.LiveSetting="Polite"
+                                                  Text="{x:Static lang:Strings.ChooseFilterEffectToCompare}"
+                                                  TextWrapping="Wrap" />
+                </Border>
+
+                <Border Name="puppetPlacementHint"
+                        Padding="10,6"
+                        Margin="12"
+                        MaxWidth="420"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Bottom"
+                        Background="{DynamicResource SolidBackgroundFillColorBaseBrush}"
+                        BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
+                        BorderThickness="1"
+                        CornerRadius="{DynamicResource ControlCornerRadius}"
+                        IsHitTestVisible="False"
+                        IsVisible="False">
+                    <live:SafeLiveRegionTextBlock Name="puppetPlacementMessage"
+                               AutomationProperties.LiveSetting="Polite"
+                               TextWrapping="Wrap" />
+                </Border>
+
+                <Border Name="previewRenderWarning"
+                        Margin="12"
+                        Padding="10,7"
+                        MaxWidth="420"
+                        HorizontalAlignment="Left"
+                        VerticalAlignment="Top"
+                        Background="{DynamicResource SystemFillColorCautionBackgroundBrush}"
+                        BorderBrush="{DynamicResource SystemFillColorCautionBrush}"
+                        BorderThickness="1"
+                        CornerRadius="{DynamicResource ControlCornerRadius}"
+                        IsHitTestVisible="False"
+                        IsVisible="{Binding PreviewRenderWarning.Value,
+                                            Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                    <live:SafeLiveRegionTextBlock Name="previewRenderWarningMessage"
+                               AutomationProperties.LiveSetting="Polite"
+                               AutomationProperties.Name="{Binding PreviewRenderWarning.Value}"
+                               Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                               Text="{Binding PreviewRenderWarning.Value}"
+                               TextWrapping="Wrap" />
+                </Border>
+
+                <Border Name="previewWorkingScaleIndicator"
+                        Width="28"
+                        Height="28"
+                        Margin="12"
+                        HorizontalAlignment="Right"
+                        AutomationProperties.Name="{x:Static lang:MessageStrings.PreviewWorkingScaleClamped}"
+                        Background="{DynamicResource SolidBackgroundFillColorBaseBrush}"
+                        BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
+                        BorderThickness="1"
+                        Classes.comparingEffect="{Binding #effectComparisonOverlay.IsVisible}"
+                        CornerRadius="{DynamicResource ControlCornerRadius}"
+                        IsVisible="{Binding IsPreviewWorkingScaleClamped.Value, FallbackValue=False}">
+                    <ToolTip.Tip>
+                        <TextBlock MaxWidth="260"
+                                   Text="{x:Static lang:MessageStrings.PreviewWorkingScaleClamped}"
+                                   TextWrapping="Wrap" />
+                    </ToolTip.Tip>
+                    <icons:FluentIcon HorizontalAlignment="Center"
+                                      VerticalAlignment="Center"
+                                      FontSize="16"
+                                      Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                                      Icon="Info" />
+                </Border>
 
                 <!-- Keep the error outside framePanel so preview pan/zoom does not transform it. -->
                 <Border Name="previewRenderErrorOverlay"

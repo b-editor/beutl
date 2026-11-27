@@ -39,12 +39,39 @@ public interface IGraphicsContext : IDisposable
     int MaxCubeFaceDimension { get; }
 
     /// <summary>
+    /// Gets the largest sample count at or below <paramref name="requested"/> supported by every listed
+    /// format for use as both an attachment and a sampled image.
+    /// </summary>
+    /// <param name="requested">The upper bound for the sample count.</param>
+    /// <param name="formats">The formats that must all support the returned sample count.</param>
+    /// <returns>A power of two, or 1 when multisampling is unavailable or no formats are supplied.</returns>
+    int GetSupportedSampleCount(int requested, IReadOnlyList<TextureFormat> formats) => 1;
+
+    /// <summary>
     /// Creates a 2D texture.
     /// </summary>
     /// <param name="width">The width of the texture.</param>
     /// <param name="height">The height of the texture.</param>
     /// <param name="format">The texture format.</param>
     ITexture2D CreateTexture2D(int width, int height, TextureFormat format);
+
+    /// <summary>
+    /// Creates a 2D texture for rendering and sampling with the specified sample count.
+    /// </summary>
+    /// <param name="width">The width of the texture.</param>
+    /// <param name="height">The height of the texture.</param>
+    /// <param name="format">The texture format.</param>
+    /// <param name="sampleCount">A power of two from 1 through 64.</param>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="sampleCount"/> is invalid.</exception>
+    /// <exception cref="NotSupportedException">The backend cannot create the requested multisampled texture.</exception>
+    ITexture2D CreateTexture2D(int width, int height, TextureFormat format, int sampleCount)
+    {
+        AttachmentSampleCount.Validate(sampleCount);
+        if (sampleCount != 1)
+            throw new NotSupportedException("This backend does not support multisampled textures.");
+
+        return CreateTexture2D(width, height, format);
+    }
 
     /// <summary>
     /// Creates a cube map texture (for point light shadow maps).
@@ -96,6 +123,30 @@ public interface IGraphicsContext : IDisposable
         TextureFormat? depthFormat,
         AttachmentLoadOp colorLoadOp = AttachmentLoadOp.Clear,
         AttachmentLoadOp depthLoadOp = AttachmentLoadOp.Clear);
+
+    /// <summary>
+    /// Creates a 3D render pass whose attachments all have the specified sample count.
+    /// </summary>
+    /// <param name="colorFormats">Formats for each color attachment.</param>
+    /// <param name="depthFormat">Format for the depth attachment, or <see langword="null"/> for a color-only pass.</param>
+    /// <param name="colorLoadOp">The load operation for color attachments.</param>
+    /// <param name="depthLoadOp">The load operation for the depth attachment, if present.</param>
+    /// <param name="sampleCount">A power of two from 1 through 64.</param>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="sampleCount"/> is invalid.</exception>
+    /// <exception cref="NotSupportedException">The backend cannot create the requested multisampled pass.</exception>
+    IRenderPass3D CreateRenderPass3D(
+        IReadOnlyList<TextureFormat> colorFormats,
+        TextureFormat? depthFormat,
+        AttachmentLoadOp colorLoadOp,
+        AttachmentLoadOp depthLoadOp,
+        int sampleCount)
+    {
+        AttachmentSampleCount.Validate(sampleCount);
+        if (sampleCount != 1)
+            throw new NotSupportedException("This backend does not support multisampled render passes.");
+
+        return CreateRenderPass3D(colorFormats, depthFormat, colorLoadOp, depthLoadOp);
+    }
 
     /// <summary>
     /// Creates a new 3D framebuffer with multiple color attachments.
@@ -168,6 +219,20 @@ public interface IGraphicsContext : IDisposable
     /// <param name="destination">The destination cube map texture.</param>
     /// <param name="faceIndex">The cube face index (0=+X, 1=-X, 2=+Y, 3=-Y, 4=+Z, 5=-Z).</param>
     void CopyTextureToCubeFace(ITexture2D source, ITextureCube destination, int faceIndex);
+
+    /// <summary>
+    /// Transfers a single-sample color texture into one cube face, scaling and converting formats when needed.
+    /// </summary>
+    /// <param name="source">The source texture.</param>
+    /// <param name="destination">The destination cube map.</param>
+    /// <param name="faceIndex">The face index (0=+X, 1=-X, 2=+Y, 3=-Y, 4=+Z, 5=-Z).</param>
+    void BlitTextureToCubeFace(ITexture2D source, ITextureCube destination, int faceIndex)
+    {
+        if (source.Width != destination.Size || source.Height != destination.Size || source.Format != destination.Format)
+            throw new NotSupportedException("This backend cannot scale or convert a cube face transfer.");
+
+        CopyTextureToCubeFace(source, destination, faceIndex);
+    }
 
     /// <summary>
     /// Copies a 2D texture to a specific layer of a texture array.

@@ -8,21 +8,35 @@ internal readonly record struct AiAuthenticatedRequestIdentity(
 
 internal static class AiAuthenticatedRequestScope
 {
-    private static readonly AsyncLocal<AuthenticatedUser?> s_current = new();
+    private static readonly AsyncLocal<AiAuthenticatedRequestIdentity?> s_current = new();
 
-    public static AuthenticatedUser? Current => s_current.Value;
+    public static AiAuthenticatedRequestIdentity? Identity => s_current.Value;
+
+    public static AuthenticatedUser? Current => Identity?.User;
 
     public static IDisposable Enter(AuthenticatedUser user)
     {
         ArgumentNullException.ThrowIfNull(user);
-        AuthenticatedUser? previous = s_current.Value;
-        s_current.Value = user;
+        return Enter(new AiAuthenticatedRequestIdentity(user.Profile.Id, user));
+    }
+
+    public static IDisposable Enter(AiAuthenticatedRequestIdentity identity)
+    {
+        AiAuthenticatedRequestIdentity? previous = s_current.Value;
+        s_current.Value = identity;
         return new Scope(previous);
     }
 
-    private sealed class Scope(AuthenticatedUser? previous) : IDisposable
+    public static AuthenticatedUser? RequireExpectedUser(AuthenticatedUser? current)
     {
-        private AuthenticatedUser? _previous = previous;
+        if (Current is { } expected && !ReferenceEquals(current, expected))
+            throw new AuthenticationRequiredException();
+        return current;
+    }
+
+    private sealed class Scope(AiAuthenticatedRequestIdentity? previous) : IDisposable
+    {
+        private AiAuthenticatedRequestIdentity? _previous = previous;
         private int _disposed;
 
         public void Dispose()

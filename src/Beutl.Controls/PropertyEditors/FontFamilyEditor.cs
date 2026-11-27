@@ -11,19 +11,17 @@ using Beutl.Reactive;
 
 namespace Beutl.Controls.PropertyEditors;
 
-public class FontFamilyEditor : PropertyEditor, IValueEditorControl<Media.FontFamily?>
+public partial class FontFamilyEditor : PropertyEditor, IValueEditorControl<Media.FontFamily?>
 {
-    public static readonly StyledProperty<Media.FontFamily> ValueProperty =
-        AvaloniaProperty.Register<FontFamilyEditor, Media.FontFamily>(
-            nameof(Value),
-            defaultValue: Media.FontFamily.Default,
-            defaultBindingMode: BindingMode.TwoWay);
-
     private FontManager? Fonts => (DataContext as IServiceProvider)?.GetService(typeof(FontManager)) as FontManager
         ?? ControlFonts.GetFonts(this);
 
     private DropDownButton? _button;
     private SearchablePickerFlyout? _flyout;
+
+    public static readonly StyledProperty<Media.FontFamily> ValueProperty =
+        AvaloniaProperty.Register<FontFamilyEditor, Media.FontFamily>(
+            nameof(Value), Media.FontFamily.Default, defaultBindingMode: BindingMode.TwoWay);
 
     public Media.FontFamily Value
     {

@@ -8,7 +8,7 @@ namespace Beutl.Graphics;
 
 // Drawable継承しているが、Drawableのメソッドは使っていない
 [Display(Name = nameof(GraphicsStrings.DrawableDecorator), ResourceType = typeof(GraphicsStrings))]
-public sealed partial class DrawableDecorator : Drawable, IFlowOperator
+public sealed partial class DrawableDecorator : Drawable, IFlowInputOperator
 {
     public DrawableDecorator()
     {
@@ -19,6 +19,12 @@ public sealed partial class DrawableDecorator : Drawable, IFlowOperator
     [SuppressResourceClassGeneration]
     [Display(Name = nameof(GraphicsStrings.Children), ResourceType = typeof(GraphicsStrings))]
     public IListProperty<Drawable> Children { get; } = Property.CreateList<Drawable>();
+
+    FlowInputKind IFlowInputOperator.RequiredInput => FlowInputKind.Drawable;
+
+    bool IFlowInputOperator.HasNestedInput => Children.Count > 0;
+
+    string IFlowInputOperator.MissingInputMessage => MessageStrings.FlowInputMissingDrawable;
 
     public new partial class Resource
     {

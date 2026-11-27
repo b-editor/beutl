@@ -1,6 +1,7 @@
 <UserControl x:Class="Beutl.Editor.Components.TimelineTab.Views.TimelineTabView"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:Beutl.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:ecv="using:Beutl.Editor.Components.Views"
              xmlns:h="using:Beutl.Editor.Components.Helpers"
@@ -51,7 +52,7 @@
                                ContextRequested="Scale_ContextRequested"
                                EndingBarBrush="{DynamicResource SystemFillColorCriticalBrush}"
                                EndingBarMargin="{CompiledBinding EndingBarMargin.Value}"
-                               FrameRate="{CompiledBinding FrameRate}"
+                               FrameRate="{CompiledBinding FrameRate.Value}"
                                HoveredCacheBlock="{Binding HoveredCacheBlock.Value}"
                                LockedCacheBlockBrush="{DynamicResource AccentFillColorTertiaryBrush}"
                                MarkerLabelBackground="{DynamicResource SolidBackgroundFillColorTertiaryBrush}"
@@ -69,16 +70,16 @@
                     <ui:FAMenuFlyout>
                         <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="Timeline.DeleteAllFrameCache"
                                              Command="{Binding DeleteAllFrameCache}"
-                                             Text="{x:Static lang:Strings.DeleteAll}" />
+                                             Text="{x:Static lang:Strings.DeleteAllCachedFrames}" />
                         <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="Timeline.DeleteFrameCache"
                                              Command="{Binding DeleteFrameCache}"
-                                             Text="{x:Static lang:Strings.Delete}" />
+                                             Text="{x:Static lang:Strings.DeleteCachedFrameRange}" />
                         <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="Timeline.LockFrameCache"
                                              Command="{Binding LockFrameCache}"
-                                             Text="{x:Static lang:Strings.Lock}" />
+                                             Text="{x:Static lang:Strings.LockCachedFrameRange}" />
                         <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="Timeline.UnlockFrameCache"
                                              Command="{Binding UnlockFrameCache}"
-                                             Text="{x:Static lang:Strings.Unlock}" />
+                                             Text="{x:Static lang:Strings.UnlockCachedFrameRange}" />
                     </ui:FAMenuFlyout>
                 </ecv:TimelineScale.ContextFlyout>
             </ecv:TimelineScale>
@@ -111,62 +112,103 @@
             </ItemsControl>
         </ScrollViewer>
 
+        <!--
+            The tool modes on the left and the editing toggles on the right, which the right-click menu and the keys
+            also change. Six 28 px buttons stay on one row in the column's 200 px minimum, so the row stays as tall
+            as the ruler. The tooltips are written in code, with the current key.
+        -->
+        <controls:ToolTabBar x:Name="ToolBar" BorderThickness="0">
+            <controls:ToolTabBarPanel>
+                <StackPanel Orientation="Horizontal">
+                    <ToggleButton x:Name="RazorModeButton"
+                                  usage:UsageTracking.Feature="Timeline.ToggleRazorMode"
+                                  AutomationProperties.Name="{x:Static lang:Strings.RazorTool}"
+                                  Classes="razor"
+                                  IsChecked="{CompiledBinding IsRazorMode.Value, Mode=TwoWay}"
+                                  Theme="{StaticResource TimelineToolModeToggleButtonTheme}">
+                        <icons:FluentIcon FontSize="16" Icon="Cut" />
+                    </ToggleButton>
+                    <ToggleButton x:Name="SlipModeButton"
+                                  usage:UsageTracking.Feature="Timeline.ToggleSlipMode"
+                                  AutomationProperties.Name="{x:Static lang:Strings.SlipTool}"
+                                  Classes="slip"
+                                  IsChecked="{CompiledBinding IsSlipMode.Value, Mode=TwoWay}"
+                                  Theme="{StaticResource TimelineToolModeToggleButtonTheme}">
+                        <icons:FluentIcon FontSize="16" Icon="ArrowSwap" />
+                    </ToggleButton>
+                    <ToggleButton x:Name="RollModeButton"
+                                  usage:UsageTracking.Feature="Timeline.ToggleRollMode"
+                                  AutomationProperties.Name="{x:Static lang:Strings.RollTool}"
+                                  Classes="roll"
+                                  IsChecked="{CompiledBinding IsRollMode.Value, Mode=TwoWay}"
+                                  Theme="{StaticResource TimelineToolModeToggleButtonTheme}">
+                        <icons:FluentIcon FontSize="16" Icon="ArrowAutofitWidth" />
+                    </ToggleButton>
+                    <ToggleButton x:Name="SlideModeButton"
+                                  usage:UsageTracking.Feature="Timeline.ToggleSlideMode"
+                                  AutomationProperties.Name="{x:Static lang:Strings.SlideTool}"
+                                  Classes="slide"
+                                  IsChecked="{CompiledBinding IsSlideMode.Value, Mode=TwoWay}"
+                                  Theme="{StaticResource TimelineToolModeToggleButtonTheme}">
+                        <icons:FluentIcon FontSize="16" Icon="ArrowMove" />
+                    </ToggleButton>
+                </StackPanel>
+                <ToggleButton x:Name="RippleButton"
+                              usage:UsageTracking.Feature="Timeline.ToggleRippleMode"
+                              AutomationProperties.Name="{x:Static lang:Strings.RippleEdit}"
+                              IsChecked="{CompiledBinding IsRippleEnabled.Value, Mode=TwoWay}"
+                              Theme="{StaticResource TimelineToolBarToggleButtonTheme}">
+                    <icons:FluentIcon FontSize="16" Icon="ArrowFitIn" />
+                </ToggleButton>
+                <ToggleButton x:Name="SnapButton"
+                              usage:UsageTracking.Feature="Timeline.ToggleSnap"
+                              AutomationProperties.Name="{x:Static lang:Strings.TimelineSnap}"
+                              IsChecked="{CompiledBinding IsSnapEnabled.Value, Mode=TwoWay}"
+                              Theme="{StaticResource TimelineToolBarToggleButtonTheme}">
+                    <Path Width="14"
+                          Height="14"
+                          Margin="1"
+                          Data="{StaticResource TimelineSnapGeometry}"
+                          Stretch="Uniform"
+                          Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ContentPresenter}}"
+                          StrokeJoin="Round"
+                          StrokeLineCap="Round"
+                          StrokeThickness="1" />
+                </ToggleButton>
+            </controls:ToolTabBarPanel>
+        </controls:ToolTabBar>
+
         <Border Grid.Row="0"
                 Grid.RowSpan="2"
                 Grid.Column="2"
                 BorderBrush="{DynamicResource SystemFillColorCriticalBrush}"
+                controls:RevealMotion.Mode="Fade"
                 IsVisible="{CompiledBinding IsRazorMode.Value}"
                 Theme="{StaticResource TimelineToolModeFrameTheme}" />
-
-        <local:TimelineToolModeBadge Grid.Row="0"
-                                     Grid.Column="2"
-                                     Background="{DynamicResource SystemFillColorCriticalBrush}"
-                                     Icon="Cut"
-                                     IsVisible="{CompiledBinding IsRazorMode.Value}"
-                                     Text="{x:Static lang:Strings.RazorTool}" />
 
         <Border Grid.Row="0"
                 Grid.RowSpan="2"
                 Grid.Column="2"
                 BorderBrush="{DynamicResource SystemFillColorSuccessBrush}"
+                controls:RevealMotion.Mode="Fade"
                 IsVisible="{CompiledBinding IsSlipMode.Value}"
                 Theme="{StaticResource TimelineToolModeFrameTheme}" />
-
-        <local:TimelineToolModeBadge Grid.Row="0"
-                                     Grid.Column="2"
-                                     Background="{DynamicResource SystemFillColorSuccessBrush}"
-                                     Icon="ArrowSwap"
-                                     IsVisible="{CompiledBinding IsSlipMode.Value}"
-                                     Text="{x:Static lang:Strings.SlipTool}" />
 
         <Border Grid.Row="0"
                 Grid.RowSpan="2"
                 Grid.Column="2"
                 BorderBrush="{DynamicResource SystemFillColorCautionBrush}"
+                controls:RevealMotion.Mode="Fade"
                 IsVisible="{CompiledBinding IsRollMode.Value}"
                 Theme="{StaticResource TimelineToolModeFrameTheme}" />
-
-        <local:TimelineToolModeBadge Grid.Row="0"
-                                     Grid.Column="2"
-                                     Background="{DynamicResource SystemFillColorCautionBrush}"
-                                     Icon="ArrowAutofitWidth"
-                                     IsVisible="{CompiledBinding IsRollMode.Value}"
-                                     Text="{x:Static lang:Strings.RollTool}" />
 
         <Border Grid.Row="0"
                 Grid.RowSpan="2"
                 Grid.Column="2"
                 BorderBrush="{DynamicResource SystemFillColorAttentionBrush}"
+                controls:RevealMotion.Mode="Fade"
                 IsVisible="{CompiledBinding IsSlideMode.Value}"
                 Theme="{StaticResource TimelineToolModeFrameTheme}" />
-
-        <local:TimelineToolModeBadge Grid.Row="0"
-                                     Grid.Column="2"
-                                     Background="{DynamicResource SystemFillColorAttentionBrush}"
-                                     Icon="ArrowMove"
-                                     IsVisible="{CompiledBinding IsSlideMode.Value}"
-                                     Text="{x:Static lang:Strings.SlideTool}" />
-
         <ScrollViewer x:Name="ContentScroll"
                       Grid.Row="1"
                       Grid.Column="2"
@@ -185,12 +227,6 @@
                    PointerReleased="TimelinePanel_PointerReleased">
                 <Panel.ContextFlyout>
                     <ui:FAMenuFlyout>
-                        <ui:FAMenuFlyoutSubItem x:Name="EditingModeMenu" Text="{x:Static lang:Strings.EditingMode}">
-                            <ui:FAMenuFlyoutSubItem.IconSource>
-                                <icons:FluentIconSource Icon="Edit" />
-                            </ui:FAMenuFlyoutSubItem.IconSource>
-                        </ui:FAMenuFlyoutSubItem>
-                        <ui:FAMenuFlyoutSeparator />
                         <ui:FAMenuFlyoutSubItem x:Name="AddElementSubMenu" Text="{x:Static lang:Strings.AddElement}" />
                         <ui:FAMenuFlyoutSubItem x:Name="AddFromTemplateSubMenu" Text="{x:Static lang:Strings.AddFromTemplate}" />
                         <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="Timeline.AddAdjustmentLayer"
@@ -200,6 +236,13 @@
                                 <icons:FluentIconSource Icon="Color" />
                             </ui:FAMenuFlyoutItem.IconSource>
                         </ui:FAMenuFlyoutItem>
+                        <ui:FAMenuFlyoutSeparator />
+                        <ui:FAMenuFlyoutSubItem x:Name="EditingModeMenu" Text="{x:Static lang:Strings.EditingMode}">
+                            <ui:FAMenuFlyoutSubItem.IconSource>
+                                <icons:FluentIconSource Icon="Edit" />
+                            </ui:FAMenuFlyoutSubItem.IconSource>
+                        </ui:FAMenuFlyoutSubItem>
+                        <ui:FAMenuFlyoutSeparator />
                         <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="Timeline.Paste"
                                              Command="{CompiledBinding Paste}"
                                              InputGesture="{h:GetCommandGesture timeline.paste}"
@@ -208,14 +251,11 @@
                                 <icons:FluentIconSource Icon="ClipboardPaste" />
                             </ui:FAMenuFlyoutItem.IconSource>
                         </ui:FAMenuFlyoutItem>
-                        <ui:FAMenuFlyoutSeparator />
                         <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="Timeline.SetStartTimeToPointerPosition"
                                              Command="{Binding SetStartTimeToPointerPosition}"
-                                             InputGesture="{h:GetCommandGesture timeline.setStartTime}"
                                              Text="{x:Static lang:Strings.SetStartTime}" />
                         <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="Timeline.SetEndTimeToPointerPosition"
                                              Command="{Binding SetEndTimeToPointerPosition}"
-                                             InputGesture="{h:GetCommandGesture timeline.setEndTime}"
                                              Text="{x:Static lang:Strings.SetEndTime}" />
                         <ui:FAMenuFlyoutSubItem Text="{x:Static lang:Strings.Gaps}">
                             <ui:FAMenuFlyoutSubItem.IconSource>
@@ -248,11 +288,12 @@
                         <ui:FAMenuFlyoutSeparator />
                         <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="Timeline.ShowSceneSettings"
                                              Click="ShowSceneSettings"
-                                             Text="{x:Static lang:Strings.Settings}">
+                                             Text="{x:Static lang:Strings.TimelineSceneSettings}">
                             <ui:FAMenuFlyoutItem.IconSource>
                                 <icons:FluentIconSource Icon="Settings" />
                             </ui:FAMenuFlyoutItem.IconSource>
                         </ui:FAMenuFlyoutItem>
+                        <ui:FAMenuFlyoutSeparator />
                         <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="Timeline.ShowBpmGridFlyout"
                                              Click="ShowBpmGridFlyout"
                                              Text="{x:Static lang:Strings.BpmGrid}">
@@ -260,10 +301,22 @@
                                 <icons:FluentIconSource Icon="MusicNote1" />
                             </ui:FAMenuFlyoutItem.IconSource>
                         </ui:FAMenuFlyoutItem>
-                        <ui:FAMenuFlyoutSubItem Text="{x:Static lang:Strings.TimelineZoom}">
+                        <ui:FAMenuFlyoutSeparator />
+                        <ui:FAMenuFlyoutSubItem x:Name="ZoomMenu" Text="{x:Static lang:Strings.TimelineZoom}">
                             <ui:FAMenuFlyoutSubItem.IconSource>
                                 <icons:FluentIconSource Icon="ZoomIn" />
                             </ui:FAMenuFlyoutSubItem.IconSource>
+                            <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="Timeline.FitAll"
+                                                 Command="{CompiledBinding FitAll}"
+                                                 InputGesture="{h:GetCommandGesture timeline.fitAll,
+                                                                                  ExtensionType={x:Type p:TimelineTabExtension}}"
+                                                 Text="{x:Static lang:Strings.GraphFitAll}" />
+                            <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="Timeline.FitSelection"
+                                                 Command="{CompiledBinding FitSelection}"
+                                                 InputGesture="{h:GetCommandGesture timeline.fitSelection,
+                                                                                  ExtensionType={x:Type p:TimelineTabExtension}}"
+                                                 Text="{x:Static lang:Strings.GraphFitSelection}" />
+                            <ui:FAMenuFlyoutSeparator />
                             <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="Timeline.Zoom"
                                                  Click="ZoomClick"
                                                  CommandParameter="2.0"
@@ -283,6 +336,8 @@
                             <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="Timeline.Zoom"
                                                  Click="ZoomClick"
                                                  CommandParameter="1.0"
+                                                 InputGesture="{h:GetCommandGesture timeline.resetZoom,
+                                                                                  ExtensionType={x:Type p:TimelineTabExtension}}"
                                                  Text="100%" />
                             <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="Timeline.Zoom"
                                                  Click="ZoomClick"
@@ -300,7 +355,7 @@
                     </ui:FAMenuFlyout>
                 </Panel.ContextFlyout>
 
-                <local:TimelineBackground BorderBrush="{DynamicResource TextFillColorTertiaryBrush}" ItemHeight="{DynamicResource LayerHeight}" />
+                <local:TimelineBackground BorderBrush="{DynamicResource TextFillColorTertiaryBrush}" ItemHeight="{CompiledBinding LayerRowHeight.Value}" />
 
                 <ecv:BpmGridOverlay x:Name="BpmGrid"
                                     VerticalAlignment="Stretch"
@@ -314,8 +369,12 @@
 
                 <ecv:TimelineOverlay x:Name="overlay"
                                      VerticalAlignment="Stretch"
+                                     IsHitTestVisible="False"
                                      EndingBarBrush="{DynamicResource SystemFillColorCriticalBrush}"
                                      EndingBarMargin="{CompiledBinding EndingBarMargin.Value}"
+                                     ReadoutBackground="{DynamicResource SolidBackgroundFillColorTertiaryBrush}"
+                                     ReadoutBorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
+                                     ReadoutForeground="{DynamicResource TextFillColorPrimaryBrush}"
                                      SeekBarBrush="{DynamicResource AccentFillColorDefaultBrush}"
                                      SeekBarMargin="{CompiledBinding SeekBarMargin.Value}"
                                      SnapBarBrush="{DynamicResource SystemFillColorAttentionBrush}"

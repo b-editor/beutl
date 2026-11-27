@@ -1,4 +1,5 @@
-﻿using System.Reactive;
+﻿using System.Globalization;
+using System.Reactive;
 using System.Reactive.Subjects;
 using System.Text.Json.Nodes;
 using Avalonia;
@@ -36,6 +37,7 @@ public sealed partial class ElementViewModel : IDisposable
     private readonly CompositeDisposable _disposables = [];
     private readonly Subject<Unit> _thumbnailsInvalidatedSubject = new();
     private readonly Subject<Unit> _elementEditedSubject = new();
+    private readonly ReactivePropertySlim<string?> _flowInputWarning = new();
     private CancellationTokenSource? _thumbnailsCts;
     private IThumbnailsProvider? _currentThumbnailsProvider;
     private readonly IThumbnailCacheService _thumbnailCacheService = ThumbnailCacheService.Instance;
@@ -52,10 +54,16 @@ public sealed partial class ElementViewModel : IDisposable
     private readonly Subject<(int Start, int End)> _visibleRangeSubject = new();
     private readonly IProxyStore? _proxyStore;
     private readonly IProxyJobQueue? _proxyJobQueue;
-    private string? _proxySourceKey;
-    private IReadOnlyList<ProxyFingerprint> _proxyFingerprints = [];
+    private IReadOnlyList<(Uri Uri, VideoDeinterlaceOptions Deinterlace)>? _proxySourceKey;
+    private IReadOnlyList<(ProxyFingerprint Fingerprint, VideoDeinterlaceOptions Deinterlace)> _proxyFingerprints = [];
 
     public Func<int, int, List<int>>? GetMissingThumbnailIndices;
+    public Func<int, int, List<int>>? GetMissingWaveformIndices;
+    public Func<(int Start, int End)>? GetVisibleThumbnailRange;
+    public Func<(int Start, int End)>? GetVisibleWaveformRange;
+    internal Func<int, double, (int Start, int End)>? GetVisibleThumbnailRangeForLayout;
+    internal Func<int, double, (int Start, int End)>? GetVisibleWaveformRangeForLayout;
+    public Func<double>? GetMediaViewportWidth;
 
     public ElementViewModel(Element element, TimelineTabViewModel timeline)
     {
@@ -184,6 +192,14 @@ public sealed partial class ElementViewModel : IDisposable
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
 
+        _flowInputWarning.AddTo(_disposables);
+        UndisplayableDataToolTip.AddTo(_disposables);
+        ClipToolTip = RecoveryProtectionToolTip.CombineLatest(UndisplayableDataToolTip, _flowInputWarning,
+                (recovery, data, warning) => string.Join("\n\n", new[] { recovery, data, warning }.OfType<string>()))
+            .Select(text => text.Length == 0 ? null : text)
+            .ToReadOnlyReactivePropertySlim()
+            .AddTo(_disposables);
+
         // Must stay after IsEditable is assigned — the handler reads it. Skip(1) drops the initial
         // sync emit; while locked a rename must not persist, so snap Name.Value back to Model.Name.
         Name.Skip(1)
@@ -228,6 +244,37 @@ public sealed partial class ElementViewModel : IDisposable
         InitializeTrackMatte();
         InitializeThumbnails();
         InitializeProxyIndicator();
+        InitializeUndisplayableDataIndicator();
+        InitializeAnimationMarks();
+    }
+
+    private void InitializeUndisplayableDataIndicator()
+    {
+        _elementEditedSubject.Merge(IsRecoveryProtected.Skip(1).Select(_ => Unit.Default))
+            .Throttle(TimeSpan.FromMilliseconds(250))
+            .ObserveOnUIDispatcher()
+            .Subscribe(_ => RefreshUndisplayableDataIndicator())
+            .AddTo(_disposables);
+        RefreshUndisplayableDataIndicator();
+    }
+
+    private void RefreshUndisplayableDataIndicator()
+    {
+        if (_isDisposed) return;
+        try
+        {
+            var counts = UndisplayableDataScanner.CountIssues(Model);
+            UndisplayableDataToolTip.Value = counts.Count == 0 ? null : string.Format(CultureInfo.CurrentCulture,
+                UndisplayableDataStrings.ClipIssueSummary,
+                string.Join("\n", counts.OrderBy(pair => pair.Key).Select(pair =>
+                    string.Format(CultureInfo.CurrentCulture, UndisplayableDataStrings.IssueCount,
+                        UndisplayableDataEntry.GetKindLabel(pair.Key), pair.Value))));
+        }
+        catch (Exception ex) when (!ExceptionHelpers.ContainsFatalFailure(ex))
+        {
+            _logger.LogWarning(ex, "Failed to inspect undisplayable data in element {ElementId}", Model.Id.Value);
+            UndisplayableDataToolTip.Value = null;
+        }
     }
 
     private void InitializeElementGroup()
@@ -271,6 +318,13 @@ public sealed partial class ElementViewModel : IDisposable
     public ReadOnlyReactivePropertySlim<bool> CanToggleLock { get; }
 
     public ReadOnlyReactivePropertySlim<string?> RecoveryProtectionToolTip { get; }
+    public ReactivePropertySlim<string?> UndisplayableDataToolTip { get; } = new();
+
+    public IReadOnlyReactiveProperty<string?> FlowInputWarning => _flowInputWarning;
+
+    public ReadOnlyReactivePropertySlim<string?> ClipToolTip { get; }
+
+    internal void SetFlowInputWarning(string? warning) => _flowInputWarning.Value = warning;
 
     public ReactiveProperty<string> Name { get; }
 
@@ -325,6 +379,12 @@ public sealed partial class ElementViewModel : IDisposable
 
     public ReactivePropertySlim<int> WaveformChunkCount { get; } = new();
 
+    public ReactivePropertySlim<double> ThumbnailContentWidth { get; } = new(double.NaN);
+
+    public ReactivePropertySlim<double> ThumbnailContentOffsetX { get; } = new(0d);
+
+    public ReactivePropertySlim<bool> IsThumbnailPreviewActive { get; } = new(false);
+
     public ReactivePropertySlim<bool> ShowProxyIndicator { get; } = new();
 
     public ReactivePropertySlim<ProxyState> ProxyIndicatorState { get; } = new(ProxyState.None);
@@ -334,10 +394,16 @@ public sealed partial class ElementViewModel : IDisposable
     public ReadOnlyReactivePropertySlim<string> ProxyIndicatorTooltip { get; }
 
     public event Action<int, WriteableBitmap?>? ThumbnailReady;
+    internal event Action<IReadOnlyList<(int Index, WriteableBitmap? Thumbnail)>>? ThumbnailBatchReady;
 
     public event Action? ThumbnailsClear;
 
+    internal event Action? MediaPreviewClear;
+
+    internal event Action? MediaPreviewCommitted;
+
     public event Action<WaveformChunk>? WaveformChunkReady;
+    internal event Action<IReadOnlyList<WaveformChunk>>? WaveformBatchReady;
 
     public event Action? WaveformClear;
 
@@ -351,24 +417,8 @@ public sealed partial class ElementViewModel : IDisposable
 
     // The same clips, for what only reads them: a clip that is not on screen has no view model until it needs one.
     internal Element[] GetGroupOrSelectedModels()
-    {
-        HashSet<Guid> ids = DuplicateHelper.ExpandWithGroupSiblings(
-            Timeline.SelectedElements.Select(item => item.Model.Id.Value), Scene.Groups);
-
-        // Group membership is only needed for an interaction. Per-element subscriptions make
-        // bulk split groups notify every timeline element for every newly created group.
-        if (Scene.Groups.FirstOrDefault(g => g.Contains(Model.Id.Value)) is { } group)
-        {
-            ids.UnionWith(group);
-        }
-
-        if (ids.Count == 0)
-        {
-            return [];
-        }
-
-        return [.. Scene.Children.Where(x => ids.Contains(x.Id.Value))];
-    }
+        => DuplicateHelper.FindWithGroupSiblings(
+            Scene, Timeline.SelectedElements.Select(item => item.Model.Id.Value), Model.Id.Value);
 
     internal Element[] GetGroupOrSelectedModelsOrSelf()
     {
@@ -400,12 +450,9 @@ public sealed partial class ElementViewModel : IDisposable
         _thumbnailsInvalidatedSubject.Dispose();
         _elementEditedSubject.Dispose();
         _visibleRangeSubject.Dispose();
-
+        _previewTimer?.Stop();
         CancelThumbnailsLoading();
-
-        _scrollThumbnailsCts?.Cancel();
-        _scrollThumbnailsCts?.Dispose();
-        _scrollThumbnailsCts = null;
+        CancelScrollThumbnailsLoading();
         if (_lastThumbnailsCacheKey != null)
             InvalidateAllThumbnailCacheKeys(_thumbnailCacheService, _lastThumbnailsCacheKey);
 
@@ -416,13 +463,23 @@ public sealed partial class ElementViewModel : IDisposable
         ThumbnailsKind.Dispose();
         VideoThumbnailCount.Dispose();
         WaveformChunkCount.Dispose();
+        ThumbnailContentWidth.Dispose();
+        ThumbnailContentOffsetX.Dispose();
+        IsThumbnailPreviewActive.Dispose();
         ShowProxyIndicator.Dispose();
         ProxyIndicatorState.Dispose();
+        KeyFrameMarkTimes.Dispose();
 
         LayerHeader.Value = null!;
         AnimationRequested = (_, _) => Task.CompletedTask;
         GetClickedTime = null;
         GetMissingThumbnailIndices = null;
+        GetMissingWaveformIndices = null;
+        GetVisibleThumbnailRange = null;
+        GetVisibleWaveformRange = null;
+        GetVisibleThumbnailRangeForLayout = null;
+        GetVisibleWaveformRangeForLayout = null;
+        GetMediaViewportWidth = null;
     }
 
     public async void AnimationRequest(int layerNum)
@@ -480,23 +537,35 @@ public sealed partial class ElementViewModel : IDisposable
             : (modelStart, roundedLength);
     }
 
-    public async Task SubmitViewModelChanges(bool ripple = false, bool leftEdge = false)
+    internal TimeRange GetResizeRange(bool ripple, bool leftEdge, float scale, Rational rate)
     {
-        PrepareAnimationContext context = PrepareAnimation();
-
-        float scale = Timeline.Options.Value.Scale;
-        Rational rate = SceneTimeRangeService.GetFrameRate(Scene);
         MediaTime roundedStart = BorderMargin.Value.Left.PixelToTime(scale).RoundToFrame(rate, MidpointRounding.AwayFromZero);
         MediaTime roundedLength = Width.Value.PixelToTime(scale).RoundToFrame(rate, MidpointRounding.AwayFromZero);
         (MediaTime start, MediaTime length) = ripple || leftEdge
             ? ResolveRippleResizeBounds(leftEdge, roundedStart, roundedLength, Model.Start.Value, Model.Range.End)
             : (roundedStart, roundedLength);
-        int zindex = Timeline.ToLayerNumber(Margin.Value);
+        return new TimeRange(start, length);
+    }
 
-        var request = new ElementResizeRequest(Model, start, length, zindex);
+    internal ElementResizeRequest GetResizeRequest(bool ripple, bool leftEdge, float scale, Rational rate, bool addHeaders)
+    {
+        TimeRange range = GetResizeRange(ripple, leftEdge, scale, rate);
+        int layer = Timeline.ToLayerNumber(Margin.Value, addHeaders);
+        return new ElementResizeRequest(Model, range.Start, range.Duration, layer);
+    }
+
+    public async Task SubmitViewModelChanges(bool ripple = false, bool leftEdge = false)
+    {
+        PrepareAnimationContext context = PrepareAnimation();
+        MediaTime beforeStart = Model.Start.Value;
+        MediaTime beforeEnd = Model.Range.End;
+
+        ElementResizeRequest request = GetResizeRequest(ripple, leftEdge,
+            Timeline.Options.Value.Scale, Timeline.FrameRate.Value, addHeaders: true);
         Timeline.EditorContext.GetRequiredService<IElementResizeService>()
             .Resize(Scene, [request], ripple);
 
+        EndResizeMediaPreview(beforeStart, beforeEnd);
         await AnimationRequest(context);
     }
 

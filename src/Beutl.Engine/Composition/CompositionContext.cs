@@ -41,10 +41,19 @@ public class CompositionContext(MediaTime time) : EvaluationContext(time)
     // TimeRange no longer bounds.
     internal Drawable? TimeRemappedTarget { get; set; }
 
+    // The scene clock time being displayed before any time controller remaps Time.
+    internal MediaTime? DisplayTime { get; set; }
+
+    internal MediaTime DisplayedTime => DisplayTime ?? Time;
+
     /// <summary>Creates an isolated resource-evaluation session retaining the current host and snapshot.</summary>
     public virtual CompositionEvaluationSession CreateEvaluationSession() => new(WithTime(Time));
 
     public bool DisableResourceShare { get; set; }
+
+    internal bool IsThumbnail { get; init; }
+
+    internal int VideoThumbnailHeight { get; init; }
 
     /// <summary>The output conditions this evaluation inherits; assign it to pass every condition on at once.</summary>
     public CompositionConditions Conditions { get; set; } = CompositionConditions.Default;

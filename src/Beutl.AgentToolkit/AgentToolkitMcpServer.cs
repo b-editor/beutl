@@ -1,4 +1,5 @@
 ﻿using Beutl.AgentToolkit.Common;
+using Beutl.AgentToolkit.Installation;
 using Beutl.AgentToolkit.Live;
 using Beutl.AgentToolkit.NodeGraphs;
 using Beutl.AgentToolkit.Rendering;
@@ -7,10 +8,12 @@ using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Tools;
 using Beutl.AgentToolkit.Workspace;
 using Beutl.Configuration;
+using Beutl.Editor.Services;
 using Beutl.Extensibility;
 using Beutl.Media.Decoding;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using ModelContextProtocol.Extensions.Skills;
 using ModelContextProtocol.Server;
 
 namespace Beutl.AgentToolkit;
@@ -20,7 +23,7 @@ namespace Beutl.AgentToolkit;
 public static class AgentToolkitMcpServer
 {
     public static IServiceCollection AddAgentToolkitServer(
-        this IServiceCollection services, string profileDirectory)
+        this IServiceCollection services, string profileDirectory, Guid? agentThreadId = null)
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentException.ThrowIfNullOrWhiteSpace(profileDirectory);
@@ -41,6 +44,9 @@ public static class AgentToolkitMcpServer
             .AddSingleton(configuration)
             .AddSingleton(fonts)
             .AddSingleton(decoders)
+            .AddSingleton(_ => new ObjectTemplateService(
+                new SceneRenderServices(fonts, decoders, configuration.EditorConfig, configuration.ProxyStoreConfig),
+                Path.Combine(profileDirectory, "templates")))
             .AddSingleton(_ => TypeRegistration.CreateLibraryService())
             .AddSingleton<SchemaGenerator>()
             .AddSingleton<IOutputOperationLeaseProvider>(StandaloneOutputOperationLeaseProvider.Instance)
@@ -50,7 +56,7 @@ public static class AgentToolkitMcpServer
             .AddSingleton<AgentSessionManager>();
 
         services.AddSingleton(provider => LiveMcpBroker.CreateForProfile(
-            profileDirectory, provider.GetService<ILoggerFactory>()?.CreateLogger<LiveMcpBroker>()));
+            profileDirectory, provider.GetService<ILoggerFactory>()?.CreateLogger<LiveMcpBroker>(), agentThreadId));
         services.AddOptions<McpServerOptions>()
             .Configure<LiveMcpBroker>((options, broker) => broker.ConfigureServer(options));
         return services;
@@ -66,8 +72,28 @@ public static class AgentToolkitMcpServer
                 filters.AddToolkitCallToolErrorFilter();
             })
             .WithTools<LiveInstanceTools>()
-            .WithSharedAgentToolkitTools();
+            .WithSharedAgentToolkitTools()
+            .WithAgentToolkitSkills();
     }
+
+    public static IMcpServerBuilder WithAgentToolkitSkills(this IMcpServerBuilder builder)
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+
+#pragma warning disable MCPEXP005 // The SDK marks its Skills extension experimental.
+        var packages = BundledAgentToolkitAssets.Load()
+            .Where(asset => asset.Kind == AgentToolkitAssetKind.Skill)
+            .GroupBy(asset => asset.RelativePath.Split('/', 2)[0], StringComparer.Ordinal)
+            .Select(skill => McpServerSkillPackage.Create(
+                skill.Select(asset => McpServerSkillFile.FromText(
+                    asset.RelativePath[(skill.Key.Length + 1)..], asset.Content)),
+                new McpServerSkillPackageCreateOptions { Uri = GetSkillUri(skill.Key) }));
+
+        return builder.WithSkillPackages(packages);
+#pragma warning restore MCPEXP005
+    }
+
+    internal static string GetSkillUri(string name) => $"skill://beutl/{Uri.EscapeDataString(name)}/SKILL.md";
 
     // The services and tools both hosts share; each host adds its own lease provider, sessions and tools.
     public static IServiceCollection AddAgentToolkitRendering(this IServiceCollection services)
@@ -89,10 +115,17 @@ public static class AgentToolkitMcpServer
         ArgumentNullException.ThrowIfNull(builder);
         return builder
             .WithTools<SessionTools>()
+            .WithTools<SceneTools>()
+            .WithTools<VersionControlTools>()
             .WithTools<QueryTools>()
             .WithTools<EditTools>()
+            .WithTools<TimelineEditTools>()
+            .WithTools<ElementTemplateTools>()
             .WithTools<NodeGraphTools>()
             .WithTools<HistoryTools>()
+            .WithTools<MissingMediaTools>()
+            .WithTools<ProjectAssetTools>()
+            .WithTools<SubtitleTools>()
             .WithTools<RenderTools>();
     }
 }

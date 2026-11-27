@@ -150,8 +150,8 @@ public class SilenceWaveformTests
 
     private IAsyncEnumerable<WaveformChunk> GetChunksAsync(Sound sound, int count, CancellationToken ct = default)
     {
-        var scene = new Scene(100, 100, "silence-waveform");
-        var project = new Project { SampleRate = { Value = 48000 } };
+        var scene = new Scene(100, 100, "silence-waveform") { SampleRate = { Value = 48000 } };
+        var project = new Project();
         project.Items.Add(scene);
         var element = new Element { Start = { Value = sound.TimeRange.Value.Start }, Length = { Value = sound.TimeRange.Value.Duration } };
         element.Objects.Add(sound);

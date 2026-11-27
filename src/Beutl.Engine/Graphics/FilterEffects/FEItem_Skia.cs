@@ -8,6 +8,8 @@ internal record FEItem_Skia<T>(
 {
     public Func<T, SKImageFilter?, SKImageFilter?>? DirectFactory { get; init; }
 
+    public bool KeepsPlacement { get; init; }
+
     /// <summary>
     /// Maps a requested output region to the input region the built <see cref="SKImageFilter"/> reads, or
     /// <see langword="null"/> when the footprint is not proven.

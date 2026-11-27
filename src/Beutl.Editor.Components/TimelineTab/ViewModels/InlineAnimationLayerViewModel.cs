@@ -1,12 +1,12 @@
 ﻿using System.Text.Json.Nodes;
 using Avalonia;
 using Avalonia.Input;
-using Avalonia.Input.Platform;
 using Avalonia.Threading;
 using Beutl.Animation;
 using Beutl.Animation.Easings;
 using Beutl.Editor.Components.GraphEditorTab.ViewModels;
 using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Components.Services;
 using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.Logging;
@@ -61,7 +61,7 @@ public sealed class InlineAnimationLayerViewModel : IDisposable
             .DisposeWith(_disposables);
 
         CopyAllKeyFramesCommand = new ReactiveCommand()
-            .WithSubscribe(async () => await KeyFrameClipboardCommands.CopyAnimationAsync(Timeline.EditorContext.GetRequiredService<INotificationService>(), Property.Animation!, _logger))
+            .WithSubscribe(async () => await KeyFrameClipboardCommands.CopyAnimationAsync(Timeline.EditorContext, Property.Animation!, _logger))
             .DisposeWith(_disposables);
 
         PasteKeyFrameAtCurrentPositionCommand = new ReactiveCommand()
@@ -216,9 +216,9 @@ public sealed class InlineAnimationLayerViewModel : IDisposable
         history.Commit(CommandNames.DeleteAnimation);
     }
 
-    internal async Task PasteKeyFrameAtPositionAsync(MediaTime pointerPosition, IClipboard? clipboard = null)
+    internal async Task PasteKeyFrameAtPositionAsync(MediaTime pointerPosition, IClipboardGateway? clipboard = null)
     {
-        clipboard ??= ClipboardHelper.GetClipboard();
+        clipboard ??= AvaloniaClipboardGateway.Resolve(Timeline.EditorContext);
         if (_disposed || !IsEditable || clipboard == null || Property.Animation is not IKeyFrameAnimation animation) return;
 
         await KeyFrameClipboardCommands.PasteAtPositionAsync(Timeline.EditorContext.GetRequiredService<INotificationService>(),
@@ -317,7 +317,7 @@ public sealed class InlineAnimationLayerViewModel : IDisposable
         if (LayerHeader.Value is { } layerHeader)
         {
             Index.Value = layerHeader.Inlines.IndexOf(this);
-            double top = layerHeader.CalculateInlineTop(Index.Value) + FrameNumberHelper.LayerHeight;
+            double top = layerHeader.CalculateInlineTop(Index.Value) + Timeline.LayerRowHeight.Value;
             Thickness newMargin = new Thickness(0, top, 0, 0) + layerMargin;
             Thickness newLeftMargin = GetLeftMargin(_timeOrigin.Value, Timeline.Options.Value.Scale, leftMargin);
 
@@ -328,7 +328,16 @@ public sealed class InlineAnimationLayerViewModel : IDisposable
                 await AnimationRequested(newMargin, newLeftMargin, cancellationToken);
             }
 
-            Margin.Value = newMargin;
+            if (_disposed) return;
+
+            LayerHeaderViewModel currentHeader = LayerHeader.Value ?? layerHeader;
+            int currentIndex = currentHeader.Inlines.IndexOf(this);
+            if (currentIndex >= 0) Index.Value = currentIndex;
+            double committedTop = currentHeader.CalculateInlineTop(Index.Value) + Timeline.LayerRowHeight.Value;
+            Thickness committedLayerMargin = LayerHeader.Value is { } current
+                ? new Thickness(0, Timeline.CalculateLayerTop(current.Number), 0, 0)
+                : layerMargin;
+            Margin.Value = new Thickness(0, committedTop, 0, 0) + committedLayerMargin;
             LeftMargin.Value = newLeftMargin;
         }
     }
@@ -362,7 +371,6 @@ public sealed class InlineAnimationLayerViewModel : IDisposable
         private IDisposable? _disposable1;
         private IDisposable? _disposable2;
         private IDisposable? _disposable3;
-        private int _prevIndex = -1;
         private LayerHeaderViewModel? _prevLayerHeader;
 
         protected override void Deinitialize()
@@ -380,7 +388,7 @@ public sealed class InlineAnimationLayerViewModel : IDisposable
             _disposable1 = inline.LayerHeader
                 .Subscribe(OnLayerHeaderChanged);
 
-            _disposable2 = inline.Index.Subscribe(OnIndexChanged);
+            _disposable2 = inline.Index.Skip(1).Subscribe(_ => PublishValue());
         }
 
         private void OnLayerHeaderChanged(LayerHeaderViewModel? obj)
@@ -401,22 +409,11 @@ public sealed class InlineAnimationLayerViewModel : IDisposable
             PublishValue();
         }
 
-        private void OnIndexChanged(int obj)
-        {
-            if (_prevIndex != obj)
-            {
-                _prevIndex = obj;
-                PublishValue();
-            }
-        }
-
         private void PublishValue(IObserver<double>? observer = null)
         {
             if (_prevLayerHeader != null)
             {
-                _prevIndex = _prevLayerHeader.Inlines.IndexOf(inline);
-
-                double value = _prevLayerHeader.CalculateInlineTop(_prevIndex) + FrameNumberHelper.LayerHeight;
+                double value = _prevLayerHeader.CalculateInlineTop(inline.Index.Value) + inline.Timeline.LayerRowHeight.Value;
                 if (observer == null)
                 {
                     PublishNext(value);

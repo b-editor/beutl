@@ -237,11 +237,8 @@ public sealed partial class FilterEffectExecutor : IDisposable
                     AccumulateSkiaItem(skia);
                     break;
                 case IFEItem_Custom custom:
-                    // A custom effect runs author code against materialized targets, so the pending
-                    // chain has to be forced out before it can see them.
-                    AlignedPlacement? placement = Flush(
-                        force: true,
-                        alignToDeviceGrid: custom.Options.HasFlag(CustomFilterEffectOptions.KeepsPlacement));
+                    // Flush pending filters, preserving existing rasters when the callback accepts their placement.
+                    AlignedPlacement? placement = Flush(force: true, callbackOptions: custom.Options);
                     if (CurrentTargets.Count == 0) return;
                     bool controlsContinuation = custom.Options.HasFlag(CustomFilterEffectOptions.ControlsContinuation);
                     RunCustomEffectItem(custom, controlsContinuation ? items.Skip(index + 1).ToArray() : null, placement);

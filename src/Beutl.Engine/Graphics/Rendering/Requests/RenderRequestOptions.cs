@@ -102,6 +102,17 @@ internal sealed class RenderRequestOptions
 
     internal RenderRequestOptions? NestedPolicyParent { get; private set; }
 
+    // A nested target has its own ceiling in delivery as well as in preview.
+    internal bool CanReportPreviewWorkingScaleClamp => Intent == RenderIntent.Preview
+        && Purpose == RenderRequestPurpose.Frame && NestedPolicyParent is null && float.IsFinite(MaxWorkingScale);
+
+
+    internal void ReportPreviewWarning(string message)
+    {
+        if (Intent == RenderIntent.Preview && Purpose == RenderRequestPurpose.Frame)
+            Owner.RecordPreviewWarning(message);
+    }
+
     public RenderRequestOptions CreateNestedAtScale(
         NestedRenderTargetBinding targetBinding,
         float workingScale,

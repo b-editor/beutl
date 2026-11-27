@@ -1,0 +1,140 @@
+<UserControl x:Class="Beutl.Editor.Components.UndisplayableDataTab.Views.UndisplayableDataView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:Beutl.Controls"
+             xmlns:icons="using:FluentIcons.Avalonia.Fluent"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:vm="using:Beutl.Editor.Components.UndisplayableDataTab.ViewModels"
+             x:DataType="vm:UndisplayableDataViewModel"
+             x:CompileBindings="True">
+    <UserControl.Styles>
+        <Style Selector="TextBlock.detailLabel">
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+        </Style>
+        <Style Selector="Border.issueItem">
+            <Setter Property="Padding" Value="12" />
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
+        <Style Selector="Border.issueItem:pointerover">
+            <Setter Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
+        </Style>
+    </UserControl.Styles>
+
+    <Grid RowDefinitions="Auto,Auto,Auto,*">
+        <controls:ToolTabBar>
+            <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="6">
+                <TextBlock Text="{x:Static lang:UndisplayableDataStrings.Title}"
+                           Theme="{StaticResource ToolTabBarTitleTextBlockTheme}" />
+                <Border Grid.Column="1" Padding="7,2" CornerRadius="4" VerticalAlignment="Center"
+                        Background="{DynamicResource SubtleFillColorSecondaryBrush}">
+                    <TextBlock FontSize="11" Text="{Binding Rows.Value.Count}" />
+                </Border>
+                <Button Name="RefreshButton" Grid.Column="2" Click="RefreshClick"
+                        AutomationProperties.Name="{x:Static lang:Strings.Refresh}"
+                        ToolTip.Tip="{x:Static lang:Strings.Refresh}"
+                        Theme="{StaticResource ToolTabBarIconButtonTheme}">
+                    <icons:FluentIcon FontSize="16" Icon="ArrowClockwise" />
+                </Button>
+            </Grid>
+        </controls:ToolTabBar>
+
+        <ToggleSwitch Name="ScopeSwitch" Grid.Row="1" Margin="12,4"
+                      IsVisible="{Binding HasProject.Value}"
+                      IsChecked="{Binding CurrentSceneOnly.Value, Mode=TwoWay}"
+                      AutomationProperties.Name="{x:Static lang:UndisplayableDataStrings.Scope}"
+                      OffContent="{x:Static lang:UndisplayableDataStrings.WholeProject}"
+                      OnContent="{x:Static lang:UndisplayableDataStrings.CurrentScene}" />
+
+        <Border Grid.Row="2" Margin="8,4" Padding="8" CornerRadius="6"
+                IsVisible="{Binding ScanFailed.Value}"
+                Background="{DynamicResource SystemFillColorCriticalBackgroundBrush}">
+            <TextBlock Text="{x:Static lang:UndisplayableDataStrings.ScanFailed}" TextWrapping="Wrap"
+                       Foreground="{DynamicResource SystemFillColorCriticalBrush}" />
+        </Border>
+
+        <ScrollViewer Grid.Row="3" Margin="8,6" HorizontalScrollBarVisibility="Disabled"
+                      IsVisible="{Binding !IsEmpty.Value}">
+            <Border Classes="options-group" VerticalAlignment="Top">
+                <ItemsControl Name="IssueRows" ItemsSource="{Binding Rows.Value}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <controls:OptionsGroupPanel />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:UndisplayableDataRow">
+                            <Border Classes="issueItem">
+                                <StackPanel Spacing="6">
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
+                                        <controls:StatusLabel HorizontalAlignment="Left" VerticalAlignment="Center"
+                                                              Kind="{Binding Status}" Text="{Binding Label}" />
+                                        <Button Name="LocateButton" Grid.Column="1" Padding="8,4" FontSize="12"
+                                                IsVisible="{Binding CanLocate}" Click="LocateClick"
+                                                Content="{x:Static lang:UndisplayableDataStrings.Locate}" />
+                                    </Grid>
+                                    <TextBlock Name="BreadcrumbText" Text="{Binding Breadcrumb}" TextWrapping="Wrap" />
+                                    <TextBlock Classes="detailLabel" IsVisible="{Binding IsRecoveryProtected}"
+                                               Text="{x:Static lang:UndisplayableDataStrings.RecoveryProtected}" />
+                                    <ToggleButton Name="DetailsToggle" Padding="0,2" HorizontalAlignment="Left"
+                                                  FontSize="12" Theme="{StaticResource TransparentButton}"
+                                                  IsChecked="{Binding IsExpanded.Value, Mode=TwoWay}"
+                                                  IsCheckedChanged="DetailsCheckedChanged"
+                                                  AutomationProperties.Name="{x:Static lang:Strings.Details}">
+                                        <StackPanel Orientation="Horizontal" Spacing="4">
+                                            <icons:FluentIcon FontSize="12" Icon="ChevronRight" IsVisible="{Binding !IsExpanded.Value}" />
+                                            <icons:FluentIcon FontSize="12" Icon="ChevronDown" IsVisible="{Binding IsExpanded.Value}" />
+                                            <TextBlock Text="{x:Static lang:Strings.Details}" />
+                                        </StackPanel>
+                                    </ToggleButton>
+                                    <StackPanel Name="DetailsPanel" Spacing="6" IsVisible="{Binding IsExpanded.Value}">
+                                        <StackPanel IsVisible="{Binding TypeName, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                                            <TextBlock Classes="detailLabel" Text="{x:Static lang:UndisplayableDataStrings.TypeName}" />
+                                            <SelectableTextBlock Text="{Binding TypeName}" TextWrapping="Wrap" />
+                                        </StackPanel>
+                                        <StackPanel IsVisible="{Binding UnknownKeys, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                                            <TextBlock Classes="detailLabel" Text="{x:Static lang:UndisplayableDataStrings.UnknownKeys}" />
+                                            <SelectableTextBlock Text="{Binding UnknownKeys}" TextWrapping="Wrap" />
+                                        </StackPanel>
+                                        <StackPanel IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                                            <TextBlock Classes="detailLabel" Text="{x:Static lang:Strings.Error}" />
+                                            <SelectableTextBlock Text="{Binding ErrorMessage}" TextWrapping="Wrap" />
+                                        </StackPanel>
+                                        <StackPanel IsVisible="{Binding SourceFilePath, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                                            <TextBlock Classes="detailLabel" Text="{x:Static lang:Strings.File}" />
+                                            <TextBox IsReadOnly="True" Text="{Binding SourceFilePath, Mode=OneWay}"
+                                                     ToolTip.Tip="{Binding SourceFilePath}" FontSize="11" />
+                                        </StackPanel>
+                                        <StackPanel Spacing="4" IsVisible="{Binding HasPreview}">
+                                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
+                                                <TextBlock Classes="detailLabel" VerticalAlignment="Center"
+                                                           Text="{Binding PreviewLabel}" TextWrapping="Wrap" />
+                                                <Button Name="CopyButton" Grid.Column="1" Padding="8,4" FontSize="12"
+                                                        Click="CopyClick" Content="{x:Static lang:Strings.Copy}" />
+                                            </Grid>
+                                            <TextBox Name="JsonPreview" IsReadOnly="True" AcceptsReturn="True"
+                                                     FontFamily="Consolas, Menlo, monospace" FontSize="11" MaxHeight="200"
+                                                     ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                                     ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                                                     Text="{Binding Preview.Value, Mode=OneWay}" />
+                                        </StackPanel>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </Border>
+        </ScrollViewer>
+
+        <ScrollViewer Grid.Row="3" HorizontalScrollBarVisibility="Disabled" IsVisible="{Binding IsEmpty.Value}">
+            <controls:EmptyState Name="EmptyState"
+                                 Title="{x:Static lang:UndisplayableDataStrings.NoIssues}"
+                                 Description="{x:Static lang:UndisplayableDataStrings.EmptyDescription}">
+                <controls:EmptyState.Icon>
+                    <icons:FluentIcon Icon="DocumentError" />
+                </controls:EmptyState.Icon>
+            </controls:EmptyState>
+        </ScrollViewer>
+    </Grid>
+</UserControl>

@@ -66,7 +66,7 @@ public partial class FlatShadow : FilterEffect
             var contentOffset = new Point(
                 MathF.Round((target.Bounds.X - bounds.X) * w),
                 MathF.Round((target.Bounds.Y - bounds.Y) * w));
-            EffectTarget newTarget = context.CreateTarget(bounds);
+            EffectTarget newTarget = context.CreateTarget(bounds, target);
             if (newTarget.IsEmpty)
             {
                 newTarget.Dispose();

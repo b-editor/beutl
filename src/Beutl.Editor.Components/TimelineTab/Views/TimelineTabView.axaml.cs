@@ -1,16 +1,17 @@
-﻿using System.Numerics;
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
+using Avalonia.Media;
 using Avalonia.Threading;
 using Beutl.Editor;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Logging;
 using Beutl.ProjectSystem;
+using Beutl.Services.PrimitiveImpls;
 using FluentAvalonia.UI.Controls;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -38,6 +39,7 @@ public sealed partial class TimelineTabView : UserControl
     private IDisposable? _nativeInputRegistration;
     private CancellationTokenSource? _scrollCts;
     private Task _scrollTask = Task.CompletedTask;
+    private ElementView? _dragReadoutOwner;
 
     public TimelineTabView()
         : this(NativeScrollInput.UsesGestureAxes)
@@ -52,6 +54,12 @@ public sealed partial class TimelineTabView : UserControl
         _rulerDrag = new TimelineRulerDrag(() => _mouseFlag = MouseFlags.Free);
         InitializeComponent();
         TimelineEditingModeMenu.Populate(EditingModeMenu, "");
+        ShowToolTip(RazorModeButton, Strings.RazorTool, Strings.RazorTool_Description, "timeline.toggleRazorMode");
+        ShowToolTip(SlipModeButton, Strings.SlipTool, Strings.SlipTool_Description, "timeline.toggleSlipMode");
+        ShowToolTip(RollModeButton, Strings.RollTool, Strings.RollTool_Description, "timeline.toggleRollMode");
+        ShowToolTip(SlideModeButton, Strings.SlideTool, Strings.SlideTool_Description, "timeline.toggleSlideMode");
+        ShowToolTip(RippleButton, Strings.RippleEdit, Strings.RippleEdit_Description, "timeline.toggleRippleMode");
+        ShowToolTip(SnapButton, Strings.TimelineSnap, Strings.TimelineSnap_Description, commandId: null);
 
         gridSplitter.DragDelta += GridSplitter_DragDelta;
 
@@ -101,11 +109,28 @@ public sealed partial class TimelineTabView : UserControl
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
+        ClearDragReadout();
         DetachNativeInput();
         base.OnDetachedFromVisualTree(e);
     }
 
     private void OnNativeInputRootClosed(object? sender, EventArgs e) => DetachNativeInput();
+
+    internal void ShowDragReadout(ElementView owner, PointerEventArgs e, string change, string details)
+    {
+        _dragReadoutOwner = owner;
+        // Keep the anchor in viewport coordinates so scrolling leaves it under the pointer.
+        Point position = e.GetPosition(TimelinePanel) - ContentScroll.Offset;
+        overlay.SetDragReadout((position, change, details));
+    }
+
+    internal void ClearDragReadout(ElementView? owner = null)
+    {
+        if (owner != null && _dragReadoutOwner != owner) return;
+
+        _dragReadoutOwner = null;
+        overlay.SetDragReadout(null);
+    }
 
     private void DetachNativeInput()
     {
@@ -117,6 +142,8 @@ public sealed partial class TimelineTabView : UserControl
 
     private void OnDataContextDetached(TimelineTabViewModel obj)
     {
+        ClearDragReadout();
+        Scale.SetFrameSelection(null);
         ViewModel = null;
         ClearElementViewport();
         _recycledElementViews.Clear();
@@ -129,6 +156,10 @@ public sealed partial class TimelineTabView : UserControl
     private void OnDataContextAttached(TimelineTabViewModel vm)
     {
         ViewModel = vm;
+        vm.FrameSelection.Subscribe(Scale.SetFrameSelection).DisposeWith(_disposables);
+        ContentScroll.GetObservable(ScrollViewer.ViewportProperty)
+            .Subscribe(viewport => vm.ViewportWidth.Value = viewport.Width)
+            .DisposeWith(_disposables);
         PopulateAddElementSubMenu();
 
         TimelinePanel.Children.AddRange(vm.Inlines.Select(e => new InlineAnimationLayer { DataContext = e }));
@@ -148,11 +179,13 @@ public sealed partial class TimelineTabView : UserControl
 
         vm.ElementRealized += AddElement;
         vm.ElementReleased += RemoveElement;
+        vm.FlowInputWarningsInvalidated += InvalidateElementViewport;
         vm.Scene.Edited += OnSceneEdited;
         Disposable.Create(() =>
             {
                 vm.ElementRealized -= AddElement;
                 vm.ElementReleased -= RemoveElement;
+                vm.FlowInputWarningsInvalidated -= InvalidateElementViewport;
                 vm.Scene.Edited -= OnSceneEdited;
             })
             .DisposeWith(_disposables);
@@ -174,6 +207,12 @@ public sealed partial class TimelineTabView : UserControl
 
         ViewModel.ScrollTo.Subscribe(v => _scrollTask = ScrollTimelinePosition(v.Range, v.ZIndex))
             .DisposeWith(_disposables);
+        // A fit asked for while no view showed the timeline arrives here as soon as this view attaches.
+        ViewModel.PendingFit.Subscribe(fit =>
+            {
+                if (fit is { } v) _scrollTask = ZoomTimelineTo(vm, v.Range, v.ZIndex);
+            })
+            .DisposeWith(_disposables);
 
         // Scrolling realizes distant clips. Wait for it before looking up the target's control.
         ViewModel.HighlightElement
@@ -188,6 +227,10 @@ public sealed partial class TimelineTabView : UserControl
                     if (FindElementView(element) is { } view) EditFlash.Run(view.border);
                 }, DispatcherPriority.Background);
             })
+            .DisposeWith(_disposables);
+
+        vm.PendingLocate.CombineLatest(ContentScroll.GetObservable(ScrollViewer.ViewportProperty))
+            .Subscribe(_ => TryScrollToPendingLocation(vm))
             .DisposeWith(_disposables);
 
         vm.CurrentTime
@@ -214,18 +257,31 @@ public sealed partial class TimelineTabView : UserControl
             return;
         }
 
-        ViewModel.Options.Subscribe(options =>
+        TimelineTabViewModel viewModel = ViewModel;
+        viewModel.Options.Subscribe(options =>
             {
                 Dispatcher.UIThread.InvokeAsync(() =>
                 {
-                    Vector2 offset = options.Offset;
-                    ContentScroll.Offset = new(offset.X, offset.Y);
-                    PaneScroll.Offset = new(0, offset.Y);
+                    if (ViewModel == viewModel) ApplyScrollOffset(options.Offset);
                 }, DispatcherPriority.MaxValue);
             })
             .DisposeWith(_disposables);
 
         InvalidateElementViewport();
+        TryScrollToPendingLocation(viewModel);
+    }
+
+    private void TryScrollToPendingLocation(TimelineTabViewModel viewModel)
+    {
+        if (ViewModel != viewModel || !IsEffectivelyVisible || ContentScroll.Viewport.Width <= 0
+            || viewModel.PendingLocate.Value is not { } location)
+            return;
+
+        viewModel.PendingLocate.Value = null;
+        int layer = location.ZIndex ?? viewModel.ToLayerNumber(ContentScroll.Offset.Y);
+        viewModel.ScrollTo.Execute((location.Range, layer));
+        if (location.Element is { } element && viewModel.Scene.Children.Contains(element))
+            viewModel.HighlightElement.Execute(element);
     }
 
     internal TimelineTabViewModel? ViewModel { get; private set; }
@@ -245,6 +301,35 @@ public sealed partial class TimelineTabView : UserControl
             def.MaxWidth = double.PositiveInfinity;
             def.MinWidth = 200;
         }
+    }
+
+    // The name with its key, written as the tip opens because the key map can change while the view lives, and what
+    // the button does under it.
+    private static void ShowToolTip(Control control, string name, string description, string? commandId)
+    {
+        ToolTip.SetTip(control, CreateToolTip(name, description, commandId));
+        ToolTip.AddToolTipOpeningHandler(control,
+            (_, _) => ToolTip.SetTip(control, CreateToolTip(name, description, commandId)));
+    }
+
+    private static StackPanel CreateToolTip(string name, string description, string? commandId)
+    {
+        KeyGesture? gesture = commandId is null
+            ? null
+            : GetCommandGestureExtension.GetKeyGesture(typeof(TimelineTabExtension), commandId);
+        var descriptionBlock = new TextBlock { Text = description, TextWrapping = TextWrapping.Wrap };
+        descriptionBlock.Bind(TextBlock.ForegroundProperty,
+            descriptionBlock.GetResourceObservable("TextFillColorSecondaryBrush"));
+        return new StackPanel
+        {
+            MaxWidth = 300,
+            Spacing = 2,
+            Children =
+            {
+                new TextBlock { Text = gesture is null ? name : $"{name} ({gesture.ToString("p", null)})" },
+                descriptionBlock
+            }
+        };
     }
 
     private void OnAddedInline(InlineAnimationLayerViewModel viewModel)

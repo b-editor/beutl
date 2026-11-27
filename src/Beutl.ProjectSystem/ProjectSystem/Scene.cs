@@ -31,7 +31,7 @@ public enum ElementOverlapHandling
     Allow = 1 << 3
 }
 
-public partial class Scene : ProjectItem, INotifyEdited
+public partial class Scene : ProjectItem, INotifyEdited, IFrameRateSource
 {
     private readonly List<string> _includeElements = ["**/*.belm"];
     private readonly ElementPatternSet _excludeElements = new();
@@ -138,6 +138,22 @@ public partial class Scene : ProjectItem, INotifyEdited
     public event EventHandler? Edited;
 
     public IProperty<PixelSize> FrameSize { get; } = Property.CreateValue<PixelSize>(default);
+
+    // A whole number such as 30 or a fraction such as 30000/1001.
+    [Display(Name = nameof(Strings.FrameRate), ResourceType = typeof(Strings))]
+    public IProperty<Rational> FrameRate { get; } = Property.CreateValue(IFrameRateSource.DefaultFrameRate);
+
+    [Display(Name = nameof(Strings.SampleRate), ResourceType = typeof(Strings))]
+    public IProperty<int> SampleRate { get; } = Property.CreateValue(44100);
+
+    [Display(Name = nameof(Strings.AudioChannels), ResourceType = typeof(Strings))]
+    public IProperty<SpeakerLayout> ChannelLayout { get; } = Property.CreateValue(SpeakerLayout.Stereo);
+
+    // The rate GetFrameRate gives: the scene's when it is positive, or 30.
+    internal static Rational ReadFrameRate(Scene? scene)
+        => scene is not null ? IFrameRateSource.Normalize(scene.FrameRate.Value) : IFrameRateSource.DefaultFrameRate;
+
+    Rational IFrameRateSource.GetFrameRate() => ReadFrameRate(this);
 
     // Serialize and Deserialize write and read the elements, groups and markers themselves.
     [NotAutoSerialized]

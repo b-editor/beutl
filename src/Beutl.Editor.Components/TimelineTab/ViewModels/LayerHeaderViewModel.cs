@@ -1,7 +1,6 @@
 ﻿using System.Collections.Specialized;
 using Avalonia.Media;
 using Beutl.Controls;
-using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Services;
 using Beutl.ProjectSystem;
 using Microsoft.Extensions.DependencyInjection;
@@ -18,6 +17,7 @@ public sealed class LayerHeaderViewModel : IDisposable
     public LayerHeaderViewModel(int num, TimelineTabViewModel timeline)
     {
         Timeline = timeline;
+        Height = new(timeline.LayerRowHeight.Value);
         _model.Value = timeline.Scene.Layers.FirstOrDefault(i => i.ZIndex.Value == num);
 
         // A header is a fixed row: Number is its index in the timeline's LayerHeaders, and it shows the
@@ -54,12 +54,12 @@ public sealed class LayerHeaderViewModel : IDisposable
         Inlines.ForEachItem(
                 (idx, x) =>
                 {
-                    Height.Value += FrameNumberHelper.LayerHeight;
+                    Height.Value += Timeline.LayerRowHeight.Value;
                     x.Index.Value = idx;
                 },
                 (_, x) =>
                 {
-                    Height.Value -= FrameNumberHelper.LayerHeight;
+                    Height.Value -= Timeline.LayerRowHeight.Value;
                     x.Index.Value = -1;
                 },
                 () => { })
@@ -129,7 +129,7 @@ public sealed class LayerHeaderViewModel : IDisposable
 
     public ReactiveProperty<bool> IsSolo { get; }
 
-    public ReactiveProperty<double> Height { get; } = new(FrameNumberHelper.LayerHeight);
+    public ReactiveProperty<double> Height { get; }
 
     public CoreList<InlineAnimationLayerViewModel> Inlines { get; } = new() { ResetBehavior = ResetBehavior.Remove };
 
@@ -160,8 +160,10 @@ public sealed class LayerHeaderViewModel : IDisposable
 
     public double CalculateInlineTop(int index)
     {
-        return FrameNumberHelper.LayerHeight * index;
+        return Timeline.LayerRowHeight.Value * index;
     }
+
+    internal void UpdateHeight(double rowHeight) => Height.Value = rowHeight * (Inlines.Count + 1);
 
     public void SetColor(Color color)
     {

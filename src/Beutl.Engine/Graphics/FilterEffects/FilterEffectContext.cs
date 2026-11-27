@@ -140,6 +140,8 @@ public sealed partial class FilterEffectContext : IDisposable
 
     internal Rect Bounds => _bounds;
 
+    internal bool IsPreviewFrame => _resourceState.IsPreviewFrame;
+
     public Rect OriginalBounds { get; }
 
     /// <summary>
@@ -295,7 +297,8 @@ public sealed partial class FilterEffectContext : IDisposable
         Func<T, Rect, Rect> transformBounds,
         Func<T, Rect, Rect>? transformSamplingBounds = null,
         bool needsBoundsCoordinates = false,
-        bool needsOneTarget = false)
+        bool needsOneTarget = false,
+        bool keepsPlacement = false)
         where T : IEquatable<T>
     {
         AppendDescription(new FEItem_Skia<T>(
@@ -311,6 +314,7 @@ public sealed partial class FilterEffectContext : IDisposable
             TransformSamplingBounds = transformSamplingBounds,
             NeedsBoundsCoordinates = needsBoundsCoordinates,
             NeedsOneTarget = needsOneTarget,
+            KeepsPlacement = keepsPlacement,
         });
     }
 
@@ -344,6 +348,29 @@ public sealed partial class FilterEffectContext : IDisposable
         AddItem(new FEItem_CustomEffect<T>(data, action, null));
         _bounds = Rect.Invalid;
     }
+
+    /// <summary>Appends a custom effect that preserves the content's sub-pixel position.</summary>
+    /// <remarks>
+    /// Targets laid out for this callback cover every pixel touched by the content on the device grid.
+    /// The callback may copy, crop, extend or paint into those targets in whole device pixels while keeping
+    /// the content in place. Use <see cref="EffectTarget.ContentBounds"/> for content-relative drawing and
+    /// set it to the logical output content bounds on replacement targets. The bounds transform also works
+    /// in logical coordinates. A segment containing a regular custom callback uses the usual grid snapping.
+    /// </remarks>
+    public void CustomEffectKeepingPlacement<T>(T data, Action<T, CustomFilterEffectContext> action,
+        Func<T, Rect, Rect> transformBounds)
+        where T : IEquatable<T>
+        => CustomEffect(data, action, transformBounds, CustomFilterEffectOptions.KeepsPlacement);
+
+    /// <summary>Appends a placement-preserving custom effect whose output bounds are determined at execution.</summary>
+    /// <remarks>
+    /// Targets follow the same device-grid contract as
+    /// <see cref="CustomEffectKeepingPlacement{T}(T, Action{T, CustomFilterEffectContext}, Func{T, Rect, Rect})"/>.
+    /// The owning target domain resolves the unknown bounds, as with
+    /// <see cref="CustomEffect{T}(T, Action{T, CustomFilterEffectContext})"/>.
+    /// </remarks>
+    public void CustomEffectKeepingPlacement<T>(T data, Action<T, CustomFilterEffectContext> action)
+        => CustomEffect(data, action, CustomFilterEffectOptions.KeepsPlacement);
 
     /// <summary>
     /// Appends an opaque custom effect, as <see cref="CustomEffect{T}(T, Action{T, CustomFilterEffectContext})"/>

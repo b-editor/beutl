@@ -557,7 +557,7 @@ public sealed class ProgramCacheTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(programs, Has.All.Matches<FakeProgram>(static program => program.DisposeCount == 1));
+            Assert.That(programs, Has.All.Matches<FakeProgram>(static program => program is { DisposeCount: 1 }));
             Assert.That(cache.Statistics.Misses, Is.EqualTo(2));
             Assert.That(cache.Statistics.Creations, Is.EqualTo(2));
             Assert.That(cache.Statistics.RetainedPrograms, Is.Zero);

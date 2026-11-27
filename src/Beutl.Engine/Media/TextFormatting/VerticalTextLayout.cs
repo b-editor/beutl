@@ -47,18 +47,19 @@ internal sealed class VerticalTextLayout : IDisposable
                             || (orientation == 2 && !HasVerticalAlternate(source, font, cluster, alternates, shapers));
                         if (previousSideways is { } previous && previous != sideways)
                         {
-                            AddRun(source, text[start..enumerator.ElementIndex], previous);
+                            AddRun(source, source.Text.Slice(start, enumerator.ElementIndex - start), previous);
                             start = enumerator.ElementIndex;
                         }
                         previousSideways = sideways;
                     }
                     if (previousSideways is { } last)
-                        AddRun(source, text[start..], last);
+                        AddRun(source, source.Text.Slice(start), last);
                 }
                 Columns[^1] = new Column(runs, width, height);
                 Size = new Size(Size.Width + width, MathF.Max(Size.Height, height));
 
-                void AddRun(FormattedText source, string text, bool sideways)
+                // Keep each oriented run's slice of the original text.
+                void AddRun(FormattedText source, StringSpan text, bool sideways)
                 {
                     var formatted = new FormattedText(source.Fonts)
                     {

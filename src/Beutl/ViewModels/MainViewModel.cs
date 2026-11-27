@@ -5,11 +5,13 @@ using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Threading;
 using Beutl.AgentHost;
+using Beutl.Agents;
 using Beutl.Api;
 using Beutl.Api.Objects;
 using Beutl.Api.Services;
 using Beutl.Configuration;
 using Beutl.Editor;
+using Beutl.Editor.Components.AgentTab;
 using Beutl.Editor.Components.AiWorkspaceTab.Services;
 using Beutl.Editor.Components.VersionControl.ViewModels;
 using Beutl.Editor.Services.AI;
@@ -43,8 +45,10 @@ public sealed partial class MainViewModel : BasePageViewModel
     private readonly VersionControlCoordinator _versionControlCoordinator;
     private readonly ExtensionProvider _extensionProvider;
     private readonly CaptionCatalog _captionCatalog;
+    internal CaptionDocumentSerializer CaptionSerializer => _captionCatalog.Serializer;
     private readonly AiJobResultRegistry _aiJobResultHandlers;
     private readonly AgentHostEndpoint _agentHostEndpoint;
+    private readonly AgentRuntimeManager _agentRuntimeManager;
     private readonly IAiPlanCoordinator _aiPlanCoordinator;
     private readonly AiRequestRecoveryContext _aiRequestRecoveryContext;
     private readonly ILogger _logger = Log.CreateLogger<MainViewModel>();
@@ -81,12 +85,15 @@ public sealed partial class MainViewModel : BasePageViewModel
         // Composition root: own the editor-session services here and thread the instances
         // down to child view models and services.
         _extensionProvider = new ExtensionProvider(Configuration.ExtensionConfig, appServices.GetRequiredService<INotificationService>());
-        _projectService = new ProjectService(Configuration.ViewConfig, appServices.GetRequiredService<Beutl.Media.FontManager>(), appServices.GetRequiredService<INotificationService>());
         _editorService = new EditorService(_extensionProvider, AppServices);
+        _projectService = new ProjectService(Configuration.ViewConfig, appServices.GetRequiredService<Beutl.Media.FontManager>(),
+            appServices.GetRequiredService<INotificationService>(), _editorService);
         _editorService.ProjectFonts = _projectService.GetFonts;
+        _editorService.ProjectAssets = new ProjectAssetCoordinator(_projectService, _editorService,
+            appServices.GetRequiredService<DecoderRegistry>());
         _versionControlCoordinator = new VersionControlCoordinator(_projectService, _editorService);
         // After version control, whose preparation can refuse the close.
-        _ = new ProjectThumbnailService(_projectService, _editorService);
+        _ = new ProjectThumbnailService(_projectService, _editorService, _versionControlCoordinator);
         _projectColorPalettes = new ProjectColorPaletteHost(_projectService, _editorService);
         _projectColorPalettesAttachment = appServices.GetRequiredService<Beutl.Controls.PropertyEditors.ColorPaletteService>()
             .AttachProjectHost(_projectColorPalettes);
@@ -97,15 +104,7 @@ public sealed partial class MainViewModel : BasePageViewModel
             CaptionPresentationDefaults.ElementFactory);
         _aiJobResultHandlers = BuiltInAiJobResultCapabilities.CreateRegistry();
         _beutlClients = new BeutlApiApplication(_authHttpClient, _extensionProvider, Configuration.ViewConfig, Configuration.UpdateConfig, AppServices);
-        // Agents generate with the signed-in account and the AI nodes' executor.
-        _agentHostEndpoint = new AgentHostEndpoint(_projectService, _editorService, new AgentHostAiBackend(
-            () => _beutlClients.AuthenticatedUser.Value,
-            _beutlClients.GetResource<IAiEntitlementService>(),
-            _beutlClients.GetResource<IAiOperationAvailabilityService>(),
-            _beutlClients.GetResource<IAiTranscriptionService>(),
-            CreateGenerativeModelCatalog,
-            CreateGenerativeNodeExecutor,
-            _beutlClients.GetResource<IAiModelCatalogService>(), appServices.GetRequiredService<DecoderRegistry>()));
+        _editorService.ApiApplication = _beutlClients;
         _waitForPackageInstallerIdle = waitForPackageInstallerIdle;
         _aiRequestRecoveryContext = new AiRequestRecoveryContext(
             new FileAiRequestKeyMap(Path.Combine(
@@ -118,12 +117,30 @@ public sealed partial class MainViewModel : BasePageViewModel
                 (user => user is { } authenticated
                     ? new AiAuthenticatedRequestIdentity(authenticated.Profile.Id, authenticated)
                     : null));
+        // Agents generate with the signed-in account and the AI nodes' executor.
+        _agentHostEndpoint = new AgentHostEndpoint(_projectService, _editorService, new AgentHostAiBackend(
+            _aiRequestRecoveryContext,
+            _beutlClients.GetResource<IAiEntitlementService>(),
+            _beutlClients.GetResource<IAiOperationAvailabilityService>(),
+            _beutlClients.GetResource<IAiTranscriptionService>(),
+            CreateGenerativeModelCatalog,
+            CreateGenerativeNodeExecutor,
+            _beutlClients.GetResource<IAiModelCatalogService>(), appServices.GetRequiredService<DecoderRegistry>(),
+            _beutlClients.GetResource<IAiJobClient>()));
         _aiPlanCoordinator = new AiPlanCoordinator(
             _beutlClients.GetResource<IAiEntitlementService>(), Configuration.ViewConfig);
         _editorService.BrowserSettingsHost = new BrowserSettingsHost(CreateSettingsDialog);
         _editorService.StorageProviders = new Beutl.Editor.Components.FileBrowserTab.FileBrowserStorageProviderRegistry(
             new BeutlStorageProvider(AppServices.GetRequiredService<INotificationService>(), _beutlClients, CreateSettingsDialog));
         _editorService.AiWorkspaceHost = this;
+        string beutlHome = Path.GetFullPath(BeutlEnvironment.GetHomeDirectoryPath());
+        var agentLogger = Log.CreateLogger<AgentRuntimeManager>();
+        _agentRuntimeManager = new AgentRuntimeManager(new WorkerAgentRuntimeBridge(logger: agentLogger),
+            new AgentThreadStore(beutlHome), logger: agentLogger);
+        var agentWorkspaceHost = new BeutlAgentWorkspaceHost(
+            _agentRuntimeManager, _agentHostEndpoint, Configuration.AiAgentConfig, beutlHome, CreateSettingsDialog,
+            appServices.GetService<IAgentNotificationSoundPlayer>());
+        _editorService.AgentWorkspaceHost = agentWorkspaceHost;
         ContextCommandManager = _beutlClients.GetResource<ContextCommandManager>();
         _aiJobCompletionNotifier = new AiJobCompletionNotifier(
             _beutlClients.GetResource<IAiJobMonitor>().Snapshot,
@@ -132,6 +149,7 @@ public sealed partial class MainViewModel : BasePageViewModel
             OpenAiJobCenter,
             appServices.GetRequiredService<INotificationService>());
 
+        RepositoryClone = new RepositoryCloneWorkflow(_beutlClients, _projectService, _versionControlCoordinator, Configuration);
         MenuBar = new MenuBarViewModel(_projectService, _editorService, _versionControlCoordinator);
         ProjectDiskDeletion = new ProjectDiskDeletion(_projectService, _editorService);
 
@@ -145,7 +163,8 @@ public sealed partial class MainViewModel : BasePageViewModel
         TitleBarBranch = new TitleBarBranchViewModel(AppServices.GetRequiredService<INotificationService>(),
             _editorService.ProjectVersionControlService,
             _versionControlCoordinator.IsGitAvailable,
-            _versionControlCoordinator);
+            _versionControlCoordinator,
+            _beutlClients);
         Status = new TitleBarStatusViewModel(
             IsRunningStartupTasks,
             _editorService,
@@ -155,7 +174,8 @@ public sealed partial class MainViewModel : BasePageViewModel
             _beutlClients.GetResource<IAiJobKindRegistry>(),
             OpenAiJobCenter,
             AppServices.GetRequiredService<AppUpdateController>().Status,
-            AppServices.GetRequiredService<AppUpdateController>().ShowDialog);
+            AppServices.GetRequiredService<AppUpdateController>().ShowDialog,
+            agentWorkspaceHost.ThreadSessions.RunningCount);
 
         EditorHost = new EditorHostViewModel(_projectService, _editorService);
 
@@ -225,6 +245,8 @@ public sealed partial class MainViewModel : BasePageViewModel
 
     internal VersionControlCoordinator VersionControlCoordinator => _versionControlCoordinator;
 
+    internal RepositoryCloneWorkflow RepositoryClone { get; }
+
     internal ExtensionProvider ExtensionProvider => _extensionProvider;
 
     internal AgentHostEndpoint AgentHostEndpoint => _agentHostEndpoint;
@@ -292,9 +314,17 @@ public sealed partial class MainViewModel : BasePageViewModel
     {
         IsRunningStartupTasks.Value = true;
         var startup = new Startup(_beutlClients, _projectService, _editorService);
+        _editorService.ExtensionStartupRestrictedMode = GetExtensionStartupModeAsync(startup);
+        _agentHostEndpoint.StartInBackground();
         startup.WaitAll().ContinueWith(_ => IsRunningStartupTasks.Value = false);
 
         return startup;
+    }
+
+    private static async Task<bool> GetExtensionStartupModeAsync(Startup startup)
+    {
+        await startup.WaitLoadingExtensions().ConfigureAwait(false);
+        return startup.GetTask<CrashRecoveryPromptTask>().IsRestrictedMode;
     }
 
     public void RegisterServices()
@@ -303,8 +333,6 @@ public sealed partial class MainViewModel : BasePageViewModel
         {
             RegisterExitHandler(lifetime);
         }
-
-        _agentHostEndpoint.StartInBackground();
     }
 
     internal static bool TryGetCurrent([NotNullWhen(true)] out MainViewModel? main)

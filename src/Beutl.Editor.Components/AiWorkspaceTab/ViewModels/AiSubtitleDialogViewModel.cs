@@ -4,7 +4,6 @@ using Beutl.Api;
 using Beutl.Api.Services;
 using Beutl.Audio;
 using Beutl.Collections;
-using Beutl.Configuration;
 using Beutl.Editor.Components.AiWorkspaceTab.Services;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Models;
@@ -53,13 +52,13 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAsyncDispo
     private readonly CaptionDocumentSerializer _captionSerializer;
     private readonly ICaptionDraftStore _captionDraftStore;
     private readonly IObservable<CaptionDraftScope?> _captionDraftScopes;
+    private readonly AiRequestRecoveryContext? _requestRecoveryContext;
     private bool _disposed;
     private bool _updatingAudioSources;
     private readonly OnceAsyncDisposal _disposal;
 
     internal AiSubtitleDialogViewModel(INotificationService notifications,
-        Beutl.Media.FontManager fonts,
-        DecoderRegistry decoders,
+        SceneRenderServices renderServices,
         IAiEntitlementService entitlements,
         IAiOperationAvailabilityService availability,
         IAiModelCatalogService modelCatalog,
@@ -69,8 +68,12 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAsyncDispo
         CaptionCatalog captionCatalog,
         ICaptionDraftStore captionDraftStore,
         IObservable<CaptionDraftScope?> captionDraftScopes,
-        IAiJobResultEditorContext? editor = null, EditorConfig? editorConfig = null, ProxyStoreConfig? proxyConfig = null)
+        IAiJobResultEditorContext? editor = null,
+        AiRequestRecoveryContext? requestRecoveryContext = null)
     {
+        ArgumentNullException.ThrowIfNull(renderServices);
+        _decoders = renderServices.Decoders ?? throw new ArgumentNullException(nameof(renderServices), "A decoder registry is required.");
+
         _notifications = notifications;
         _disposal = new OnceAsyncDisposal(_disposeGate);
         _entitlements = entitlements ?? throw new ArgumentNullException(nameof(entitlements));
@@ -82,12 +85,12 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAsyncDispo
         _translation = translation ?? throw new ArgumentNullException(nameof(translation));
         ArgumentNullException.ThrowIfNull(captionCatalog);
         _editor = editor;
-        _decoders = decoders;
-        TemplatePreviewRenderer = (elements, frameSize, token) => RenderTemplatePreviewAsync(fonts, elements, frameSize, token, editorConfig, proxyConfig);
+        TemplatePreviewRenderer = (elements, frameSize, token) => RenderTemplatePreviewAsync(renderServices, elements, frameSize, token);
         _captionDraftStore = captionDraftStore
             ?? throw new ArgumentNullException(nameof(captionDraftStore));
         _captionDraftScopes = captionDraftScopes
             ?? throw new ArgumentNullException(nameof(captionDraftScopes));
+        _requestRecoveryContext = requestRecoveryContext;
         _captionCodecs = captionCatalog.Codecs;
         _captionTemplates = captionCatalog.Templates;
         _captionSerializer = captionCatalog.Serializer;
@@ -432,15 +435,6 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAsyncDispo
         return items;
     }
 
-    /// <summary>
-    /// The token the request in flight runs under: the tab's lifetime, plus the
-    /// person's own request to stop.
-    /// </summary>
-    private CancellationToken RequestToken => _requestCts?.Token ?? _lifetimeCts.Token;
-
-    private bool IsRequestCanceled
-        => _lifetimeCts.IsCancellationRequested || _requestCts?.IsCancellationRequested == true;
-
     private async Task TranscribeCore()
     {
         using AsyncOperationLifetime.Operation? operation = _operations.TryEnter();
@@ -452,16 +446,26 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAsyncDispo
         }
 
         long draftScopeRevision = Interlocked.Read(ref _captionDraftScopeRevision);
-        Error.Value = null;
-        IsTranscribing.Value = true;
         using CancellationTokenSource requestCts =
             CancellationTokenSource.CreateLinkedTokenSource(
                 operation.CancellationToken,
                 _lifetimeCts.Token);
         _requestCts = requestCts;
+        AiAccountJobScope? account = null;
         try
         {
-            await TranscribeSelectedSourceAsync(source, operation);
+            using var job = account = new AiAccountJobScope(_requestRecoveryContext);
+            using CancellationTokenSource cancellation = job.Link(requestCts.Token);
+            if (!IsCurrentCaptionDraftScope(draftScopeRevision))
+                return;
+
+            Error.Value = null;
+            IsTranscribing.Value = true;
+            await TranscribeSelectedSourceAsync(source, operation, job, cancellation.Token);
+        }
+        catch (Exception) when (account?.AccountChanged == true)
+        {
+            SetCaptionErrorIfCurrent(draftScopeRevision, Strings.AiAuthenticationRequired);
         }
         catch (Exception ex) when (KnownRunFailureMessage(ex) is { } message)
         {
@@ -473,7 +477,8 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAsyncDispo
         }
         // This execution's name belongs to another request (scene-mixed audio can change whenever it
         // is recomposed, so a restored execution can arrive here), or the job it made is gone.
-        catch (Exception ex) when (ex is AiRequestChangedException or AiRequestWasDeletedException)
+        catch (Exception ex) when ((ex is AiRequestChangedException or AiRequestWasDeletedException)
+            && IsCurrentCaptionDraftScope(draftScopeRevision))
         {
             RetireTranscriptionRunNames();
             SetCaptionErrorIfCurrent(
@@ -488,7 +493,7 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAsyncDispo
         {
             SetCaptionErrorIfCurrent(draftScopeRevision, ex.Message);
         }
-        catch (OperationCanceledException) when (IsRequestCanceled)
+        catch (OperationCanceledException) when (requestCts.IsCancellationRequested)
         {
         }
         catch (Exception ex)
@@ -498,7 +503,8 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAsyncDispo
         }
         finally
         {
-            _requestCts = null;
+            if (ReferenceEquals(_requestCts, requestCts))
+                _requestCts = null;
             operation.TryPublish(() =>
             {
                 if (IsCurrentCaptionDraftScope(draftScopeRevision))
@@ -528,7 +534,7 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAsyncDispo
 
         try
         {
-            CaptionSceneImportResult result = await AiCaptionSceneImporter.AddAsync(
+            CaptionSceneImportResult result = await CaptionSceneImporter.AddAsync(
                 _editor.Scene,
                 _editor.GetRequiredService<IElementAdder>(),
                 document,
@@ -647,7 +653,6 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAsyncDispo
 
 public sealed class AudioSourceItem
 {
-    private const int AnimationSampleRate = 1000;
     private readonly MediaTime _elementStart;
     private readonly MediaTime _elementLength;
     private readonly MediaTime _sourceOffset;
@@ -711,12 +716,10 @@ public sealed class AudioSourceItem
         if (_speedAnimation is null)
             return Math.Max(_elementLength.ToSeconds() * (_speed / 100d), 0);
 
-        using var integrator = new SpeedIntegrator(AnimationSampleRate);
+        using var integrator = new SpeedIntegrator();
         integrator.EnsureCache(_speedAnimation);
-        MediaTime elapsed = _speedAnimation.UseGlobalClock.Value
-            ? integrator.Integrate(_elementStart + _elementLength, _speedAnimation)
-              - integrator.Integrate(_elementStart, _speedAnimation)
-            : integrator.Integrate(_elementLength, _speedAnimation);
+        MediaTime start = _speedAnimation.UseGlobalClock.Value ? _elementStart : MediaTime.Zero;
+        MediaTime elapsed = integrator.IntegratePlayback(start, start + _elementLength);
         return Math.Max(elapsed.ToSeconds(), 0);
     }
 
@@ -778,11 +781,9 @@ public sealed class AudioSourceItem
         if (elementLength <= 0)
             return [];
 
-        using var integrator = new SpeedIntegrator(AnimationSampleRate);
-        if (_speedAnimation != null)
-        {
-            integrator.EnsureCache(_speedAnimation);
-        }
+        using var integrator = new SpeedIntegrator();
+        integrator.EnsureCache(_speedAnimation);
+        MediaTime start = _speedAnimation?.UseGlobalClock.Value == true ? _elementStart : MediaTime.Zero;
 
         double SourceElapsedAt(double localSeconds)
         {
@@ -790,10 +791,7 @@ public sealed class AudioSourceItem
             if (_speedAnimation == null)
                 return localTime.ToSeconds() * (_speed / 100d);
 
-            MediaTime elapsed = _speedAnimation.UseGlobalClock.Value
-                ? integrator.Integrate(_elementStart + localTime, _speedAnimation)
-                  - integrator.Integrate(_elementStart, _speedAnimation)
-                : integrator.Integrate(localTime, _speedAnimation);
+            MediaTime elapsed = integrator.IntegratePlayback(start, start + localTime);
             return Math.Max(elapsed.ToSeconds(), 0);
         }
 

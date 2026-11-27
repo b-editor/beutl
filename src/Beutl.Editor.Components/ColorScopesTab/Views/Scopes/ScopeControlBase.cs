@@ -11,29 +11,8 @@ using BtlBitmap = Beutl.Media.Bitmap;
 
 namespace Beutl.Editor.Components.ColorScopesTab.Views.Scopes;
 
-public abstract class ScopeControlBase : Control
+public abstract partial class ScopeControlBase : Control
 {
-    public static readonly StyledProperty<Ref<BtlBitmap>?> SourceBitmapProperty =
-        AvaloniaProperty.Register<ScopeControlBase, Ref<BtlBitmap>?>(nameof(SourceBitmap));
-
-    public static readonly StyledProperty<IBrush?> AxisBrushProperty =
-        AvaloniaProperty.Register<ScopeControlBase, IBrush?>(nameof(AxisBrush));
-
-    public static readonly StyledProperty<IBrush?> LabelBrushProperty =
-        AvaloniaProperty.Register<ScopeControlBase, IBrush?>(nameof(LabelBrush));
-
-    public static readonly StyledProperty<IBrush?> BackgroundBrushProperty =
-        AvaloniaProperty.Register<ScopeControlBase, IBrush?>(nameof(BackgroundBrush));
-
-    public static readonly StyledProperty<double> AxisMarginProperty =
-        AvaloniaProperty.Register<ScopeControlBase, double>(nameof(AxisMargin), 32);
-
-    public static readonly DirectProperty<ScopeControlBase, ScopeColorSpace> ColorSpaceProperty =
-        AvaloniaProperty.RegisterDirect<ScopeControlBase, ScopeColorSpace>(
-            nameof(ColorSpace), o => o.ColorSpace, (o, v) => o.ColorSpace = v, ScopeColorSpace.Gamma);
-
-    private ScopeColorSpace _colorSpace = ScopeColorSpace.Gamma;
-
     protected static readonly Typeface DefaultTypeface = new(FontFamily.Default, FontStyle.Normal, FontWeight.Normal);
 
     private readonly ILogger _logger = Log.CreateLogger<ScopeControlBase>();
@@ -66,41 +45,23 @@ public abstract class ScopeControlBase : Control
         ColorSpaceProperty.Changed.AddClassHandler<ScopeControlBase>((o, _) => o.Refresh());
     }
 
-    public Ref<BtlBitmap>? SourceBitmap
-    {
-        get => GetValue(SourceBitmapProperty);
-        set => SetValue(SourceBitmapProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial Ref<BtlBitmap>? SourceBitmap { get; set; }
 
-    public IBrush? AxisBrush
-    {
-        get => GetValue(AxisBrushProperty);
-        set => SetValue(AxisBrushProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial IBrush? AxisBrush { get; set; }
 
-    public IBrush? LabelBrush
-    {
-        get => GetValue(LabelBrushProperty);
-        set => SetValue(LabelBrushProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial IBrush? LabelBrush { get; set; }
 
-    public IBrush? BackgroundBrush
-    {
-        get => GetValue(BackgroundBrushProperty);
-        set => SetValue(BackgroundBrushProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial IBrush? BackgroundBrush { get; set; }
 
-    public double AxisMargin
-    {
-        get => GetValue(AxisMarginProperty);
-        set => SetValue(AxisMarginProperty, value);
-    }
+    [GeneratedStyledProperty(DefaultValue = 32)]
+    public partial double AxisMargin { get; set; }
 
-    public ScopeColorSpace ColorSpace
-    {
-        get => _colorSpace;
-        set => SetAndRaise(ColorSpaceProperty, ref _colorSpace, value);
-    }
+    [GeneratedDirectProperty(UnsetValue = ScopeColorSpace.Gamma)]
+    public partial ScopeColorSpace ColorSpace { get; set; } = ScopeColorSpace.Gamma;
 
     protected abstract string[]? VerticalAxisLabels { get; }
 

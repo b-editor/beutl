@@ -1,4 +1,6 @@
-﻿namespace Beutl.Media.Proxy;
+﻿using Beutl.Media.Decoding;
+
+namespace Beutl.Media.Proxy;
 
 public sealed class ProxyEvictionService : IProxyStoreCapInfo
 {
@@ -11,7 +13,7 @@ public sealed class ProxyEvictionService : IProxyStoreCapInfo
     private readonly Action<ProxyEvictionResult>? _notify;
     private readonly Func<IReadOnlySet<string>>? _openProjectSourceProvider;
     private readonly Func<string, long?>? _availableFreeSpaceProvider;
-    private readonly Func<ProxyFingerprint, ProxyPreset, bool>? _isGenerationActive;
+    private readonly Func<ProxyFingerprint, ProxyPreset, VideoDeinterlaceOptions, bool>? _isGenerationActive;
 
     // Mutable so a runtime cache-cap change updates the threshold in place; rebuilding the service (and
     // its queue) just to move this number would cancel unrelated in-flight generation. Read on sweep
@@ -31,7 +33,7 @@ public sealed class ProxyEvictionService : IProxyStoreCapInfo
     /// must be cheap (for example a cached snapshot).
     /// </param>
     /// <param name="isGenerationActive">
-    /// Whether a generation for the (source, preset) is in flight. It is asked right before each delete, so it
+    /// Whether a generation for the (source, preset, deinterlace settings) is in flight. It is asked right before each delete, so it
     /// must be a cheap membership test.
     /// </param>
     public ProxyEvictionService(
@@ -42,7 +44,7 @@ public sealed class ProxyEvictionService : IProxyStoreCapInfo
         long minFreeDiskBytes = 0,
         Func<IReadOnlySet<string>>? openProjectSourceProvider = null,
         Func<string, long?>? availableFreeSpaceProvider = null,
-        Func<ProxyFingerprint, ProxyPreset, bool>? isGenerationActive = null)
+        Func<ProxyFingerprint, ProxyPreset, VideoDeinterlaceOptions, bool>? isGenerationActive = null)
     {
         ArgumentNullException.ThrowIfNull(store);
         ArgumentOutOfRangeException.ThrowIfNegative(maxTotalBytes);
@@ -145,7 +147,7 @@ public sealed class ProxyEvictionService : IProxyStoreCapInfo
             if (!IsStillEvictable(candidate))
                 continue;
 
-            if (_store.Delete(candidate.Entry.Source, candidate.Entry.Preset))
+            if (_store.Delete(candidate.Entry.Source, candidate.Entry.Preset, candidate.Entry.Deinterlace))
             {
                 removed++;
                 // A pin acquired after the final check can defer deletion. Credit only bytes that
@@ -181,7 +183,7 @@ public sealed class ProxyEvictionService : IProxyStoreCapInfo
             // A proxy queued for regeneration must not be deleted before its replacement is
             // registered; if that generation is later canceled or fails the user would lose the
             // still-usable proxy for nothing.
-            if (_isGenerationActive?.Invoke(entry.Source, entry.Preset) == true)
+            if (_isGenerationActive?.Invoke(entry.Source, entry.Preset, entry.Deinterlace) == true)
                 continue;
 
             // Cap accounting must use the recorded size, because capOverage / GetTotalBytes sum
@@ -208,11 +210,11 @@ public sealed class ProxyEvictionService : IProxyStoreCapInfo
 
         // Re-check right before deleting: a regenerate queued or finished during the sweep must keep its proxy.
         // Compare only identity fields, because ProxyStore.Touch replaces the entry to bump LastUsedUtc.
-        ProxyEntry? current = _store.TryGet(candidate.Entry.Source, candidate.Entry.Preset);
+        ProxyEntry? current = _store.TryGet(candidate.Entry.Source, candidate.Entry.Preset, candidate.Entry.Deinterlace);
         if (current is null
             || current.ProxyFileRelative != candidate.Entry.ProxyFileRelative
             || current.GeneratedAtUtc != candidate.Entry.GeneratedAtUtc
-            || _isGenerationActive?.Invoke(candidate.Entry.Source, candidate.Entry.Preset) == true)
+            || _isGenerationActive?.Invoke(candidate.Entry.Source, candidate.Entry.Preset, candidate.Entry.Deinterlace) == true)
             return false;
 
         return true;

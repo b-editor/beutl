@@ -1,4 +1,5 @@
 ﻿using System.Reactive;
+using Beutl.Graphics.Shaders;
 using Beutl.Media;
 using SkiaSharp;
 
@@ -31,7 +32,8 @@ public sealed partial class FilterEffectContext
                 .Inflate(BlurExtent(t.sigma))),
             transformSamplingBounds: static (t, region) => region.Union(region
                 .Translate(-t.position)
-                .Inflate(BlurExtent(t.sigma))));
+                .Inflate(BlurExtent(t.sigma))),
+            keepsPlacement: true);
     }
 
     public void Blur(Size sigma)
@@ -53,7 +55,8 @@ public sealed partial class FilterEffectContext
             transformBounds: static (sigma, bounds) =>
                 bounds.Inflate(BlurExtent(sigma)),
             transformSamplingBounds: static (sigma, region) =>
-                region.Inflate(BlurExtent(sigma)));
+                region.Inflate(BlurExtent(sigma)),
+            keepsPlacement: true);
     }
 
     /// <summary>How far a Gaussian blur reaches past its input: three sigmas, beyond which the kernel is negligible.</summary>
@@ -77,7 +80,7 @@ public sealed partial class FilterEffectContext
                     var target = context.Targets[i];
                     if (target.RenderTarget is not null)
                     {
-                        EffectTarget newTarget = context.CreateTarget(target.Bounds);
+                        EffectTarget newTarget = context.CreateTarget(target.Bounds, target);
                         if (newTarget.IsEmpty)
                         {
                             newTarget.Dispose();
@@ -198,7 +201,8 @@ public sealed partial class FilterEffectContext
             (data, input) => SKImageFilter.CreateErode(data.radiusX, data.radiusY, input),
             (data, rect) => rect,
             // Erode shrinks its declared output but still reads the whole radius neighbourhood.
-            (data, region) => region.Inflate(new Thickness(data.radiusX, data.radiusY)));
+            (data, region) => region.Inflate(new Thickness(data.radiusX, data.radiusY)),
+            keepsPlacement: true);
     }
 
     public void Dilate(float radiusX, float radiusY)
@@ -210,7 +214,8 @@ public sealed partial class FilterEffectContext
             (radiusX, radiusY),
             (data, input) => SKImageFilter.CreateDilate(data.radiusX, data.radiusY, input),
             (data, rect) => rect.Inflate(new Thickness(data.radiusX, data.radiusY)),
-            (data, region) => region.Inflate(new Thickness(data.radiusX, data.radiusY)));
+            (data, region) => region.Inflate(new Thickness(data.radiusX, data.radiusY)),
+            keepsPlacement: true);
     }
 
     // Skia rejects a negative morphology radius, so it degrades to a pass-through. The all-zero
@@ -258,7 +263,8 @@ public sealed partial class FilterEffectContext
             // The rectangle stays where it is when the input moves.
             needsBoundsCoordinates: true,
             // Tiles repeat what the crop keeps of all the inputs together, across all of them.
-            needsOneTarget: spreadMethod != GradientSpreadMethod.Decal);
+            needsOneTarget: spreadMethod != GradientSpreadMethod.Decal,
+            keepsPlacement: spreadMethod == GradientSpreadMethod.Decal);
     }
 
     public void ColorMatrix(in ColorMatrix matrix)
@@ -318,6 +324,29 @@ public sealed partial class FilterEffectContext
         ShaderColorMatrix(array);
     }
 
+    // Scaling every premultiplied channel scales the alpha and keeps the straight color. A color-matrix stage would
+    // clamp the straight color to [0, 1] and lose what an HDR source or an exposure effect leaves past 1.
+    private static readonly SkslSource s_opacitySource = new(
+        """
+        uniform float opacity;
+
+        half4 apply(half4 color) {
+            return half4(float4(color) * opacity);
+        }
+        """,
+        ShaderDescriptionKind.CurrentPixel);
+
+    /// <summary>Multiplies the alpha of every pixel by <paramref name="opacity"/>, from 0 (transparent) to 1 (unchanged).</summary>
+    /// <remarks>The straight color is kept as it is, including values outside [0, 1].</remarks>
+    public void Opacity(float opacity)
+    {
+        if (float.IsNaN(opacity) || opacity >= 1)
+            return;
+
+        float value = Math.Max(opacity, 0);
+        Shader(ShaderDescription.CurrentPixel(s_opacitySource, bindings => bindings.Uniform("opacity", value)));
+    }
+
     public void HighContrast(bool grayscale, HighContrastInvertStyle invertStyle, float contrast)
     {
         // A configuration Skia's HighContrast returns null for stays a no-op.
@@ -374,7 +403,7 @@ public sealed partial class FilterEffectContext
                 if (target.RenderTarget is not null)
                 {
                     Size size = target.Bounds.Size;
-                    EffectTarget newTarget = context.CreateTarget(target.Bounds);
+                    EffectTarget newTarget = context.CreateTarget(target.Bounds, target);
                     if (newTarget.IsEmpty)
                     {
                         newTarget.Dispose();

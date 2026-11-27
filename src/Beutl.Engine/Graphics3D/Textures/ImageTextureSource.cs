@@ -29,6 +29,8 @@ public sealed partial class ImageTextureSource : TextureSource
         private readonly CachedTexture[] _gpuTextures = new CachedTexture[3];
         private int? _versionWithoutStraightColors;
 
+        internal override bool HasContent => Source is { } source && (source.Picture != null || source.Bitmap != null);
+
         // A decoded bitmap has a fixed pixel count, so surfaceDensity is ignored for raster images,
         // while an SVG re-rasterizes its vector drawing at the surface density.
         public override ITexture2D? GetTexture(IGraphicsContext graphicsContext, float surfaceDensity = 1f)
@@ -119,15 +121,11 @@ public sealed partial class ImageTextureSource : TextureSource
             if (Source?.Bitmap is not { } bitmap)
                 return base.TryGetAlpha(texCoord, out alpha, surfaceDensity);
 
-            // Filtered and clamped to the edge, as the materials sample their maps.
-            float x = texCoord.X * bitmap.Width - 0.5f;
-            float y = texCoord.Y * bitmap.Height - 0.5f;
-            int left = (int)MathF.Floor(x);
-            int top = (int)MathF.Floor(y);
-            alpha = float.Lerp(
-                float.Lerp(ReadAlpha(bitmap, left, top), ReadAlpha(bitmap, left + 1, top), x - left),
-                float.Lerp(ReadAlpha(bitmap, left, top + 1), ReadAlpha(bitmap, left + 1, top + 1), x - left),
-                y - top);
+            (int x0, int x1, int y0, int y1, float fx, float fy) = GetLinearTaps(texCoord, bitmap.Width, bitmap.Height);
+            alpha = Lerp2(
+                ReadAlpha(bitmap, x0, y0), ReadAlpha(bitmap, x1, y0),
+                ReadAlpha(bitmap, x0, y1), ReadAlpha(bitmap, x1, y1),
+                fx, fy);
             return true;
         }
 
@@ -164,14 +162,7 @@ public sealed partial class ImageTextureSource : TextureSource
 
             // Rasterize only the 2x2 texel neighborhood at the rendered texture's resolution and filter linearly
             // with clamp-to-edge, matching how the material samples the uploaded texture.
-            float x = texCoord.X * rasterSize.Width - 0.5f;
-            float y = texCoord.Y * rasterSize.Height - 0.5f;
-            int left = (int)MathF.Floor(x);
-            int top = (int)MathF.Floor(y);
-            int x0 = Math.Clamp(left, 0, rasterSize.Width - 1);
-            int x1 = Math.Clamp(left + 1, 0, rasterSize.Width - 1);
-            int y0 = Math.Clamp(top, 0, rasterSize.Height - 1);
-            int y1 = Math.Clamp(top + 1, 0, rasterSize.Height - 1);
+            (int x0, int x1, int y0, int y1, float fx, float fy) = GetLinearTaps(texCoord, rasterSize.Width, rasterSize.Height);
             int patchWidth = x1 - x0 + 1;
             int patchHeight = y1 - y0 + 1;
 
@@ -186,15 +177,26 @@ public sealed partial class ImageTextureSource : TextureSource
             float a10 = pixels.GetPixelColor(x1 - x0, 0).Alpha / 255f;
             float a01 = pixels.GetPixelColor(0, y1 - y0).Alpha / 255f;
             float a11 = pixels.GetPixelColor(x1 - x0, y1 - y0).Alpha / 255f;
-            alpha = float.Lerp(
-                float.Lerp(a00, a10, x - left),
-                float.Lerp(a01, a11, x - left),
-                y - top);
+            alpha = Lerp2(a00, a10, a01, a11, fx, fy);
             return true;
         }
 
+        // Filtered and clamped to the edge, as the materials sample their maps.
+        private static (int X0, int X1, int Y0, int Y1, float Fx, float Fy) GetLinearTaps(Vector2 texCoord, int width, int height)
+        {
+            float x = texCoord.X * width - 0.5f;
+            float y = texCoord.Y * height - 0.5f;
+            int left = (int)MathF.Floor(x);
+            int top = (int)MathF.Floor(y);
+            return (Math.Clamp(left, 0, width - 1), Math.Clamp(left + 1, 0, width - 1),
+                Math.Clamp(top, 0, height - 1), Math.Clamp(top + 1, 0, height - 1), x - left, y - top);
+        }
+
+        private static float Lerp2(float a00, float a10, float a01, float a11, float fx, float fy)
+            => float.Lerp(float.Lerp(a00, a10, fx), float.Lerp(a01, a11, fx), fy);
+
         private static float ReadAlpha(Bitmap bitmap, int x, int y)
-            => bitmap.SKBitmap.GetPixel(Math.Clamp(x, 0, bitmap.Width - 1), Math.Clamp(y, 0, bitmap.Height - 1)).Alpha / 255f;
+            => bitmap.SKBitmap.GetPixel(x, y).Alpha / 255f;
 
         private ITexture2D? GetCachedTexture<TState>(
             IGraphicsContext graphicsContext,

@@ -1,42 +1,29 @@
 ﻿using Beutl.Animation;
+using Beutl.Animation.Animators;
+using Beutl.Animation.Easings;
 
 namespace Beutl.Media;
 
 /// <summary>
-/// A shared class that provides time integration and cache management for speed animations.
-/// Can be used for both graphics (sampleRate=60) and audio (sampleRate=44100, etc.).
+/// Maps time through a keyframed speed curve by integrating its speed in percent.
 /// </summary>
 public sealed class SpeedIntegrator : IDisposable
 {
-    // Where recent queries stopped within a second, so that going on from one samples only what is new. There are a
-    // few because audio alternates between the playhead, the end of the clip and the start of the speed's owner.
-    private readonly (long Sample, double Sum, long LastUse)[] _prefixes = new (long, double, long)[4];
-    private long _prefixUses;
-    private Dictionary<int, double>? _integralCache;
-    private int _greatestCachedSecond = -1;
-    private KeyFrameAnimation<float>? _trackedAnimation;
-    private int _sampleRate;
+    private static readonly double s_relativeTolerance = Math.ScaleB(1d, -20);
+
     private readonly Action? _invalidateCallback;
+    private KeyFrameAnimation<float>? _trackedAnimation;
+    private KeySnapshot[] _keys = [];
+    private bool _hasKeySnapshot;
+    private bool _useGlobalClock;
+    private Curve? _curve;
     private Func<float, float>? _speedTransform;
+
     internal int CacheVersion { get; private set; }
 
-    public SpeedIntegrator(int sampleRate, Action? invalidateCallback = null)
+    public SpeedIntegrator(Action? invalidateCallback = null)
     {
-        _sampleRate = sampleRate;
         _invalidateCallback = invalidateCallback;
-    }
-
-    public int SampleRate
-    {
-        get => _sampleRate;
-        set
-        {
-            if (_sampleRate != value)
-            {
-                _sampleRate = value;
-                Invalidate();
-            }
-        }
     }
 
     // A bounded audio time mapping must integrate the same clamped values that its DSP uses.
@@ -54,44 +41,46 @@ public sealed class SpeedIntegrator : IDisposable
     }
 
     /// <summary>
-    /// Starts tracking the animation and initializes the cache.
-    /// If the animation changes, clears the cache and re-registers the event handler.
+    /// Prepares the cache for the animation and invalidates it if the animation or its keys changed.
     /// </summary>
     public void EnsureCache(KeyFrameAnimation<float>? animation)
     {
-        _integralCache ??= new Dictionary<int, double>();
-
         if (!ReferenceEquals(_trackedAnimation, animation))
         {
-            Invalidate();
-
-            if (_trackedAnimation != null)
-                _trackedAnimation.Edited -= OnAnimationEdited;
-
-            if (animation != null)
-                animation.Edited += OnAnimationEdited;
-
+            // A caller with a callback can act on edits before asking for another integral.
+            if (_invalidateCallback != null)
+            {
+                if (_trackedAnimation != null) _trackedAnimation.Edited -= OnAnimationEdited;
+                if (animation != null) animation.Edited += OnAnimationEdited;
+            }
             _trackedAnimation = animation;
+            _keys = [];
+            _hasKeySnapshot = false;
+            Invalidate();
         }
+
+        if (animation == null || (_hasKeySnapshot && KeysMatch(animation))) return;
+
+        // Structural edits and changes to the spline's control points can leave Edited silent.
+        _keys = [.. animation.KeyFrames.Select(KeySnapshot.Read)];
+        _useGlobalClock = animation.UseGlobalClock.Value;
+        _curve = null;
+        bool invalidate = _hasKeySnapshot;
+        _hasKeySnapshot = true;
+        if (invalidate) Invalidate();
     }
 
-    /// <summary>
-    /// Returns the largest cache entry at or below the specified second.
-    /// </summary>
-    public (int Key, double Value) TryGetCache(int targetSec)
+    private bool KeysMatch(KeyFrameAnimation<float> animation)
     {
-        if (_integralCache == null) return (-1, 0);
-        if (_integralCache.TryGetValue(targetSec, out double exact)) return (targetSec, exact);
+        var keys = animation.KeyFrames;
+        if (_useGlobalClock != animation.UseGlobalClock.Value || _keys.Length != keys.Count) return false;
 
-        for (int sec = Math.Min(targetSec, _greatestCachedSecond); sec >= 0; sec--)
+        for (int i = 0; i < _keys.Length; i++)
         {
-            if (_integralCache.TryGetValue(sec, out double result))
-            {
-                return (sec, result);
-            }
+            if (!_keys[i].Matches(KeySnapshot.Read(keys[i]))) return false;
         }
 
-        return (-1, 0);
+        return true;
     }
 
     /// <summary>
@@ -100,140 +89,200 @@ public sealed class SpeedIntegrator : IDisposable
     public void Invalidate()
     {
         CacheVersion++;
-        _integralCache?.Clear();
-        _greatestCachedSecond = -1;
-        Array.Clear(_prefixes);
+        _curve = null;
         _invalidateCallback?.Invoke();
     }
 
     /// <summary>
-    /// Unsubscribes from events and clears the cache.
+    /// Unsubscribes from edits and clears the cache.
     /// </summary>
     public void Dispose()
     {
-        if (_trackedAnimation != null)
-        {
+        if (_invalidateCallback != null && _trackedAnimation != null)
             _trackedAnimation.Edited -= OnAnimationEdited;
-            _trackedAnimation = null;
-        }
-        _integralCache = null;
+        _trackedAnimation = null;
+        _keys = [];
+        _hasKeySnapshot = false;
+        _curve = null;
     }
 
     /// <summary>
-    /// Integrates the speed animation and returns the transformed time corresponding to the specified time.
+    /// Integrates the speed from zero to <paramref name="timeSpan"/> in the animation's clock.
+    /// Playback holds at zero for negative times. Outside the keys their endpoint values hold.
     /// </summary>
     public MediaTime Integrate(MediaTime timeSpan, KeyFrameAnimation<float> animation)
     {
-        int targetSec = (int)timeSpan.ToSeconds();
-        (int cachedSec, double cachedSum) = TryGetCache(targetSec);
+        EnsureCache(animation);
+        return IntegratePlayback(MediaTime.Zero, timeSpan);
+    }
 
-        double sum = cachedSum;
-        int startSec = cachedSec < 0 ? 0 : cachedSec;
+    internal MediaTime IntegratePlayback(MediaTime from, MediaTime to)
+        => IntegrateCached(new MediaTime(Math.Max(from.Flicks, 0)), new MediaTime(Math.Max(to.Flicks, 0)));
 
-        // Integrate speed in 1-second intervals from startSec to targetSec
-        for (int sec = startSec; sec < targetSec; sec++)
+    // Reuse the checked snapshot for batches such as inverse mapping by bisection.
+    internal MediaTime IntegrateCached(MediaTime from, MediaTime to)
+    {
+        if (from == to) return MediaTime.Zero;
+        Curve curve = _curve ??= BuildCurve(_trackedAnimation!, _keys);
+        double area = from < to
+            ? curve.Integrate(from.Flicks, to.Flicks)
+            : -curve.Integrate(to.Flicks, from.Flicks);
+        return MediaTime.FromSeconds(area / MediaTime.FlicksPerSecond);
+    }
+
+    private Curve BuildCurve(KeyFrameAnimation<float> animation, KeySnapshot[] keys)
+    {
+        if (keys.Length == 0)
         {
-            if (animation is KeyFrameAnimation<float> keyframes && keyframes.KeyFrames.Count > 0)
+            double rate = Factor(KeyFrame<float>.s_animator.DefaultValue());
+            return new Curve(keys, [], [], rate, rate);
+        }
+
+        var pieces = new Piece[keys.Length - 1];
+        var sums = new double[keys.Length];
+        bool linearlyInterpolated = animation.HierarchicalParent is IComponentInterpolator<float> component
+            ? component.InterpolatesLinearly
+            : KeyFrame<float>.s_animator is FloatAnimator;
+
+        for (int i = 0; i < pieces.Length; i++)
+        {
+            double width = Width(keys[i].Time.Flicks, keys[i + 1].Time.Flicks);
+            sums[i + 1] = sums[i];
+            if (width == 0) continue;
+
+            Piece piece = BuildPiece(animation, keys[i], keys[i + 1], width, linearlyInterpolated);
+            pieces[i] = piece;
+            sums[i + 1] += piece.Integrate(0, 1, width, width);
+        }
+
+        return new Curve(keys, pieces, sums, Factor(keys[0].Value), Factor(keys[^1].Value));
+    }
+
+    private Piece BuildPiece(KeyFrameAnimation<float> animation, KeySnapshot from, KeySnapshot to, double width,
+        bool linearlyInterpolated)
+    {
+        Easing easing = to.Easing;
+        if (linearlyInterpolated)
+        {
+            if (easing is HoldEasing || (from.Value == to.Value
+                && easing.TryGetOutputRange(out float minimum, out float maximum)
+                && float.IsFinite(minimum) && float.IsFinite(maximum)))
             {
-                var first = (KeyFrame<float>)keyframes.KeyFrames[0];
-                var last = (KeyFrame<float>)keyframes.KeyFrames[^1];
-                int constantEnd = sec >= Math.Ceiling(last.KeyTime.Value.ToSeconds())
-                    ? targetSec
-                    : Math.Min(targetSec, (int)Math.Floor(first.KeyTime.Value.ToSeconds()));
-                if (constantEnd > sec)
-                {
-                    float constant = sec >= Math.Ceiling(last.KeyTime.Value.ToSeconds()) ? last.Value.Value : first.Value.Value;
-                    constant = _speedTransform?.Invoke(constant) ?? constant;
-                    sum += constant / 100d * (constantEnd - sec);
-                    _integralCache![constantEnd] = sum;
-                    _greatestCachedSecond = Math.Max(_greatestCachedSecond, constantEnd);
-                    sec = constantEnd - 1;
-                    continue;
-                }
+                return new Piece(Factor(from.Value), 0);
             }
-            long start = (long)sec * _sampleRate;
-            sum = SumSamples(animation, start, start + _sampleRate, sum, out _);
-            _integralCache![sec + 1] = sum;
-            _greatestCachedSecond = Math.Max(_greatestCachedSecond, sec + 1);
+
+            if (easing is LinearEasing && _speedTransform == null)
+                return new Piece(from.Value / 100d, (to.Value - (double)from.Value) / 100d);
         }
 
-        // Integrate the remainder from the target second to the exact target time. Sample-domain math
-        // uses long to avoid Int32 overflow on long timelines; targetSec stays int (seconds).
-        long targetInSamples = (long)(timeSpan.ToSeconds() * _sampleRate);
-        long secStartInSamples = (long)targetSec * _sampleRate;
-
-        sum = SumSamples(animation, secStartInSamples, targetInSamples, sum, out int nearest);
-        RememberPrefix(nearest, targetInSamples, sum);
-
-        // Interpolate from the last sample to the exact time (fractional sample handling)
-        double fractionalSamples = (timeSpan.ToSeconds() * _sampleRate) - targetInSamples;
-        if (fractionalSamples > 0)
+        // Keep a spline's evaluations and its cached areas on the same set of control points.
+        if (easing.GetType() == typeof(SplineEasing))
         {
-            float speed = SampleSpeed(animation, timeSpan);
-            sum += (speed / 100.0) * fractionalSamples / _sampleRate;
+            var (x1, y1, x2, y2) = to.ControlPoints;
+            easing = new SplineEasing(new KeySpline(x1, y1, x2, y2));
         }
 
-        return MediaTime.FromSeconds(sum);
+        double Rate(double progress)
+        {
+            float eased = easing.Ease((float)progress);
+            var time = new MediaTime((long)((Int128)from.Time.Flicks + (Int128)Math.Round(progress * width)));
+            float value = animation.InterpolateValues(eased, from.Value, to.Value, from.Time, to.Time, time);
+            return Factor(value);
+        }
+
+        // Custom easings can hide a narrow peak between the nodes of a single rule.
+        int panels = easing.GetType().Assembly == typeof(Easing).Assembly ? 1 : 32;
+        double minimumWidth = Math.Max(1024 / width, Math.ScaleB(1d, -20));
+        var (ends, sums) = GaussKronrod.Partition(Rate, 0, 1, s_relativeTolerance, minimumWidth, panels);
+        return new Piece(0, 0, new EasedIntegral(Rate, ends, sums));
     }
 
-    // Adds the samples in order from the start of the timeline, so a sum is the same however it was reached. It goes on
-    // from the latest prefix in the range when there is one, and reports that prefix's slot, or -1.
-    private double SumSamples(KeyFrameAnimation<float> animation, long start, long end, double sum, out int prefix)
-    {
-        prefix = FindPrefix(start, end);
-        if (prefix >= 0)
-        {
-            start = _prefixes[prefix].Sample;
-            sum = _prefixes[prefix].Sum;
-        }
+    private double Factor(float percent) => (_speedTransform?.Invoke(percent) ?? percent) / 100d;
 
-        for (long i = start; i < end; i++)
-        {
-            double t = i / (double)_sampleRate;
-            float speed = SampleSpeed(animation, MediaTime.FromSeconds(t));
-            sum += (speed / 100.0) / _sampleRate;
-        }
-
-        return sum;
-    }
-
-    // The latest prefix in the range, or -1. An unused slot stands for no time at all, which sums to zero.
-    private int FindPrefix(long first, long last)
-    {
-        int found = -1;
-        for (int i = 0; i < _prefixes.Length; i++)
-        {
-            long sample = _prefixes[i].Sample;
-            if (sample >= first && sample <= last && (found < 0 || sample > _prefixes[found].Sample))
-                found = i;
-        }
-
-        return found;
-    }
-
-    private void RememberPrefix(int slot, long sample, double sum)
-    {
-        if (slot < 0)
-        {
-            slot = 0;
-            for (int i = 1; i < _prefixes.Length; i++)
-            {
-                if (_prefixes[i].LastUse < _prefixes[slot].LastUse)
-                    slot = i;
-            }
-        }
-
-        _prefixes[slot] = (sample, sum, ++_prefixUses);
-    }
-
-    private float SampleSpeed(KeyFrameAnimation<float> animation, MediaTime time)
-    {
-        float speed = animation.Interpolate(time);
-        return _speedTransform?.Invoke(speed) ?? speed;
-    }
+    private static double Width(long from, long to) => (double)((Int128)to - from);
 
     private void OnAnimationEdited(object? sender, EventArgs e)
     {
+        _hasKeySnapshot = false;
         Invalidate();
+    }
+
+    private sealed class Curve(KeySnapshot[] keys, Piece[] pieces, double[] sums, double before, double after)
+    {
+        public double Integrate(long from, long to)
+        {
+            int first = KeyAtOrBefore(from);
+            int last = KeyAtOrBefore(to);
+            if (first == last) return IntegratePiece(first, from, to);
+
+            // Integrate the partial pieces directly so a common tail or prefix loses no precision.
+            double middle = last == first + 1 ? 0 : sums[last] - sums[first + 1];
+            return IntegratePiece(first, from, keys[first + 1].Time.Flicks) + middle
+                + IntegratePiece(last, keys[last].Time.Flicks, to);
+        }
+
+        private double IntegratePiece(int i, long from, long to)
+        {
+            if (from == to) return 0;
+            double duration = Width(from, to);
+            if (i < 0) return before * duration;
+            if (i >= pieces.Length) return after * duration;
+
+            long start = keys[i].Time.Flicks;
+            double width = Width(start, keys[i + 1].Time.Flicks);
+            return pieces[i].Integrate(Width(start, from) / width, Width(start, to) / width, width, duration);
+        }
+
+        // At duplicate times, the last key starts the outgoing piece.
+        private int KeyAtOrBefore(long time)
+        {
+            int low = 0;
+            int high = keys.Length;
+            while (low < high)
+            {
+                int middle = (low + high) >>> 1;
+                if (keys[middle].Time.Flicks <= time) low = middle + 1;
+                else high = middle;
+            }
+            return low - 1;
+        }
+    }
+
+    private readonly record struct Piece(double Rate, double RateChange, EasedIntegral? Eased = null)
+    {
+        public double Integrate(double from, double to, double width, double duration)
+            => Eased is { } eased
+                ? eased.Integrate(from, to) * width
+                : (Rate + RateChange * ((from + to) / 2)) * duration;
+    }
+
+    private sealed record EasedIntegral(Func<double, double> Rate, double[] Ends, double[] Sums)
+    {
+        public double Integrate(double from, double to)
+        {
+            if (from == 0 && to == 1) return Sums[^1];
+            int first = GaussKronrod.FindInterval(Ends, from);
+            int last = GaussKronrod.FindInterval(Ends, to);
+            if (first == last) return GaussKronrod.Integrate(Rate, from, to);
+
+            double start = from == 0 ? 0 : GaussKronrod.Prefix(Rate, Ends, Sums, from);
+            double end = to == 1 ? Sums[^1] : GaussKronrod.Prefix(Rate, Ends, Sums, to);
+            return end - start;
+        }
+    }
+
+    private readonly record struct KeySnapshot(IKeyFrame Frame, MediaTime Time, float Value, Easing Easing,
+        (float X1, float Y1, float X2, float Y2) ControlPoints)
+    {
+        public static KeySnapshot Read(IKeyFrame frame)
+        {
+            Easing easing = frame.Easing.Value;
+            return new KeySnapshot(frame, frame.KeyTime.Value, frame is KeyFrame<float> typed ? typed.Value.Value : float.NaN,
+                easing, easing is SplineEasing spline ? (spline.X1, spline.Y1, spline.X2, spline.Y2) : default);
+        }
+
+        public bool Matches(KeySnapshot other)
+            => ReferenceEquals(Frame, other.Frame) && Time == other.Time && Value.Equals(other.Value)
+                && ReferenceEquals(Easing, other.Easing) && ControlPoints.Equals(other.ControlPoints);
     }
 }

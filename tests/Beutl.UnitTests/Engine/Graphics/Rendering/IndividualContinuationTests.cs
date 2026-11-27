@@ -1,4 +1,5 @@
 ﻿using Beutl.Composition;
+using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
@@ -380,6 +381,7 @@ public class IndividualContinuationTests
         Assert.That(context.CountItems(), Is.EqualTo(1));
     }
 
+    [SuppressResourceClassGeneration]
     private sealed class TimeDependentEffect(
         Action<CustomFilterEffectContext, CompositionTargetAccess?> draw, bool changesEnabled, bool accessesTarget) : FilterEffect
     {
@@ -411,6 +413,7 @@ public class IndividualContinuationTests
         }
     }
 
+    [SuppressResourceClassGeneration]
     private sealed class RepeatingContinuationEffect(int count) : FilterEffect
     {
         private void ApplyEffect(FilterEffectContext context)

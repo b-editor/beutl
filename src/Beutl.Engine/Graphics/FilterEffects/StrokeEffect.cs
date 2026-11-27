@@ -9,7 +9,7 @@ using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
 
-[Display(Name = nameof(GraphicsStrings.Stroke), ResourceType = typeof(GraphicsStrings))]
+[Display(Name = nameof(GraphicsStrings.StrokeEffect), ResourceType = typeof(GraphicsStrings))]
 public partial class StrokeEffect : FilterEffect
 {
     public StrokeEffect()
@@ -88,7 +88,7 @@ public partial class StrokeEffect : FilterEffect
                     MathF.Round((target.Bounds.X - transformedBounds.X) * w) / w,
                     MathF.Round((target.Bounds.Y - transformedBounds.Y) * w) / w);
 
-                EffectTarget newTarget = context.CreateTarget(transformedBounds);
+                EffectTarget newTarget = context.CreateTarget(transformedBounds, target);
                 if (newTarget.IsEmpty)
                 {
                     newTarget.Dispose();

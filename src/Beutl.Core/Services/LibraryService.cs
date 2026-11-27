@@ -57,6 +57,15 @@ public sealed class GroupLibraryItem(string displayName, string? description = n
     private readonly List<LibraryItem> _items = [];
     private readonly object _lock = new();
 
+    public GroupLibraryItem(string displayName, string? description, string? id)
+        : this(displayName, description)
+    {
+        Id = id;
+    }
+
+    /// <summary>The language-independent ID of this group, if one was registered.</summary>
+    public string? Id { get; private set; }
+
     // A copy, since a registration or an unload on another thread can change the items while they are read.
     public IReadOnlyList<LibraryItem> Items
     {
@@ -81,16 +90,28 @@ public sealed class GroupLibraryItem(string displayName, string? description = n
     {
         lock (_lock)
         {
-            if (item is GroupLibraryItem group1
-                && _items.FirstOrDefault(x => x.DisplayName == item.DisplayName) is GroupLibraryItem group2)
+            MergeInto(_items, item);
+        }
+    }
+
+    internal static void MergeInto(List<LibraryItem> items, LibraryItem item)
+    {
+        if (item is GroupLibraryItem group)
+        {
+            IEnumerable<GroupLibraryItem> groups = items.OfType<GroupLibraryItem>();
+            GroupLibraryItem? existing = group.Id == null ? null : groups.FirstOrDefault(other => other.Id == group.Id);
+            existing ??= groups.FirstOrDefault(other => (group.Id == null || other.Id == null)
+                && other.DisplayName == group.DisplayName);
+
+            if (existing != null)
             {
-                group2.Merge(group1.Items);
-            }
-            else
-            {
-                _items.Add(item);
+                existing.Id ??= group.Id;
+                existing.Merge(group.Items);
+                return;
             }
         }
+
+        items.Add(item);
     }
 
     public GroupLibraryItem Add<T>(string format, string displayName, string? description = null)
@@ -122,7 +143,13 @@ public sealed class GroupLibraryItem(string displayName, string? description = n
 
     public GroupLibraryItem AddGroup(string displayName, string? description, Action<GroupLibraryItem> action)
     {
-        var item = new GroupLibraryItem(displayName, description);
+        return AddGroup(displayName, description, null, action);
+    }
+
+    /// <summary>Adds a subgroup with a language-independent ID. Groups without IDs can still merge by display name.</summary>
+    public GroupLibraryItem AddGroup(string displayName, string? description, string? id, Action<GroupLibraryItem> action)
+    {
+        var item = new GroupLibraryItem(displayName, description, id);
         action(item);
         Merge(item);
 
@@ -171,6 +198,37 @@ public static class KnownLibraryItemFormats
     public const string ClipTransition = "Beutl.Graphics.Transitions.ClipTransition";
 }
 
+/// <summary>Language-independent IDs for the built-in library groups and categories.</summary>
+public static class KnownLibraryGroupIds
+{
+    public const string ThreeD = "Beutl.Library.ThreeD";
+    public const string AudioVisualizer = "Beutl.Library.AudioVisualizer";
+    public const string Transform = "Beutl.Library.Transform";
+
+    public const string ClipTransition = "Beutl.Library.ClipTransition";
+    public const string ClipTransitionFadesAndDissolves = ClipTransition + ".FadesAndDissolves";
+    public const string ClipTransitionWipes = ClipTransition + ".Wipes";
+    public const string ClipTransitionMotion = ClipTransition + ".Motion";
+    public const string ClipTransitionStylized = ClipTransition + ".Stylized";
+
+    public const string FilterEffect = "Beutl.Library.FilterEffect";
+    public const string FilterEffectBlurAndSharpen = FilterEffect + ".BlurAndSharpen";
+    public const string FilterEffectColorCorrection = FilterEffect + ".ColorCorrection";
+    public const string FilterEffectLightAndShadow = FilterEffect + ".LightAndShadow";
+    public const string FilterEffectMaskingAndKeying = FilterEffect + ".MaskingAndKeying";
+    public const string FilterEffectTransformAndDistort = FilterEffect + ".TransformAndDistort";
+    public const string FilterEffectTimeAndAnimation = FilterEffect + ".TimeAndAnimation";
+    public const string FilterEffectStylize = FilterEffect + ".Stylize";
+    public const string FilterEffectCompositing = FilterEffect + ".Compositing";
+    public const string FilterEffectScriptAndNodes = FilterEffect + ".ScriptAndNodes";
+
+    public const string AudioEffect = "Beutl.Library.AudioEffect";
+    public const string AudioEffectEqAndCleanup = AudioEffect + ".EqAndCleanup";
+    public const string AudioEffectDynamics = AudioEffect + ".Dynamics";
+    public const string AudioEffectTimeAndPitch = AudioEffect + ".TimeAndPitch";
+    public const string AudioEffectDelayAndModulation = AudioEffect + ".DelayAndModulation";
+}
+
 public sealed class LibraryService : IDisposable
 {
     private readonly List<LibraryItem> _items = [];
@@ -217,21 +275,7 @@ public sealed class LibraryService : IDisposable
         lock (_lock)
         {
             item.SetLibraryService(this);
-            if (item is GroupLibraryItem group)
-            {
-                if (_items.FirstOrDefault(x => x.DisplayName == item.DisplayName) is GroupLibraryItem registered)
-                {
-                    registered.Merge(group.Items);
-                }
-                else
-                {
-                    _items.Add(group);
-                }
-            }
-            else
-            {
-                _items.Add(item);
-            }
+            GroupLibraryItem.MergeInto(_items, item);
         }
 
         ItemsChanged?.Invoke(this, EventArgs.Empty);
@@ -256,7 +300,13 @@ public sealed class LibraryService : IDisposable
 
     public void RegisterGroup(string displayName, string? description, Action<GroupLibraryItem> action)
     {
-        var item = new GroupLibraryItem(displayName, description);
+        RegisterGroup(displayName, description, null, action);
+    }
+
+    /// <summary>Registers a group with a language-independent ID. Groups without IDs can still merge by display name.</summary>
+    public void RegisterGroup(string displayName, string? description, string? id, Action<GroupLibraryItem> action)
+    {
+        var item = new GroupLibraryItem(displayName, description, id);
         action(item);
         Register(item);
     }

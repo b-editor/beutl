@@ -57,6 +57,13 @@ internal static partial class NativeScrollInput
         return e.Handled;
     }
 
+    // A magnification is the relative scale change (macOS's, and RaiseMagnify's factor - 1), not a wheel delta.
+    internal static bool TryGetMagnifyFactor(PointerDeltaEventArgs e, out double factor)
+    {
+        factor = 1 + e.Delta.X;
+        return double.IsFinite(factor) && factor > 0;
+    }
+
     internal static bool IsMacGestureScroll(ulong timestamp, double nativeTimestamp, bool precise, nint phase, nint momentumPhase)
     {
         if ((ulong)(nativeTimestamp * 1000) != timestamp || !precise) return false;

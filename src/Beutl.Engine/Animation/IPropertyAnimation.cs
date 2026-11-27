@@ -31,5 +31,8 @@ public interface IComponentAnimation<T> : IComponentAnimation, IPropertyAnimatio
 
 internal interface IComponentInterpolator<T>
 {
-    T Interpolate(KeyFrameAnimation<T> animation, float progress, T previous, T next, MediaTime previousTime, MediaTime nextTime);
+    T Interpolate(KeyFrameAnimation<T> animation, float progress, T previous, T next, MediaTime previousTime, MediaTime nextTime, MediaTime time);
+
+    // Whether Interpolate is the track's own linear interpolation, so arithmetic on the keys extends it exactly.
+    bool InterpolatesLinearly => false;
 }

@@ -4,6 +4,7 @@ using Beutl.Editor.Components.MissingMediaTab.ViewModels;
 using Beutl.Graphics3D.Models;
 using Beutl.IO;
 using Beutl.Media.Source;
+using Beutl.Serialization;
 using Beutl.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -118,7 +119,8 @@ public sealed partial class EditViewModel : IMediaRepairHost
     Task<IReadOnlyList<MissingMedia>> IMediaRepairHost.FindMissingMediaAsync(CancellationToken token)
         => _missingMediaDetector.FindMissingAsync(Scene, _mediaReferences, token);
 
-    IReadOnlyList<IFileSource> IMediaRepairHost.GetMediaSources() => GetMediaSources();
+    IReadOnlyList<MediaReference> IMediaRepairHost.GetMediaReferencesForRepair()
+        => _mediaReferences.GetReferences(includeSharedReferences: true);
 
     private IFileSource[] GetMediaSources()
         => [.. _mediaReferences.GetReferences().Select(reference => reference.Value).OfType<IFileSource>()];
@@ -128,6 +130,8 @@ public sealed partial class EditViewModel : IMediaRepairHost
     void IMediaRepairHost.DismissMissingMediaNotification() => DismissMissingMediaNotification();
 
     IDisposable IMediaRepairHost.SuspendEditor() => EditorService.SuspendEditor(this);
+
+    ValueTask<bool> IMediaRepairHost.SaveRepairsAsync() => SaveInReservedWorkspaceAsync();
 
     void IMediaRepairHost.ScheduleMediaFingerprints(bool finishSaveSnapshot)
         => ScheduleMediaFingerprints(finishSaveSnapshot: finishSaveSnapshot);
@@ -140,6 +144,27 @@ public sealed partial class EditViewModel : IMediaRepairHost
         Renderer.Value.ClearAllCaches();
         FrameCacheManager.Value.Clear();
         Player.QueuePreviewRender();
+    }
+
+    internal void OnProjectAssetsRelinked(IEnumerable<CoreObject> savedDocuments)
+    {
+        if (_disposed) return;
+        ((IMediaRepairHost)this).ClearRenderCaches();
+        // A saved document can include other changed sources. Separately stored
+        // documents keep their previous media baseline until they are saved.
+        foreach (CoreObject document in savedDocuments)
+        {
+            CoreSerializer.Visit(document, visit =>
+            {
+                if (visit.Parent != null && visit.Value is CoreObject { Uri: not null })
+                    return CoreSerializationVisitAction.SkipChildren;
+                if (MissingMediaService.GetUri(visit.Value) is { IsFile: true } uri)
+                    _savedMediaUris.Add(uri.AbsoluteUri);
+                return CoreSerializationVisitAction.Continue;
+            });
+        }
+        ScheduleMediaFingerprints(force: true);
+        NotifyMissingMedia();
     }
 
     internal async Task OpenMissingMediaAsync(bool refresh = false)

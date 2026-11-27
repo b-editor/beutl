@@ -304,6 +304,12 @@ public class DockHostViewModel : IDisposable, IJsonSerializable, IToolDockHost
     /// this editor, so a layout captured elsewhere restores the arrangement only.
     /// </remarks>
     public bool ApplyLayout(JsonObject layout)
+        => ApplyLayout(layout, openDefaultTabs: true);
+
+    internal void InheritLayout(DockHostViewModel source)
+        => ApplyLayout(source.CaptureLayout(), openDefaultTabs: source.HasOpenTabs());
+
+    private bool ApplyLayout(JsonObject layout, bool openDefaultTabs)
     {
         _logger.LogInformation("Applying a saved dock layout ({SceneId})", _sceneId);
 
@@ -356,7 +362,7 @@ public class DockHostViewModel : IDisposable, IJsonSerializable, IToolDockHost
 
         DisposeAll(previousTools, "replaced");
 
-        if (!HasOpenTabs())
+        if (openDefaultTabs && !HasOpenTabs())
         {
             OpenDefaultTabs();
         }

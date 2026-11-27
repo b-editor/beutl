@@ -1,0 +1,105 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:vm="using:Beutl.Editor.Components.FileBrowserTab.ViewModels"
+             x:Class="Beutl.Editor.Components.FileBrowserTab.Views.ProjectAssetsView"
+             x:DataType="vm:ProjectAssetsViewModel"
+             x:CompileBindings="True">
+    <UserControl.Styles>
+        <Style Selector="TextBlock.secondary">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+        </Style>
+        <Style Selector="Border.assetItem">
+            <Setter Property="Padding" Value="8,6" />
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
+        <Style Selector="Border.assetItem:pointerover, Border.assetItem.selected">
+            <Setter Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
+        </Style>
+    </UserControl.Styles>
+
+    <Grid Margin="8,6" RowDefinitions="Auto,*,Auto" RowSpacing="6">
+        <StackPanel Spacing="4">
+            <TextBlock Text="{Binding Warning.Value}" FontSize="12" TextWrapping="Wrap"
+                       IsVisible="{Binding Warning.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                       Foreground="{DynamicResource SystemFillColorCautionBrush}" />
+
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="6" Margin="4,0">
+                <CheckBox Name="SelectAllAssets" IsThreeState="True" IsChecked="{Binding AllSelected.Value, Mode=OneWay}"
+                          IsEnabled="{Binding CanSelect.Value}" Click="OnToggleSelection"
+                          Content="{x:Static lang:Strings.SelectAll}" />
+                <TextBlock Grid.Column="1" Classes="secondary" Text="{Binding SelectionText.Value}" TextWrapping="NoWrap"
+                           TextTrimming="CharacterEllipsis" HorizontalAlignment="Right" VerticalAlignment="Center"
+                           ToolTip.Tip="{Binding SelectionText.Value}" />
+            </Grid>
+        </StackPanel>
+
+        <Border Grid.Row="1" Classes="options-group" ClipToBounds="True">
+            <Panel>
+                <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                    <ItemsRepeater Name="AssetList" ItemsSource="{Binding Rows.Value}" IsEnabled="{Binding CanEdit.Value}">
+                        <ItemsRepeater.ItemTemplate>
+                            <DataTemplate x:DataType="vm:ProjectAssetRow">
+                                <Border Classes="assetItem" Classes.selected="{Binding IsSelected}" Tapped="OnAssetRowTapped"
+                                        BorderThickness="0,0,0,1" BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}">
+                                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="6">
+                                        <CheckBox IsEnabled="{Binding CanSelect}" IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                                  VerticalAlignment="Top" AutomationProperties.Name="{Binding Name}" />
+                                        <StackPanel Grid.Column="1" Spacing="2">
+                                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="4">
+                                                <TextBlock Text="{Binding Name}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"
+                                                           ToolTip.Tip="{Binding Name}" />
+                                                <TextBlock Grid.Column="1" Classes="secondary" Text="{Binding Size}" VerticalAlignment="Center" />
+                                            </Grid>
+                                            <TextBlock Text="{Binding Source, StringFormat={x:Static lang:ProjectAssetsStrings.CurrentPath}}"
+                                                       Classes="secondary" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"
+                                                       ToolTip.Tip="{Binding SourcePaths}" />
+                                            <TextBlock Text="{Binding Destination, StringFormat={x:Static lang:ProjectAssetsStrings.Destination}}"
+                                                       Classes="secondary" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"
+                                                       ToolTip.Tip="{Binding DestinationPaths}" />
+                                            <TextBlock Text="{Binding Issue}" FontSize="12" TextWrapping="Wrap"
+                                                       IsVisible="{Binding Issue, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                                       Foreground="{DynamicResource SystemFillColorCautionBrush}" />
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsRepeater.ItemTemplate>
+                    </ItemsRepeater>
+                </ScrollViewer>
+                <TextBlock Text="{x:Static lang:ProjectAssetsStrings.NoAssets}" IsVisible="{Binding IsEmpty.Value}"
+                           HorizontalAlignment="Center" VerticalAlignment="Center" Margin="4"
+                           Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+            </Panel>
+        </Border>
+
+        <StackPanel Grid.Row="2" Spacing="6">
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="6"
+                  IsVisible="{Binding Status.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                <ui:FAProgressRing Width="14" Height="14" IsVisible="{Binding IsBusy.Value}" IsActive="{Binding IsBusy.Value}" />
+                <TextBlock Grid.Column="1" Text="{Binding Status.Value}" FontSize="12" TextWrapping="Wrap" />
+            </Grid>
+            <TextBlock Name="AssetError" Text="{Binding Error.Value}" FontSize="12" TextWrapping="Wrap"
+                       IsVisible="{Binding Error.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                       Foreground="{DynamicResource SystemFillColorCriticalBrush}">
+                <ToolTip.Tip>
+                    <TextBlock Text="{Binding ErrorDetails.Value}" IsVisible="{Binding ErrorDetails.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                               MaxWidth="420" TextWrapping="Wrap" />
+                </ToolTip.Tip>
+            </TextBlock>
+            <TextBlock Name="DeleteConfirmation" Text="{Binding DeleteConfirmation.Value}" FontSize="12" TextWrapping="Wrap"
+                       IsVisible="{Binding DeleteConfirmation.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                       Foreground="{DynamicResource SystemFillColorCautionBrush}" />
+            <Button Click="OnCancel" IsVisible="{Binding IsBusy.Value}" Content="{x:Static lang:Strings.Cancel}" />
+            <StackPanel Spacing="4" IsVisible="{Binding !IsBusy.Value}">
+                <Button Name="ApplyAssetsButton" Click="OnApply" Content="{Binding ApplyLabel.Value}" Classes="accent"
+                        IsEnabled="{Binding CanApply.Value}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+                <Button Name="SecondaryAssetsButton" Click="OnSecondary" Content="{Binding SecondaryLabel.Value}"
+                        IsVisible="{Binding SecondaryLabel.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                        IsEnabled="{Binding CanUseSecondary.Value}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+            </StackPanel>
+        </StackPanel>
+    </Grid>
+</UserControl>

@@ -33,7 +33,7 @@
                             EnableDoubleClickZoom="False"
                             ZoomSpeed="1.2">
                 <paz:ZoomBorder.ContextFlyout>
-                    <ui:FAMenuFlyout Opened="CanvasMenuOpened">
+                    <ui:FAMenuFlyout Opened="CanvasMenuOpened" Opening="CanvasMenuOpening">
                         <ui:FAMenuFlyoutSubItem x:Name="addNode"
                                                 IsEnabled="{Binding CanEdit.Value}"
                                                 Text="{x:Static lang:Strings.AddNode}" />
@@ -42,7 +42,7 @@
                                                 Text="{x:Static lang:NodeGraphStrings.Template_Templates}" />
                         <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="NodeGraph.ResetZoom"
                                              Click="ResetZoomClick"
-                                             Text="{x:Static lang:Strings.ResetZoom}" />
+                                             Text="{x:Static lang:Strings.ResetZoomMenu}" />
                         <ui:FAMenuFlyoutSeparator />
                         <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="NodeGraph.RunGenerative"
                                              Click="RunGenerativeClick"

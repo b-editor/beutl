@@ -394,8 +394,8 @@ public class SoundPannerEditorTests
             return AudioChannelLayout.Stereo;
         });
         Sound sound = probe.Object;
-        var project = new Project { ChannelLayout = { Value = layout } };
-        var scene = new Scene();
+        var project = new Project();
+        var scene = new Scene { ChannelLayout = { Value = layout } };
         var element = new Element { Objects = { sound } };
         scene.Children.Add(element);
         project.Items.Add(scene);
@@ -415,7 +415,7 @@ public class SoundPannerEditorTests
         Assert.That(vm.Pan.Value, Is.EqualTo(20));
         Assert.That(vm.SurroundPan.Value, Is.EqualTo(30));
 
-        project.ChannelLayout.Value = layout == SpeakerLayout.Surround51 ? SpeakerLayout.Surround71 : SpeakerLayout.Surround51;
+        scene.ChannelLayout.Value = layout == SpeakerLayout.Surround51 ? SpeakerLayout.Surround71 : SpeakerLayout.Surround51;
         Assert.That(calls, Is.EqualTo(initialCalls + 1));
     }
 
@@ -473,18 +473,18 @@ public class SoundPannerEditorTests
             HeadlessTestHelpers.Render();
             Assert.That(host.ViewModel.IsHorizontalOnly.Value, Is.False);
             Assert.That(positionControls.IsEffectivelyEnabled, Is.True);
-            host.Project.ChannelLayout.Value = SpeakerLayout.Mono;
+            host.Scene.ChannelLayout.Value = SpeakerLayout.Mono;
             HeadlessTestHelpers.Render();
             Assert.That(host.Panner.IsEffectivelyEnabled, Is.False);
             Assert.That(host.Editor.GetVisualDescendants().OfType<NumberEditor<float>>().All(n => !n.IsEffectivelyEnabled), Is.True);
             host.Drag(80, 90);
             Assert.That(host.Sound.Pan.Value, Is.Zero);
             Assert.That(host.Sound.SurroundPan.Value, Is.Zero);
-            host.Project.ChannelLayout.Value = SpeakerLayout.Stereo;
+            host.Scene.ChannelLayout.Value = SpeakerLayout.Stereo;
             HeadlessTestHelpers.Render();
             Assert.That(host.ViewModel.CanPan.Value, Is.True);
             Assert.That(positionControls.IsEffectivelyEnabled, Is.False);
-            host.Project.ChannelLayout.Value = SpeakerLayout.Surround71;
+            host.Scene.ChannelLayout.Value = SpeakerLayout.Surround71;
             HeadlessTestHelpers.Render();
             Assert.That(host.ViewModel.Layout.Value, Is.EqualTo(SpeakerLayout.Surround71));
             Assert.That(positionControls.IsEffectivelyEnabled, Is.True);
@@ -790,8 +790,8 @@ public class SoundPannerEditorTests
         try
         {
             WriteWave(path, channels);
-            var (project, scene, editor) = await TestShell.OpenNewSceneAsync("source-sound-properties");
-            project.ChannelLayout.Value = layout;
+            var (_, scene, editor) = await TestShell.OpenNewSceneAsync("source-sound-properties");
+            scene.ChannelLayout.Value = layout;
             var sound = new SourceSound
             {
                 Source = { Value = SoundSource.Open(path) },
@@ -894,10 +894,9 @@ public class SoundPannerEditorTests
             configure?.Invoke(Sound);
             var element = new Element { Start = { Value = MediaTime.FromSeconds(3) }, Length = { Value = MediaTime.FromSeconds(10) } };
             element.Objects.Add(Sound);
-            var scene = new Scene();
-            scene.Children.Add(element);
-            Project.Items.Add(scene);
-            Project.ChannelLayout.Value = layout;
+            Scene = new Scene { ChannelLayout = { Value = layout } };
+            Scene.Children.Add(element);
+            Project.Items.Add(Scene);
             _history = new PropertyEditorTestHost.HistoryScope(Sound);
             var contexts = new List<IPropertyEditorContext>();
             PropertyEditorResolver.CreateContexts(PannerAdapters(Sound).ToList(), Extensions, PropertyEditorSurface.Panel, contexts.Add);
@@ -929,6 +928,7 @@ public class SoundPannerEditorTests
         }
 
         public Project Project { get; } = new();
+        public Scene Scene { get; }
         public SourceSound Sound { get; }
         public ReactivePropertySlim<MediaTime> Time { get; } = new(MediaTime.FromSeconds(3));
         public HistoryManager History => _history.History;

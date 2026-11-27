@@ -491,7 +491,7 @@ public sealed class KeyFrameShorthandTests
             Assert.That(keyFrame.Value.Value, Is.EqualTo(-25));
             Assert.That(apply.Value!.Changes!.Select(change => change.Path), Has.None.Contains("Animations"));
             Assert.That(apply.Value.Validation, Has.None.Matches<ValidationOutcome>(outcome =>
-                outcome.Status is ValidationStatus.Coerced or ValidationStatus.Rejected));
+                outcome is { Status: ValidationStatus.Coerced or ValidationStatus.Rejected }));
         });
     }
 
@@ -523,7 +523,7 @@ public sealed class KeyFrameShorthandTests
             Assert.That(keyFrame.Value.Value, Is.EqualTo(-25));
             Assert.That(apply.Value!.Changes!.Select(change => change.Path), Has.None.EndsWith("/Value"));
             Assert.That(apply.Value.Validation, Has.None.Matches<ValidationOutcome>(outcome =>
-                outcome.Status is ValidationStatus.Coerced or ValidationStatus.Rejected));
+                outcome is { Status: ValidationStatus.Coerced or ValidationStatus.Rejected }));
         });
     }
 
@@ -557,7 +557,7 @@ public sealed class KeyFrameShorthandTests
             Assert.That(secondKeyFrame.Value.Value, Is.EqualTo(secondOpacity));
             Assert.That(apply.Value!.Changes!.Select(change => change.Path), Has.None.Contains("Animations"));
             Assert.That(apply.Value.Validation, Has.None.Matches<ValidationOutcome>(outcome =>
-                outcome.Status is ValidationStatus.Coerced or ValidationStatus.Rejected));
+                outcome is { Status: ValidationStatus.Coerced or ValidationStatus.Rejected }));
         });
     }
 
@@ -654,11 +654,11 @@ public sealed class KeyFrameShorthandTests
         {
             Assert.That(apply.IsSuccess, Is.True, apply.Error?.Message);
             Assert.That(apply.Value!.Validation, Has.One.Matches<ValidationOutcome>(outcome =>
-                outcome.Status == ValidationStatus.Warning
-                && outcome.Message!.Contains("00:00:03", StringComparison.Ordinal)
-                && outcome.Message.Contains("outside Element", StringComparison.Ordinal)
-                && outcome.Message.Contains("UseGlobalClock=false", StringComparison.Ordinal)
-                && outcome.Hint!.Contains("UseGlobalClock=true", StringComparison.Ordinal)));
+                outcome is { Status: ValidationStatus.Warning, Message: { } message, Hint: { } hint }
+                && message.Contains("00:00:03", StringComparison.Ordinal)
+                && message.Contains("outside Element", StringComparison.Ordinal)
+                && message.Contains("UseGlobalClock=false", StringComparison.Ordinal)
+                && hint.Contains("UseGlobalClock=true", StringComparison.Ordinal)));
         });
     }
 
@@ -676,8 +676,8 @@ public sealed class KeyFrameShorthandTests
 
         Assert.That(apply.IsSuccess, Is.True, apply.Error?.Message);
         Assert.That(apply.Value!.Validation, Has.One.Matches<ValidationOutcome>(outcome =>
-            outcome.Status == ValidationStatus.Warning
-            && outcome.Message!.Contains("00:00:03", StringComparison.Ordinal)));
+            outcome is { Status: ValidationStatus.Warning, Message: { } message }
+            && message.Contains("00:00:03", StringComparison.Ordinal)));
     }
 
     private static IKeyFrameAnimation RequireOpacityAnimation(Scene scene)

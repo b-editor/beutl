@@ -24,6 +24,7 @@ public partial class KeyFrame : Hierarchical
         static (_, e) => ((KeyFrame)e.Property.GetOwnerObject()!).OnKeyTimeChanged();
     private Easing? _lossyFallbackEasing;
     private JsonNode? _lossyFallbackEasingJson;
+    private (FallbackReason Reason, string? TypeName, string Message) _lossyEasingFailure;
 
     protected KeyFrame()
     {
@@ -40,6 +41,11 @@ public partial class KeyFrame : Hierarchical
 
     [NotAutoSerialized]
     internal bool HasLossyEasing => ReferenceEquals(Easing.Value, _lossyFallbackEasing);
+
+    internal JsonNode? LossyEasingJson => HasLossyEasing ? _lossyFallbackEasingJson : null;
+
+    internal (FallbackReason Reason, string? TypeName, string Message)? LossyEasingFailure
+        => HasLossyEasing ? _lossyEasingFailure : null;
 
     private protected virtual void OnEasingChanged()
     {
@@ -171,7 +177,7 @@ public partial class KeyFrame : Hierarchical
             UseFallbackEasing(
                 easingNode,
                 FallbackReason.DeserializationFailed,
-                null,
+                easingObject.TryGetPropertyValueAsJsonValue("$type", out string? name) ? name : null,
                 "The spline easing object does not contain four valid control-point values.");
         }
     }
@@ -202,9 +208,10 @@ public partial class KeyFrame : Hierarchical
         string? typeName,
         string message)
     {
-        DeserializationIncidents.RecordFallback(reason, typeName, message);
+        DeserializationIncidents.RecordFallback(reason, typeName, message, this);
         _lossyFallbackEasing = new LinearEasing();
         _lossyFallbackEasingJson = originalJson?.DeepClone();
+        _lossyEasingFailure = (reason, typeName, message);
         Easing.Value = _lossyFallbackEasing;
     }
 

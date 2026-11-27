@@ -19,7 +19,7 @@ public class ReferencePropertiesTests
     [TestCase(typeof(BrushPresenter), "Target", typeof(Brush))]
     public void ForOwner_ReadsTheDeclaredReference(Type ownerType, string name, Type referencedType)
     {
-        IReadOnlyList<ReferencePropertyDescriptor> descriptors = ReferenceProperties.ForOwner(ownerType);
+        IReadOnlyList<ReferencePropertyDescriptor>? descriptors = ReferenceProperties.ForOwner(ownerType);
 
         Assert.That(descriptors, Is.EqualTo(new[] { new ReferencePropertyDescriptor(name, referencedType) }));
     }

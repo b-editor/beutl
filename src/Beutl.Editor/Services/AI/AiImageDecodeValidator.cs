@@ -8,7 +8,7 @@ internal static class AiImageDecodeValidator
     internal const int MaxDimension = 8_192;
     internal const long MaxPixels = 16_777_216;
 
-    public static void ValidateEncoded(Stream encoded, long maxEncodedBytes)
+    public static (int Width, int Height) ValidateEncoded(Stream encoded, long maxEncodedBytes)
     {
         ArgumentNullException.ThrowIfNull(encoded);
         if (maxEncodedBytes < 0)
@@ -26,6 +26,7 @@ internal static class AiImageDecodeValidator
             using SKCodec codec = SKCodec.Create(data)
                 ?? throw new InvalidDataException("Failed to inspect the AI image.");
             Validate(codec.Info);
+            return (codec.Info.Width, codec.Info.Height);
         }
         finally
         {

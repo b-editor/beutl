@@ -1,0 +1,747 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <data name="Title" xml:space="preserve">
+    <value>エージェント</value>
+  </data>
+  <data name="ThreadPicker" xml:space="preserve">
+    <value>スレッド</value>
+  </data>
+  <data name="NewThread" xml:space="preserve">
+    <value>新しいスレッド</value>
+  </data>
+  <data name="RenameThread" xml:space="preserve">
+    <value>スレッド名を変更</value>
+  </data>
+  <data name="ThreadName" xml:space="preserve">
+    <value>スレッド名</value>
+  </data>
+  <data name="DeleteThread" xml:space="preserve">
+    <value>スレッドを削除</value>
+  </data>
+  <data name="DeleteConfirm" xml:space="preserve">
+    <value>このスレッドと会話履歴を削除しますか？</value>
+  </data>
+  <data name="Save" xml:space="preserve">
+    <value>保存</value>
+  </data>
+  <data name="Delete" xml:space="preserve">
+    <value>削除</value>
+  </data>
+  <data name="Cancel" xml:space="preserve">
+    <value>キャンセル</value>
+  </data>
+  <data name="Provider" xml:space="preserve">
+    <value>プロバイダー</value>
+  </data>
+  <data name="ProviderAvailable" xml:space="preserve">
+    <value>利用可能</value>
+  </data>
+  <data name="ProviderUnavailable" xml:space="preserve">
+    <value>利用不可</value>
+  </data>
+  <data name="PermissionMode" xml:space="preserve">
+    <value>権限モード</value>
+  </data>
+  <data name="Supervised" xml:space="preserve">
+    <value>承認が必要</value>
+  </data>
+  <data name="AutoAcceptEdits" xml:space="preserve">
+    <value>編集を自動承認</value>
+  </data>
+  <data name="Auto" xml:space="preserve">
+    <value>自動</value>
+  </data>
+  <data name="FullAccess" xml:space="preserve">
+    <value>フルアクセス</value>
+  </data>
+  <data name="FollowEdits" xml:space="preserve">
+    <value>ライブ編集に追従</value>
+  </data>
+  <data name="SceneContext" xml:space="preserve">
+    <value>シーン情報</value>
+  </data>
+  <data name="SceneContextTooltip" xml:space="preserve">
+    <value>シーン・再生位置・選択項目を含める</value>
+  </data>
+  <data name="CurrentFrame" xml:space="preserve">
+    <value>現在のフレーム</value>
+  </data>
+  <data name="AttachCurrentFrame" xml:space="preserve">
+    <value>現在のフレームを添付</value>
+  </data>
+  <data name="AttachFile" xml:space="preserve">
+    <value>ファイルを追加</value>
+  </data>
+  <data name="RemoveAttachment" xml:space="preserve">
+    <value>添付を解除</value>
+  </data>
+  <data name="Prompt" xml:space="preserve">
+    <value>エージェントへのメッセージ…</value>
+  </data>
+  <data name="Send" xml:space="preserve">
+    <value>送信</value>
+  </data>
+  <data name="Stop" xml:space="preserve">
+    <value>停止</value>
+  </data>
+  <data name="Thinking" xml:space="preserve">
+    <value>思考</value>
+  </data>
+  <data name="Tool" xml:space="preserve">
+    <value>ツール</value>
+  </data>
+  <data name="ToolInput" xml:space="preserve">
+    <value>入力</value>
+  </data>
+  <data name="ToolOutput" xml:space="preserve">
+    <value>出力</value>
+  </data>
+  <data name="Plan" xml:space="preserve">
+    <value>計画</value>
+  </data>
+  <data name="Pending" xml:space="preserve">
+    <value>待機中</value>
+  </data>
+  <data name="Running" xml:space="preserve">
+    <value>実行中</value>
+  </data>
+  <data name="Completed" xml:space="preserve">
+    <value>完了</value>
+  </data>
+  <data name="Failed" xml:space="preserve">
+    <value>失敗</value>
+  </data>
+  <data name="Stopped" xml:space="preserve">
+    <value>停止</value>
+  </data>
+  <data name="ToolImageUnavailable" xml:space="preserve">
+    <value>画像のプレビューを表示できません。</value>
+  </data>
+  <data name="PermissionRequest" xml:space="preserve">
+    <value>承認が必要</value>
+  </data>
+  <data name="AllowOnce" xml:space="preserve">
+    <value>今回だけ許可</value>
+  </data>
+  <data name="AllowAlways" xml:space="preserve">
+    <value>セッション中許可</value>
+  </data>
+  <data name="RejectOnce" xml:space="preserve">
+    <value>今回だけ拒否</value>
+  </data>
+  <data name="RejectAlways" xml:space="preserve">
+    <value>常に拒否</value>
+  </data>
+  <data name="RequestClosed" xml:space="preserve">
+    <value>リクエスト終了</value>
+  </data>
+  <data name="Question" xml:space="preserve">
+    <value>入力が必要</value>
+  </data>
+  <data name="ChooseOption" xml:space="preserve">
+    <value>選択肢を選ぶ</value>
+  </data>
+  <data name="YourAnswer" xml:space="preserve">
+    <value>回答を入力</value>
+  </data>
+  <data name="Submit" xml:space="preserve">
+    <value>回答する</value>
+  </data>
+  <data name="Answered" xml:space="preserve">
+    <value>回答済み</value>
+  </data>
+  <data name="TurnEditCount" xml:space="preserve">
+    <value>このターンのシーン編集: {0} 件</value>
+  </data>
+  <data name="RevertTurn" xml:space="preserve">
+    <value>元に戻す</value>
+  </data>
+  <data name="TurnReverted" xml:space="preserve">
+    <value>ターンを元に戻しました。</value>
+  </data>
+  <data name="HistoryChanged" xml:space="preserve">
+    <value>シーンの履歴が変わったため、このターンをまとめて元に戻せません。</value>
+  </data>
+  <data name="RevertUnavailable" xml:space="preserve">
+    <value>元のエディターセッションを利用できません。</value>
+  </data>
+  <data name="TurnStopped" xml:space="preserve">
+    <value>ターンを停止しました。</value>
+  </data>
+  <data name="HistorySaveFailed" xml:space="preserve">
+    <value>ターンの編集件数を保存できませんでした。</value>
+  </data>
+  <data name="EditorUnavailable" xml:space="preserve">
+    <value>シーンエディターを利用できません。</value>
+  </data>
+  <data name="ThreadBusy" xml:space="preserve">
+    <value>このスレッドはすでに実行中です。</value>
+  </data>
+  <data name="FrameCaptureFailed" xml:space="preserve">
+    <value>現在のフレームを保存できませんでした。</value>
+  </data>
+  <data name="McpLauncherMissing" xml:space="preserve">
+    <value>Beutl MCP ランチャーが見つかりませんでした。</value>
+  </data>
+  <data name="McpNotReady" xml:space="preserve">
+    <value>Live MCP の起動を待っています。エージェントは引き続き実行できます。</value>
+  </data>
+  <data name="TurnFailed" xml:space="preserve">
+    <value>エージェントのターンが失敗しました。</value>
+  </data>
+  <data name="ThreadActions" xml:space="preserve">
+    <value>スレッドの操作</value>
+  </data>
+  <data name="SearchThreads" xml:space="preserve">
+    <value>会話を検索…</value>
+  </data>
+  <data name="NoThreadsFound" xml:space="preserve">
+    <value>会話が見つかりません。</value>
+  </data>
+  <data name="RefreshThreads" xml:space="preserve">
+    <value>会話一覧を更新</value>
+  </data>
+  <data name="RecentThreads" xml:space="preserve">
+    <value>最近の会話</value>
+  </data>
+  <data name="ProviderLocked" xml:space="preserve">
+    <value>この会話では開始時のプロバイダーを使用します。</value>
+  </data>
+  <data name="NoProvider" xml:space="preserve">
+    <value>プロバイダーが選択されていません</value>
+  </data>
+  <data name="SupervisedDescription" xml:space="preserve">
+    <value>コマンド実行やファイル変更の前に確認します。</value>
+  </data>
+  <data name="AutoAcceptEditsDescription" xml:space="preserve">
+    <value>編集は自動で承認し、その他の操作は確認します。</value>
+  </data>
+  <data name="AutoDescription" xml:space="preserve">
+    <value>対応プロバイダーでは通常操作を自動承認し、その他は確認します。</value>
+  </data>
+  <data name="FullAccessDescription" xml:space="preserve">
+    <value>確認なしでコマンド実行や編集を許可します。</value>
+  </data>
+  <data name="EmptyTitle" xml:space="preserve">
+    <value>何を編集しますか？</value>
+  </data>
+  <data name="StarterReviewFrame" xml:space="preserve">
+    <value>現在のフレームを確認</value>
+  </data>
+  <data name="StarterReviewFramePrompt" xml:space="preserve">
+    <value>再生位置のフレームを確認して、構図を改善する案を提案してください。</value>
+  </data>
+  <data name="StarterSuggestCuts" xml:space="preserve">
+    <value>カット位置を探す</value>
+  </data>
+  <data name="StarterSuggestCutsPrompt" xml:space="preserve">
+    <value>このシーンを確認して、テンポが良くなるカット位置を提案してください。</value>
+  </data>
+  <data name="StarterRefineTitle" xml:space="preserve">
+    <value>タイトルを整える</value>
+  </data>
+  <data name="StarterRefineTitlePrompt" xml:space="preserve">
+    <value>冒頭のタイトルを確認して、配置とアニメーションの改善案を提案してください。</value>
+  </data>
+  <data name="RunningPrompt" xml:space="preserve">
+    <value>続けてメッセージを入力</value>
+  </data>
+  <data name="Working" xml:space="preserve">
+    <value>応答を生成中…</value>
+  </data>
+  <data name="CopyResponse" xml:space="preserve">
+    <value>応答をコピー</value>
+  </data>
+  <data name="ComposerAdd" xml:space="preserve">
+    <value>追加</value>
+  </data>
+  <data name="AttachSceneContext" xml:space="preserve">
+    <value>シーン情報を添付</value>
+  </data>
+  <data name="RemoveSceneContext" xml:space="preserve">
+    <value>シーン情報の添付を解除</value>
+  </data>
+  <data name="ModelPicker" xml:space="preserve">
+    <value>モデルを選択</value>
+  </data>
+  <data name="ModelSearch" xml:space="preserve">
+    <value>モデルを検索…</value>
+  </data>
+  <data name="ModelProviderDefault" xml:space="preserve">
+    <value>プロバイダーの既定</value>
+  </data>
+  <data name="ModelShowMore" xml:space="preserve">
+    <value>さらに表示</value>
+  </data>
+  <data name="UseCustomModel" xml:space="preserve">
+    <value>「{0}」を使用</value>
+  </data>
+  <data name="ReasoningEffort" xml:space="preserve">
+    <value>Reasoning</value>
+  </data>
+  <data name="EffortDefault" xml:space="preserve">
+    <value>デフォルト</value>
+  </data>
+  <data name="EffortUnavailable" xml:space="preserve">
+    <value>推論レベルを変更できません</value>
+  </data>
+  <data name="EffortNone" xml:space="preserve">
+    <value>None</value>
+  </data>
+  <data name="EffortMinimal" xml:space="preserve">
+    <value>Minimal</value>
+  </data>
+  <data name="EffortLow" xml:space="preserve">
+    <value>Low</value>
+  </data>
+  <data name="EffortMedium" xml:space="preserve">
+    <value>Medium</value>
+  </data>
+  <data name="EffortHigh" xml:space="preserve">
+    <value>High</value>
+  </data>
+  <data name="EffortExtraHigh" xml:space="preserve">
+    <value>Extra High</value>
+  </data>
+  <data name="EffortMax" xml:space="preserve">
+    <value>Max</value>
+  </data>
+  <data name="EffortUltra" xml:space="preserve">
+    <value>Ultra</value>
+  </data>
+  <data name="AllowToolQuestion" xml:space="preserve">
+    <value>「{0}」の実行を許可しますか？</value>
+  </data>
+  <data name="ApprovalAllowOnce" xml:space="preserve">
+    <value>今回だけ許可</value>
+  </data>
+  <data name="ApprovalAllowAlways" xml:space="preserve">
+    <value>セッション中は常に許可</value>
+  </data>
+  <data name="ApprovalReject" xml:space="preserve">
+    <value>拒否</value>
+  </data>
+  <data name="ApprovalSubmit" xml:space="preserve">
+    <value>確定</value>
+  </data>
+  <data name="QuestionOther" xml:space="preserve">
+    <value>その他</value>
+  </data>
+  <data name="QuestionBack" xml:space="preserve">
+    <value>戻る</value>
+  </data>
+  <data name="QuestionSkip" xml:space="preserve">
+    <value>スキップ</value>
+  </data>
+  <data name="QuestionSkipped" xml:space="preserve">
+    <value>スキップ済み</value>
+  </data>
+  <data name="QuestionNext" xml:space="preserve">
+    <value>次へ</value>
+  </data>
+  <data name="Subagent" xml:space="preserve">
+    <value>サブエージェント</value>
+  </data>
+  <data name="Subagents" xml:space="preserve">
+    <value>サブエージェント</value>
+  </data>
+  <data name="SubagentToolCount" xml:space="preserve">
+    <value>子ツールの呼び出し {0} 件</value>
+  </data>
+  <data name="BackgroundCommand" xml:space="preserve">
+    <value>バックグラウンドコマンド</value>
+  </data>
+  <data name="BackgroundCommands" xml:space="preserve">
+    <value>バックグラウンドコマンド</value>
+  </data>
+  <data name="BackgroundWork" xml:space="preserve">
+    <value>バックグラウンド作業</value>
+  </data>
+  <data name="SuggestionCommand" xml:space="preserve">
+    <value>コマンド</value>
+  </data>
+  <data name="SuggestionSkill" xml:space="preserve">
+    <value>スキル</value>
+  </data>
+  <data name="ComposerSuggestions" xml:space="preserve">
+    <value>コマンドとスキル</value>
+  </data>
+  <data name="QueuedMessages" xml:space="preserve">
+    <value>送信待ちのメッセージ</value>
+  </data>
+  <data name="QueueMessage" xml:space="preserve">
+    <value>送信キューに追加</value>
+  </data>
+  <data name="SendQueuedMessage" xml:space="preserve">
+    <value>今すぐ送信</value>
+  </data>
+  <data name="SteerNow" xml:space="preserve">
+    <value>今すぐ介入</value>
+  </data>
+  <data name="SteerPromptShortcut" xml:space="preserve">
+    <value>実行中のターンに介入 ({0})</value>
+  </data>
+  <data name="EditQueuedMessage" xml:space="preserve">
+    <value>送信待ちのメッセージを編集</value>
+  </data>
+  <data name="RemoveQueuedMessage" xml:space="preserve">
+    <value>送信キューから削除</value>
+  </data>
+  <data name="ApprovalQueuePosition" xml:space="preserve">
+    <value>{0} / {1}</value>
+  </data>
+  <data name="PreviousApproval" xml:space="preserve">
+    <value>前の承認リクエスト</value>
+  </data>
+  <data name="NextApproval" xml:space="preserve">
+    <value>次の承認リクエスト</value>
+  </data>
+  <data name="ThreadNeedsAttention" xml:space="preserve">
+    <value>応答待ち</value>
+  </data>
+  <data name="SteerFailed" xml:space="preserve">
+    <value>ターンに介入できませんでした。メッセージは送信キューに残っています。</value>
+  </data>
+  <data name="ReorderQueuedMessage" xml:space="preserve">
+    <value>メッセージを並べ替え</value>
+  </data>
+  <data name="ReorderQueuedMessageHint" xml:space="preserve">
+    <value>ドラッグまたは ↑・↓ で並べ替え</value>
+  </data>
+  <data name="ActiveRunSendAction" xml:space="preserve">
+    <value>ターン実行中の送信</value>
+  </data>
+  <data name="QueuePromptShortcut" xml:space="preserve">
+    <value>追加のメッセージをキューに入れる ({0})</value>
+  </data>
+  <data name="MentionScene" xml:space="preserve">
+    <value>シーン</value>
+  </data>
+  <data name="MentionElement" xml:space="preserve">
+    <value>要素</value>
+  </data>
+  <data name="MentionFile" xml:space="preserve">
+    <value>ファイル</value>
+  </data>
+  <data name="MentionSceneDetail" xml:space="preserve">
+    <value>{0} × {1} · {2:0.##} fps · {3:0.##} 秒</value>
+  </data>
+  <data name="MentionElementDetail" xml:space="preserve">
+    <value>{0:0.###}–{1:0.###} 秒 · レイヤー {2}</value>
+  </data>
+  <data name="PastedImage" xml:space="preserve">
+    <value>貼り付け画像</value>
+  </data>
+  <data name="PastedText" xml:space="preserve">
+    <value>貼り付けテキスト</value>
+  </data>
+  <data name="PastedTextDetail" xml:space="preserve">
+    <value>{0:N0} 行 · {1:N0} 文字</value>
+  </data>
+  <data name="PasteFailed" xml:space="preserve">
+    <value>クリップボードから貼り付けできませんでした。</value>
+  </data>
+  <data name="CopyMessage" xml:space="preserve">
+    <value>メッセージをコピー</value>
+  </data>
+  <data name="EditFromHere" xml:space="preserve">
+    <value>ここから編集</value>
+  </data>
+  <data name="ForkFromHere" xml:space="preserve">
+    <value>ここから分岐</value>
+  </data>
+  <data name="ForkedThreadTitle" xml:space="preserve">
+    <value>{0} の分岐</value>
+  </data>
+  <data name="RetryTurn" xml:space="preserve">
+    <value>応答を再生成</value>
+  </data>
+  <data name="ScrollToBottom" xml:space="preserve">
+    <value>最下部へ移動</value>
+  </data>
+  <data name="ThinkingInProgress" xml:space="preserve">
+    <value>思考中…</value>
+  </data>
+  <data name="ThinkingForSeconds" xml:space="preserve">
+    <value>思考中… {0:0}秒</value>
+  </data>
+  <data name="ThoughtForSeconds" xml:space="preserve">
+    <value>{0:0.#}秒間思考</value>
+  </data>
+  <data name="RunningTool" xml:space="preserve">
+    <value>{0} を実行中…</value>
+  </data>
+  <data name="CompactingContext" xml:space="preserve">
+    <value>コンテキストを圧縮中…</value>
+  </data>
+  <data name="RetryingTurn" xml:space="preserve">
+    <value>再試行中…</value>
+  </data>
+  <data name="TurnDuration" xml:space="preserve">
+    <value>{0:0.#}秒</value>
+  </data>
+  <data name="TurnTokens" xml:space="preserve">
+    <value>{0} トークン</value>
+  </data>
+  <data name="TokensThousands" xml:space="preserve">
+    <value>{0:0.#}k</value>
+  </data>
+  <data name="TokensMillions" xml:space="preserve">
+    <value>{0:0.#}M</value>
+  </data>
+  <data name="TurnInputTokens" xml:space="preserve">
+    <value>入力トークン · {0}</value>
+  </data>
+  <data name="TurnOutputTokens" xml:space="preserve">
+    <value>出力トークン · {0}</value>
+  </data>
+  <data name="TurnCachedInputTokens" xml:space="preserve">
+    <value>キャッシュ済み入力トークン · {0}</value>
+  </data>
+  <data name="ToolGroupChecks" xml:space="preserve">
+    <value>{0:N0} 件の確認</value>
+  </data>
+  <data name="MoreHistoryChanges" xml:space="preserve">
+    <value>ほか {0:N0} 件の変更</value>
+  </data>
+  <data name="CopyCode" xml:space="preserve">
+    <value>コードをコピー</value>
+  </data>
+  <data name="WrapCode" xml:space="preserve">
+    <value>コードを折り返す</value>
+  </data>
+  <data name="OpenImagePreview" xml:space="preserve">
+    <value>画像プレビューを開く</value>
+  </data>
+  <data name="ImagePreview" xml:space="preserve">
+    <value>画像プレビュー</value>
+  </data>
+  <data name="ImageDimensions" xml:space="preserve">
+    <value>{0:N0} × {1:N0} px</value>
+  </data>
+  <data name="CloseImagePreview" xml:space="preserve">
+    <value>プレビューを閉じる</value>
+  </data>
+  <data name="ZoomImageIn" xml:space="preserve">
+    <value>拡大</value>
+  </data>
+  <data name="ZoomImageOut" xml:space="preserve">
+    <value>縮小</value>
+  </data>
+  <data name="FitImage" xml:space="preserve">
+    <value>全体表示</value>
+  </data>
+  <data name="FitImageTooltip" xml:space="preserve">
+    <value>画像をウィンドウに合わせる</value>
+  </data>
+  <data name="ActualImageSize" xml:space="preserve">
+    <value>原寸で表示</value>
+  </data>
+  <data name="CopyImage" xml:space="preserve">
+    <value>画像をコピー</value>
+  </data>
+  <data name="CopyImagePath" xml:space="preserve">
+    <value>画像のパスをコピー</value>
+  </data>
+  <data name="StopTurn" xml:space="preserve">
+    <value>ターンを停止</value>
+  </data>
+  <data name="StopBackgroundTask" xml:space="preserve">
+    <value>タスクを停止</value>
+  </data>
+  <data name="StopBackgroundTaskFailed" xml:space="preserve">
+    <value>タスクを停止できませんでした。</value>
+  </data>
+  <data name="TurnWorkingFor" xml:space="preserve">
+    <value>作業中 {0}</value>
+  </data>
+  <data name="TurnWorkedFor" xml:space="preserve">
+    <value>{0}作業しました</value>
+  </data>
+  <data name="TurnDurationMinutes" xml:space="preserve">
+    <value>{0}分{1}秒</value>
+  </data>
+  <data name="TurnDurationHours" xml:space="preserve">
+    <value>{0}時間{1}分{2}秒</value>
+  </data>
+  <data name="ModelChangeNotice" xml:space="preserve">
+    <value>モデル変更 · {0} → {1}</value>
+  </data>
+  <data name="EffortChangeNotice" xml:space="preserve">
+    <value>エフォート変更 · {0} → {1}</value>
+  </data>
+  <data name="ContextCompacted" xml:space="preserve">
+    <value>コンテキストを圧縮しました</value>
+  </data>
+  <data name="ContextMeterSummary" xml:space="preserve">
+    <value>コンテキスト · {0} / {1}（{2}）</value>
+  </data>
+  <data name="CompactContext" xml:space="preserve">
+    <value>コンテキストを圧縮</value>
+  </data>
+  <data name="ClearContext" xml:space="preserve">
+    <value>コンテキストをクリア</value>
+  </data>
+  <data name="ContextCleared" xml:space="preserve">
+    <value>コンテキストをクリアしました</value>
+  </data>
+  <data name="ProviderChangeNotice" xml:space="preserve">
+    <value>プロバイダ変更 · {0} → {1}</value>
+  </data>
+  <data name="PinThread" xml:space="preserve">
+    <value>スレッドをピン留め</value>
+  </data>
+  <data name="UnpinThread" xml:space="preserve">
+    <value>ピン留めを解除</value>
+  </data>
+  <data name="ArchiveThread" xml:space="preserve">
+    <value>スレッドをアーカイブ</value>
+  </data>
+  <data name="UnarchiveThread" xml:space="preserve">
+    <value>アーカイブを解除</value>
+  </data>
+  <data name="ShowArchivedThreads" xml:space="preserve">
+    <value>アーカイブを表示</value>
+  </data>
+  <data name="ArchivedThread" xml:space="preserve">
+    <value>アーカイブ済み</value>
+  </data>
+  <data name="UnreadThread" xml:space="preserve">
+    <value>未読</value>
+  </data>
+  <data name="RegenerateThreadTitle" xml:space="preserve">
+    <value>タイトルを再生成</value>
+  </data>
+  <data name="ForkThread" xml:space="preserve">
+    <value>スレッドを分岐</value>
+  </data>
+  <data name="CompactionFailed" xml:space="preserve">
+    <value>コンテキストを圧縮できませんでした。</value>
+  </data>
+  <data name="ToolGroupCommands" xml:space="preserve">
+    <value>{0} 件のコマンドを実行しました</value>
+  </data>
+  <data name="ToolGroupMixed" xml:space="preserve">
+    <value>コマンド {0} 件・ツール {1} 件</value>
+  </data>
+  <data name="ToolGroupTools" xml:space="preserve">
+    <value>{0} 件のツールを実行しました</value>
+  </data>
+  <data name="ToolGroupFailures" xml:space="preserve">
+    <value>一部失敗</value>
+  </data>
+  <data name="AttentionTabHeader" xml:space="preserve">
+    <value>! {0}</value>
+  </data>
+  <data name="UnreadTabHeader" xml:space="preserve">
+    <value>• {0}</value>
+  </data>
+  <data name="BackgroundThreadActivity" xml:space="preserve">
+    <value>ほかのスレッドに新しいアクティビティがあります</value>
+  </data>
+  <data name="NotificationApproval" xml:space="preserve">
+    <value>エージェントが承認を求めています</value>
+  </data>
+  <data name="NotificationQuestion" xml:space="preserve">
+    <value>エージェントが回答を待っています</value>
+  </data>
+  <data name="NotificationCompleted" xml:space="preserve">
+    <value>エージェントの作業が完了しました</value>
+  </data>
+  <data name="ShortcutTooltip" xml:space="preserve">
+    <value>{0}（{1}）</value>
+  </data>
+  <data name="StopShortcutKeys" xml:space="preserve">
+    <value>Esc を2回</value>
+  </data>
+  <data name="EscapeStopHint" xml:space="preserve">
+    <value>もう一度 Esc で停止</value>
+  </data>
+  <data name="ProviderOutdatedVersion" xml:space="preserve">
+    <value>v{0} · 更新が必要</value>
+  </data>
+  <data name="ProviderAvailableVersion" xml:space="preserve">
+    <value>v{0}</value>
+  </data>
+  <data name="DiagnosticCliMissing" xml:space="preserve">
+    <value>CLI が見つかりません</value>
+  </data>
+  <data name="DiagnosticAuthRequired" xml:space="preserve">
+    <value>ログインが必要です</value>
+  </data>
+  <data name="DiagnosticOutdatedCli" xml:space="preserve">
+    <value>CLI の更新が必要です</value>
+  </data>
+  <data name="DiagnosticRateLimited" xml:space="preserve">
+    <value>プロバイダーの利用上限に達しました</value>
+  </data>
+  <data name="DiagnosticMcpUnavailable" xml:space="preserve">
+    <value>Beutl MCP を利用できません</value>
+  </data>
+  <data name="DiagnosticGeneric" xml:space="preserve">
+    <value>エージェントでエラーが発生しました</value>
+  </data>
+  <data name="DiagnosticInstall" xml:space="preserve">
+    <value>ターミナルで {0} をインストールし、再確認してください。</value>
+  </data>
+  <data name="DiagnosticExecutablePath" xml:space="preserve">
+    <value>エージェント設定で {0} の実行ファイルのパスを確認してください。</value>
+  </data>
+  <data name="DiagnosticSignIn" xml:space="preserve">
+    <value>ターミナルで {0} にログインし、再確認してください。</value>
+  </data>
+  <data name="DiagnosticCredentials" xml:space="preserve">
+    <value>{0} の認証情報を確認してください。</value>
+  </data>
+  <data name="DiagnosticVersion" xml:space="preserve">
+    <value>{0} v{1} を v{2} 以降に更新してから、再確認してください。</value>
+  </data>
+  <data name="DiagnosticUpdate" xml:space="preserve">
+    <value>{0} を対応バージョンに更新し、再確認してください。</value>
+  </data>
+  <data name="DiagnosticRetryLater" xml:space="preserve">
+    <value>時間をおいて再試行するか、別のモデルやプロバイダーを選んでください。</value>
+  </data>
+  <data name="DiagnosticCheckMcp" xml:space="preserve">
+    <value>エージェント設定を開き、Beutl MCP の構成を確認してください。</value>
+  </data>
+  <data name="DiagnosticReviewDetails" xml:space="preserve">
+    <value>技術的な詳細を確認し、再試行してください。</value>
+  </data>
+  <data name="DiagnosticDismiss" xml:space="preserve">
+    <value>閉じる</value>
+  </data>
+  <data name="DiagnosticCopyCommand" xml:space="preserve">
+    <value>コマンドをコピー</value>
+  </data>
+  <data name="DiagnosticOpenSettings" xml:space="preserve">
+    <value>設定を開く</value>
+  </data>
+  <data name="DiagnosticOpenAiAgentSettings" xml:space="preserve">
+    <value>エージェント設定を開く</value>
+  </data>
+  <data name="DiagnosticRecheck" xml:space="preserve">
+    <value>再確認</value>
+  </data>
+  <data name="DiagnosticTechnicalDetails" xml:space="preserve">
+    <value>技術的な詳細</value>
+  </data>
+  <data name="SendToAgent" xml:space="preserve">
+    <value>エージェントに送る</value>
+  </data>
+  <data name="SendFrameToAgent" xml:space="preserve">
+    <value>現在のフレームをエージェントに送る</value>
+  </data>
+  <data name="MentionObject" xml:space="preserve">
+    <value>オブジェクト</value>
+  </data>
+  <data name="LinkUnavailable" xml:space="preserve">
+    <value>リンク先が見つからないか、開けませんでした。</value>
+  </data>
+</root>

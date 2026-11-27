@@ -1,10 +1,8 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Beutl.Editor.Components.Helpers;
-using Beutl.Editor.Components.SceneSettingsTab.ViewModels;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Services;
-using Beutl.Engine;
 using Beutl.Services;
 using FluentAvalonia.UI.Controls;
 using Microsoft.Extensions.DependencyInjection;
@@ -83,11 +81,11 @@ public sealed partial class TimelineTabView
 
     private static void AddEngineObjectAtClick(TimelineTabViewModel viewModel, Type type)
     {
-        viewModel.AddElement.Execute(new ElementDescription(
+        viewModel.AddElement.Execute(LibraryElementDescription.Create(
+            type,
             viewModel.ClickedFrame,
             s_defaultElementLength,
-            viewModel.CalculateClickedLayer(),
-            new ElementSource.EngineObject(() => (EngineObject)Activator.CreateInstance(type)!)));
+            viewModel.CalculateClickedLayer()));
     }
 
     private void AddAdjustmentLayerClick(object? sender, RoutedEventArgs e)
@@ -130,16 +128,9 @@ public sealed partial class TimelineTabView
 
     private void ShowSceneSettings(object? sender, RoutedEventArgs e)
     {
-        if (ViewModel == null) return;
-        IEditorContext editorContext = ViewModel.EditorContext;
-        SceneSettingsTabViewModel? tab = editorContext.FindToolTab<SceneSettingsTabViewModel>();
-        if (tab != null)
+        if (ViewModel is { } viewModel)
         {
-            tab.IsSelected.Value = true;
-        }
-        else
-        {
-            editorContext.OpenToolTab(new SceneSettingsTabViewModel(editorContext));
+            SceneSettingsTabHelper.Show(viewModel.EditorContext);
         }
     }
 

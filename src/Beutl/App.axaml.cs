@@ -2,8 +2,8 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
-using Beutl.Editor.Components.FileBrowserTab.Services;
-using Beutl.Media.Decoding;
+using Beutl.AgentHost;
+using Beutl.Editor.Components.AgentTab;
 #if DEBUG
 using Avalonia.Diagnostics;
 #endif
@@ -12,16 +12,20 @@ using Avalonia.Markup.Xaml;
 using Avalonia.Platform;
 using Avalonia.Styling;
 using Avalonia.Threading;
+using Beutl.Api;
 using Beutl.Api.Services;
 using Beutl.Configuration;
+using Beutl.Controls;
 using Beutl.Controls.NativeContextMenu;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Controls.Styling;
+using Beutl.Editor.Components.FileBrowserTab.Services;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.PropertyEditors.Services;
 using Beutl.Graphics.Backend;
 using Beutl.Helpers;
 using Beutl.Logging;
+using Beutl.Media.Decoding;
 using Beutl.NodeGraph.Composition;
 using Beutl.NodeGraph.Nodes;
 using Beutl.Pages;
@@ -61,7 +65,7 @@ public sealed class App : Application
     private ProxyMediaServices? _proxyMediaServices;
     private Startup? _startUp;
     private LoadSideloadExtensionTask? _sideloadExtensionTask;
-    private readonly SemaphoreSlim _packageLinkGate = new(1, 1);
+    private readonly SemaphoreSlim _beutlLinkGate = new(1, 1);
     private readonly CancellationTokenSource _activationCts = new();
 
     public App() : this(new GlobalConfiguration(), string.Empty)
@@ -75,13 +79,14 @@ public sealed class App : Application
         _appUpdateController = new AppUpdateController(configuration.UpdateConfig, _notifications);
         _decoders = new DecoderRegistry(configuration.ExtensionConfig);
         _fonts = new Media.FontManager(configuration.FontConfig);
-        _objectTemplateService = new(_fonts, configuration.EditorConfig, configuration.ProxyStoreConfig, _decoders);
+        _objectTemplateService = new ObjectTemplateService(new SceneRenderServices(_fonts, _decoders, configuration.EditorConfig, configuration.ProxyStoreConfig));
         _sessionId = sessionId;
         _appServices = new EditorServiceRegistry()
             .Add(() => _configuration)
             .Add(() => _fonts)
             .Add(() => _decoders)
             .Add(() => _notifications)
+            .AddOwned<IAgentNotificationSoundPlayer>(() => new AgentNotificationSoundPlayer())
             .Add(() => _appUpdateController)
             .Add(() => _libraryService)
             .Add(() => _objectTemplateService)
@@ -201,13 +206,13 @@ public sealed class App : Application
     {
         MacOSKeyBindings.Install(this);
         ShowSettingsGestureInApplicationMenu();
-        Program.ActivationBroker?.SetHandler(HandlePackageLink);
+        Program.ActivationBroker?.SetHandler(HandleBeutlLink);
         if (this.TryGetFeature<IActivatableLifetime>() is { } activatableLifetime)
         {
             activatableLifetime.Activated += (_, args) =>
             {
                 if (args is ProtocolActivatedEventArgs protocol)
-                    HandlePackageLink(protocol.Uri.OriginalString);
+                    HandleBeutlLink(protocol.Uri.OriginalString);
             };
         }
 
@@ -233,25 +238,25 @@ public sealed class App : Application
                 _libraryService.Dispose();
             };
             foreach (string argument in desktop.Args ?? [])
-                HandlePackageLink(argument);
+                HandleBeutlLink(argument);
         }
 
         base.OnFrameworkInitializationCompleted();
     }
 
-    internal void HandlePackageLink(string value)
+    internal void HandleBeutlLink(string value)
     {
-        if (PackageInstallRequest.TryParse(value, out PackageInstallRequest? request))
-            Dispatcher.UIThread.Post(() => OpenPackageAsync(request));
+        if (BeutlLinkRequest.TryParse(value, out BeutlLinkRequest? request))
+            Dispatcher.UIThread.Post(() => OpenBeutlLinkAsync(request));
     }
 
-    private async void OpenPackageAsync(PackageInstallRequest request)
+    private async void OpenBeutlLinkAsync(BeutlLinkRequest request)
     {
         CancellationToken token = _activationCts.Token;
         bool entered = false;
         try
         {
-            await _packageLinkGate.WaitAsync(token);
+            await _beutlLinkGate.WaitAsync(token);
             entered = true;
             await _windowOpenTcs.Task.WaitAsync(token);
             // Authentication and extension registration must finish before creating the store models.
@@ -265,40 +270,51 @@ public sealed class App : Application
             mainWindow.Activate();
 
             MainViewModel main = GetMainViewModel();
-            var package = await main._beutlClients.GetResource<DiscoverService>()
-                .GetPackage(request.PackageName, token);
-            token.ThrowIfCancellationRequested();
-
-            ExtensionsPage? page = desktop.Windows.OfType<ExtensionsPage>().FirstOrDefault();
-            if (page == null)
-            {
-                var viewModel = new ExtensionsPageViewModel(main._beutlClients, main.EditorService, main.ProjectService);
-                page = new ExtensionsPage { DataContext = viewModel };
-                HostServices.SetFrom(page, _appServices);
-                page.Closed += (_, _) => viewModel.Dispose();
-                page.OpenPackage(package, request.Version);
-                _ = page.ShowDialog(mainWindow);
-            }
-            else
-            {
-                page.OpenPackage(package, request.Version);
-                if (page.WindowState == WindowState.Minimized)
-                    page.WindowState = WindowState.Normal;
-                page.Activate();
-            }
+            if (request is RepositoryOpenRequest repository)
+                await main.RepositoryClone.OpenAsync(mainWindow, repository, token);
+            else if (request is PackageInstallRequest package)
+                await OpenPackageAsync(package, desktop.Windows, mainWindow, main, main._beutlClients, token);
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested)
         {
         }
         catch (Exception e)
         {
-            s_logger.LogError(e, "Failed to open package {PackageName} from the web store.", request.PackageName);
+            s_logger.LogError(e, "Failed to open a Beutl protocol link.");
             await e.Handle(_notifications);
         }
         finally
         {
             if (entered)
-                _packageLinkGate.Release();
+                _beutlLinkGate.Release();
+        }
+    }
+
+    internal static async Task OpenPackageAsync(PackageInstallRequest request,
+        IReadOnlyList<Window> windows, Window mainWindow, MainViewModel main,
+        BeutlApiApplication clients, CancellationToken token)
+    {
+        var package = await clients.GetResource<DiscoverService>().GetPackage(request.PackageName, token);
+        token.ThrowIfCancellationRequested();
+
+        ExtensionsPage? page = windows.OfType<ExtensionsPage>().FirstOrDefault();
+        if (page == null)
+        {
+            var viewModel = new ExtensionsPageViewModel(clients, main.EditorService, main.ProjectService);
+            if (ToolWindowLauncher.CreateWindow(viewModel.Extension, viewModel, mainWindow, ControlNotifications.GetOrDefault(mainWindow))
+                is ExtensionsPage created)
+            {
+                created.Closed += (_, _) => viewModel.Dispose();
+                created.OpenPackage(package, request.Version);
+                _ = created.ShowDialog(mainWindow);
+            }
+        }
+        else
+        {
+            page.OpenPackage(package, request.Version);
+            if (page.WindowState == WindowState.Minimized)
+                page.WindowState = WindowState.Normal;
+            page.Activate();
         }
     }
 
@@ -368,7 +384,7 @@ public sealed class App : Application
     // follows the key map after that.
     private void ShowSettingsGestureInApplicationMenu()
     {
-        if (NativeMenu.GetMenu(this)?.Items.OfType<NativeMenuItem>().FirstOrDefault(item => item.Header == Strings.Settings) is not { } settings)
+        if (NativeMenu.GetMenu(this)?.Items.OfType<NativeMenuItem>().FirstOrDefault(item => item.Header == Strings.OpenSettingsMenu) is not { } settings)
             return;
 
         void Show() => settings.Gesture = GetCommandGestureExtension.GetKeyGesture(

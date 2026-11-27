@@ -7,6 +7,7 @@ using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
 using Avalonia.Xaml.Interactivity;
 using Beutl.Animation;
+using Beutl.Api.Services;
 using Beutl.Composition;
 using Beutl.Controls;
 using Beutl.Editor.Components.Helpers;
@@ -21,11 +22,8 @@ using BtlVector = Beutl.Graphics.Vector;
 
 namespace Beutl.Editor.Components.PathEditorTab.Views;
 
-public sealed class PathPointDragBehavior : Behavior<Thumb>
+public sealed partial class PathPointDragBehavior : Behavior<Thumb>
 {
-    public static readonly AttachedProperty<bool> IsSelectedProperty =
-        AvaloniaProperty.RegisterAttached<PathPointDragBehavior, Thumb, bool>("IsSelected");
-
     private PathPointDragState? _dragState;
     private PathPointDragState[]? _coordDragStates;
     private Point? _lastPoint;
@@ -41,15 +39,8 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
             (e.Sender as Thumb)?.Classes.Set("selected", e.NewValue.GetValueOrDefault()));
     }
 
-    public static void SetIsSelected(Thumb owner, bool value)
-    {
-        owner.SetValue(IsSelectedProperty, value);
-    }
-
-    public static bool GetIsSelected(Thumb owner)
-    {
-        return owner.GetValue(IsSelectedProperty);
-    }
+    [GeneratedAttachedProperty]
+    public static partial bool GetIsSelected(Thumb owner);
 
     protected override void OnAttached()
     {
@@ -358,7 +349,10 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
 
     private void OnGestureKeyDown(object? sender, KeyEventArgs e)
     {
-        if (e.Key != Key.Escape) return;
+        var cancel = AppHelper.GetContextCommandManager?.Invoke()?.GetDefinitions<PathEditorTabExtension>()
+            .FirstOrDefault(entry => entry.Definition.Id == "pathEditor.cancel");
+        if (cancel is null || !ContextCommandManager.Matches(cancel, e)) return;
+
         var pointer = _gesturePointer;
         if (_dragState != null && _gestureHost?.DataContext is IPathEditorContext context)
             context.EditorContext.GetRequiredService<HistoryManager>().Rollback();
@@ -391,7 +385,7 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
         if (prop != null && ElementEditability.IsEditable(viewModel.Element.Value))
         {
             HistoryManager history = viewModel.EditorContext.GetRequiredService<HistoryManager>();
-            // Commits a pending nudge on its own and stops its timer, so Escape reverts only this drag.
+            // Commits a pending nudge on its own and stops its timer, so cancellation reverts only this drag.
             history.FlushPendingMutations();
             history.Commit();
             _dragState = CreateThumbDragState(viewModel, segment, prop);
@@ -483,7 +477,7 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
     {
         var scene = viewModel.EditorContext.GetRequiredService<Scene>();
         var clock = viewModel.EditorContext.GetRequiredService<IEditorClock>();
-        Rational rate = scene.FindHierarchicalParent<Project>().GetFrameRate();
+        Rational rate = scene.GetFrameRate();
         MediaTime globalkeyTime = clock.CurrentTime.Value;
 
         if (property.GetKeyFrameAnimation() is KeyFrameAnimation<BtlPoint> animation)

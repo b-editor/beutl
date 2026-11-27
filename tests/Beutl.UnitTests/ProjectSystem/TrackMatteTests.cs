@@ -263,7 +263,7 @@ public sealed class TrackMatteTests
         near.Objects.Clear();
         near.Objects.Add(new Beutl.Graphics3D.Scene3D());
         controller.OffsetPosition.Value = Seconds(1);
-        using (var compositor = new SceneCompositor(scene, TestFonts.Manager))
+        using (var compositor = new SceneCompositor(scene, TestFonts.RenderServices))
             Assert.That(compositor.EvaluateGraphics(MediaTime.Zero).ContainsScene3D, Is.True);
         scene.Children.Remove(far);
         scene.Children.Remove(near);
@@ -383,7 +383,7 @@ public sealed class TrackMatteTests
         var application = new BeutlApplication { Project = { Value = new Project() } };
         application.Project.Value!.Items.Add(scene);
         source.IsVisibleInOutput.Value = true;
-        using var compositor = new SceneCompositor(scene, TestFonts.Manager);
+        using var compositor = new SceneCompositor(scene, TestFonts.RenderServices);
         CompositionFrame frame = compositor.EvaluateGraphics(MediaTime.Zero);
         Drawable.Resource output = frame.Objects.OfType<RectShape.Resource>().Single();
         var presenter = frame.Objects.OfType<TrackMattePresenter.Resource>().Single();
@@ -460,7 +460,7 @@ public sealed class TrackMatteTests
         {
             (Scene scene, Element source, Element target) = CreateScene(mode, Color.FromArgb(128, 255, 0, 0));
             var shape = (RectShape)target.Objects[0];
-            using var preview = new SceneRenderer(scene, TestFonts.Manager, RenderIntent.Preview);
+            using var preview = new SceneRenderer(scene, TestFonts.RenderServices, RenderIntent.Preview);
             using SceneRenderer delivery = ExportRendererFactory.Create(scene, TestFonts.Manager, renderScale: 1);
             for (int frame = 0; frame < 2; frame++)
             {
@@ -624,7 +624,7 @@ public sealed class TrackMatteTests
 
         public SceneRender(Scene scene, RenderIntent intent = RenderIntent.Preview)
         {
-            _compositor = new SceneCompositor(scene, TestFonts.Manager);
+            _compositor = new SceneCompositor(scene, TestFonts.RenderServices);
             _canvas = new ImmediateCanvas(_target, intent);
             _renderer = new RenderNodeRenderer(Root, new RenderNodeRenderRequest
             {

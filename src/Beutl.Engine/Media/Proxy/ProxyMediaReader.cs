@@ -10,7 +10,13 @@ internal sealed class ProxyMediaReader(
     IDisposable pin,
     ProxyResolution resolution) : MediaReader
 {
-    public override VideoStreamInfo VideoInfo => inner.VideoInfo;
+    public override VideoStreamInfo VideoInfo => field ??= inner.VideoInfo with
+    {
+        DetectedFieldOrder = resolution.DetectedFieldOrder,
+        DeinterlaceStatus = resolution.DeinterlaceStatus,
+        // A constant-rate proxy quantizes its final timestamp to the output frame grid.
+        Duration = resolution.OriginalDuration ?? inner.VideoInfo.Duration,
+    };
 
     public override AudioStreamInfo AudioInfo => inner.AudioInfo;
 
@@ -24,6 +30,9 @@ internal sealed class ProxyMediaReader(
     {
         return inner.ReadVideo(frame, out image);
     }
+
+    public override bool ReadVideoThumbnail(int frame, bool allowKeyframe, [NotNullWhen(true)] out Ref<Bitmap>? image)
+        => inner.ReadVideoThumbnail(frame, allowKeyframe, out image);
 
     public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out AudioBuffer? sound)
     {

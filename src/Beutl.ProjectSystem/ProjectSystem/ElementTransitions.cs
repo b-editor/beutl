@@ -344,7 +344,7 @@ internal static class ElementTransitions
 
     private static MediaTime Max(MediaTime a, MediaTime b) => a > b ? a : b;
 
-    private static Rational GetFrameRate(Element element) => element.FindHierarchicalParent<Project>().GetFrameRate();
+    private static Rational GetFrameRate(Element element) => element.FindHierarchicalParent<Scene>().GetFrameRate();
 }
 
 // A duration that stands in for one transition side's own, so an edit can be previewed before it is
@@ -359,6 +359,8 @@ internal readonly record struct TransitionBoundary(
     ClipTransition Transition,
     TimeRange Region)
 {
+    internal bool HasVisibleSide => Outgoing?.IsVisibleInOutput.Value == true || Incoming?.IsVisibleInOutput.Value == true;
+
     // How far the transition has played at time, before its easing, which the compositor applies as
     // evaluated for that time.
     public float GetLinearProgress(MediaTime time)

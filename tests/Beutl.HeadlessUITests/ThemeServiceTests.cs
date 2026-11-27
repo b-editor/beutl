@@ -1,14 +1,17 @@
 ﻿using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Media;
+using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Beutl.Configuration;
 using Beutl.Controls.Styling;
 using Beutl.Extensibility;
 using Beutl.Services;
+using Beutl.Testing.Headless;
 using FluentAvalonia.Styling;
 
 namespace Beutl.HeadlessUITests;
@@ -254,6 +257,67 @@ public class ThemeServiceTests
             Assert.That(Application.Current!.TryGetResource("AccentButtonForeground", highContrast, out object? resolved), Is.True);
             Assert.That(resolved, Is.SameAs(fluent));
         });
+    }
+
+    [AvaloniaTest]
+    [TestCase(BuiltinThemeIds.Light)]
+    [TestCase(BuiltinThemeIds.Dark)]
+    [TestCase(FirstPartyThemeIds.DarkBorder)]
+    [TestCase(BuiltinThemeIds.HighContrast)]
+    public void OverlayCard_HasAnOpaqueThemeBackgroundWithoutBlur(string themeId)
+    {
+        using var scope = new ThemeScope();
+        scope.Config.Theme.Value = themeId;
+        scope.Service.Start();
+        Dispatcher.UIThread.RunJobs();
+
+        // A sharp split behind the card reveals any background showing through its fill.
+        var backdrop = new Grid
+        {
+            ColumnDefinitions = new ColumnDefinitions("*,*"),
+            Children =
+            {
+                new Border { [Grid.ColumnProperty] = 0, Background = Brushes.Red },
+                new Border { [Grid.ColumnProperty] = 1, Background = Brushes.Blue },
+            }
+        };
+        var card = new Border
+        {
+            Classes = { "OverlayCard" },
+            Width = 120,
+            Height = 80,
+            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center,
+            VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center
+        };
+        var window = new Window
+        {
+            Width = 240,
+            Height = 160,
+            Content = new Panel { Children = { backdrop, card } }
+        };
+
+        try
+        {
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.That(card.Background, Is.InstanceOf<ISolidColorBrush>());
+            Color fill = ((ISolidColorBrush)card.Background!).Color;
+            var expected = ((int)fill.R, (int)fill.G, (int)fill.B);
+            using WriteableBitmap frame = window.CaptureRenderedFrame()!;
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(card.BackdropEffect, Is.Null);
+                Assert.That(fill.A, Is.EqualTo(255));
+                Assert.That(HeadlessTestHelpers.ReadPixel(frame, new PixelPoint(116, 80)), Is.EqualTo(expected));
+                Assert.That(HeadlessTestHelpers.ReadPixel(frame, new PixelPoint(124, 80)), Is.EqualTo(expected));
+            });
+        }
+        finally
+        {
+            window.Close();
+        }
     }
 
     // Settings written while the picker still offered an alpha slider can carry one. Applying it as-is

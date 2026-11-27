@@ -44,6 +44,12 @@
   <data name="ConfirmExcludeItem" xml:space="preserve">
     <value>是否要将此项目从项目中排除？</value>
   </data>
+  <data name="CannotRemoveLastScene" xml:space="preserve">
+    <value>无法移除项目中的最后一个场景。</value>
+  </data>
+  <data name="SaveSceneBeforeRemoving" xml:space="preserve">
+    <value>请先保存此场景的更改，再将其移除。</value>
+  </data>
   <data name="FailedToOpenFileWithExtension" xml:space="preserve">
     <value>无法使用“{0}”打开以下文件。
 “{1}”</value>
@@ -111,6 +117,24 @@
   </data>
   <data name="FrameDrawingException" xml:space="preserve">
     <value>绘制帧时发生异常。</value>
+  </data>
+  <data name="PreviewWorkingScaleClamped" xml:space="preserve">
+    <value>此帧的预览以低于导出时的工作分辨率渲染。导出后的画面可能有所不同。</value>
+  </data>
+  <data name="RenderTargetLiveByteBudgetExceeded" xml:space="preserve">
+    <value>添加 {0} × {1} 像素的渲染目标会超出本次渲染请求的内存上限（{2:N0} 字节）。当前活动的渲染目标已占用 {3:N0} 字节。</value>
+  </data>
+  <data name="Scene3DBackendUnavailable" xml:space="preserve">
+    <value>Vulkan 不可用，无法渲染 3D 内容。</value>
+  </data>
+  <data name="Scene3DExtentLimitExceeded" xml:space="preserve">
+    <value>3D 渲染需要 {0} × {1} px 的缓冲区，超出了 GPU 单边 {2} px 的限制。</value>
+  </data>
+  <data name="Scene3DSurfaceUnavailable" xml:space="preserve">
+    <value>无法创建 3D 渲染表面。</value>
+  </data>
+  <data name="Scene3DAntiAliasingReduced" xml:space="preserve">
+    <value>由于 GPU 内存不足，3D 抗锯齿已降至 {0}x。</value>
   </data>
   <data name="OutputException" xml:space="preserve">
     <value>输出期间发生异常。</value>
@@ -512,6 +536,9 @@
   <data name="ConfirmDeleteProjectFolderFromDisk" xml:space="preserve">
     <value>是否永久删除此项目的文件夹及其中的所有内容？此操作无法撤销。</value>
   </data>
+  <data name="ConfirmDeleteHostedRepository" xml:space="preserve">
+    <value>此操作会从 Beutl 永久删除该仓库及其历史记录。&#10;删除后仍可打开本地副本。</value>
+  </data>
   <data name="ConfirmDeleteProjectFileFromDisk" xml:space="preserve">
     <value>此项目不在专用文件夹中，因此只会删除项目文件，其场景和其他文件将保留在磁盘上。是否永久删除该项目文件？此操作无法撤销。</value>
   </data>
@@ -565,5 +592,14 @@
   </data>
   <data name="ExtensionUpdatesIncluded" xml:space="preserve">
     <value>将同时更新 {0} 个扩展。</value>
+  </data>
+  <data name="FlowInputMissingDrawable" xml:space="preserve">
+    <value>{0}需要一个绘图对象。请将其放在下方图层，使两个片段在时间上重叠。请在此对象前添加或启用传送门，再调整传送门的“数量”以包含该图层。</value>
+  </data>
+  <data name="FlowInputMissingObject3D" xml:space="preserve">
+    <value>{0}需要一个3D对象。请将其放在下方图层，使两个片段在时间上重叠。请在此对象前添加或启用传送门，再调整传送门的“数量”以包含该图层。</value>
+  </data>
+  <data name="FlowInputMissingSound" xml:space="preserve">
+    <value>{0}需要一个音频对象。请将其放在下方图层，使两个片段在时间上重叠。请在此对象前添加或启用传送门，再调整传送门的“数量”以包含该图层。</value>
   </data>
 </root>

@@ -6,11 +6,11 @@ using Beutl.Services;
 namespace Beutl.Editor.Services;
 
 // The notice an editor shows once when its scene opens with elements whose file recovery keeps
-// (Element.IsRecoveryProtected). Those elements are read-only, and nothing else tells the user why.
+// (Element.IsRecoveryProtected). Those elements are read-only until repaired.
 internal static class RecoveryProtectionNotice
 {
     // Null when no element of the scene is recovery-protected.
-    public static Notification? Create(Scene scene, CancellationToken cancellationToken = default)
+    public static Notification? Create(Scene scene, CancellationToken cancellationToken = default, Action? showDetails = null)
     {
         ArgumentNullException.ThrowIfNull(scene);
         if (ElementNoticeFormatting.FormatNames(scene.Children
@@ -29,7 +29,8 @@ internal static class RecoveryProtectionNotice
                 scene.Name.Value,
                 listed),
             NotificationType.Warning,
-            Expiration: Timeout.InfiniteTimeSpan)
+            Expiration: Timeout.InfiniteTimeSpan,
+            Actions: showDetails is null ? null : [new(UndisplayableDataStrings.ShowDetails, showDetails)])
         {
             CancellationToken = cancellationToken,
         };

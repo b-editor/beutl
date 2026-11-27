@@ -1,11 +1,20 @@
 ﻿using Avalonia;
 using Avalonia.Media;
 using Avalonia.Media.Immutable;
+using Avalonia.Media.TextFormatting;
 
 namespace Beutl.Editor.Components.Views;
 
-public sealed class TimelineOverlay : TimelineBarsControl
+public sealed partial class TimelineOverlay : TimelineBarsControl
 {
+    private const double ReadoutWidth = 252;
+    private const double ReadoutHeight = 44;
+    private const double ReadoutPadding = 9;
+    private const double PointerGap = 12;
+    private static readonly Typeface s_readoutTypeface = new(FontFamily.Default);
+    private static readonly Typeface s_deltaTypeface = new(FontFamily.Default, FontStyle.Normal, FontWeight.SemiBold);
+    private static readonly FontFeatureCollection s_tabularNumbers = [new FontFeature { Tag = "tnum" }];
+
     public static readonly DirectProperty<TimelineOverlay, Vector> OffsetProperty
         = AvaloniaProperty.RegisterDirect<TimelineOverlay, Vector>(
             nameof(Offset), o => o.Offset, (o, v) => o.Offset = v);
@@ -22,9 +31,6 @@ public sealed class TimelineOverlay : TimelineBarsControl
         = AvaloniaProperty.RegisterDirect<TimelineOverlay, double?>(
             nameof(SnapBarPosition), o => o.SnapBarPosition, (o, v) => o.SnapBarPosition = v);
 
-    public static readonly StyledProperty<IBrush?> SnapBarBrushProperty
-        = AvaloniaProperty.Register<TimelineOverlay, IBrush?>(nameof(SnapBarBrush));
-
     private Vector _offset;
     private double? _snapBarPosition;
     private Size _viewport;
@@ -38,7 +44,10 @@ public sealed class TimelineOverlay : TimelineBarsControl
             ViewportProperty,
             SelectionRangeProperty,
             SnapBarPositionProperty,
-            SnapBarBrushProperty);
+            SnapBarBrushProperty,
+            ReadoutBackgroundProperty,
+            ReadoutForegroundProperty,
+            ReadoutBorderBrushProperty);
     }
 
     public TimelineOverlay()
@@ -70,10 +79,25 @@ public sealed class TimelineOverlay : TimelineBarsControl
         set => SetAndRaise(SnapBarPositionProperty, ref _snapBarPosition, value);
     }
 
-    public IBrush? SnapBarBrush
+    [GeneratedStyledProperty]
+    public partial IBrush? SnapBarBrush { get; set; }
+
+    [GeneratedStyledProperty]
+    public partial IBrush? ReadoutBackground { get; set; }
+
+    [GeneratedStyledProperty]
+    public partial IBrush? ReadoutForeground { get; set; }
+
+    [GeneratedStyledProperty]
+    public partial IBrush? ReadoutBorderBrush { get; set; }
+
+    internal (Point Position, string Change, string Details)? DragReadout { get; private set; }
+
+    internal void SetDragReadout((Point Position, string Change, string Details)? value)
     {
-        get => GetValue(SnapBarBrushProperty);
-        set => SetValue(SnapBarBrushProperty, value);
+        if (DragReadout == value) return;
+        DragReadout = value;
+        InvalidateVisual();
     }
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
@@ -106,5 +130,33 @@ public sealed class TimelineOverlay : TimelineBarsControl
                 context.DrawLine(_snapBarPen, snapBar, snapBar + new Point(0, height));
             }
         }
+
+        if (DragReadout is { } readout && GetReadoutBounds(readout.Position) is { } bounds)
+        {
+            context.DrawRectangle(ReadoutBackground, new Pen(ReadoutBorderBrush), bounds, 5, 5);
+            double textWidth = bounds.Width - 2 * ReadoutPadding;
+            using var change = new TextLayout(readout.Change, s_deltaTypeface, 13, ReadoutForeground,
+                textTrimming: TextTrimming.CharacterEllipsis, maxWidth: textWidth, maxLines: 1, fontFeatures: s_tabularNumbers);
+            using var details = new TextLayout(readout.Details, s_readoutTypeface, 11, ReadoutForeground,
+                textTrimming: TextTrimming.CharacterEllipsis, maxWidth: textWidth, maxLines: 1, fontFeatures: s_tabularNumbers);
+            change.Draw(context, new Point(bounds.X + ReadoutPadding, bounds.Y + 5));
+            details.Draw(context, new Point(bounds.X + ReadoutPadding, bounds.Y + 24));
+        }
+    }
+
+    internal Rect? GetReadoutBounds(Point pointer)
+    {
+        if (_viewport.Width <= 2 * ReadoutPadding || _viewport.Height < ReadoutHeight) return null;
+
+        double width = Math.Min(ReadoutWidth, _viewport.Width);
+        double x = pointer.X + PointerGap;
+        double y = pointer.Y + PointerGap;
+        if (x + width > _viewport.Width) x = pointer.X - PointerGap - width;
+        if (y + ReadoutHeight > _viewport.Height) y = pointer.Y - PointerGap - ReadoutHeight;
+
+        return new Rect(
+            _offset.X + Math.Clamp(x, 0, _viewport.Width - width),
+            _offset.Y + Math.Clamp(y, 0, _viewport.Height - ReadoutHeight),
+            width, ReadoutHeight);
     }
 }

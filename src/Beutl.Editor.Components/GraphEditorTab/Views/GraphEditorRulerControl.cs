@@ -7,7 +7,7 @@ namespace Beutl.Editor.Components.GraphEditorTab.Views;
 
 // The vertical value ticks of the graph editor, drawn with a theme brush: the scale labels them and the
 // background draws them as grid lines.
-public abstract class GraphEditorRulerControl : Control
+public abstract partial class GraphEditorRulerControl : Control
 {
     public static readonly DirectProperty<GraphEditorRulerControl, double> ScaleProperty
         = AvaloniaProperty.RegisterDirect<GraphEditorRulerControl, double>(
@@ -20,14 +20,9 @@ public abstract class GraphEditorRulerControl : Control
             nameof(Baseline),
             o => o.Baseline, (o, v) => o.Baseline = v);
 
-    public static readonly DirectProperty<GraphEditorRulerControl, Vector> OffsetProperty
-        = AvaloniaProperty.RegisterDirect<GraphEditorRulerControl, Vector>(
-            nameof(Offset), o => o.Offset, (o, v) => o.Offset = v);
-
     private readonly string _brushResourceKey;
     private double _scale = 1;
     private double _baseline;
-    private Vector _offset;
     private IDisposable? _disposable;
 
     static GraphEditorRulerControl()
@@ -56,11 +51,8 @@ public abstract class GraphEditorRulerControl : Control
         set => SetAndRaise(BaselineProperty, ref _baseline, value);
     }
 
-    public Vector Offset
-    {
-        get => _offset;
-        set => SetAndRaise(OffsetProperty, ref _offset, value);
-    }
+    [GeneratedDirectProperty]
+    public partial Vector Offset { get; set; }
 
     protected IBrush Brush { get; private set; } = Brushes.White;
 

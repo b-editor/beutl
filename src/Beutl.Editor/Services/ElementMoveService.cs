@@ -28,16 +28,24 @@ public sealed class ElementMoveService : IElementMoveService
 
         if (deltaStart == MediaTime.Zero && deltaZIndex == 0) return ElementMoveOutcome.None;
 
-        Element[] editable = FilterUnlocked(scene, elements);
+        Element[] editable = GetMovableElements(scene, elements, deltaZIndex);
         if (editable.Length == 0) return ElementMoveOutcome.None;
-
-        // Refuse dropping content onto a locked destination layer. None makes the
-        // caller snap the drag visuals back to the model.
-        if (AnyDestinationLayerLocked(scene, editable, deltaZIndex)) return ElementMoveOutcome.None;
 
         scene.MoveChildren(deltaZIndex, deltaStart, editable, _configuration.AutoAdjustSceneDuration.Value);
         _historyManager.Commit(CommandNames.MoveElement);
         return ElementMoveOutcome.Moved;
+    }
+
+    internal static (MediaTime Start, int Layer) PreviewMove(Scene scene, IReadOnlyList<Element> elements,
+        Element element, MediaTime deltaStart, int deltaZIndex)
+    {
+        if (deltaStart == MediaTime.Zero && deltaZIndex == 0) return (element.Start.Value, element.ZIndex.Value);
+
+        Element[] editable = GetMovableElements(scene, elements, deltaZIndex);
+        if (editable.Contains(element) && scene.ResolveGroupMove(editable, deltaZIndex, deltaStart) is { } delta)
+            return (element.Start.Value + delta, element.ZIndex.Value + deltaZIndex);
+
+        return (element.Start.Value, element.ZIndex.Value);
     }
 
     public ElementMoveOutcome DuplicateOrMove(
@@ -93,6 +101,13 @@ public sealed class ElementMoveService : IElementMoveService
 
     private static Element[] FilterUnlocked(Scene scene, IReadOnlyList<Element> elements)
         => elements.Where(e => !scene.IsElementLocked(e)).ToArray();
+
+    private static Element[] GetMovableElements(Scene scene, IReadOnlyList<Element> elements, int deltaZIndex)
+    {
+        Element[] editable = FilterUnlocked(scene, elements);
+        // A locked destination cancels the whole move.
+        return AnyDestinationLayerLocked(scene, editable, deltaZIndex) ? [] : editable;
+    }
 
     private static bool AnyDestinationLayerLocked(Scene scene, IReadOnlyList<Element> elements, int deltaZIndex)
     {

@@ -71,8 +71,17 @@
   <data name="CreateNewProject" xml:space="preserve">
     <value>Create new project</value>
   </data>
+  <data name="CreateProjectMenu" xml:space="preserve">
+    <value>Project…</value>
+  </data>
   <data name="CreateNewScene" xml:space="preserve">
     <value>Create new scene</value>
+  </data>
+  <data name="CreateSceneMenu" xml:space="preserve">
+    <value>Scene…</value>
+  </data>
+  <data name="CreateNewSceneMenu" xml:space="preserve">
+    <value>Create New…</value>
   </data>
   <data name="Project" xml:space="preserve">
     <value>Project</value>
@@ -163,6 +172,9 @@
   </data>
   <data name="Settings" xml:space="preserve">
     <value>Settings</value>
+  </data>
+  <data name="OpenSettingsMenu" xml:space="preserve">
+    <value>Settings…</value>
   </data>
   <data name="Properties" xml:space="preserve">
     <value>Properties</value>
@@ -305,8 +317,14 @@
   <data name="Delete" xml:space="preserve">
     <value>Delete</value>
   </data>
+  <data name="DeleteWithConfirmation" xml:space="preserve">
+    <value>Delete…</value>
+  </data>
   <data name="Remove" xml:space="preserve">
     <value>Remove</value>
+  </data>
+  <data name="RemoveFromProjectMenu" xml:space="preserve">
+    <value>Remove from Project…</value>
   </data>
   <data name="Back" xml:space="preserve">
     <value>Back</value>
@@ -341,6 +359,9 @@
   <data name="SceneSettings" xml:space="preserve">
     <value>Scene settings</value>
   </data>
+  <data name="TimelineSceneSettings" xml:space="preserve">
+    <value>Scene settings</value>
+  </data>
   <data name="Apply" xml:space="preserve">
     <value>Apply</value>
   </data>
@@ -354,16 +375,16 @@
     <value>Reset</value>
   </data>
   <data name="ResetDockLayout" xml:space="preserve">
-    <value>Reset dock layout</value>
+    <value>Reset Dock Layout</value>
   </data>
   <data name="DockLayout" xml:space="preserve">
     <value>Dock layout</value>
   </data>
   <data name="ApplyDockLayout" xml:space="preserve">
-    <value>Apply dock layout</value>
+    <value>Apply Dock Layout</value>
   </data>
   <data name="ManageDockLayouts" xml:space="preserve">
-    <value>Manage dock layouts</value>
+    <value>Manage Dock Layouts</value>
   </data>
   <data name="SaveCurrentDockLayout" xml:space="preserve">
     <value>Save the current layout</value>
@@ -372,10 +393,13 @@
     <value>Saved layouts</value>
   </data>
   <data name="EditAnimation" xml:space="preserve">
-    <value>Edit animation</value>
+    <value>Edit Animation</value>
   </data>
   <data name="NewFolder" xml:space="preserve">
     <value>New Folder</value>
+  </data>
+  <data name="CloudStorageNewFolderMenu" xml:space="preserve">
+    <value>New Folder…</value>
   </data>
   <data name="Left" xml:space="preserve">
     <value>Left</value>
@@ -443,6 +467,9 @@
   <data name="RecentProjects" xml:space="preserve">
     <value>Recent Projects</value>
   </data>
+  <data name="StartupProjects" xml:space="preserve">
+    <value>Projects</value>
+  </data>
   <data name="Editors" xml:space="preserve">
     <value>Editors</value>
   </data>
@@ -452,14 +479,23 @@
   <data name="Rename" xml:space="preserve">
     <value>Rename</value>
   </data>
+  <data name="RenameMenu" xml:space="preserve">
+    <value>Rename…</value>
+  </data>
   <data name="FinishEditing" xml:space="preserve">
-    <value>Finish editing</value>
+    <value>Finish Editing</value>
   </data>
   <data name="BringToTop" xml:space="preserve">
-    <value>Bring to the top</value>
+    <value>Bring to the Top</value>
+  </data>
+  <data name="ShowAllAnimations" xml:space="preserve">
+    <value>Show All</value>
+  </data>
+  <data name="NoAnimations" xml:space="preserve">
+    <value>No animations</value>
   </data>
   <data name="RecentProjectsEmpty" xml:space="preserve">
-    <value>Projects you open appear here.</value>
+    <value>No projects yet.</value>
   </data>
   <data name="AddOutputProfile" xml:space="preserve">
     <value>Add Profile</value>
@@ -636,10 +672,10 @@
     <value>Number of Layers</value>
   </data>
   <data name="ChangeColor" xml:space="preserve">
-    <value>Change color</value>
+    <value>Change Color…</value>
   </data>
   <data name="EditAnimationInInlineView" xml:space="preserve">
-    <value>Edit animation in inline view</value>
+    <value>Edit Animation in Inline View</value>
   </data>
   <data name="EnableLivePreview" xml:space="preserve">
     <value>Enable Live Preview</value>
@@ -665,6 +701,12 @@
   <data name="RippleEdit" xml:space="preserve">
     <value>Ripple Edit</value>
   </data>
+  <data name="RippleEdit_Description" xml:space="preserve">
+    <value>Toggle ripple edit. While it is on, deleting or cutting an element moves the elements after it on the same layer, and trimming an edge moves the elements on that side.</value>
+  </data>
+  <data name="TimelineSnap_Description" xml:space="preserve">
+    <value>Toggle snapping. Hold Alt / Option while dragging to ignore it.</value>
+  </data>
   <data name="UseGlobalClock" xml:space="preserve">
     <value>Use the Global Clock</value>
   </data>
@@ -672,28 +714,46 @@
     <value>Edit Json</value>
   </data>
   <data name="AddNode" xml:space="preserve">
-    <value>Add node</value>
+    <value>Add Node</value>
   </data>
-  <data name="Change" xml:space="preserve">
-    <value>Change</value>
+  <data name="ChangeTransformType" xml:space="preserve">
+    <value>Change Transform Type</value>
+  </data>
+  <data name="ReplaceEffectMenu" xml:space="preserve">
+    <value>Replace Effect…</value>
+  </data>
+  <data name="ReplaceObject" xml:space="preserve">
+    <value>Replace Object</value>
+  </data>
+  <data name="ReplaceObjectMenu" xml:space="preserve">
+    <value>Replace Object…</value>
   </data>
   <data name="Disconnect" xml:space="preserve">
     <value>Disconnect</value>
   </data>
-  <data name="Initialize" xml:space="preserve">
-    <value>Initialize</value>
+  <data name="CreateEmptyPath" xml:space="preserve">
+    <value>Create Empty Path</value>
+  </data>
+  <data name="ResetList" xml:space="preserve">
+    <value>Reset List</value>
+  </data>
+  <data name="ResetStroke" xml:space="preserve">
+    <value>Reset Stroke</value>
   </data>
   <data name="ResetZoom" xml:space="preserve">
     <value>Reset zoom</value>
+  </data>
+  <data name="ResetZoomMenu" xml:space="preserve">
+    <value>Reset Zoom</value>
   </data>
   <data name="RemoveAnimation" xml:space="preserve">
     <value>Remove animation</value>
   </data>
   <data name="EditExpression" xml:space="preserve">
-    <value>Edit expression</value>
+    <value>Edit Expression…</value>
   </data>
   <data name="RemoveExpression" xml:space="preserve">
-    <value>Remove expression</value>
+    <value>Delete Expression</value>
   </data>
   <data name="Expression_ReturnsBothValues" xml:space="preserve">
     <value>Enter one expression that returns the values together, such as {0}.</value>
@@ -702,22 +762,22 @@
     <value>Enter a mathematical expression. Available variables: Time, Start, Duration, Progress. Use GetProperty&lt;T&gt;("{GUID}.Property") to reference other properties.</value>
   </data>
   <data name="CopyPropertyPath" xml:space="preserve">
-    <value>Copy property path</value>
+    <value>Copy Property Path</value>
   </data>
   <data name="CopyGetPropertyCode" xml:space="preserve">
-    <value>Copy GetProperty code</value>
+    <value>Copy GetProperty Code</value>
   </data>
   <data name="ChangeToOriginalLength" xml:space="preserve">
-    <value>Change to original length</value>
+    <value>Change to Original Length</value>
   </data>
   <data name="SplitByCurrentFrame" xml:space="preserve">
-    <value>Split by current frame</value>
+    <value>Split by Current Frame</value>
   </data>
   <data name="GroupSelectedElements" xml:space="preserve">
-    <value>Group selected elements</value>
+    <value>Group Selected Elements</value>
   </data>
   <data name="UngroupSelectedElements" xml:space="preserve">
-    <value>Ungroup selected elements</value>
+    <value>Ungroup Selected Elements</value>
   </data>
   <data name="Agree" xml:space="preserve">
     <value>Agree</value>
@@ -729,10 +789,10 @@
     <value>Show Details</value>
   </data>
   <data name="SaveSelectedElementAsImage" xml:space="preserve">
-    <value>Save a selected element as an image</value>
+    <value>Save Selected Element as Image…</value>
   </data>
   <data name="SaveFrameAsImage" xml:space="preserve">
-    <value>Save a frame as an image</value>
+    <value>Save Frame as Image…</value>
   </data>
   <data name="SaveImageScale" xml:space="preserve">
     <value>Scale</value>
@@ -743,14 +803,17 @@
   <data name="Move" xml:space="preserve">
     <value>Move</value>
   </data>
+  <data name="CloudStorageMoveMenu" xml:space="preserve">
+    <value>Move…</value>
+  </data>
   <data name="Hand" xml:space="preserve">
     <value>Hand</value>
   </data>
   <data name="SetStartTime" xml:space="preserve">
-    <value>Set start time</value>
+    <value>Set Start Time</value>
   </data>
   <data name="SetEndTime" xml:space="preserve">
-    <value>Set end time</value>
+    <value>Set End Time</value>
   </data>
   <data name="NudgeLeftFrame" xml:space="preserve">
     <value>Nudge left (1 frame)</value>
@@ -801,13 +864,13 @@
     <value>Running startup tasks</value>
   </data>
   <data name="SaveAsImage" xml:space="preserve">
-    <value>Save as image</value>
+    <value>Save as Image…</value>
   </data>
   <data name="CopyAsImage" xml:space="preserve">
-    <value>Copy as image</value>
+    <value>Copy as Image</value>
   </data>
   <data name="AlwaysDisplay" xml:space="preserve">
-    <value>Always display</value>
+    <value>Always Display</value>
   </data>
   <data name="MemoryUsage" xml:space="preserve">
     <value>Memory usage</value>
@@ -818,14 +881,8 @@
   <data name="Unlocked" xml:space="preserve">
     <value>Unlocked</value>
   </data>
-  <data name="DeleteAll" xml:space="preserve">
-    <value>Delete All</value>
-  </data>
   <data name="Lock" xml:space="preserve">
     <value>Lock</value>
-  </data>
-  <data name="Unlock" xml:space="preserve">
-    <value>Unlock</value>
   </data>
   <data name="Solo" xml:space="preserve">
     <value>Solo</value>
@@ -835,6 +892,18 @@
   </data>
   <data name="FrameCache" xml:space="preserve">
     <value>Frame cache</value>
+  </data>
+  <data name="DeleteAllCachedFrames" xml:space="preserve">
+    <value>Delete All Cached Frames</value>
+  </data>
+  <data name="DeleteCachedFrameRange" xml:space="preserve">
+    <value>Delete Cached Frame Range</value>
+  </data>
+  <data name="LockCachedFrameRange" xml:space="preserve">
+    <value>Lock Cached Frame Range</value>
+  </data>
+  <data name="UnlockCachedFrameRange" xml:space="preserve">
+    <value>Unlock Cached Frame Range</value>
   </data>
   <data name="RightClickToOperateCache" xml:space="preserve">
     <value>Right-click to operate cache</value>
@@ -884,6 +953,9 @@
   <data name="ColorPalette_NewPalette" xml:space="preserve">
     <value>New palette</value>
   </data>
+  <data name="ColorPalette_NewPaletteMenu" xml:space="preserve">
+    <value>New Palette…</value>
+  </data>
   <data name="ColorPalette_NewPaletteName" xml:space="preserve">
     <value>Palette {0}</value>
   </data>
@@ -900,31 +972,31 @@
     <value>Saved in this project</value>
   </data>
   <data name="ColorPalette_SaveInProject" xml:space="preserve">
-    <value>Save in this project</value>
+    <value>Save in This Project</value>
   </data>
   <data name="ColorPalette_UseInAllProjects" xml:space="preserve">
-    <value>Use in all projects</value>
+    <value>Use in All Projects</value>
   </data>
   <data name="ColorPalette_MoveUp" xml:space="preserve">
-    <value>Move up</value>
+    <value>Move Up</value>
   </data>
   <data name="ColorPalette_MoveDown" xml:space="preserve">
-    <value>Move down</value>
+    <value>Move Down</value>
   </data>
   <data name="ColorPalette_AddToPalette" xml:space="preserve">
-    <value>Add to palette</value>
+    <value>Add to Palette</value>
   </data>
   <data name="ColorPalette_AddToNewPalette" xml:space="preserve">
-    <value>Add to a new palette</value>
+    <value>Add to a New Palette…</value>
   </data>
   <data name="ColorPalette_ReplaceWithCurrentColor" xml:space="preserve">
-    <value>Replace with the current color</value>
+    <value>Replace with the Current Color</value>
   </data>
   <data name="ColorPalette_RemoveFromRecent" xml:space="preserve">
-    <value>Remove from recent colors</value>
+    <value>Remove from Recent Colors</value>
   </data>
   <data name="ColorPalette_ClearRecent" xml:space="preserve">
-    <value>Clear recent colors</value>
+    <value>Clear Recent Colors</value>
   </data>
   <data name="Symmetry" xml:space="preserve">
     <value>Symmetry</value>
@@ -950,14 +1022,17 @@
   <data name="ImportSvgPath" xml:space="preserve">
     <value>Import SVG path</value>
   </data>
+  <data name="ImportSvgPathMenu" xml:space="preserve">
+    <value>Import SVG Path…</value>
+  </data>
   <data name="ImportSvgPath_Description" xml:space="preserve">
     <value>The current shape will be overwritten.</value>
   </data>
   <data name="EditInFrame" xml:space="preserve">
-    <value>Edit in frame</value>
+    <value>Edit in Frame</value>
   </data>
   <data name="EditInTab" xml:space="preserve">
-    <value>Edit in tab</value>
+    <value>Edit in Tab</value>
   </data>
   <data name="PathEditor" xml:space="preserve">
     <value>Path editor</value>
@@ -966,13 +1041,13 @@
     <value>Copy All</value>
   </data>
   <data name="EnableElement" xml:space="preserve">
-    <value>Enable element</value>
+    <value>Enable Element</value>
   </data>
   <data name="Visible" xml:space="preserve">
     <value>Visible</value>
   </data>
   <data name="MoveTo" xml:space="preserve">
-    <value>Move to</value>
+    <value>Move To</value>
   </data>
   <data name="MainView" xml:space="preserve">
     <value>Main View</value>
@@ -980,8 +1055,14 @@
   <data name="OpenProject" xml:space="preserve">
     <value>Open Project</value>
   </data>
+  <data name="OpenProjectMenu" xml:space="preserve">
+    <value>Project…</value>
+  </data>
   <data name="OpenFile" xml:space="preserve">
     <value>Open File</value>
+  </data>
+  <data name="OpenFileMenu" xml:space="preserve">
+    <value>File…</value>
   </data>
   <data name="Save_Description" xml:space="preserve">
     <value>Save the current file</value>
@@ -1001,6 +1082,9 @@
   <data name="Exit_Description" xml:space="preserve">
     <value>Exit the application</value>
   </data>
+  <data name="Playback" xml:space="preserve">
+    <value>Playback</value>
+  </data>
   <data name="PlayPause" xml:space="preserve">
     <value>Play/Pause</value>
   </data>
@@ -1008,10 +1092,10 @@
     <value>Switches between play and pause.</value>
   </data>
   <data name="MoveToNext" xml:space="preserve">
-    <value>Move to next frame</value>
+    <value>Move to Next Frame</value>
   </data>
   <data name="MoveToPrevious" xml:space="preserve">
-    <value>Move to previous frame</value>
+    <value>Move to Previous Frame</value>
   </data>
   <data name="MoveToNext_Description" xml:space="preserve">
     <value>Move to the next frame.</value>
@@ -1020,10 +1104,10 @@
     <value>Move to the previous frame.</value>
   </data>
   <data name="MoveToStart" xml:space="preserve">
-    <value>Move to start</value>
+    <value>Move to Start</value>
   </data>
   <data name="MoveToEnd" xml:space="preserve">
-    <value>Move to end</value>
+    <value>Move to End</value>
   </data>
   <data name="MoveToStart_Description" xml:space="preserve">
     <value>Move to the start of the scene.</value>
@@ -1031,20 +1115,23 @@
   <data name="MoveToEnd_Description" xml:space="preserve">
     <value>Move to the end of the scene.</value>
   </data>
+  <data name="Markers" xml:space="preserve">
+    <value>Markers</value>
+  </data>
   <data name="ToggleMarker" xml:space="preserve">
-    <value>Toggle marker</value>
+    <value>Toggle Marker</value>
   </data>
   <data name="ToggleMarker_Description" xml:space="preserve">
     <value>Toggle a marker at the current playhead. Removes the existing marker if one already exists at this position.</value>
   </data>
   <data name="NextMarker" xml:space="preserve">
-    <value>Next marker</value>
+    <value>Next Marker</value>
   </data>
   <data name="NextMarker_Description" xml:space="preserve">
     <value>Seek to the next marker.</value>
   </data>
   <data name="PreviousMarker" xml:space="preserve">
-    <value>Previous marker</value>
+    <value>Previous Marker</value>
   </data>
   <data name="PreviousMarker_Description" xml:space="preserve">
     <value>Seek to the previous marker.</value>
@@ -1065,37 +1152,37 @@
     <value>No keyframe to seek.</value>
   </data>
   <data name="ShuttleForward" xml:space="preserve">
-    <value>Shuttle forward</value>
+    <value>Shuttle Forward</value>
   </data>
   <data name="ShuttleForward_Description" xml:space="preserve">
     <value>Shuttle forward (L). Press repeatedly to accelerate.</value>
   </data>
   <data name="ShuttleForwardFine" xml:space="preserve">
-    <value>Shuttle forward (fine)</value>
+    <value>Shuttle Forward (Fine)</value>
   </data>
   <data name="ShuttleForwardFine_Description" xml:space="preserve">
     <value>Shuttle forward at half speed.</value>
   </data>
   <data name="ShuttleBackward" xml:space="preserve">
-    <value>Shuttle backward</value>
+    <value>Shuttle Backward</value>
   </data>
   <data name="ShuttleBackward_Description" xml:space="preserve">
     <value>Shuttle backward (J). Press repeatedly to accelerate.</value>
   </data>
   <data name="ShuttleBackwardFine" xml:space="preserve">
-    <value>Shuttle backward (fine)</value>
+    <value>Shuttle Backward (Fine)</value>
   </data>
   <data name="ShuttleBackwardFine_Description" xml:space="preserve">
     <value>Shuttle backward at half speed.</value>
   </data>
   <data name="ShuttleStop" xml:space="preserve">
-    <value>Shuttle stop</value>
+    <value>Shuttle Stop</value>
   </data>
   <data name="ShuttleStop_Description" xml:space="preserve">
     <value>Stop shuttle playback.</value>
   </data>
   <data name="ToggleLoop" xml:space="preserve">
-    <value>Toggle loop</value>
+    <value>Toggle Loop</value>
   </data>
   <data name="ToggleLoop_Description" xml:space="preserve">
     <value>Toggle loop playback.</value>
@@ -1145,6 +1232,9 @@
   <data name="Duplicate_ProjectNotSaved" xml:space="preserve">
     <value>Save the project before duplicating elements.</value>
   </data>
+  <data name="Duplicate_InvalidLayer" xml:space="preserve">
+    <value>Choose a non-negative destination layer with room for all the copies.</value>
+  </data>
   <data name="Duplicate_IOFailed" xml:space="preserve">
     <value>Could not write the duplicated element to disk.</value>
   </data>
@@ -1179,7 +1269,7 @@
     <value>Presets</value>
   </data>
   <data name="Convert_to_preset" xml:space="preserve">
-    <value>Convert to preset</value>
+    <value>Convert to Preset</value>
   </data>
   <data name="Expression_Input" xml:space="preserve">
     <value>Input</value>
@@ -1215,10 +1305,11 @@ Range: Min, Max, Clamp</value>
   </data>
   <data name="Expression_Functions_Utility" xml:space="preserve">
     <value>Utility: Radians, Degrees, Mod, Frac
-Random: Random(seed), Random(seed, min, max), FrameRandom(), FrameRandom(min, max)</value>
+Random: Random(seed), Random(seed, min, max), FrameRandom(), FrameRandom(min, max), Wiggle(frequency, amplitude, octaves = 1, seed = null), WiggleValue(frequency, amplitude, octaves = 1, seed = null)</value>
   </data>
   <data name="Expression_Functions_Time" xml:space="preserve">
-    <value>Other times: ValueAtTime(time), GetProperty&lt;T&gt;(path, time)</value>
+    <value>Other times: ValueAtTime(time), GetProperty&lt;T&gt;(path, time)
+Looping: LoopOut(mode, keyframes), LoopIn(mode, keyframes)</value>
   </data>
   <data name="Expression_GetProperty_Description" xml:space="preserve">
     <value>Reference other properties:
@@ -1303,13 +1394,19 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
     <value>AVFoundation Decoder</value>
   </data>
   <data name="UniformValue" xml:space="preserve">
-    <value>Uniform value</value>
+    <value>Uniform Value</value>
   </data>
   <data name="Null" xml:space="preserve">
     <value>Null</value>
   </data>
+  <data name="ClearValue" xml:space="preserve">
+    <value>Clear Value</value>
+  </data>
+  <data name="ClearReference" xml:space="preserve">
+    <value>Clear Reference</value>
+  </data>
   <data name="OpenInTab" xml:space="preserve">
-    <value>Open in tab</value>
+    <value>Open in Tab</value>
   </data>
   <data name="Current" xml:space="preserve">
     <value>Current</value>
@@ -1357,7 +1454,7 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
     <value>Open in Default Browser</value>
   </data>
   <data name="Print" xml:space="preserve">
-    <value>Print</value>
+    <value>Print…</value>
   </data>
   <data name="WebBrowserActionFailed" xml:space="preserve">
     <value>The browser action could not be completed.</value>
@@ -1414,10 +1511,43 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
     <value>Clear</value>
   </data>
   <data name="ExportProject" xml:space="preserve">
-    <value>Export Project...</value>
+    <value>Export Project…</value>
+  </data>
+  <data name="ExportSubtitlesMenu" xml:space="preserve">
+    <value>Export Subtitles…</value>
+  </data>
+  <data name="ExportSubtitles" xml:space="preserve">
+    <value>Export Subtitles</value>
+  </data>
+  <data name="ExportSubtitles_Source" xml:space="preserve">
+    <value>Clips to export</value>
+  </data>
+  <data name="ExportSubtitles_SelectedElements" xml:space="preserve">
+    <value>Selected elements</value>
+  </data>
+  <data name="ExportSubtitles_Layers" xml:space="preserve">
+    <value>Timeline layers</value>
+  </data>
+  <data name="ExportSubtitles_NoLayers" xml:space="preserve">
+    <value>No layers contain clips.</value>
+  </data>
+  <data name="ExportSubtitles_Format" xml:space="preserve">
+    <value>File format</value>
+  </data>
+  <data name="ExportSubtitles_SelectSource" xml:space="preserve">
+    <value>Choose clips or layers to export.</value>
+  </data>
+  <data name="ExportSubtitles_NoText" xml:space="preserve">
+    <value>No text clips were found.</value>
+  </data>
+  <data name="ExportSubtitles_SkippedClips" xml:space="preserve">
+    <value>Skipped clips without text ({0}).</value>
   </data>
   <data name="ImportProject" xml:space="preserve">
-    <value>Import Project...</value>
+    <value>Import Project…</value>
+  </data>
+  <data name="ImportMedia" xml:space="preserve">
+    <value>Import Media…</value>
   </data>
   <data name="ExportingProject" xml:space="preserve">
     <value>Exporting project...</value>
@@ -1432,9 +1562,6 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
     <value>Select Destination Folder</value>
   </data>
   <!-- 3D Graphics -->
-  <data name="Experimental" xml:space="preserve">
-    <value>Experimental</value>
-  </data>
   <data name="Home" xml:space="preserve">
     <value>Home</value>
   </data>
@@ -1453,8 +1580,11 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="Tutorials" xml:space="preserve">
     <value>Tutorials</value>
   </data>
+  <data name="TutorialsMenu" xml:space="preserve">
+    <value>Tutorials…</value>
+  </data>
   <data name="BpmGrid" xml:space="preserve">
-    <value>BPM Grid</value>
+    <value>BPM Grid…</value>
   </data>
   <data name="ShowBpmGrid" xml:space="preserve">
     <value>Show BPM Grid</value>
@@ -1498,6 +1628,9 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="SaveAsTemplate" xml:space="preserve">
     <value>Save as Template</value>
   </data>
+  <data name="SaveAsTemplateMenu" xml:space="preserve">
+    <value>Save as Template…</value>
+  </data>
   <data name="ApplyTemplate" xml:space="preserve">
     <value>Apply Template</value>
   </data>
@@ -1515,6 +1648,36 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   </data>
   <data name="EnterTemplateName" xml:space="preserve">
     <value>Enter template name</value>
+  </data>
+  <data name="TemplateInvalidName" xml:space="preserve">
+    <value>Supply a valid file name for the template.</value>
+  </data>
+  <data name="TemplateInvalidId" xml:space="preserve">
+    <value>Supply a valid ID.</value>
+  </data>
+  <data name="TemplateObjectSaveFailed" xml:space="preserve">
+    <value>Beutl could not save the object as a template.</value>
+  </data>
+  <data name="TemplateNotFound" xml:space="preserve">
+    <value>Template '{0}' was not found.</value>
+  </data>
+  <data name="TemplateInstantiationFailed" xml:space="preserve">
+    <value>Template '{0}' could not create an object.</value>
+  </data>
+  <data name="TemplateObjectAmbiguous" xml:space="preserve">
+    <value>More than one object in the scene document has ID '{0}'.</value>
+  </data>
+  <data name="TemplateObjectNotFound" xml:space="preserve">
+    <value>The scene document has no object with ID '{0}'.</value>
+  </data>
+  <data name="TemplateTypeMismatch" xml:space="preserve">
+    <value>Template type '{0}' does not fit property '{1}', which requires '{2}'.</value>
+  </data>
+  <data name="TemplateIndexOutOfRange" xml:space="preserve">
+    <value>Supply a zero-based index from 0 to {0} for '{1}'.</value>
+  </data>
+  <data name="TemplateInvalidProperty" xml:space="preserve">
+    <value>To apply a template at '{0}', specify an object property for replacement or an object list with its insertion index.</value>
   </data>
   <data name="Preset_YouTube_1080p60" xml:space="preserve">
     <value>YouTube 1080p 60fps</value>
@@ -1566,6 +1729,9 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   </data>
   <data name="CommandPalette_MenuCategory" xml:space="preserve">
     <value>Menu</value>
+  </data>
+  <data name="CommandPalette_OpensToolTab" xml:space="preserve">
+    <value>Opens {0}</value>
   </data>
   <data name="CommandPalette_InputPlaceholder" xml:space="preserve">
     <value>Enter a value…</value>
@@ -1697,19 +1863,19 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
     <value>Generate selected</value>
   </data>
   <data name="ProxyGenerateAll" xml:space="preserve">
-    <value>Generate all</value>
+    <value>Generate All</value>
   </data>
   <data name="ProxyRegenerate" xml:space="preserve">
     <value>Regenerate</value>
   </data>
   <data name="ProxyRegenerateSelected" xml:space="preserve">
-    <value>Regenerate selected</value>
+    <value>Regenerate Selected</value>
   </data>
   <data name="ProxyDeleteSelected" xml:space="preserve">
-    <value>Delete selected</value>
+    <value>Delete Selected</value>
   </data>
   <data name="ProxyDeleteProjectProxies" xml:space="preserve">
-    <value>Delete project proxies</value>
+    <value>Delete Project Proxies…</value>
   </data>
   <data name="ProxyDeleteProjectProxiesConfirmationFormat" xml:space="preserve">
     <value>Proxies are stored in a machine-wide shared cache. Deleting the {0} proxy file(s) used by this project also removes them for every other project that references the same source files, and they will have to be regenerated. Continue?</value>
@@ -1825,9 +1991,6 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="Ai" xml:space="preserve">
     <value>AI</value>
   </data>
-  <data name="AiGenerateImage" xml:space="preserve">
-    <value>Generate image</value>
-  </data>
   <data name="AiImageGeneration" xml:space="preserve">
     <value>AI image generation</value>
   </data>
@@ -1930,9 +2093,6 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="AiImageAddedToScene" xml:space="preserve">
     <value>The image was added to the scene.</value>
   </data>
-  <data name="AiGenerateSubtitles" xml:space="preserve">
-    <value>Generate subtitles</value>
-  </data>
   <data name="AiSubtitle" xml:space="preserve">
     <value>AI subtitles</value>
   </data>
@@ -1969,9 +2129,6 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="AiSubtitleAddedToScene" xml:space="preserve">
     <value>The subtitles were added to the scene.</value>
   </data>
-  <data name="AiEditImage" xml:space="preserve">
-    <value>Edit image</value>
-  </data>
   <data name="AiImageEdit" xml:space="preserve">
     <value>AI image editing</value>
   </data>
@@ -1995,9 +2152,6 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   </data>
   <data name="AiEditSelectSource" xml:space="preserve">
     <value>Select an image file first.</value>
-  </data>
-  <data name="AiGenerateVideo" xml:space="preserve">
-    <value>Generate video</value>
   </data>
   <data name="AiVideoGeneration" xml:space="preserve">
     <value>AI video generation</value>
@@ -2476,6 +2630,9 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="VersionControl_Restore" xml:space="preserve">
     <value>Restore</value>
   </data>
+  <data name="VersionControl_RestoreMenu" xml:space="preserve">
+    <value>Restore…</value>
+  </data>
   <data name="VersionControl_RestoreToNewBranch" xml:space="preserve">
     <value>Restore to New Branch…</value>
   </data>
@@ -2706,7 +2863,7 @@ Resolve the conflicts with an external Git tool before editing. The project may 
     <value>Could not save the supplied credentials. Configure a working Git credential helper and try again.</value>
   </data>
   <data name="VersionControl_SetRemote" xml:space="preserve">
-    <value>Set remote…</value>
+    <value>Set Remote…</value>
   </data>
   <data name="VersionControl_SetRemoteTitle" xml:space="preserve">
     <value>Set Remote</value>
@@ -2731,6 +2888,21 @@ Resolve the conflicts with an external Git tool before editing. The project may 
   </data>
   <data name="VersionControl_Pushing" xml:space="preserve">
     <value>Pushing versions…</value>
+  </data>
+  <data name="VersionControl_FetchingLfs" xml:space="preserve">
+    <value>Downloading Git LFS files…</value>
+  </data>
+  <data name="VersionControl_ApplyingPull" xml:space="preserve">
+    <value>Applying remote changes…</value>
+  </data>
+  <data name="VersionControl_Committing" xml:space="preserve">
+    <value>Creating commit…</value>
+  </data>
+  <data name="VersionControl_Restoring" xml:space="preserve">
+    <value>Restoring version…</value>
+  </data>
+  <data name="VersionControl_SwitchingBranch" xml:space="preserve">
+    <value>Switching branch…</value>
   </data>
   <data name="VersionControl_Pulling" xml:space="preserve">
     <value>Pulling versions…</value>
@@ -2864,6 +3036,12 @@ Resolve the conflicts with an external Git tool before editing. The project may 
   <data name="AiSubtitle_CaptionsFile" xml:space="preserve">
     <value>Captions file</value>
   </data>
+  <data name="SubtitleFile_UnsupportedFormat" xml:space="preserve">
+    <value>Choose an SRT, ASS, or WebVTT file.</value>
+  </data>
+  <data name="SubtitleFile_UnsupportedTemplate" xml:space="preserve">
+    <value>The template must contain a text object.</value>
+  </data>
   <data name="SubtitleFile_CouldNotRead" xml:space="preserve">
     <value>Could not read any subtitles from {0}.</value>
   </data>
@@ -2887,6 +3065,9 @@ Resolve the conflicts with an external Git tool before editing. The project may 
   </data>
   <data name="WebDownloadMedia" xml:space="preserve">
     <value>Download file</value>
+  </data>
+  <data name="WebDownloadMediaMenu" xml:space="preserve">
+    <value>Download File…</value>
   </data>
   <data name="WebDownloadProject" xml:space="preserve">
     <value>Project directory</value>
@@ -2922,7 +3103,7 @@ Resolve the conflicts with an external Git tool before editing. The project may 
     <value>Saved to {0}, but timeline import failed: {1}</value>
   </data>
   <data name="BrowserDownloads" xml:space="preserve">
-    <value>Download history</value>
+    <value>Download History</value>
   </data>
   <data name="BrowserBookmarks" xml:space="preserve">
     <value>Bookmarks</value>
@@ -2931,13 +3112,13 @@ Resolve the conflicts with an external Git tool before editing. The project may 
     <value>Add bookmark</value>
   </data>
   <data name="BrowserBookmarkThisPage" xml:space="preserve">
-    <value>Bookmark this page</value>
+    <value>Bookmark This Page</value>
   </data>
   <data name="BrowserBookmarkAdded" xml:space="preserve">
     <value>Added "{0}" to bookmarks.</value>
   </data>
   <data name="BrowserSettings" xml:space="preserve">
-    <value>Search and privacy</value>
+    <value>Search and Privacy…</value>
   </data>
   <data name="BrowserRetry" xml:space="preserve">
     <value>Download again</value>
@@ -2981,6 +3162,9 @@ Resolve the conflicts with an external Git tool before editing. The project may 
   <data name="BrowserFind" xml:space="preserve">
     <value>Find in page</value>
   </data>
+  <data name="BrowserFindMenu" xml:space="preserve">
+    <value>Find in Page…</value>
+  </data>
   <data name="BrowserFindNext" xml:space="preserve">
     <value>Next match</value>
   </data>
@@ -2994,13 +3178,13 @@ Resolve the conflicts with an external Git tool before editing. The project may 
     <value>Page tools are unavailable on this page.</value>
   </data>
   <data name="BrowserZoomIn" xml:space="preserve">
-    <value>Zoom in</value>
+    <value>Zoom In</value>
   </data>
   <data name="BrowserZoomOut" xml:space="preserve">
-    <value>Zoom out</value>
+    <value>Zoom Out</value>
   </data>
   <data name="BrowserZoomReset" xml:space="preserve">
-    <value>Reset zoom</value>
+    <value>Reset Zoom</value>
   </data>
   <data name="BrowserCookieSessionRequired" xml:space="preserve">
     <value>Open a browser tab to manage cookies. Some browser engines do not support cookie deletion.</value>
@@ -3115,7 +3299,7 @@ when history recording is enabled.</value>
     <value>Beutl storage browsing is not available on this server yet.</value>
   </data>
   <data name="LocalFiles" xml:space="preserve">
-    <value>This device</value>
+    <value>This Device</value>
   </data>
   <data name="StorageLocations" xml:space="preserve">
     <value>Storage locations</value>
@@ -3135,14 +3319,17 @@ when history recording is enabled.</value>
   <data name="CloudStorageDownload" xml:space="preserve">
     <value>Download</value>
   </data>
+  <data name="CloudStorageDownloadMenu" xml:space="preserve">
+    <value>Download…</value>
+  </data>
   <data name="CloudStorageCopyLink" xml:space="preserve">
-    <value>Copy link</value>
+    <value>Copy Link</value>
   </data>
   <data name="CloudStorageSetPublic" xml:space="preserve">
-    <value>Make public</value>
+    <value>Make Public</value>
   </data>
   <data name="CloudStorageSetPrivate" xml:space="preserve">
-    <value>Make private</value>
+    <value>Make Private</value>
   </data>
   <data name="CloudStorageDedicatedHint" xml:space="preserve">
     <value>This file is managed by another feature. You can view, download, or move it here.</value>
@@ -3221,6 +3408,9 @@ when history recording is enabled.</value>
   </data>
   <data name="DeleteFromDisk" xml:space="preserve">
     <value>Delete from Disk</value>
+  </data>
+  <data name="DeleteFromDiskMenu" xml:space="preserve">
+    <value>Delete from Disk…</value>
   </data>
   <data name="AiVideoEditing" xml:space="preserve">
     <value>Video editing</value>
@@ -3358,25 +3548,52 @@ when history recording is enabled.</value>
     <value>Open in File Manager</value>
   </data>
   <data name="PathEditor_MoveTool" xml:space="preserve">
-    <value>Move (V) · Shift: add to selection</value>
+    <value>Move</value>
+  </data>
+  <data name="PathEditor_MoveTool_Description" xml:space="preserve">
+    <value>Shift: add to selection</value>
   </data>
   <data name="PathEditor_PenTool" xml:space="preserve">
-    <value>Pen (P) · Click: add point · Drag: curve</value>
+    <value>Pen</value>
+  </data>
+  <data name="PathEditor_PenTool_Description" xml:space="preserve">
+    <value>Click to add a point. Drag to curve.</value>
   </data>
   <data name="PathEditor_BendTool" xml:space="preserve">
-    <value>Bend (B) · Click a point to add or remove handles</value>
+    <value>Bend</value>
+  </data>
+  <data name="PathEditor_BendTool_Description" xml:space="preserve">
+    <value>Click a point to add or remove handles</value>
   </data>
   <data name="PathEditor_HandTool" xml:space="preserve">
-    <value>Hand (H) · Space + drag: pan</value>
+    <value>Hand</value>
+  </data>
+  <data name="PathEditor_HandTool_Description" xml:space="preserve">
+    <value>Drag to pan</value>
   </data>
   <data name="PathEditor_ZoomIn" xml:space="preserve">
-    <value>Zoom in (+)</value>
+    <value>Zoom in</value>
   </data>
   <data name="PathEditor_ZoomOut" xml:space="preserve">
-    <value>Zoom out (-)</value>
+    <value>Zoom out</value>
   </data>
   <data name="PathEditor_Fit" xml:space="preserve">
-    <value>Fit path (Shift+1)</value>
+    <value>Fit path</value>
+  </data>
+  <data name="PanView" xml:space="preserve">
+    <value>Pan view</value>
+  </data>
+  <data name="PathEditor_NudgeLeft" xml:space="preserve">
+    <value>Nudge left ({0} px)</value>
+  </data>
+  <data name="PathEditor_NudgeRight" xml:space="preserve">
+    <value>Nudge right ({0} px)</value>
+  </data>
+  <data name="PathEditor_NudgeUp" xml:space="preserve">
+    <value>Nudge up ({0} px)</value>
+  </data>
+  <data name="PathEditor_NudgeDown" xml:space="preserve">
+    <value>Nudge down ({0} px)</value>
   </data>
   <data name="PathEditor_NoSelection" xml:space="preserve">
     <value>No points selected</value>
@@ -3430,7 +3647,7 @@ when history recording is enabled.</value>
     <value>Outgoing control point</value>
   </data>
   <data name="GraphSpeedGraph" xml:space="preserve">
-    <value>Speed graph</value>
+    <value>Speed Graph</value>
   </data>
   <data name="GraphTypeHint" xml:space="preserve">
     <value>Switch between the value graph and speed graph (units/second)</value>
@@ -3445,10 +3662,10 @@ when history recording is enabled.</value>
     <value>Auto height</value>
   </data>
   <data name="GraphFitAll" xml:space="preserve">
-    <value>Fit all</value>
+    <value>Fit All</value>
   </data>
   <data name="GraphFitSelection" xml:space="preserve">
-    <value>Fit selection</value>
+    <value>Fit Selection</value>
   </data>
   <data name="GraphEasyEase" xml:space="preserve">
     <value>Easy Ease</value>
@@ -3460,13 +3677,16 @@ when history recording is enabled.</value>
     <value>Ease Out</value>
   </data>
   <data name="GraphValueGraph" xml:space="preserve">
-    <value>Value graph</value>
+    <value>Value Graph</value>
   </data>
   <data name="GraphValue" xml:space="preserve">
     <value>Value</value>
   </data>
   <data name="GraphVelocity" xml:space="preserve">
     <value>Keyframe velocity</value>
+  </data>
+  <data name="GraphVelocityMenu" xml:space="preserve">
+    <value>Keyframe Velocity…</value>
   </data>
   <data name="GraphIncoming" xml:space="preserve">
     <value>Incoming</value>
@@ -3490,13 +3710,16 @@ when history recording is enabled.</value>
     <value>Alpha</value>
   </data>
   <data name="GraphDistributeEvenly" xml:space="preserve">
-    <value>Distribute evenly</value>
+    <value>Distribute Evenly</value>
   </data>
   <data name="GraphReverse" xml:space="preserve">
-    <value>Reverse keyframe times</value>
+    <value>Reverse Keyframe Times</value>
   </data>
   <data name="GraphScaleValues" xml:space="preserve">
     <value>Scale values</value>
+  </data>
+  <data name="GraphScaleValuesMenu" xml:space="preserve">
+    <value>Scale Values…</value>
   </data>
   <data name="GraphScaleFactor" xml:space="preserve">
     <value>Factor</value>
@@ -3622,7 +3845,7 @@ when history recording is enabled.</value>
     <value>No matching fonts</value>
   </data>
   <data name="MobilePreview" xml:space="preserve">
-    <value>Mobile preview</value>
+    <value>Mobile Preview</value>
   </data>
   <data name="MobilePreviewDescription" xml:space="preserve">
     <value>Preview video and audio, and control playback from your phone.</value>
@@ -3670,13 +3893,13 @@ when history recording is enabled.</value>
     <value>Track Matte</value>
   </data>
   <data name="MatteSource" xml:space="preserve">
-    <value>Source layer</value>
+    <value>Source Layer</value>
   </data>
   <data name="MatteSourceAbove" xml:space="preserve">
-    <value>Layer above</value>
+    <value>Layer Above</value>
   </data>
   <data name="MatteSourceBelow" xml:space="preserve">
-    <value>Layer below</value>
+    <value>Layer Below</value>
   </data>
   <data name="MatteAlpha" xml:space="preserve">
     <value>Alpha</value>
@@ -3691,10 +3914,10 @@ when history recording is enabled.</value>
     <value>Inverted Luma</value>
   </data>
   <data name="IsVisibleInOutput" xml:space="preserve">
-    <value>Show in output</value>
+    <value>Show in Output</value>
   </data>
   <data name="SeparateComponents" xml:space="preserve">
-    <value>Separate components</value>
+    <value>Separate Components</value>
   </data>
   <data name="TopLeft" xml:space="preserve">
     <value>Top left</value>
@@ -3709,7 +3932,7 @@ when history recording is enabled.</value>
     <value>Bottom left</value>
   </data>
   <data name="UnseparateComponents" xml:space="preserve">
-    <value>Unseparate components</value>
+    <value>Unseparate Components</value>
   </data>
   <data name="UnseparateComponents_Description" xml:space="preserve">
     <value>Keep the value at the current time and remove component keyframes and expressions.</value>
@@ -3740,6 +3963,24 @@ when history recording is enabled.</value>
   </data>
   <data name="TogglePreviewCheckerboard_Description" xml:space="preserve">
     <value>Show the preview's transparent parts over a checkerboard instead of black.</value>
+  </data>
+  <data name="CompareFilterEffect" xml:space="preserve">
+    <value>Compare Filter Effect</value>
+  </data>
+  <data name="CompareFilterEffect_Description" xml:space="preserve">
+    <value>Compare the current frame with and without one filter effect.</value>
+  </data>
+  <data name="ChooseFilterEffectToCompare" xml:space="preserve">
+    <value>Choose a filter effect to compare in the property editor.</value>
+  </data>
+  <data name="EffectComparisonBefore" xml:space="preserve">
+    <value>Before: {0}</value>
+  </data>
+  <data name="EffectComparisonAfter" xml:space="preserve">
+    <value>After</value>
+  </data>
+  <data name="EffectComparisonDivider" xml:space="preserve">
+    <value>Effect comparison divider</value>
   </data>
   <data name="PreviewZoom" xml:space="preserve">
     <value>Preview zoom</value>
@@ -3800,6 +4041,9 @@ when history recording is enabled.</value>
   </data>
   <data name="AutoSplitBySilence" xml:space="preserve">
     <value>Auto Split by Silence</value>
+  </data>
+  <data name="AutoSplitBySilenceMenu" xml:space="preserve">
+    <value>Auto Split by Silence…</value>
   </data>
   <data name="SilenceSplit_Threshold" xml:space="preserve">
     <value>Threshold (dB)</value>
@@ -3887,5 +4131,221 @@ when history recording is enabled.</value>
   </data>
   <data name="Paste_ProjectNotSaved" xml:space="preserve">
     <value>Save the project before pasting elements.</value>
+  </data>
+  <data name="Portal_LibraryDescription" xml:space="preserve">
+    <value>Feeds the contents of layers below into the current layer (layer reference, flow input).</value>
+  </data>
+  <data name="HostedGit_AuthenticationRequired" xml:space="preserve">
+    <value>Sign in to Beutl to access your repositories.</value>
+  </data>
+  <data name="HostedGit_Unavailable" xml:space="preserve">
+    <value>Beutl repositories are unavailable. Try again later.</value>
+  </data>
+  <data name="HostedGit_NotFound" xml:space="preserve">
+    <value>This repository could not be found in your Beutl account.</value>
+  </data>
+  <data name="HostedGit_RepositoryLimit" xml:space="preserve">
+    <value>You have reached the Beutl repository limit. Connect an existing repository or manage your repositories on the web.</value>
+  </data>
+  <data name="HostedGit_TokenLimit" xml:space="preserve">
+    <value>This repository has reached its access token limit. Revoke an unused token on the web and try again.</value>
+  </data>
+  <data name="HostedGit_AccountChanged" xml:space="preserve">
+    <value>The signed-in account changed. Switch back to the original account to retry.</value>
+  </data>
+  <data name="HostedGit_Conflict" xml:space="preserve">
+    <value>The repository could not be saved because it conflicts with an existing repository. Refresh the repository list and try again.</value>
+  </data>
+  <data name="HostedGit_RequestFailed" xml:space="preserve">
+    <value>The Beutl repository request failed. Try again.</value>
+  </data>
+  <data name="HostedGit_InvalidRepositoryName" xml:space="preserve">
+    <value>Enter a repository name of up to 80 characters without slashes or control characters.</value>
+  </data>
+  <data name="HostedGit_InvalidRepositoryId" xml:space="preserve">
+    <value>The repository or access token has an invalid ID.</value>
+  </data>
+  <data name="HostedGit_InvalidTokenName" xml:space="preserve">
+    <value>Enter an access token name of up to 80 characters without control characters.</value>
+  </data>
+  <data name="HostedGit_InvalidTokenScope" xml:space="preserve">
+    <value>Choose read or write access for the token.</value>
+  </data>
+  <data name="HostedGit_InvalidRepositoryUrl" xml:space="preserve">
+    <value>Beutl returned an invalid Git URL for this repository.</value>
+  </data>
+  <data name="HostedGit_InvalidRevision" xml:space="preserve">
+    <value>The link contains an invalid Git revision.</value>
+  </data>
+  <data name="HostedGit_InvalidDestination" xml:space="preserve">
+    <value>Choose a valid parent folder and enter a folder name.</value>
+  </data>
+  <data name="HostedGit_DestinationExists" xml:space="preserve">
+    <value>Choose a destination that is empty or does not exist.</value>
+  </data>
+  <data name="HostedGit_ConnectRemote" xml:space="preserve">
+    <value>Connect a Git remote</value>
+  </data>
+  <data name="HostedGit_CreateRepository" xml:space="preserve">
+    <value>Create on Beutl</value>
+  </data>
+  <data name="HostedGit_ConnectExisting" xml:space="preserve">
+    <value>Existing</value>
+  </data>
+  <data name="HostedGit_CustomUrl" xml:space="preserve">
+    <value>Git URL</value>
+  </data>
+  <data name="HostedGit_RepositoryName" xml:space="preserve">
+    <value>Repository name</value>
+  </data>
+  <data name="HostedGit_Connect" xml:space="preserve">
+    <value>Connect</value>
+  </data>
+  <data name="HostedGit_ConnectAndPublish" xml:space="preserve">
+    <value>Connect and publish</value>
+  </data>
+  <data name="HostedGit_CreateAndConnect" xml:space="preserve">
+    <value>Create and connect</value>
+  </data>
+  <data name="HostedGit_CreateAndPublish" xml:space="preserve">
+    <value>Create and publish</value>
+  </data>
+  <data name="HostedGit_ReplaceOrigin" xml:space="preserve">
+    <value>This will replace the current origin.</value>
+  </data>
+  <data name="HostedGit_OriginChanged" xml:space="preserve">
+    <value>The current origin changed. Reopen the dialog to review it before connecting.</value>
+  </data>
+  <data name="HostedGit_OriginAlreadyConfigured" xml:space="preserve">
+    <value>Origin is already configured. Use Push to publish to it.</value>
+  </data>
+  <data name="HostedGit_PushDestinationMismatch" xml:space="preserve">
+    <value>Git would push to a different repository. Check the origin push URLs before connecting.</value>
+  </data>
+  <data name="HostedGit_SignIn" xml:space="preserve">
+    <value>Sign in to Beutl</value>
+  </data>
+  <data name="HostedGit_SignInFailed" xml:space="preserve">
+    <value>Sign-in failed. Try signing in again.</value>
+  </data>
+  <data name="HostedGit_NoRepositories" xml:space="preserve">
+    <value>There are no Beutl repositories in this account.</value>
+  </data>
+  <data name="HostedGit_NoSearchResults" xml:space="preserve">
+    <value>No repositories match your search.</value>
+  </data>
+  <data name="HostedGit_Reconnect" xml:space="preserve">
+    <value>Reconnect Beutl remote</value>
+  </data>
+  <data name="HostedGit_ReconnectHint" xml:space="preserve">
+    <value>Reconnect to issue a new access token, then retry the Git operation.</value>
+  </data>
+  <data name="HostedGit_Reconnected" xml:space="preserve">
+    <value>Beutl remote reconnected.</value>
+  </data>
+  <data name="HostedGit_OpenOnWeb" xml:space="preserve">
+    <value>Open on Web</value>
+  </data>
+  <data name="HostedGit_OpenCommitOnWeb" xml:space="preserve">
+    <value>Open Commit on Web</value>
+  </data>
+  <data name="HostedGit_CloneRepository" xml:space="preserve">
+    <value>Clone Repository</value>
+  </data>
+  <data name="HostedGit_CloneRepositoryMenu" xml:space="preserve">
+    <value>Clone Repository…</value>
+  </data>
+  <data name="HostedGit_DeleteRepository" xml:space="preserve">
+    <value>Delete Remote Repository</value>
+  </data>
+  <data name="HostedGit_DeleteRepositoryMenu" xml:space="preserve">
+    <value>Delete Remote Repository…</value>
+  </data>
+  <data name="HostedGit_DeletingRepository" xml:space="preserve">
+    <value>Deleting repository…</value>
+  </data>
+  <data name="HostedGit_BeutlRepositories" xml:space="preserve">
+    <value>Beutl Repositories</value>
+  </data>
+  <data name="HostedGit_CloneFromUrl" xml:space="preserve">
+    <value>Clone from URL</value>
+  </data>
+  <data name="HostedGit_Clone" xml:space="preserve">
+    <value>Clone</value>
+  </data>
+  <data name="HostedGit_CloneMenu" xml:space="preserve">
+    <value>Clone…</value>
+  </data>
+  <data name="HostedGit_ClonedProject" xml:space="preserve">
+    <value>Local copy</value>
+  </data>
+  <data name="HostedGit_CloudProject" xml:space="preserve">
+    <value>Cloud</value>
+  </data>
+  <data name="HostedGit_FolderName" xml:space="preserve">
+    <value>Folder name</value>
+  </data>
+  <data name="HostedGit_ParentFolder" xml:space="preserve">
+    <value>Parent folder</value>
+  </data>
+  <data name="HostedGit_Cloning" xml:space="preserve">
+    <value>Cloning repository…</value>
+  </data>
+  <data name="HostedGit_Canceling" xml:space="preserve">
+    <value>Cancelling clone…</value>
+  </data>
+  <data name="HostedGit_CloneFailed" xml:space="preserve">
+    <value>The repository could not be cloned.</value>
+  </data>
+  <data name="HostedGit_CloneRequiresLfs" xml:space="preserve">
+    <value>This repository contains Git LFS files. Install Git LFS and try cloning again.</value>
+  </data>
+  <data name="HostedGit_ChooseClonedProject" xml:space="preserve">
+    <value>Choose a project to open</value>
+  </data>
+  <data name="HostedGit_NoProjectFound" xml:space="preserve">
+    <value>The repository was cloned, but it contains no Beutl project files.</value>
+  </data>
+  <data name="HostedGit_OpenFolder" xml:space="preserve">
+    <value>Open folder</value>
+  </data>
+  <data name="HostedGit_ProjectAlreadyOpen" xml:space="preserve">
+    <value>This repository is already open in Beutl.</value>
+  </data>
+  <data name="HostedGit_ExistingCloneFound" xml:space="preserve">
+    <value>A project from this repository is already on this computer.</value>
+  </data>
+  <data name="HostedGit_OpenLocalProject" xml:space="preserve">
+    <value>Open local copy</value>
+  </data>
+  <data name="HostedGit_CloneNewCopy" xml:space="preserve">
+    <value>Clone a new copy</value>
+  </data>
+  <data name="HostedGit_RevisionFormat" xml:space="preserve">
+    <value>Revision {0}</value>
+  </data>
+  <data name="EffectCategory" xml:space="preserve">
+    <value>Category</value>
+  </data>
+  <data name="AllEffectCategories" xml:space="preserve">
+    <value>All categories</value>
+  </data>
+  <data name="TimelineDrag_StartLength" xml:space="preserve">
+    <value>Start {0}   Length {1}</value>
+  </data>
+  <data name="TimelineDrag_EndLength" xml:space="preserve">
+    <value>End {0}   Length {1}</value>
+  </data>
+  <data name="TimelineDrag_StartLayer" xml:space="preserve">
+    <value>Start {0}   Layer {1}</value>
+  </data>
+  <data name="TimelineDrag_RollLengths" xml:space="preserve">
+    <value>Left {0}   Right {1}</value>
+  </data>
+  <data name="TimelineDrag_StartEnd" xml:space="preserve">
+    <value>Start {0}   End {1}</value>
+  </data>
+  <data name="TimelineDrag_MediaOffset" xml:space="preserve">
+    <value>Media offset {0}</value>
   </data>
 </root>

@@ -6834,13 +6834,21 @@ public class VersionControlRestoreTests
 
         using var cancellation = new CancellationTokenSource();
         Task<RemoteOpResult> pull = coordinator.PullAsync(cancellation.Token);
-        await pullStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
-        Assert.That(TestShell.Project.CurrentProject.Value, Is.Null);
+        try
+        {
+            await pullStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.That(TestShell.Project.CurrentProject.Value, Is.Null);
+            Assert.That(session.EditorService.LifecycleActivity.Value, Is.EqualTo(ProjectLifecycleActivity.ApplyingPull));
 
-        // Git runs uncancellable once the project is closed, so the project always reopens on
-        // files Git finished writing.
-        cancellation.Cancel();
-        releasePull.TrySetResult();
+            // Git runs uncancellable once the project is closed, so the project always reopens on
+            // files Git finished writing.
+            cancellation.Cancel();
+        }
+        finally
+        {
+            releasePull.TrySetResult();
+        }
+
         RemoteOpResult result = await pull.WaitAsync(TimeSpan.FromSeconds(5));
         HeadlessTestHelpers.Settle();
 
@@ -6848,6 +6856,7 @@ public class VersionControlRestoreTests
         {
             Assert.That(result, Is.TypeOf<RemoteOpResult.Success>());
             Assert.That(backend.PullCalls, Is.EqualTo(1));
+            Assert.That(session.EditorService.LifecycleActivity.Value, Is.EqualTo(ProjectLifecycleActivity.None));
             Assert.That(TestShell.Project.CurrentProject.Value, Is.Not.Null);
             Assert.That(
                 TestShell.Project.CurrentProject.Value!.Uri!.LocalPath,
@@ -8000,7 +8009,8 @@ public class VersionControlRestoreTests
 
         public async Task<PullPreflightResult> PreflightPullAsync(
             CheckedOutBranchTip expectedCurrent,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            IProgress<string>? progress)
         {
             PreflightCalls++;
             PreflightStarted?.TrySetResult();
@@ -8078,6 +8088,12 @@ public class VersionControlRestoreTests
             }
         }
 
+        public Task CheckManualCommitBeforeSaveAsync(bool interactive, CancellationToken cancellationToken)
+            => Task.CompletedTask;
+
+        public Task<CommitResult> CommitNonInteractiveAsync(string message, CancellationToken cancellationToken)
+            => CommitAllAsync(message, SnapshotKind.Manual, cancellationToken);
+
         public async Task<CommitResult> CommitAllAsync(
             string message,
             SnapshotKind kind,
@@ -8134,6 +8150,9 @@ public class VersionControlRestoreTests
         {
             return Task.FromResult(true);
         }
+
+        public Task SetRemoteAsync(GitRemoteUrl remote, string? expectedOrigin, CancellationToken cancellationToken)
+            => SetRemoteAsync(remote.Url, cancellationToken);
 
         public Task SetRemoteAsync(string url, CancellationToken cancellationToken)
         {
@@ -8279,7 +8298,8 @@ public class VersionControlRestoreTests
         public Task PrefetchCommitLfsObjectsAsync(
             string sha,
             LfsPrefetchScope scope,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            IProgress<string>? progress)
         {
             PrefetchCommitLfsCalls++;
             LastPrefetchedCommit = sha;

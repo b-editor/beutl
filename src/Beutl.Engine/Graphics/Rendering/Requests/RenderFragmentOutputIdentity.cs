@@ -170,6 +170,9 @@ internal sealed class RenderFragmentOutputIdentity : IEquatable<RenderFragmentOu
     {
         switch (reference.Payload)
         {
+            case OpaqueRenderFragmentPayload { TextPart: { } textPart }:
+                components.Add(textPart);
+                return;
             case ShaderGraphRenderFragmentPayload graph:
                 components.Add(graph.Description.OutputIdentity);
                 return;

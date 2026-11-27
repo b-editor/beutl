@@ -13,11 +13,8 @@ using FluentAvalonia.Core;
 namespace Beutl.Controls.PropertyEditors;
 
 // Based on FluentAvalonia's FAPickerFlyoutPresenter, with a drag area.
-public class DraggablePickerFlyoutPresenter : ContentControl
+public partial class DraggablePickerFlyoutPresenter : ContentControl
 {
-    public static readonly StyledProperty<bool> ShowHideButtonsProperty =
-        AvaloniaProperty.Register<DraggablePickerFlyoutPresenter, bool>(nameof(ShowHideButtons));
-
     private readonly CompositeDisposable _disposables = [];
     private Panel? _dragArea;
     private Button? _closebutton;
@@ -40,11 +37,8 @@ public class DraggablePickerFlyoutPresenter : ContentControl
 
     public event TypedEventHandler<DraggablePickerFlyoutPresenter, EventArgs>? CloseClicked;
 
-    public bool ShowHideButtons
-    {
-        get => GetValue(ShowHideButtonsProperty);
-        set => SetValue(ShowHideButtonsProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial bool ShowHideButtons { get; set; }
 
     // Moves the focus into the presenter once its flyout has opened.
     public virtual void FocusInitialElement()

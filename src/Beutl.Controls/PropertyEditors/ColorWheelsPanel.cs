@@ -8,14 +8,8 @@ namespace Beutl.Controls.PropertyEditors;
 // wider than high. A single row is kept unless another layout makes the pads clearly larger, so that the wheels read
 // left to right as they do in other tools. What a wheel needs besides its pad comes from measuring the first wheel
 // with no limits. Each wheel sits in the middle of its cell, and a shorter last row is centered.
-public sealed class ColorWheelsPanel : Panel
+public sealed partial class ColorWheelsPanel : Panel
 {
-    public static readonly StyledProperty<double> SpacingProperty =
-        AvaloniaProperty.Register<ColorWheelsPanel, double>(nameof(Spacing), 8);
-
-    public static readonly StyledProperty<double> MaxPadSizeProperty =
-        AvaloniaProperty.Register<ColorWheelsPanel, double>(nameof(MaxPadSize), 240);
-
     // The gap between a pad and the column beside it, which the wheel's theme also keeps.
     internal const double SideGap = 12;
     private const double MinPadSize = 32;
@@ -33,17 +27,11 @@ public sealed class ColorWheelsPanel : Panel
         AffectsMeasure<ColorWheelsPanel>(SpacingProperty, MaxPadSizeProperty);
     }
 
-    public double Spacing
-    {
-        get => GetValue(SpacingProperty);
-        set => SetValue(SpacingProperty, value);
-    }
+    [GeneratedStyledProperty(DefaultValue = 8)]
+    public partial double Spacing { get; set; }
 
-    public double MaxPadSize
-    {
-        get => GetValue(MaxPadSizeProperty);
-        set => SetValue(MaxPadSizeProperty, value);
-    }
+    [GeneratedStyledProperty(DefaultValue = 240)]
+    public partial double MaxPadSize { get; set; }
 
     // The layout chosen last, for tests.
     internal int Columns => _arrangement.Columns;
@@ -51,6 +39,18 @@ public sealed class ColorWheelsPanel : Panel
     internal bool IsSideBySide => _arrangement.SideBySide;
 
     internal double PadSize => _arrangement.Pad;
+
+    // A scroll viewer measures its content with infinite height. The viewport still guides the wheel layout.
+    internal double ViewportHeight
+    {
+        get;
+        set
+        {
+            if (field == value) return;
+            field = value;
+            InvalidateMeasure();
+        }
+    } = double.PositiveInfinity;
 
     // The sliders can scroll above the wheels. Reserve the shortest arrangement that fits the requested pads.
     internal double MeasureHeightForPad(double width, double pad)
@@ -61,9 +61,7 @@ public sealed class ColorWheelsPanel : Panel
 
         MeasureChrome(wheels[0]);
         pad = Math.Min(pad, Math.Min(width, MaxPadSize));
-        return Arrangements(wheels.Length, width, double.PositiveInfinity, pad)
-            .Where(candidate => candidate.Pad >= pad)
-            .Min(candidate => HeightFor(wheels.Length, candidate));
+        return HeightFor(wheels.Length, ShortestArrangement(wheels.Length, width, pad));
     }
 
     private void MeasureChrome(ColorGradingWheel first)
@@ -89,7 +87,7 @@ public sealed class ColorWheelsPanel : Panel
             : (wheels.Length * (MaxPadSize + spacing)) - spacing;
 
         MeasureChrome(wheels[0]);
-        _arrangement = Choose(wheels.Length, width, availableSize.Height);
+        _arrangement = Choose(wheels.Length, width, Math.Min(availableSize.Height, ViewportHeight));
 
         Size wheelSize = WheelSize(_arrangement);
         foreach (ColorGradingWheel wheel in wheels)
@@ -156,8 +154,11 @@ public sealed class ColorWheelsPanel : Panel
     {
         Arrangement? best = null;
         double bestScore = double.NegativeInfinity;
-        foreach (Arrangement candidate in Arrangements(count, width, height, MaxPadSize))
+        foreach (Arrangement candidate in Arrangements(count, width, height, Math.Max(MaxPadSize, MinPadSize)))
         {
+            if (candidate.Pad < MinPadSize)
+                continue;
+
             // Earlier arrangements, with more columns, win ties.
             int rows = RowCount(count, candidate.Columns);
             double score = candidate.Pad / (candidate.SideBySide ? SidePreference : 1) / (rows > 1 ? RowPreference : 1);
@@ -168,9 +169,14 @@ public sealed class ColorWheelsPanel : Panel
             }
         }
 
-        Arrangement chosen = best ?? new Arrangement(1, MinPadSize, false);
-        return chosen with { Pad = Math.Max(chosen.Pad, MinPadSize) };
+        return best ?? ShortestArrangement(count, width, MinPadSize);
     }
+
+    private Arrangement ShortestArrangement(int count, double width, double pad)
+        => Arrangements(count, width, double.PositiveInfinity, pad)
+            .Where(candidate => candidate.Pad >= pad)
+            .DefaultIfEmpty(new Arrangement(1, pad, false))
+            .MinBy(candidate => HeightFor(count, candidate));
 
     private IEnumerable<Arrangement> Arrangements(int count, double width, double height, double maxPad)
     {

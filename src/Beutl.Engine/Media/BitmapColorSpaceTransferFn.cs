@@ -24,6 +24,9 @@ public readonly struct BitmapColorSpaceTransferFn : IEquatable<BitmapColorSpaceT
 
     public static BitmapColorSpaceTransferFn TwoDotTwo { get; } = FromSK(SKColorSpaceTransferFn.TwoDotTwo);
 
+    /// <summary>BT.1886 reference display EOTF with a zero black level.</summary>
+    public static BitmapColorSpaceTransferFn Bt1886 { get; } = new() { G = 2.4f, A = 1f };
+
     public static BitmapColorSpaceTransferFn Hlg { get; } = FromSK(SKColorSpaceTransferFn.Hlg);
 
     public static BitmapColorSpaceTransferFn Pq { get; } = FromSK(SKColorSpaceTransferFn.Pq);
@@ -162,6 +165,7 @@ public readonly struct BitmapColorSpaceTransferFn : IEquatable<BitmapColorSpaceT
         if (this == Srgb) return "sRGB";
         if (this == Linear) return "Linear";
         if (this == TwoDotTwo) return "2.2";
+        if (this == Bt1886) return "BT.1886";
         if (this == Hlg) return "HLG";
         if (this == Pq) return "PQ";
         if (this == Rec2020) return "Rec.2020";

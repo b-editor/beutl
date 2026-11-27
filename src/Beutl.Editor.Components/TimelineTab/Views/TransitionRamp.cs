@@ -13,26 +13,11 @@ namespace Beutl.Editor.Components.TimelineTab.Views;
 /// transition's <see cref="Easing"/>. The parts drawn by the two elements of a boundary join into one curve
 /// across the cut.
 /// </summary>
-public sealed class TransitionRamp : Control
+public sealed partial class TransitionRamp : Control
 {
     // Enough segments that a curve reads as smooth at any width a part is drawn at.
     private const double PixelsPerSegment = 2;
     private const int MinimumSegments = 8;
-
-    public static readonly StyledProperty<double> StartFractionProperty =
-        AvaloniaProperty.Register<TransitionRamp, double>(nameof(StartFraction));
-
-    public static readonly StyledProperty<double> EndFractionProperty =
-        AvaloniaProperty.Register<TransitionRamp, double>(nameof(EndFraction), 1);
-
-    public static readonly StyledProperty<Easing?> EasingProperty =
-        AvaloniaProperty.Register<TransitionRamp, Easing?>(nameof(Easing));
-
-    public static readonly StyledProperty<IBrush?> FillProperty =
-        AvaloniaProperty.Register<TransitionRamp, IBrush?>(nameof(Fill));
-
-    public static readonly StyledProperty<IBrush?> BackgroundProperty =
-        AvaloniaProperty.Register<TransitionRamp, IBrush?>(nameof(Background));
 
     static TransitionRamp()
     {
@@ -41,36 +26,21 @@ public sealed class TransitionRamp : Control
     }
 
     // How far into the transition's duration the part starts, from 0 to 1.
-    public double StartFraction
-    {
-        get => GetValue(StartFractionProperty);
-        set => SetValue(StartFractionProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial double StartFraction { get; set; }
 
     // How far into the transition's duration the part ends, from 0 to 1.
-    public double EndFraction
-    {
-        get => GetValue(EndFractionProperty);
-        set => SetValue(EndFractionProperty, value);
-    }
+    [GeneratedStyledProperty(DefaultValue = 1)]
+    public partial double EndFraction { get; set; }
 
-    public Easing? Easing
-    {
-        get => GetValue(EasingProperty);
-        set => SetValue(EasingProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial Easing? Easing { get; set; }
 
-    public IBrush? Fill
-    {
-        get => GetValue(FillProperty);
-        set => SetValue(FillProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial IBrush? Fill { get; set; }
 
-    public IBrush? Background
-    {
-        get => GetValue(BackgroundProperty);
-        set => SetValue(BackgroundProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial IBrush? Background { get; set; }
 
     // The top edge of the filled area, left to right: at each x, the progress the transition has reached
     // at that moment, measured up from the bottom.

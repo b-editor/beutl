@@ -13,7 +13,7 @@ using Avalonia.Xaml.Interactivity;
 
 namespace Beutl.Controls.Behaviors;
 
-public class GenericDragBehavior : Behavior<Control>
+public partial class GenericDragBehavior : Behavior<Control>
 {
     private bool _enableDrag;
     private bool _dragStarted;
@@ -25,24 +25,12 @@ public class GenericDragBehavior : Behavior<Control>
     private Control? _subscribedDragControl;
     private IPointer? _activePointer;
 
-    public static readonly StyledProperty<double> VerticalDragThresholdProperty =
-        AvaloniaProperty.Register<GenericDragBehavior, double>(nameof(VerticalDragThreshold), 3);
-
-    public static readonly StyledProperty<Control?> DragControlProperty =
-        AvaloniaProperty.Register<GenericDragBehavior, Control?>(nameof(DragControl));
-
-    public double VerticalDragThreshold
-    {
-        get => GetValue(VerticalDragThresholdProperty);
-        set => SetValue(VerticalDragThresholdProperty, value);
-    }
+    [GeneratedStyledProperty(DefaultValue = 3)]
+    public partial double VerticalDragThreshold { get; set; }
 
     [ResolveByName]
-    public Control? DragControl
-    {
-        get => GetValue(DragControlProperty);
-        set => SetValue(DragControlProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial Control? DragControl { get; set; }
 
     // The options below keep how the reorder behaviors of the app handled the pointer before they derived from
     // this one.

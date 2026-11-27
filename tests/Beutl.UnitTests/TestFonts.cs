@@ -9,6 +9,8 @@ internal static class TestFonts
 
     public static FontManager Manager => s_manager.Value;
 
+    public static SceneRenderServices RenderServices => new(Manager);
+
     private static FontManager Create()
     {
         var configuration = new FontConfig();

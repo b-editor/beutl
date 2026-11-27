@@ -133,6 +133,29 @@ internal static class ElementPlacementHelper
             layer);
     }
 
+    internal static void StackAboveScene(Scene scene, int firstFreeLayer, IReadOnlyList<Element> elements, bool keepsArrangement)
+    {
+        foreach (Element element in elements)
+        {
+            element.ZIndex.Value = scene.CountUnlockedLayers(firstFreeLayer, element.ZIndex.Value);
+            // A matte in a set names a layer of the set, which has just moved.
+            if (keepsArrangement
+                && element.MatteSourceKind.Value == MatteSourceKind.Layer
+                && element.MatteSourceZIndex.Value is { } source)
+            {
+                element.MatteSourceZIndex.Value = scene.CountUnlockedLayers(firstFreeLayer, source);
+            }
+        }
+    }
+
+    // Earlier items of the same batch also count when looking for a free place.
+    internal static void PlaceTogether(Scene scene, IReadOnlyList<Element> elements)
+    {
+        GroupPlacement placement = FindFreePlacement(scene, elements)
+            ?? throw new InvalidOperationException("No free place was found for elements that keep their arrangement.");
+        MoveTogether(elements, placement.StartDelta, placement.LayerDelta);
+    }
+
     internal static HashSet<int> GetLockedRows(Scene scene)
         => scene.Layers.Where(layer => layer.IsLocked.Value).Select(layer => layer.ZIndex.Value).ToHashSet();
 

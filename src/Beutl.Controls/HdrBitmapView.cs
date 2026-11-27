@@ -23,36 +23,6 @@ namespace Beutl.Controls;
 /// </summary>
 public partial class HdrBitmapView : NativeControlHost
 {
-    public static readonly StyledProperty<Ref<BtlBitmap>?> SourceProperty =
-        AvaloniaProperty.Register<HdrBitmapView, Ref<BtlBitmap>?>(nameof(Source));
-
-    public static readonly StyledProperty<Stretch> StretchProperty =
-        AvaloniaProperty.Register<HdrBitmapView, Stretch>(nameof(Stretch), Stretch.Uniform);
-
-    public static readonly StyledProperty<BitmapInterpolationMode> InterpolationModeProperty =
-        AvaloniaProperty.Register<HdrBitmapView, BitmapInterpolationMode>(
-            nameof(InterpolationMode), BitmapInterpolationMode.HighQuality);
-
-    public static readonly StyledProperty<UIToneMappingOperator> ToneMappingProperty =
-        AvaloniaProperty.Register<HdrBitmapView, UIToneMappingOperator>(nameof(ToneMapping),
-            UIToneMappingOperator.None);
-
-    public static readonly StyledProperty<float> ToneMappingExposureProperty =
-        AvaloniaProperty.Register<HdrBitmapView, float>(nameof(ToneMappingExposure), 0f);
-
-    public static readonly StyledProperty<float> DisplayPeakLuminanceProperty =
-        AvaloniaProperty.Register<HdrBitmapView, float>(nameof(DisplayPeakLuminance), 0f);
-
-    internal static readonly StyledProperty<Rect?> FrameRectProperty =
-        AvaloniaProperty.Register<HdrBitmapView, Rect?>(nameof(FrameRect));
-
-    // Shows the frame over the editor's checkerboard rather than black (#4066).
-    internal static readonly StyledProperty<bool> ShowsCheckerboardProperty =
-        AvaloniaProperty.Register<HdrBitmapView, bool>(nameof(ShowsCheckerboard));
-
-    internal static readonly StyledProperty<HdrOverlay?> OverlayProperty =
-        AvaloniaProperty.Register<HdrBitmapView, HdrOverlay?>(nameof(Overlay));
-
     internal static readonly DirectProperty<HdrBitmapView, Size?> SourceSizeProperty =
         AvaloniaProperty.RegisterDirect<HdrBitmapView, Size?>(nameof(SourceSize), view => view.SourceSize);
 
@@ -78,65 +48,39 @@ public partial class HdrBitmapView : NativeControlHost
         AffectsMeasure<HdrBitmapView>(StretchProperty);
     }
 
-    public Ref<BtlBitmap>? Source
-    {
-        get => GetValue(SourceProperty);
-        set => SetValue(SourceProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial Ref<BtlBitmap>? Source { get; set; }
 
-    public Stretch Stretch
-    {
-        get => GetValue(StretchProperty);
-        set => SetValue(StretchProperty, value);
-    }
+    [GeneratedStyledProperty(DefaultValue = Stretch.Uniform)]
+    public partial Stretch Stretch { get; set; }
 
-    public BitmapInterpolationMode InterpolationMode
-    {
-        get => GetValue(InterpolationModeProperty);
-        set => SetValue(InterpolationModeProperty, value);
-    }
+    [GeneratedStyledProperty(DefaultValue = BitmapInterpolationMode.HighQuality)]
+    public partial BitmapInterpolationMode InterpolationMode { get; set; }
 
-    internal bool ShowsCheckerboard
-    {
-        get => GetValue(ShowsCheckerboardProperty);
-        set => SetValue(ShowsCheckerboardProperty, value);
-    }
+    // Shows the frame over the editor's checkerboard rather than black (#4066).
+    [GeneratedStyledProperty]
+    internal partial bool ShowsCheckerboard { get; set; }
 
-    public UIToneMappingOperator ToneMapping
-    {
-        get => GetValue(ToneMappingProperty);
-        set => SetValue(ToneMappingProperty, value);
-    }
+    [GeneratedStyledProperty(DefaultValue = UIToneMappingOperator.None)]
+    public partial UIToneMappingOperator ToneMapping { get; set; }
 
-    public float ToneMappingExposure
-    {
-        get => GetValue(ToneMappingExposureProperty);
-        set => SetValue(ToneMappingExposureProperty, value);
-    }
+    [GeneratedStyledProperty(DefaultValue = 0f)]
+    public partial float ToneMappingExposure { get; set; }
 
     // The peak in nit FitToDisplay rolls highlights off into on a Windows HDR display in place of the one it reports,
     // or 0 to use that. Core Animation tone maps on macOS, and elsewhere the display's white is not known.
-    public float DisplayPeakLuminance
-    {
-        get => GetValue(DisplayPeakLuminanceProperty);
-        set => SetValue(DisplayPeakLuminanceProperty, value);
-    }
+    [GeneratedStyledProperty(DefaultValue = 0f)]
+    public partial float DisplayPeakLuminance { get; set; }
 
     // Where the frame goes in this view, or null to place it by Stretch. It can reach past the view, as a zoomed-in
     // frame does. A view given one fills its layout slot and draws nothing around the frame, where the UI under it
     // shows: its layer is not opaque on macOS, and its window takes the frame's shape on Windows and X11.
-    internal Rect? FrameRect
-    {
-        get => GetValue(FrameRectProperty);
-        set => SetValue(FrameRectProperty, value);
-    }
+    [GeneratedStyledProperty]
+    internal partial Rect? FrameRect { get; set; }
 
     // A copy of what the UI draws over the frame, which the view draws over it in turn.
-    internal HdrOverlay? Overlay
-    {
-        get => GetValue(OverlayProperty);
-        set => SetValue(OverlayProperty, value);
-    }
+    [GeneratedStyledProperty]
+    internal partial HdrOverlay? Overlay { get; set; }
 
     // The size of the frame in pixels, or null while there is none.
     internal Size? SourceSize => _lastSourceSize;

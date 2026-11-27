@@ -56,7 +56,8 @@ public sealed partial class RenderNodeContext
         RenderDeviceGridSensitivity deviceGridSensitivity = RenderDeviceGridSensitivity.PhaseDependent,
         bool supportsDirectDstOut = true,
         IReadOnlyList<RenderResource>? resources = null,
-        Thickness rasterOutset = default)
+        Thickness rasterOutset = default,
+        TextPartTag? textPart = null)
     {
         ThrowIfPaintedSourceInvalid(draw, hitTest, scale, outputBounds);
 
@@ -81,7 +82,8 @@ public sealed partial class RenderNodeContext
             directReplayAtExactIntegerReduction,
             deviceGridSensitivity,
             supportsDirectDstOut,
-            engineBindings);
+            engineBindings,
+            textPart);
     }
 
 
@@ -146,6 +148,23 @@ public sealed partial class RenderNodeContext
         IReadOnlyList<RenderResourceBinding>? bindings = null,
         Thickness rasterOutset = default)
         where TState : notnull
+        => PaintedSourceWithBindings(null, state, draw, fill, pen, outputBounds, hitTest, scale,
+            deviceGridSensitivity, supportsDirectDstOut, bindings, rasterOutset);
+
+    internal RenderFragmentHandle PaintedSourceWithBindings<TState>(
+        TextPartTag? textPart,
+        TState state,
+        PaintedSourceDraw<TState> draw,
+        Brush.Resource? fill,
+        Pen.Resource? pen,
+        Rect outputBounds,
+        RenderHitTestContract hitTest,
+        RenderScaleContract scale,
+        RenderDeviceGridSensitivity deviceGridSensitivity = RenderDeviceGridSensitivity.PhaseDependent,
+        bool supportsDirectDstOut = true,
+        IReadOnlyList<RenderResourceBinding>? bindings = null,
+        Thickness rasterOutset = default)
+        where TState : notnull
     {
         ThrowIfPaintedSourceInvalid(draw, hitTest, scale, outputBounds);
         IReadOnlyList<RenderResourceBinding> declaredBindings = bindings ?? Array.Empty<RenderResourceBinding>();
@@ -163,7 +182,8 @@ public sealed partial class RenderNodeContext
             directReplayAtExactIntegerReduction: false,
             deviceGridSensitivity,
             supportsDirectDstOut,
-            declaredBindings);
+            declaredBindings,
+            textPart);
     }
 
     // Both overloads check these first, so a bad declaration is reported before their own resource checks.
@@ -191,7 +211,8 @@ public sealed partial class RenderNodeContext
         bool directReplayAtExactIntegerReduction,
         RenderDeviceGridSensitivity deviceGridSensitivity,
         bool supportsDirectDstOut,
-        IReadOnlyList<RenderResourceBinding> declaredBindings)
+        IReadOnlyList<RenderResourceBinding> declaredBindings,
+        TextPartTag? textPart)
     {
         OpaqueRenderBoundsContract bounds = OpaqueRenderBoundsContract.Source(outputBounds, rasterOutset);
         GetTransaction();
@@ -232,7 +253,7 @@ public sealed partial class RenderNodeContext
             deviceGridSensitivity: deviceGridSensitivity,
             supportsDirectDstOut: supportsDirectDstOut,
             resources: bindings);
-        return OpaqueSource(description);
+        return OpaqueSource(description, textPart);
     }
 
     /// <summary>Lists a painted source's declared resources once each, in declaration order.</summary>
@@ -287,6 +308,9 @@ public sealed partial class RenderNodeContext
     /// </param>
     /// <returns>A new transaction-scoped source fragment. The result is not published automatically.</returns>
     public RenderFragmentHandle OpaqueSource(OpaqueRenderDescription description)
+        => OpaqueSource(description, null);
+
+    private RenderFragmentHandle OpaqueSource(OpaqueRenderDescription description, TextPartTag? textPart)
     {
         ArgumentNullException.ThrowIfNull(description);
         description.ThrowIfIncompatible(OpaqueRenderTopology.Source, nameof(description));
@@ -307,7 +331,7 @@ public sealed partial class RenderNodeContext
             hasTargetEffects: false,
             hasOpaqueExternalWork: !description.HasDirectReplayMaterializationContract,
             inputs: [],
-            new OpaqueRenderFragmentPayload(OpaqueRenderTopology.Source, description, inputReadbacks),
+            new OpaqueRenderFragmentPayload(OpaqueRenderTopology.Source, description, inputReadbacks, textPart),
             RenderFragmentHitTest.FromContract(description.HitTest, description.Resources));
     }
 

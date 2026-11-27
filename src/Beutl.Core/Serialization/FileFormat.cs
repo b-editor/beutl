@@ -36,7 +36,7 @@ public static class FileFormat
     /// except a new type of expression: an older build has nothing to keep one in, so it drops the
     /// expression when it saves.
     /// </remarks>
-    public const string Floor = "2.0.0-preview.11";
+    public const string Floor = "2.0.0-preview.16";
 
     internal const string AppVersionKey = "appVersion";
 

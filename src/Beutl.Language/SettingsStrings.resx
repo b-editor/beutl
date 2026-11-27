@@ -136,9 +136,8 @@
     <value>Telemetry</value>
     <comment/>
   </data>
-  <data name="Telemetry_ShortDescription" xml:space="preserve">
-    <value>Settings about the data to be collected</value>
-    <comment/>
+  <data name="Privacy" xml:space="preserve">
+    <value>Privacy</value>
   </data>
   <data name="AutoDownloadUpdates" xml:space="preserve">
     <value>Download updates automatically</value>
@@ -150,16 +149,8 @@
     <value>To improve Beutl, we collect anonymous usage data.These settings will be applied after the application is restarted.For more information, please refer to the following pages.</value>
     <comment/>
   </data>
-  <data name="ShowExactBoundaries_Description" xml:space="preserve">
-    <value>Displays the boundaries of elements accurately during preview.Enabling this setting may make the border invisible.</value>
-    <comment/>
-  </data>
-  <data name="ShowExactBoundaries" xml:space="preserve">
-    <value>Display precise boundaries</value>
-    <comment/>
-  </data>
   <data name="AutoAdjustSceneDuration" xml:space="preserve">
-    <value>Automatically adjusts scene duration</value>
+    <value>Automatically Adjust Scene Duration</value>
     <comment/>
   </data>
   <data name="AutoAdjustSceneDuration_Description" xml:space="preserve">
@@ -311,7 +302,7 @@
     <comment/>
   </data>
   <data name="TimeDisplayFormat_Frames" xml:space="preserve">
-    <value>Frame number (75)</value>
+    <value>Frame Number (75)</value>
     <comment/>
   </data>
   <data name="ClampResizeToOriginalLength" xml:space="preserve">
@@ -329,6 +320,25 @@
   <data name="ShowTimelineThumbnailsByDefault_Description" xml:space="preserve">
     <value>Show filmstrips and waveforms on timeline elements. When off, turn them on per element from its context menu; this keeps zooming a timeline full of media responsive.</value>
     <comment/>
+  </data>
+  <data name="TimelineLayerSize" xml:space="preserve">
+    <value>Timeline layer height</value>
+    <comment/>
+  </data>
+  <data name="TimelineLayerSize_Small" xml:space="preserve">
+    <value>Small</value>
+    <comment/>
+  </data>
+  <data name="TimelineLayerSize_Medium" xml:space="preserve">
+    <value>Medium</value>
+    <comment/>
+  </data>
+  <data name="TimelineLayerSize_Large" xml:space="preserve">
+    <value>Large</value>
+    <comment/>
+  </data>
+  <data name="Performance" xml:space="preserve">
+    <value>Performance</value>
   </data>
   <data name="Graphics" xml:space="preserve">
     <value>Graphics</value>
@@ -369,6 +379,21 @@
   </data>
   <data name="Keymap" xml:space="preserve">
     <value>Keymap</value>
+  </data>
+  <data name="Keymap_Search" xml:space="preserve">
+    <value>Search shortcuts</value>
+  </data>
+  <data name="Keymap_NoResults" xml:space="preserve">
+    <value>No matching shortcuts</value>
+  </data>
+  <data name="Keymap_Reset" xml:space="preserve">
+    <value>Reset to default</value>
+  </data>
+  <data name="Keymap_Conflict" xml:space="preserve">
+    <value>Conflicts with {0}</value>
+  </data>
+  <data name="Keymap_Unassigned" xml:space="preserve">
+    <value>Unassigned</value>
   </data>
   <data name="Language" xml:space="preserve">
     <value>Language</value>
@@ -853,5 +878,116 @@
   </data>
   <data name="ExtensionUpdates_Always" xml:space="preserve">
     <value>Always update automatically</value>
+  </data>
+  <data name="AiAgents_Runtime" xml:space="preserve">
+    <value>Built-in Agent Runtime (AgentTab)</value>
+  </data>
+  <data name="AiAgents_RuntimeDefaultProvider" xml:space="preserve">
+    <value>Default provider</value>
+  </data>
+  <data name="AiAgents_RuntimeDefaultPermission" xml:space="preserve">
+    <value>Default permission mode</value>
+  </data>
+  <data name="AiAgents_RuntimeDefaultModel" xml:space="preserve">
+    <value>Default model</value>
+  </data>
+  <data name="AiAgents_RuntimeProviderDefault" xml:space="preserve">
+    <value>Provider default</value>
+  </data>
+  <data name="AiAgents_RuntimeAuto" xml:space="preserve">
+    <value>Auto</value>
+  </data>
+  <data name="AiAgents_RuntimeDetectedProviders" xml:space="preserve">
+    <value>Detected built-in providers</value>
+  </data>
+  <data name="AiAgents_RuntimeRecheck" xml:space="preserve">
+    <value>Re-check</value>
+  </data>
+  <data name="AiAgents_RuntimeExecutableOverride" xml:space="preserve">
+    <value>Executable override</value>
+  </data>
+  <data name="AiAgents_RuntimeClaudePath" xml:space="preserve">
+    <value>Claude Code executable</value>
+  </data>
+  <data name="AiAgents_RuntimeCodexPath" xml:space="preserve">
+    <value>Codex executable</value>
+  </data>
+  <data name="AiAgents_RuntimeSelectExecutable" xml:space="preserve">
+    <value>Select an agent executable</value>
+  </data>
+  <data name="AiAgents_RuntimeChecking" xml:space="preserve">
+    <value>Checking…</value>
+  </data>
+  <data name="AiAgents_RuntimeAvailable" xml:space="preserve">
+    <value>Available · {0}</value>
+  </data>
+  <data name="AiAgents_RuntimeNotFound" xml:space="preserve">
+    <value>Not found</value>
+  </data>
+  <data name="AiAgents_RuntimeProbeFailed" xml:space="preserve">
+    <value>Could not check the executable</value>
+  </data>
+  <data name="AiAgents_RuntimeCustomProviders" xml:space="preserve">
+    <value>Custom ACP providers</value>
+  </data>
+  <data name="AiAgents_RuntimeAddProvider" xml:space="preserve">
+    <value>Add provider</value>
+  </data>
+  <data name="AiAgents_RuntimeRemove" xml:space="preserve">
+    <value>Remove</value>
+  </data>
+  <data name="AiAgents_RuntimeId" xml:space="preserve">
+    <value>ID</value>
+  </data>
+  <data name="AiAgents_RuntimeDisplayName" xml:space="preserve">
+    <value>Display name</value>
+  </data>
+  <data name="AiAgents_RuntimeCommand" xml:space="preserve">
+    <value>Command</value>
+  </data>
+  <data name="AiAgents_RuntimeArgumentsPlaceholder" xml:space="preserve">
+    <value>One argument per line</value>
+  </data>
+  <data name="AiAgents_RuntimeRequiredFields" xml:space="preserve">
+    <value>Enter an ID, display name, and command.</value>
+  </data>
+  <data name="AiAgents_RuntimeDuplicateId" xml:space="preserve">
+    <value>A provider with this ID already exists.</value>
+  </data>
+  <data name="AiAgents_RuntimeInvalidProviders" xml:space="preserve">
+    <value>The saved custom providers could not be read. Correct CustomRuntimeProvidersJson in the Beutl configuration to edit them here.</value>
+  </data>
+  <data name="AiAgents_RuntimeComposerSendKey" xml:space="preserve">
+    <value>Composer send key</value>
+  </data>
+  <data name="AiAgents_RuntimeComposerSendKeyEnter" xml:space="preserve">
+    <value>Enter</value>
+  </data>
+  <data name="AiAgents_RuntimeComposerSendKeyCtrlEnter" xml:space="preserve">
+    <value>Ctrl+Enter</value>
+  </data>
+  <data name="AiAgents_RuntimeComposerSendKeyCommandEnter" xml:space="preserve">
+    <value>⌘+Enter</value>
+  </data>
+  <data name="AiAgents_Notifications" xml:space="preserve">
+    <value>Notifications</value>
+  </data>
+  <data name="AiAgents_EnableNotifications" xml:space="preserve">
+    <value>In-app notifications</value>
+  </data>
+  <data name="AiAgents_EnableNotifications_Description" xml:space="preserve">
+    <value>Show approvals, questions, and turn results from background threads.</value>
+  </data>
+  <data name="AiAgents_EnableNotificationSound" xml:space="preserve">
+    <value>Notification sound</value>
+  </data>
+  <data name="AiAgents_EnableNotificationSound_Description" xml:space="preserve">
+    <value>Play a sound when a notification appears.</value>
+  </data>
+  <data name="AiAgents_RuntimeAvailableVersion" xml:space="preserve">
+    <value>v{0} · {1}</value>
+  </data>
+  <data name="AiAgents_RuntimeOutdated" xml:space="preserve">
+    <value>v{0} · Update required (v{1} or later)&#10;{2}</value>
   </data>
 </root>

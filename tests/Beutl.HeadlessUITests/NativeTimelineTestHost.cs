@@ -30,10 +30,10 @@ internal static partial class NativeTimelineTestHost
         if (args is ["--agent-host-instance", string directory, string name, string port])
             return AgentHostInstanceTestWorker.Run(directory, name, int.Parse(port, System.Globalization.CultureInfo.InvariantCulture));
 
-        if (args is ["--native-browser-referrers"]
-            || OperatingSystem.IsLinux() && args is ["--native-browser-cookie-clear"]
-            || OperatingSystem.IsMacOS() && args is ["--native-browser-frames" or "--native-browser-history" or "--native-browser-download-referrers" or "--native-browser-superseded-navigation"]
-            || OperatingSystem.IsWindows() && args is ["--native-browser-adblock-reference" or "--native-browser-download-referrers" or "--native-browser-history" or "--native-browser-superseded-navigation"])
+        if (args is ["--native-browser-referrers" or "--native-browser-download-referrers" or "--native-browser-direct-navigation"]
+            || OperatingSystem.IsLinux() && args is ["--native-browser-cookie-clear" or "--native-browser-linux-focus"]
+            || OperatingSystem.IsMacOS() && args is ["--native-browser-frames" or "--native-browser-history" or "--native-browser-superseded-navigation"]
+            || OperatingSystem.IsWindows() && args is ["--native-browser-adblock-reference" or "--native-browser-history" or "--native-browser-superseded-navigation"])
             return NativeBrowserFrameTestHost.Run(args);
 
         if (OperatingSystem.IsMacOS() && args is ["--native-menu-shortcuts"])
@@ -64,7 +64,8 @@ internal static partial class NativeTimelineTestHost
 
     private static async void Run()
     {
-        var lifetime = (IClassicDesktopStyleApplicationLifetime)Application.Current!.ApplicationLifetime!;
+        if (Application.Current?.ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime lifetime)
+            return;
         Window? window = null;
         TimelineTabView? view = null;
         int exitCode = 1;

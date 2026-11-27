@@ -5,6 +5,7 @@ using System.Text.RegularExpressions;
 using Avalonia.Input;
 
 using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Services;
 using Beutl.NodeGraph;
 using Beutl.Services;
 
@@ -19,6 +20,8 @@ public class LibraryItemViewModel
     public string? Description { get; init; }
 
     public object? Data { get; init; }
+
+    internal LibraryCategoryKey? NodeGroupKey { get; init; }
 
     public string? Type { get; init; }
 
@@ -39,16 +42,18 @@ public class LibraryItemViewModel
             typeName = draggable.Type.Name;
         }
 
+        var group = registryItem as GraphNodeRegistry.GroupableRegistryItem;
         var obj = new LibraryItemViewModel()
         {
             DisplayName = registryItem.DisplayName,
             Description = description,
             Data = data,
+            NodeGroupKey = group == null ? null : LibraryCategoryKey.Create(group.Id, group.DisplayName),
             Type = Strings.NodeGraph,
             FullDisplayName = ComposeFullName(parentFullName, registryItem.DisplayName)
         };
 
-        if (registryItem is GraphNodeRegistry.GroupableRegistryItem group)
+        if (group != null)
         {
             obj.Children.AddRange(group.Items.Select(x => CreateFromGraphNodeRegistryItem(x, obj.FullDisplayName)));
         }
@@ -163,10 +168,10 @@ public class LibraryItemViewModel
         {
             return str switch
             {
-                // Todo: localize
                 KnownLibraryItemFormats.Transform => GraphicsStrings.Transform,
-                KnownLibraryItemFormats.Sound => "Sound",
-                KnownLibraryItemFormats.Geometry => "Geometry",
+                KnownLibraryItemFormats.Sound => AudioStrings.Sound,
+                KnownLibraryItemFormats.Geometry => GraphicsStrings.Geometry,
+                KnownLibraryItemFormats.Pen => GraphicsStrings.Pen,
                 KnownLibraryItemFormats.Drawable => GraphicsStrings.Drawable,
                 KnownLibraryItemFormats.Brush => GraphicsStrings.Brush,
                 KnownLibraryItemFormats.Easing => Strings.Easing,

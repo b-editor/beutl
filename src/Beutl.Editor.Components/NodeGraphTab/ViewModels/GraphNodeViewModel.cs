@@ -10,6 +10,8 @@ using Beutl.Controls;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.NodeGraphTab.Views;
 using Beutl.Editor.Services;
+using Beutl.Engine;
+using Beutl.Graphics.Effects;
 using Beutl.Language;
 using Beutl.Media.Decoding;
 using Beutl.NodeGraph;
@@ -27,12 +29,15 @@ public sealed partial class GraphNodeViewModel : IDisposable, IJsonSerializable,
 {
     private readonly CompositeDisposable _disposables = [];
     private readonly string _defaultName;
+    private readonly FilterEffect? _editingStage;
     private readonly Dictionary<INestedInputPort, InputPortViewModel> _nestedItems = new();
     private bool _synchronizingNestedItems;
 
     public GraphNodeViewModel(GraphNode node, NodeGraphViewModel nodeGraphViewModel)
     {
         GraphNode = node;
+        _editingStage = ((IHierarchical)node).HierarchicalChildren.OfType<FilterEffect>()
+            .FirstOrDefault(static effect => effect is IEditingStageProvider);
         EditorContext = nodeGraphViewModel.EditorContext;
         NodeGraphViewModel = nodeGraphViewModel;
         if (node is GenerativeNode generative)
@@ -147,6 +152,14 @@ public sealed partial class GraphNodeViewModel : IDisposable, IJsonSerializable,
     public bool IsGenerative => GraphNode is GenerativeNode;
 
     public bool IsGroup => GraphNode is GroupNode;
+
+    public bool HasEditingStage => _editingStage is not null;
+
+    internal void EditInFrame()
+    {
+        if (CanEdit.Value && _editingStage is { } effect)
+            EditorContext.GetService<IEditorSelection>()?.Select(effect);
+    }
 
     /// <summary>Saves this group as a template that any graph can add.</summary>
     public Beutl.NodeGraph.Nodes.Group.GroupNodeTemplate? SaveAsTemplate(string name)

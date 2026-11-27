@@ -2,6 +2,7 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Beutl.AgentToolkit.Common;
+using Beutl.AgentToolkit.Tools;
 using Beutl.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -26,28 +27,31 @@ public sealed class LiveMcpBroker
     private readonly AgentHostInstanceRegistry _registry;
     private readonly Func<string> _tokenProvider;
     private readonly ILogger _logger;
+    private readonly Guid? _agentThreadId;
     private readonly string _brokerId = Guid.NewGuid().ToString("N");
     private readonly object _lock = new();
     private AgentHostPeerClient? _peers;
     private McpServer? _server;
     private string[]? _advertisedKeys;
 
-    public LiveMcpBroker(AgentHostInstanceRegistry registry, Func<string> tokenProvider, ILogger? logger = null)
+    public LiveMcpBroker(AgentHostInstanceRegistry registry, Func<string> tokenProvider, ILogger? logger = null,
+        Guid? agentThreadId = null)
     {
         ArgumentNullException.ThrowIfNull(registry);
         ArgumentNullException.ThrowIfNull(tokenProvider);
         _registry = registry;
         _tokenProvider = tokenProvider;
         _logger = logger ?? NullLogger.Instance;
+        _agentThreadId = agentThreadId;
     }
 
     // Reads the same discovery directory and token store the editors of that profile use. The
     // token is resolved lazily so a missing or invalid store surfaces as a tool error, not a crash.
-    public static LiveMcpBroker CreateForProfile(string profileDirectory, ILogger? logger = null)
+    public static LiveMcpBroker CreateForProfile(string profileDirectory, ILogger? logger = null, Guid? agentThreadId = null)
         => new(
             new AgentHostInstanceRegistry(AgentHostInstanceRegistry.GetDefaultDirectory(profileDirectory)),
             () => LiveMcpTokenStore.GetOrCreate(profileDirectory),
-            logger);
+            logger, agentThreadId);
 
     public void ConfigureServer(McpServerOptions options)
     {
@@ -201,7 +205,9 @@ public sealed class LiveMcpBroker
         bool hasInstanceId = arguments is not null && arguments.TryGetValue(InstanceIdArgument, out id);
         if (!hasInstanceId)
         {
-            if (arguments is not null && arguments.ContainsKey(AgentHostSceneRouting.SceneIdArgument))
+            // remove_scene takes a project member's ID directly in both hosts.
+            if (arguments is not null && arguments.ContainsKey(AgentHostSceneRouting.SceneIdArgument)
+                && request.Name != SceneTools.RemoveSceneToolName)
                 return SceneWithoutInstance();
             if (!IsLocalTool(context.Server, request.Name))
                 return LiveOnly(request.Name);
@@ -240,7 +246,8 @@ public sealed class LiveMcpBroker
             {
                 try
                 {
-                    _peers = new AgentHostPeerClient(_registry, new AgentHostInstanceAuthentication(_tokenProvider(), _brokerId));
+                    _peers = new AgentHostPeerClient(_registry, new AgentHostInstanceAuthentication(_tokenProvider(), _brokerId),
+                        _agentThreadId);
                 }
                 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
                 {

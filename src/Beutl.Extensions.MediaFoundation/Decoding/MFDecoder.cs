@@ -3,6 +3,7 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using Beutl.Logging;
+using Beutl.Media.Decoding;
 using Microsoft.Extensions.Logging;
 using SharpGen.Runtime;
 using Vortice.MediaFoundation;
@@ -28,8 +29,10 @@ internal sealed class MFDecoder : IMediaFoundationVideoDecoder
     private readonly IMFSourceReader? _videoSourceReader;
     private readonly IMFAttributes? _attributes;
     private MFMediaInfo _mediaInfo;
-    // The timestamp of the container start; MF leaves an MP4 video edit list's trim in its timestamps.
+    // Subtract this from sample timestamps to place them on the container timeline.
     private long _originTimeStamp = 0;
+    // MF accounts for the composition trim when seeking.
+    private long _omittedEmptyEditDelay;
     // Frames before the first video frame show it.
     private int _firstFrame = 0;
     private long _currentVideoTimeStamp = 0;
@@ -137,7 +140,8 @@ internal sealed class MFDecoder : IMediaFoundationVideoDecoder
 
         if (frame < currentFrame || (currentFrame + _thresholdFrameCount) < frame)
         {
-            long destTimePosition = TimestampUtilities.ConvertTimeStampFromFrame(frame, _mediaInfo.Fps);
+            long destTimePosition = Math.Max(0,
+                TimestampUtilities.ConvertTimeStampFromFrame(frame, _mediaInfo.Fps) - _omittedEmptyEditDelay);
             try
             {
                 SeekVideo(destTimePosition);
@@ -337,6 +341,15 @@ internal sealed class MFDecoder : IMediaFoundationVideoDecoder
         using (IMFMediaType nativeType = sourceReader.GetNativeMediaType(_mediaInfo.VideoStreamIndex, 0))
         {
             _mediaInfo.Color = MFColorTags.Read(nativeType);
+            var interlaceMode = (VideoInterlaceMode)MediaFactory.MFGetAttributeUInt32(nativeType, MediaTypeAttributeKeys.InterlaceMode, 0);
+            _mediaInfo.DetectedFieldOrder = interlaceMode switch
+            {
+                VideoInterlaceMode.Progressive => VideoFieldOrder.Progressive,
+                VideoInterlaceMode.FieldInterleavedUpperFirst or VideoInterlaceMode.FieldSingleUpper => VideoFieldOrder.TopFieldFirst,
+                VideoInterlaceMode.FieldInterleavedLowerFirst or VideoInterlaceMode.FieldSingleLower => VideoFieldOrder.BottomFieldFirst,
+                VideoInterlaceMode.MixedInterlaceOrProgressive => VideoFieldOrder.Mixed,
+                _ => VideoFieldOrder.Unknown,
+            };
         }
 
         _logger.LogInformation("ChechMediaInfo: \n{MediaInfo}", _mediaInfo.GetMediaInfoText());
@@ -352,7 +365,7 @@ internal sealed class MFDecoder : IMediaFoundationVideoDecoder
         SeekVideo(0);
         _currentVideoTimeStamp = 0;
 
-        long firstVideoTime = MFVideoTimeOrigin.GetFirstVideoTime(file, firstVideoTimeStamp);
+        long firstVideoTime = MFVideoTimeOrigin.GetFirstVideoTime(file, firstVideoTimeStamp, out _omittedEmptyEditDelay);
         _originTimeStamp = firstVideoTimeStamp - firstVideoTime;
         _firstFrame = TimestampUtilities.ConvertFrameFromTimeStamp(firstVideoTime, _mediaInfo.Fps);
         _logger.LogInformation("TestFirstReadSample - originTimeStamp: {originTimeStamp}", _originTimeStamp);

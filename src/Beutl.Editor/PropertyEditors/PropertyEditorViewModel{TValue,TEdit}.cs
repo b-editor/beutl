@@ -1,4 +1,5 @@
-﻿using System.Reactive.Linq;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Reactive.Linq;
 using Beutl.Extensibility;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
@@ -36,6 +37,26 @@ public abstract class PropertyEditorViewModel<TValue, TEdit> : PropertyEditorVie
     public virtual TEdit PreviewEdit(TEdit value, bool relative)
         => relative || !HasExpression.Value ? PreviewEdit(value)
             : ToEdit(SetCurrentValueAndGetCoerced(FromEdit(value), relative: false)!);
+
+    public virtual TEdit PreviewEdit(TEdit value, bool relative, int editedComponents)
+        => relative || !HasExpression.Value ? PreviewEdit(value, relative)
+            : ToEdit(SetCurrentValueAndGetCoerced(FromEdit(value), relative: false, editedComponents: editedComponents)!);
+
+    public TEdit PreviewFocusedEdit(TEdit value)
+        => !HasExpression.Value ? PreviewEdit(value)
+            : ToEdit(SetCurrentValueAndGetCoerced(FromEdit(value), relative: false, directUnderlying: true)!);
+
+    public bool TryGetFocusedEditValue([MaybeNullWhen(false)] out TEdit value)
+    {
+        if (!IsDisposed && HasExpression.Value && CanEditUnderExpression)
+        {
+            value = ToEdit(GetEditingValue()!);
+            return true;
+        }
+
+        value = default;
+        return false;
+    }
 
     public TEdit GetIncrementValue(TEdit shown) => ToEdit(base.GetIncrementValue(FromEdit(shown))!);
 

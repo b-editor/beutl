@@ -1,6 +1,5 @@
-Project rates: 30 fps, 44100 Hz
 Project variables:
-Scene "V1Project": 1920x1080, duration 00:05:00, 12 elements
+Scene "V1Project": 1920x1080, 30 fps, 44100 Hz, duration 00:05:00, 12 elements
 
 Notices on open:
   Warning for the project: Node trees from Beutl 1.x were not migrated

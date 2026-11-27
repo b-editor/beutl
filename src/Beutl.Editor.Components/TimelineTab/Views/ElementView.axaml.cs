@@ -9,8 +9,8 @@ using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Avalonia.Xaml.Interactivity;
-using Beutl.Controls;
 using Beutl.Controls.PropertyEditors;
+using Beutl.Editor.Components.AgentTab;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.SilenceSplitTab.ViewModels;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
@@ -43,7 +43,7 @@ public sealed partial class ElementView : UserControl
     private ElementEdge? _draggingTransitionEdge;
     private double _transitionDragStartX;
     private MediaTime _transitionDragStartDuration;
-    private MediaTime? _lastSnapTarget;
+    private readonly TimelineSnapFeedback _snapFeedback = new();
     private IPointer? _interactionPointer;
     private int _keepRealized;
 
@@ -129,13 +129,20 @@ public sealed partial class ElementView : UserControl
         // selected clips are editable. CanGroup/CanUngroup already filter.
         groupSelectedElements.IsEnabled = viewModel.CanGroupSelectedElements();
         ungroupSelectedElements.IsEnabled = viewModel.CanUngroupSelectedElements();
+        var toggleGroupAction = TimelineTabExtension.GetGroupToggleAction(viewModel.Timeline);
+        KeyGesture? toggleGroupGesture = GetCommandGestureExtension.GetKeyGesture(
+            typeof(TimelineTabExtension), TimelineTabExtension.ToggleGroupCommandId);
+        groupSelectedElements.InputGesture = toggleGroupAction is { IsUngroup: false } ? toggleGroupGesture : null;
+        ungroupSelectedElements.InputGesture = toggleGroupAction is { IsUngroup: true } ? toggleGroupGesture : null;
         split.IsEnabled = editable;
         autoSplitBySilence.IsEnabled = editable && SilenceSplitViewModel.CanAnalyze(viewModel.Scene, viewModel.Model);
         cut.IsEnabled = editable;
+        duplicate.IsEnabled = viewModel.Timeline.CanDuplicateSelectedElements();
         // Recovery protection makes a clip read-only but still lets it be removed.
         delete.IsEnabled = !viewModel.IsLockedByUser.Value;
         finishEditingAnimation.IsEnabled = editable;
         rename.IsEnabled = editable;
+        sendToAgent.IsEnabled = AgentComposerLauncher.IsAvailable(viewModel.Timeline.EditorContext);
         enableElement.IsEnabled = editable;
         changeColor.IsEnabled = editable;
         // With the layer locked, clearing the element flag has no visible effect
@@ -145,6 +152,17 @@ public sealed partial class ElementView : UserControl
                                 && viewModel.LayerHeader.Value?.IsLocked.Value != true;
         PopulateTrackMatteMenu(viewModel);
         PopulateTransitionMenu(viewModel, editable);
+        PopulateAnimationMenu(viewModel, editable);
+    }
+
+    private async void SendToAgent_Click(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not ElementViewModel viewModel) return;
+
+        var editor = viewModel.Timeline.EditorContext;
+        var selection = editor.GetRequiredService<IEditorSelection>().SelectedElements;
+        Element[] elements = selection.Count > 1 && selection.Contains(viewModel.Model) ? [.. selection] : [viewModel.Model];
+        await AgentComposerLauncher.SendElementsAsync(editor, elements);
     }
 
     private void AutoSplitBySilence_Click(object? sender, RoutedEventArgs e)
@@ -285,16 +303,26 @@ public sealed partial class ElementView : UserControl
 
     private void OnDataContextDetached(ElementViewModel obj)
     {
+        _timeline?.ClearDragReadout(this);
         obj.AnimationRequested = (_, _) => Task.CompletedTask;
         obj.RenameRequested = () => { };
         obj.GetClickedTime = null;
 
         obj.GetMissingThumbnailIndices = null;
+        obj.GetMissingWaveformIndices = null;
+        obj.GetVisibleThumbnailRange = null;
+        obj.GetVisibleWaveformRange = null;
+        obj.GetVisibleThumbnailRangeForLayout = null;
+        obj.GetVisibleWaveformRangeForLayout = null;
+        obj.GetMediaViewportWidth = null;
         thumbnailStrip.VisibleRangeChanged -= obj.OnVisibleRangeChanged;
+        waveformControl.VisibleRangeChanged -= obj.OnWaveformVisibleRangeChanged;
 
-        obj.ThumbnailReady -= OnThumbnailReady;
+        obj.ThumbnailBatchReady -= thumbnailStrip.SetThumbnails;
         obj.ThumbnailsClear -= OnThumbnailsClear;
-        obj.WaveformChunkReady -= OnWaveformChunkReady;
+        obj.MediaPreviewClear -= OnMediaPreviewClear;
+        obj.MediaPreviewCommitted -= OnMediaPreviewCommitted;
+        obj.WaveformBatchReady -= waveformControl.SetChunkBatch;
         obj.WaveformClear -= OnWaveformClear;
 
         obj.SetTimelineViewAttached(false);
@@ -332,7 +360,14 @@ public sealed partial class ElementView : UserControl
         obj.GetClickedTime = () => _pointerPosition;
 
         obj.GetMissingThumbnailIndices = thumbnailStrip.GetMissingIndices;
+        obj.GetMissingWaveformIndices = waveformControl.GetMissingIndices;
+        obj.GetVisibleThumbnailRange = thumbnailStrip.GetVisibleRange;
+        obj.GetVisibleWaveformRange = waveformControl.GetVisibleRange;
+        obj.GetVisibleThumbnailRangeForLayout = thumbnailStrip.GetVisibleRange;
+        obj.GetVisibleWaveformRangeForLayout = waveformControl.GetVisibleRange;
+        obj.GetMediaViewportWidth = () => mediaClip.Bounds.Width;
         thumbnailStrip.VisibleRangeChanged += obj.OnVisibleRangeChanged;
+        waveformControl.VisibleRangeChanged += obj.OnWaveformVisibleRangeChanged;
 
         obj.IsSelected
             .ObserveOnUIDispatcher()
@@ -343,16 +378,13 @@ public sealed partial class ElementView : UserControl
             })
             .DisposeWith(_disposables);
 
-        obj.ThumbnailReady += OnThumbnailReady;
+        obj.ThumbnailBatchReady += thumbnailStrip.SetThumbnails;
         obj.ThumbnailsClear += OnThumbnailsClear;
-        obj.WaveformChunkReady += OnWaveformChunkReady;
+        obj.MediaPreviewClear += OnMediaPreviewClear;
+        obj.MediaPreviewCommitted += OnMediaPreviewCommitted;
+        obj.WaveformBatchReady += waveformControl.SetChunkBatch;
         obj.WaveformClear += OnWaveformClear;
         obj.SetTimelineViewAttached(true);
-    }
-
-    private void OnThumbnailReady(int index, WriteableBitmap? thumbnail)
-    {
-        thumbnailStrip.SetThumbnail(index, thumbnail);
     }
 
     private void OnThumbnailsClear()
@@ -360,9 +392,16 @@ public sealed partial class ElementView : UserControl
         thumbnailStrip.ClearThumbnails();
     }
 
-    private void OnWaveformChunkReady(WaveformChunk chunk)
+    private void OnMediaPreviewClear()
     {
-        waveformControl.SetChunk(chunk);
+        thumbnailStrip.ClearPreview();
+        waveformControl.ClearPreview();
+    }
+
+    private void OnMediaPreviewCommitted()
+    {
+        thumbnailStrip.CommitPreview();
+        waveformControl.CommitPreview();
     }
 
     private void OnWaveformClear()
@@ -385,6 +424,7 @@ public sealed partial class ElementView : UserControl
     protected override void OnDetachedFromLogicalTree(LogicalTreeAttachmentEventArgs e)
     {
         base.OnDetachedFromLogicalTree(e);
+        _timeline?.ClearDragReadout(this);
         _timeline = null;
         BehaviorCollection behaviors = Interaction.GetBehaviors(this);
         behaviors.Clear();
@@ -412,6 +452,13 @@ public sealed partial class ElementView : UserControl
     {
         textBlock.IsVisible = true;
         textBox.IsVisible = false;
+    }
+
+    private void Duplicate_Click(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not ElementViewModel viewModel) return;
+        viewModel.Timeline.FlushPendingNudgeCommit();
+        viewModel.Timeline.Duplicate.Execute();
     }
 
     private void Rename_Click(object? sender, RoutedEventArgs e)
@@ -490,44 +537,32 @@ public sealed partial class ElementView : UserControl
     // The clips moving along with this one leave where they are, so their edges do not count.
     private SnapResult SnapTime(
         MediaTime time, float scale, bool disabled, IEnumerable<ElementViewModel>? moving = null)
-    {
-        Element model = ViewModel.Model;
-        TimelineTabViewModel timeline = ViewModel.Timeline;
-
-        if (disabled || !timeline.IsSnapEnabled.Value)
-        {
-            return new SnapResult(time, false);
-        }
-
-        IEditorClock clock = timeline.EditorContext.GetRequiredService<IEditorClock>();
-        HashSet<Element>? leaving = moving?.Select(item => item.Model).ToHashSet();
-        IEnumerable<Element> others = leaving is null
-            ? timeline.Scene.Children
-            : timeline.Scene.Children.Where(element => !leaving.Contains(element));
-        IEnumerable<MediaTime> candidates = SnapHelper
-            .CollectElementCandidates(others, model)
-            .Concat(SnapHelper.CollectSceneCandidates(timeline.Scene, clock.CurrentTime.Value));
-
-        return SnapHelper.Snap(time, candidates, scale);
-    }
+        => ViewModel.Timeline.SnapTime(time, scale, disabled, ViewModel.Model, moving);
 
     // Publish only the final preview, after any trim constraints have been applied.
     // Intermediate calculations and commit/undo must not produce feedback.
     private void UpdateSnapFeedback(MediaTime? target, float scale, ulong timestamp)
+        => _snapFeedback.Update(ViewModel.Timeline, this, target, scale, timestamp);
+
+    private void ClearDragFeedback()
     {
-        ViewModel.Timeline.SnapBarPosition.Value = target?.TimeToPixel(scale);
-        MediaTime? previous = _lastSnapTarget;
-        _lastSnapTarget = target;
-        if (target.HasValue && target != previous)
-        {
-            NativeHapticFeedback.PerformAlignment(this, timestamp);
-        }
+        _timeline?.ClearDragReadout(this);
+        if (DataContext is ElementViewModel viewModel) _snapFeedback.Clear(viewModel.Timeline);
     }
 
-    private void ClearSnapFeedback()
+    private string FormatDragTime(MediaTime time)
     {
-        _lastSnapTarget = null;
-        ViewModel.Timeline.SnapBarPosition.Value = null;
+        TimelineTabViewModel timeline = ViewModel.Timeline;
+        var format = timeline.TimeDisplayFormat.Value;
+        string text = TimeDisplayFormatter.Format(time, timeline.FrameRate.Value, format);
+        return format == Beutl.Configuration.TimeDisplayFormat.Frames ? text + "f" : text;
+    }
+
+    private void ShowDragReadout(PointerEventArgs e, MediaTime delta, string details)
+    {
+        string change = delta < MediaTime.Zero ? "-" + FormatDragTime(-delta) : FormatDragTime(delta);
+        if (delta > MediaTime.Zero) change = "+" + change;
+        _timeline?.ShowDragReadout(this, e, change, details);
     }
 
     // The pressed clip's group or selection and the clip itself. Locked members stay: the Roll/Slide check needs

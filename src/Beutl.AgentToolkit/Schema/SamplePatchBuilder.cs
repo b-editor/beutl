@@ -114,6 +114,13 @@ internal static class SamplePatchBuilder
         return colorShift;
     }
 
+    public static LensChromaticAberration CreateLensChromaticAberration(float amount)
+    {
+        var effect = new LensChromaticAberration();
+        effect.Amount.Value = amount;
+        return effect;
+    }
+
     public static JsonObject SerializeWithoutIds(ICoreSerializable value)
     {
         JsonObject json;

@@ -1,0 +1,114 @@
+<UserControl x:Class="Beutl.Editor.Components.AgentTab.Views.AgentTabView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:Beutl.Controls"
+             xmlns:icons="using:FluentIcons.Avalonia.Fluent"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:views="using:Beutl.Editor.Components.AgentTab.Views"
+             xmlns:vm="using:Beutl.Editor.Components.AgentTab.ViewModels"
+             x:DataType="vm:AgentTabViewModel">
+    <UserControl.Styles>
+        <StyleInclude Source="AgentTabStyles.axaml" />
+    </UserControl.Styles>
+
+    <Grid RowDefinitions="Auto,Auto,*,Auto">
+        <views:AgentThreadBar x:Name="ThreadBar" />
+        <Border Grid.Row="1" Classes="agent-wide-gutter" IsVisible="{Binding !!Diagnostic}">
+            <Border MaxWidth="740" Padding="10,8,10,0">
+                <ContentControl x:Name="DiagnosticHost" HorizontalContentAlignment="Stretch"
+                                Content="{Binding Diagnostic}">
+                    <ContentControl.ContentTemplate>
+                        <DataTemplate DataType="vm:AgentDiagnosticItem" x:DataType="vm:AgentDiagnosticItem">
+                            <views:AgentDiagnosticCard />
+                        </DataTemplate>
+                    </ContentControl.ContentTemplate>
+                </ContentControl>
+            </Border>
+        </Border>
+
+        <views:AgentTimelineView Grid.Row="2" IsVisible="{Binding !ShowEmptyState}" />
+
+        <Border Grid.Row="2" Classes="agent-wide-gutter" IsVisible="{Binding ShowEmptyState}">
+            <Grid RowDefinitions="*,Auto">
+                <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                    <StackPanel MaxWidth="740" Margin="18,18,18,24" Spacing="12" VerticalAlignment="Center" HorizontalAlignment="Center">
+                        <controls:EmptyState x:Name="EmptyState" Margin="0"
+                                             Title="{x:Static lang:AgentStrings.EmptyTitle}"
+                                             Description="{Binding ProviderStatusLabel}">
+                            <controls:EmptyState.Icon>
+                                <icons:FluentIcon Icon="Bot" />
+                            </controls:EmptyState.Icon>
+                        </controls:EmptyState>
+                        <ItemsControl x:Name="StarterPrompts" ItemsSource="{Binding StarterPrompts}"
+                                      HorizontalAlignment="Center" Margin="0,4,0,0" IsEnabled="{Binding CanManage}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate><WrapPanel ItemSpacing="6" LineSpacing="6" ItemsAlignment="Center" /></ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:AgentStarterPrompt">
+                                    <Button Click="OnStarterPrompt"
+                                            AutomationProperties.Name="{Binding Label}">
+                                        <StackPanel Orientation="Horizontal" Spacing="6">
+                                            <icons:FluentIcon Icon="{Binding Icon}" FontSize="12" />
+                                            <TextBlock Text="{Binding Label}" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                    </Button>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </ScrollViewer>
+
+            <Border Grid.Row="1" MaxWidth="740" Padding="10,0,10,6" IsVisible="{Binding !!RecentThreads.Count}">
+                <StackPanel Spacing="4">
+                    <TextBlock Text="{x:Static lang:AgentStrings.RecentThreads}" Classes="agent-caption"
+                               FontWeight="SemiBold" Margin="6,0,0,2" />
+                    <ItemsControl x:Name="RecentThreads" ItemsSource="{Binding RecentThreads}" IsEnabled="{Binding CanManage}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:AgentThreadRow">
+                                <Button Theme="{StaticResource TransparentButton}" Click="OnRecentThread"
+                                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Padding="6,4" MinHeight="36"
+                                        AutomationProperties.Name="{Binding Thread.Title}">
+                                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="9">
+                                        <Panel VerticalAlignment="Center">
+                                            <icons:FluentIcon Icon="Chat" FontSize="14" IsVisible="{Binding !Thread.IsPinned}"
+                                                              Foreground="{DynamicResource TextFillColorTertiaryBrush}" />
+                                            <icons:FluentIcon Icon="Pin" FontSize="14" IsVisible="{Binding Thread.IsPinned}"
+                                                              Foreground="{DynamicResource TextFillColorTertiaryBrush}" />
+                                        </Panel>
+                                        <StackPanel Grid.Column="1" Spacing="1" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding Thread.Title}" FontSize="13" TextTrimming="CharacterEllipsis"
+                                                       Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                                            <TextBlock Classes="agent-caption" Text="{Binding ProviderName}" TextTrimming="CharacterEllipsis" />
+                                        </StackPanel>
+                                        <TextBlock Grid.Column="2" Classes="agent-caption" Text="{Binding UpdatedAt}" VerticalAlignment="Center" />
+                                    </Grid>
+                                </Button>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+        </Grid>
+        </Border>
+
+        <Border Grid.Row="3" Classes="agent-wide-gutter">
+            <Grid x:Name="BottomDeck" MaxWidth="740" RowDefinitions="Auto,Auto,Auto,Auto">
+                <views:AgentBackgroundWorkBar Margin="10,0,10,4" IsVisible="{Binding HasBackgroundWork}" />
+                <views:AgentQueuedMessagesBar Grid.Row="1" Margin="10,0,10,4" IsVisible="{Binding HasQueuedMessages}" />
+                <TextBlock x:Name="EscapeStopHint" Grid.Row="2" Margin="14,0,14,4" HorizontalAlignment="Right"
+                           IsVisible="{Binding ShowEscapeStopHint}" Classes="agent-caption"
+                           Text="{x:Static lang:AgentStrings.EscapeStopHint}" />
+                <Panel Grid.Row="3">
+                    <views:AgentComposerView x:Name="Composer" IsVisible="{Binding ShowComposer}" />
+                    <views:AgentPermissionCard x:Name="ActivePermissionCard" Margin="10,4,10,10"
+                                               DataContext="{Binding ActivePermission}"
+                                               IsVisible="{Binding $parent[views:AgentTabView].((vm:AgentTabViewModel)DataContext).HasActivePermission}" />
+                    <views:AgentQuestionCard x:Name="ActiveQuestionCard" Margin="10,4,10,10"
+                                             DataContext="{Binding ActiveQuestion}"
+                                             IsVisible="{Binding $parent[views:AgentTabView].((vm:AgentTabViewModel)DataContext).ShowQuestionCard}" />
+                </Panel>
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>

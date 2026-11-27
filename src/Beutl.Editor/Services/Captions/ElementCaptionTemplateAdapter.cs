@@ -1,6 +1,4 @@
-﻿using Beutl.Engine;
-using Beutl.Extensibility;
-using Beutl.Graphics;
+﻿using Beutl.Extensibility;
 using Beutl.Graphics.Shapes;
 using Beutl.Media;
 using Beutl.ProjectSystem;
@@ -26,8 +24,8 @@ internal static class ElementCaptionTemplateAdapter
 
         bool holdsText = objectTemplate.CreateInstance() switch
         {
-            Element element => FindTexts(element).Any(),
-            ElementSet set => set.Elements.Any(element => FindTexts(element).Any()),
+            Element element => CaptionTextUtilities.FindTextBlocks(element).Any(),
+            ElementSet set => set.Elements.Any(element => CaptionTextUtilities.FindTextBlocks(element).Any()),
             _ => false,
         };
         if (!holdsText)
@@ -36,20 +34,9 @@ internal static class ElementCaptionTemplateAdapter
         return CaptionTemplateDefaults.CreateFromObjectTemplate(objectTemplate, factory);
     }
 
-    private static IEnumerable<TextBlock> FindTexts(Element element)
-        => element.Objects.SelectMany(FindTexts);
-
-    private static IEnumerable<TextBlock> FindTexts(EngineObject value) => value switch
-    {
-        TextBlock text => [text],
-        DrawableGroup group => group.Children.SelectMany(FindTexts),
-        DrawableDecorator decorator => decorator.Children.SelectMany(FindTexts),
-        _ => [],
-    };
-
     private static void ApplyCue(Element element, CaptionCue cue)
     {
-        foreach (TextBlock text in FindTexts(element))
+        foreach (TextBlock text in CaptionTextUtilities.FindTextBlocks(element))
         {
             TextBlockCaptionTemplateAdapter.ApplyCue(text, cue);
         }
@@ -62,7 +49,7 @@ internal static class ElementCaptionTemplateAdapter
     {
         MediaTime origin = set.Elements.Min(element => element.Start.Value);
         HashSet<MediaTime> textLengths =
-            [.. set.Elements.Where(element => FindTexts(element).Any()).Select(element => element.Length.Value)];
+            [.. set.Elements.Where(element => CaptionTextUtilities.FindTextBlocks(element).Any()).Select(element => element.Length.Value)];
         foreach (Element element in set.Elements.ToArray())
         {
             MediaTime available = cueLength - (element.Start.Value - origin);

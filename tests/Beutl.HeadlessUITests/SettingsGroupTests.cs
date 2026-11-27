@@ -148,8 +148,8 @@ public class SettingsGroupTests
 
                 if (type == typeof(KeyMapSettingsPage))
                 {
-                    OptionsDisplayItem row = page.GetVisualDescendants().OfType<OptionsDisplayItem>().First(x => x.ActionButton is Button);
-                    var button = (Button)row.ActionButton;
+                    Button button = page.GetVisualDescendants().OfType<Button>()
+                        .First(button => button.Name == "AssignShortcutButton" && button.IsEffectivelyVisible);
                     button.Focus(NavigationMethod.Tab);
                     HeadlessTestHelpers.Render();
                     Point point = button.TranslatePoint(new Point(button.Bounds.Width / 2, button.Bounds.Height / 2), dialog)!.Value;
@@ -162,11 +162,13 @@ public class SettingsGroupTests
                 }
                 if (type == typeof(AiAgentSettingsPage))
                 {
-                    foreach (OptionsDisplayItem row in page.GetVisualDescendants().OfType<OptionsDisplayItem>()
-                                 .Where(x => x.IsEffectivelyVisible && x.ActionButton is not null))
+                    foreach (OptionsDisplayItem row in page.GetVisualDescendants().OfType<OptionsDisplayItem>())
                     {
-                        Point point = row.ActionButton.TranslatePoint(default, row)!.Value;
-                        Assert.That(point.X + row.ActionButton.Bounds.Width, Is.LessThanOrEqualTo(row.Bounds.Width + 0.001), row.Header.ToString());
+                        if (!row.IsEffectivelyVisible || row.ActionButton is not { } button)
+                            continue;
+
+                        Point point = button.TranslatePoint(default, row)!.Value;
+                        Assert.That(point.X + button.Bounds.Width, Is.LessThanOrEqualTo(row.Bounds.Width + 0.001), row.Header?.ToString());
                     }
                     OptionsDisplayItem advanced = page.GetVisualDescendants().OfType<OptionsDisplayItem>()
                         .First(x => Equals(x.Header, Beutl.Language.SettingsStrings.AiAgents_Advanced));
@@ -202,7 +204,7 @@ public class SettingsGroupTests
             foreach (OptionsDisplayItem row in rows)
             {
                 Border root = row.GetVisualDescendants().OfType<Border>().First(x => x.Name == "LayoutRoot");
-                Assert.That(root.BorderThickness, Is.EqualTo(default(Thickness)), row.Header.ToString());
+                Assert.That(root.BorderThickness, Is.EqualTo(default(Thickness)), row.Header?.ToString());
             }
             TextBox input = rows[0].GetVisualDescendants().OfType<TextBox>().First();
             input.Focus();

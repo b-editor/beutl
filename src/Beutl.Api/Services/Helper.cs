@@ -74,7 +74,7 @@ internal static class Helper
 
             if (dependencyInfoResource == null) continue;
 
-            SourcePackageDependencyInfo dependencyInfo;
+            SourcePackageDependencyInfo? dependencyInfo;
             try
             {
                 dependencyInfo = await dependencyInfoResource.ResolvePackage(

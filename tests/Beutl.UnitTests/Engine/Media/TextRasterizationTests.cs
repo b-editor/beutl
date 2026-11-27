@@ -24,7 +24,7 @@ public class TextRasterizationTests
         using var surface = SKSurface.Create(new SKImageInfo(640, 48, SKColorType.Alpha8, SKAlphaType.Premul));
         using var paint = new SKPaint { Color = SKColors.Black, IsAntialias = true };
 
-        surface.Canvas.DrawText("Sphinx of black quartz, judge my vow", 4, 34, font, paint);
+        surface.Canvas.DrawText("Sphinx of black quartz, judge my vow", 4, 34, SKTextAlign.Left, font, paint);
 
         using SKPixmap pixels = surface.PeekPixels();
         int levels = pixels.GetPixelSpan().ToArray().Where(alpha => alpha is > 0 and < 255).Distinct().Count();

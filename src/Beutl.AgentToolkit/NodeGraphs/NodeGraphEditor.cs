@@ -241,86 +241,69 @@ internal sealed partial class NodeGraphEditor(GraphModel root, Rational? frameRa
 
         INodePort from = FindPort(fromNode, fromPort, output: true);
         INodePort to = FindPort(toNode, toPort, output: false);
-        if (!NodeGraphMutationService.SortPortDirection(from, to, out IInputPort? input, out IOutputPort? output))
+        NodeConnectionRejection rejection = NodeGraphMutationService.CheckConnect(graph, from, to,
+            out IInputPort? input, out IOutputPort? output);
+        if (rejection == NodeConnectionRejection.InputOccupied && operation.Replace)
         {
-            throw Rejected(
-                $"'{operation.From}' and '{operation.To}' are both {(from is IInputPort ? "inputs" : "outputs")}.",
-                "Connect an output (from) to an input (to).");
+            // Check input availability and cycles against the graph after the old wire is removed.
+            graph.Disconnect(FindInputConnection(graph, input!));
+            rejection = NodeGraphMutationService.CheckConnect(graph, from, to, out input, out output);
         }
 
-        if (input is not IListInputPort && !input.Connection.Value.IsNull)
+        if (rejection != NodeConnectionRejection.None)
         {
-            Connection existing = graph.AllConnections.First(connection => connection.Id.Value == input.Connection.Value.Id);
-            if (!operation.Replace)
+            throw rejection switch
             {
-                throw Rejected(
-                    $"'{operation.To}' is already connected from '{Describe(existing.Output.Value.Value as INodeMember)}'.",
-                    "Pass replace: true to replace that connection, or disconnect it first.");
-            }
-
-            graph.Disconnect(existing);
+                NodeConnectionRejection.SameDirection => Rejected(
+                    $"'{operation.From}' and '{operation.To}' are both {(from is IInputPort ? "inputs" : "outputs")}.",
+                    "Connect an output (from) to an input (to)."),
+                NodeConnectionRejection.InputOccupied => Rejected(
+                    $"'{operation.To}' is already connected from '{Describe(FindInputConnection(graph, input!).Output.Value.Value as INodeMember)}'.",
+                    "Pass replace: true to replace that connection, or disconnect it first."),
+                NodeConnectionRejection.InputLocked => Rejected(
+                    $"'{Describe(input)}' cannot be connected now.",
+                    "Its property may be animated or driven by an expression, or another connected input already drives the same property."),
+                NodeConnectionRejection.WouldCloseCycle => Rejected(
+                    $"Connecting '{Describe(output)}' to '{Describe(input)}' would close a cycle.",
+                    "A graph runs its nodes in the order its connections give. To feed a result back, use a ShaderRepeatNode or ShaderReplayNode."),
+                _ => throw new InvalidOperationException($"Unexpected connection rejection: {rejection}.")
+            };
         }
 
-        if (input.FindHierarchicalParent<GraphNode>() is { } owner && !owner.CanConnectInput(input))
-        {
-            throw Rejected(
-                $"'{Describe(input)}' cannot be connected now.",
-                "Its property may be animated or driven by an expression, or another connected input already drives the same property.");
-        }
-
-        if (NodeGraphMutationService.WouldCloseCycle(graph, input, output))
-        {
-            throw Rejected(
-                $"Connecting '{Describe(output)}' to '{Describe(input)}' would close a cycle.",
-                "A graph runs its nodes in the order its connections give. To feed a result back, use a ShaderRepeatNode or ShaderReplayNode.");
-        }
-
-        graph.Connect(input, output);
+        graph.Connect(input!, output!);
     }
+
+    private static Connection FindInputConnection(GraphModel graph, IInputPort input)
+        => graph.AllConnections.First(connection => connection.Id.Value == input.Connection.Value.Id);
 
     // A node that grows ports adds one matching the port at the other end, as the editor does for a wire dropped on it.
     private void AddPort(GraphModel graph, GraphNode node, INodePort mate, bool grownOnOutputSide)
     {
-        if (node is not IDynamicPortNode dynamicNode)
+        NodeConnectionRejection rejection = NodeGraphMutationService.CheckAddPort(graph, node, mate, grownOnOutputSide);
+        if (rejection != NodeConnectionRejection.None)
         {
-            throw Rejected(
-                $"'{Describe(node)}' does not add ports; name the port.",
-                "Only nodes such as GroupInput, GroupOutput and the inputs and outputs of a loop body add a port for a connection.");
+            throw rejection switch
+            {
+                NodeConnectionRejection.NotDynamicPortNode => Rejected(
+                    $"'{Describe(node)}' does not add ports; name the port.",
+                    "Only nodes such as GroupInput, GroupOutput and the inputs and outputs of a loop body add a port for a connection."),
+                NodeConnectionRejection.SameDirection => Rejected(
+                    $"'{Describe(mate)}' is an {(mate is IInputPort ? "input" : "output")} on the {(grownOnOutputSide ? "to" : "from")} end.",
+                    "Connect an output (from) to an input (to)."),
+                NodeConnectionRejection.WrongSide => Rejected(
+                    $"'{Describe(node)}' adds {(grownOnOutputSide ? "inputs" : "outputs")} only.",
+                    grownOnOutputSide ? "Connect to it instead of from it." : "Connect from it instead of to it."),
+                NodeConnectionRejection.NoPortType => Rejected(
+                    $"'{Describe(mate)}' has no type for a new port to take.", "Name the port to connect to."),
+                NodeConnectionRejection.InputOccupied or NodeConnectionRejection.InputLocked => Rejected(
+                    $"'{Describe(mate)}' is already connected or cannot be connected now.", "Disconnect it first."),
+                NodeConnectionRejection.WouldCloseCycle => Rejected(
+                    $"A port on '{Describe(node)}' for '{Describe(mate)}' would close a cycle.", "Connect nodes in one direction only."),
+                _ => throw new InvalidOperationException($"Unexpected port addition rejection: {rejection}.")
+            };
         }
 
-        if (grownOnOutputSide ? mate is not IInputPort : mate is not IOutputPort)
-        {
-            throw Rejected(
-                $"'{Describe(mate)}' is an {(mate is IInputPort ? "input" : "output")} on the {(grownOnOutputSide ? "to" : "from")} end.",
-                "Connect an output (from) to an input (to).");
-        }
-
-        NodePortLocation side = grownOnOutputSide ? NodePortLocation.Right : NodePortLocation.Left;
-        if (!dynamicNode.PossibleLocation.HasFlag(side))
-        {
-            throw Rejected(
-                $"'{Describe(node)}' adds {(grownOnOutputSide ? "inputs" : "outputs")} only.",
-                grownOnOutputSide ? "Connect to it instead of from it." : "Connect from it instead of to it.");
-        }
-
-        if (mate.AssociatedType is null)
-        {
-            throw Rejected($"'{Describe(mate)}' has no type for a new port to take.", "Name the port to connect to.");
-        }
-
-        if (mate is IInputPort input && !NodeGraphMutationService.CanAcceptConnection(input))
-        {
-            throw Rejected(
-                $"'{Describe(input)}' is already connected or cannot be connected now.",
-                "Disconnect it first.");
-        }
-
-        if (NodeGraphMutationService.WouldNewPortCloseCycle(graph, node, mate))
-        {
-            throw Rejected($"A port on '{Describe(node)}' for '{Describe(mate)}' would close a cycle.", "Connect nodes in one direction only.");
-        }
-
-        if (!dynamicNode.AddNodePort(mate, out _))
+        if (!((IDynamicPortNode)node).AddNodePort(mate, out _))
         {
             throw Rejected($"'{Describe(node)}' could not add a port for '{Describe(mate)}'.", "Name an existing port instead.");
         }

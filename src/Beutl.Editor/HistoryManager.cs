@@ -87,6 +87,16 @@ public sealed partial class HistoryManager : IDisposable
         }
     }
 
+    internal ChangeOperation[] GetRetainedOperations()
+    {
+        ThrowIfDisposed();
+        lock (_lock)
+        {
+            return [.. _undoStack.Concat(_redoStack).SelectMany(transaction => transaction.Operations),
+                .. _currentTransaction.Operations, .. _activeSession?.Transaction.Operations ?? []];
+        }
+    }
+
     public int CurrentIndex => _undoStack.Count;
 
     /// <summary>
@@ -265,7 +275,7 @@ public sealed partial class HistoryManager : IDisposable
                     try
                     {
                         action();
-                        stateChanged |= CommitCurrentTransaction_NoLock(name, expression);
+                        stateChanged |= CommitCurrentTransaction_NoLock(name, expression, isIsolatedEdit: true);
                     }
                     catch (Exception actionFailure)
                     {
@@ -317,7 +327,7 @@ public sealed partial class HistoryManager : IDisposable
     private HistoryTransaction CreateTransaction()
         => new(Interlocked.Increment(ref _transactionIdCounter));
 
-    private bool CommitCurrentTransaction_NoLock(string? name, string? expression)
+    private bool CommitCurrentTransaction_NoLock(string? name, string? expression, bool isIsolatedEdit = false)
     {
         if (!_currentTransaction.HasOperations)
         {
@@ -327,11 +337,11 @@ public sealed partial class HistoryManager : IDisposable
 
         HistoryTransaction transaction = _currentTransaction;
         _currentTransaction = CreateTransaction();
-        PushTransaction_NoLock(transaction, name, expression);
+        PushTransaction_NoLock(transaction, name, expression, isIsolatedEdit);
         return true;
     }
 
-    private void PushTransaction_NoLock(HistoryTransaction transaction, string? name, string? expression)
+    private void PushTransaction_NoLock(HistoryTransaction transaction, string? name, string? expression, bool isIsolatedEdit = false)
     {
         transaction.Name = expression;
         transaction.DisplayName = name;
@@ -347,7 +357,7 @@ public sealed partial class HistoryManager : IDisposable
         // earlier failure whose surviving model state is uncertain.
         _maximumReplayIndex = int.MaxValue;
         TruncateEntriesAfter(currentEntryIndex);
-        AddEntry(HistoryEntry.FromTransaction(transaction));
+        AddEntry(HistoryEntry.FromTransaction(transaction, isIsolatedEdit));
     }
 
     private void RollbackCurrentTransaction_NoLock()
@@ -525,7 +535,36 @@ public sealed partial class HistoryManager : IDisposable
         _logger.LogDebug("Cleared history stacks (Undo: {UndoCount}, Redo: {RedoCount})", undoCount, redoCount);
     }
 
-    public bool JumpTo(int index)
+    public bool JumpTo(int index) => JumpTo(index, expectedUndoSuffix: null);
+
+    internal bool CanUndoTransactions(IReadOnlyList<long> transactionIds)
+    {
+        ThrowIfDisposed();
+        lock (_lock)
+        {
+            return MatchesUndoSuffix_NoLock(transactionIds);
+        }
+    }
+
+    internal bool UndoTransactions(IReadOnlyList<long> transactionIds)
+        => JumpTo(0, transactionIds);
+
+    private bool MatchesUndoSuffix_NoLock(IReadOnlyList<long> transactionIds)
+    {
+        int target = _undoStack.Count - transactionIds.Count;
+        if (transactionIds.Count == 0 || _activeSession is not null || _currentTransaction.HasOperations
+            || !IsReplayIndexReachable_NoLock(target))
+            return false;
+
+        for (int i = 0; i < transactionIds.Count; i++)
+        {
+            if (_entries[target + i + 1].TransactionId != transactionIds[i])
+                return false;
+        }
+        return true;
+    }
+
+    private bool JumpTo(int index, IReadOnlyList<long>? expectedUndoSuffix)
     {
         ThrowIfDisposed();
 
@@ -542,6 +581,15 @@ public sealed partial class HistoryManager : IDisposable
                 ThrowIfHistoryControlIsBlocked_NoLock();
                 if (IsEditSessionOpen_NoLock("JumpTo"))
                     return false;
+
+                // BeforeMutation can commit a user's debounced edit. Verify after it runs,
+                // under the same lock that protects the entire replay.
+                if (expectedUndoSuffix is not null)
+                {
+                    if (!MatchesUndoSuffix_NoLock(expectedUndoSuffix))
+                        return false;
+                    index = _undoStack.Count - expectedUndoSuffix.Count;
+                }
 
                 if (!IsReplayIndexReachable_NoLock(index))
                 {

@@ -546,7 +546,7 @@ public partial class ShaderNodeRenderingTests
             Height = { Value = 2 },
             Fill = { Value = new SolidColorBrush(Colors.White) }
         });
-        using var renderer = new SceneRenderer(files.Scene, TestFonts.Manager, RenderIntent.Preview, 1);
+        using var renderer = new SceneRenderer(files.Scene, TestFonts.RenderServices, RenderIntent.Preview, 1);
         ushort[] working = RenderScene(renderer, MediaTime.Zero, 1);
 
         Action restore;
@@ -632,7 +632,7 @@ public partial class ShaderNodeRenderingTests
         var output = graph.Add(new OutputNode());
         graph.Connect(output.InputPort, pass.Out("color"));
         Populate(files, effect);
-        using var renderer = new SceneRenderer(files.Scene, TestFonts.Manager, RenderIntent.Preview, 1);
+        using var renderer = new SceneRenderer(files.Scene, TestFonts.RenderServices, RenderIntent.Preview, 1);
 
         ushort[] pixels = RenderScene(renderer, MediaTime.Zero, 1);
 
@@ -677,7 +677,7 @@ public partial class ShaderNodeRenderingTests
         var output = graph.Add(new OutputNode());
         graph.Connect(output.InputPort, pass.Out("color"));
         Populate(files, effect);
-        using var renderer = new SceneRenderer(files.Scene, TestFonts.Manager, RenderIntent.Preview, 1);
+        using var renderer = new SceneRenderer(files.Scene, TestFonts.RenderServices, RenderIntent.Preview, 1);
 
         ushort[] pixels = RenderScene(renderer, MediaTime.Zero, 1);
 

@@ -61,7 +61,7 @@
         <NativeMenu>
             <NativeMenuItem Click="AboutBeutlClicked" Header="{x:Static lang:Strings.AboutBeutl}" />
             <NativeMenuItemSeparator />
-            <NativeMenuItem Click="OpenSettingsClicked" Header="{x:Static lang:Strings.Settings}" />
+            <NativeMenuItem Click="OpenSettingsClicked" Header="{x:Static lang:Strings.OpenSettingsMenu}" />
         </NativeMenu>
     </NativeMenu.Menu>
 </Application>

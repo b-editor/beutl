@@ -8,7 +8,7 @@ namespace Beutl.Controls;
 
 // Short UI motion driven by the frames themselves: each frame writes the value for its own timestamp, so an animation
 // never starts part-way through after a slow layout, and what it leaves behind is an ordinary local value.
-public static class UiMotion
+public static partial class UiMotion
 {
     public static readonly TimeSpan Fast = TimeSpan.FromMilliseconds(83);
     public static readonly TimeSpan Normal = TimeSpan.FromMilliseconds(167);
@@ -19,13 +19,11 @@ public static class UiMotion
     // How far, in device-independent pixels, something that appears moves into place.
     public const double RevealOffset = 4;
 
-    // Whether what appears inside moves into place or only fades. Off where something laid out beside it stays put
-    // while it moves, such as the ports on a node's edge beside the node's rows.
-    public static readonly AttachedProperty<bool> SlidesProperty =
-        AvaloniaProperty.RegisterAttached<Visual, bool>("Slides", typeof(UiMotion), defaultValue: true, inherits: true);
+    // Starting scale of a subtle pop-in reveal (badges, status indicators).
+    public const double PopStartScale = 0.92;
 
     private static readonly ConditionalWeakTable<Visual, object> s_runs = new();
-    private static readonly ConditionalWeakTable<Visual, TranslateTransform> s_slides = new();
+    private static readonly ConditionalWeakTable<Visual, Transform> s_transforms = new();
 
     // Calls apply with eased progress from 0 to 1 on each frame, then completed. A newer run on the same target
     // supersedes this one, which then stops without calling completed. A target not in a window finishes at once.
@@ -67,16 +65,44 @@ public static class UiMotion
         }
     }
 
-    // Stops a run on the target without calling its completed callback, and takes away the offset of a reveal.
+    // Stops a run on the target without calling its completed callback, and takes away any transform owned by a reveal.
     public static void Cancel(Visual target)
     {
         s_runs.Remove(target);
-        if (s_slides.TryGetValue(target, out TranslateTransform? slide))
+        if (s_transforms.TryGetValue(target, out Transform? transform))
         {
-            s_slides.Remove(target);
-            if (ReferenceEquals(target.RenderTransform, slide))
+            s_transforms.Remove(target);
+            if (ReferenceEquals(target.RenderTransform, transform))
                 target.RenderTransform = null;
         }
+    }
+
+    // Fades the target in without moving it.
+    public static void FadeIn(Visual target, TimeSpan duration, Action? completed = null)
+    {
+        Cancel(target);
+        target.Opacity = 0;
+        Run(target, duration, progress => target.Opacity = progress, completed);
+    }
+
+    // Fades the target out from its current opacity.
+    public static void FadeOut(Visual target, TimeSpan duration, Action? completed = null)
+    {
+        double from = target.Opacity;
+        Run(target, duration, progress => target.Opacity = from * (1 - progress), completed);
+    }
+
+    // Moves a drawn value from `from` to `to` over Fast; one already within tolerance of `to` settles at once.
+    internal static void Tween(Visual target, double from, double to, double tolerance, Action<double> apply)
+    {
+        if (Math.Abs(from - to) < tolerance)
+        {
+            Cancel(target);
+            apply(to);
+            return;
+        }
+
+        Run(target, Fast, progress => apply(from + ((to - from) * progress)));
     }
 
     // Fades the target in while it moves down into place from just above. A target with a transform of its own, or
@@ -84,34 +110,56 @@ public static class UiMotion
     public static void Reveal(Visual target, TimeSpan duration, Action? completed = null)
     {
         Cancel(target);
-        TranslateTransform? slide = null;
-        if (target.RenderTransform is null && GetSlides(target))
+        TranslateTransform? slide = target.RenderTransform is null && GetSlides(target)
+            ? new TranslateTransform(0, -RevealOffset)
+            : null;
+        RevealWith(target, duration, slide,
+            static (transform, progress) => transform.Y = -RevealOffset * (1 - progress), completed);
+    }
+
+    // Fades the target in while growing gently into place. A target with a transform of its own only fades.
+    public static void Pop(Visual target, TimeSpan duration, double startScale = PopStartScale, Action? completed = null)
+    {
+        Cancel(target);
+        ScaleTransform? grow = target.RenderTransform is null ? new ScaleTransform(startScale, startScale) : null;
+        RevealWith(target, duration, grow, (transform, progress) =>
         {
-            slide = new TranslateTransform(0, -RevealOffset);
-            target.RenderTransform = slide;
-        }
+            double scale = startScale + ((1 - startScale) * progress);
+            transform.ScaleX = scale;
+            transform.ScaleY = scale;
+        }, completed);
+    }
+
+    // Fades the target in while update moves the transform it is given, if any, into place.
+    private static void RevealWith<T>(
+        Visual target, TimeSpan duration, T? transform, Action<T, double> update, Action? completed)
+        where T : Transform
+    {
+        if (transform != null)
+            target.RenderTransform = transform;
 
         target.Opacity = 0;
         Run(target, duration, progress =>
         {
             target.Opacity = progress;
             // Something else (a drag, say) may have taken over the transform meanwhile.
-            if (slide != null && ReferenceEquals(target.RenderTransform, slide))
-                slide.Y = -RevealOffset * (1 - progress);
+            if (transform != null && ReferenceEquals(target.RenderTransform, transform))
+                update(transform, progress);
         }, () =>
         {
-            if (slide != null && ReferenceEquals(target.RenderTransform, slide))
+            if (transform != null && ReferenceEquals(target.RenderTransform, transform))
                 target.RenderTransform = null;
             completed?.Invoke();
         });
-        // Run cancels what came before it, so the slide is recorded after it starts.
-        if (slide != null && ReferenceEquals(target.RenderTransform, slide))
-            s_slides.AddOrUpdate(target, slide);
+        // Run cancels what came before it, so the transform is recorded after it starts.
+        if (transform != null && ReferenceEquals(target.RenderTransform, transform))
+            s_transforms.AddOrUpdate(target, transform);
     }
 
-    public static bool GetSlides(Visual visual) => visual.GetValue(SlidesProperty);
-
-    public static void SetSlides(Visual visual, bool value) => visual.SetValue(SlidesProperty, value);
+    // Whether what appears inside moves into place or only fades. Off where something laid out beside it stays put
+    // while it moves, such as the ports on a node's edge beside the node's rows.
+    [GeneratedAttachedProperty(DefaultValue = true, Inherits = true)]
+    public static partial bool GetSlides(Visual visual);
 
     private static bool IsCurrent(Visual target, object run)
     {

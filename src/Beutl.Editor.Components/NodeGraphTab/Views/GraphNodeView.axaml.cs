@@ -1,11 +1,11 @@
 ﻿using Avalonia;
-using Avalonia.Animation;
 using Avalonia.Controls;
 using Avalonia.Controls.Presenters;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
+using Beutl.Controls;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.NodeGraphTab.ViewModels;
 using Beutl.Language;
@@ -15,10 +15,6 @@ namespace Beutl.Editor.Components.NodeGraphTab.Views;
 
 public partial class GraphNodeView : UserControl
 {
-    private static readonly CrossFade s_transition = new(TimeSpan.FromMilliseconds(250));
-
-    private CancellationTokenSource? _lastTransitionCts;
-
     private Point _start;
     private bool _captured;
     private Point _snapshot;
@@ -48,13 +44,18 @@ public partial class GraphNodeView : UserControl
         expandToggle.GetObservable(ToggleButton.IsCheckedProperty)
             .Subscribe(v =>
             {
-                _lastTransitionCts?.Cancel();
-                _lastTransitionCts = new CancellationTokenSource();
-                CancellationToken localToken = _lastTransitionCts.Token;
-
-                nodeContent.IsVisible = v == true;
-
-                _ = s_transition.Start(null, this, localToken);
+                bool open = v == true;
+                bool changed = nodeContent.IsVisible != open;
+                nodeContent.IsVisible = open;
+                if (open && changed && this.IsAttachedToVisualTree())
+                {
+                    UiMotion.Reveal(nodeContent, UiMotion.Normal);
+                }
+                else
+                {
+                    UiMotion.Cancel(nodeContent);
+                    nodeContent.Opacity = 1;
+                }
             });
 
         this.SubscribeDataContextChange<GraphNodeViewModel>(OnDataContextAttached, OnDataContextDetached);
@@ -66,6 +67,8 @@ public partial class GraphNodeView : UserControl
     {
         e.Handled = true;
     }
+
+    internal bool IsHeaderFocused => handle.IsKeyboardFocusWithin;
 
     internal void AttachNestedPort(NodePortPoint port)
     {
@@ -153,7 +156,16 @@ public partial class GraphNodeView : UserControl
     {
         if (DataContext is GraphNodeViewModel viewModel)
         {
-            if (viewModel.IsExpanded.Value)
+            if (viewModel.GraphNode is FallbackGraphNode fallback)
+            {
+                (Point input, Point output) = GetHeaderPortPositions(viewModel);
+                foreach (ConnectionViewModel connection in viewModel.NodeGraphViewModel.AllConnections)
+                {
+                    if (connection.FallbackInput == fallback) connection.InputPortPosition.Value = input;
+                    if (connection.FallbackOutput == fallback) connection.OutputPortPosition.Value = output;
+                }
+            }
+            else if (viewModel.IsExpanded.Value)
             {
                 UpdateExpandedPortPositions(viewModel);
             }
@@ -208,16 +220,20 @@ public partial class GraphNodeView : UserControl
 
     private void UpdateCollapsedPortPositions(GraphNodeViewModel viewModel)
     {
-        Point vcenter = viewModel.Position.Value + default(Point).WithY(handle.Bounds.Height / 2);
-        Point vcenterRight = vcenter + default(Point).WithX(Bounds.Width);
-
+        (Point input, Point output) = GetHeaderPortPositions(viewModel);
         foreach (NodeMemberViewModel item in viewModel.EnumerateMembers())
         {
-            SetCollapsedEndpoints(item, vcenter, vcenterRight);
+            SetCollapsedEndpoints(item, input, output);
         }
 
-        SetCollapsedEndpoints(_undecidedLeftNodePortContext, vcenter, vcenterRight);
-        SetCollapsedEndpoints(_undecidedRightNodePortContext, vcenter, vcenterRight);
+        SetCollapsedEndpoints(_undecidedLeftNodePortContext, input, output);
+        SetCollapsedEndpoints(_undecidedRightNodePortContext, input, output);
+    }
+
+    private (Point Input, Point Output) GetHeaderPortPositions(GraphNodeViewModel viewModel)
+    {
+        Point left = viewModel.Position.Value + new Vector(0, handle.Bounds.Height / 2);
+        return (left, left + new Vector(Bounds.Width, 0));
     }
 
     private static void SetCollapsedEndpoints(NodeMemberViewModel? member, Point input, Point output)

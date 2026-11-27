@@ -1,0 +1,43 @@
+<UserControl x:Class="Beutl.Editor.Components.PropertyEditors.Views.DuckingSourceLayersEditor"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:vm="using:Beutl.Editor.Components.PropertyEditors.ViewModels"
+             Margin="8,4"
+             x:CompileBindings="False"
+             x:DataType="vm:DuckingSourceLayersEditorViewModel">
+    <StackPanel Spacing="6">
+        <TextBlock Text="{Binding Header}"
+                   ToolTip.Tip="{Binding HoverInfo.Value}" />
+        <Border Padding="4,2"
+                BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
+                BorderThickness="1"
+                CornerRadius="4"
+                IsVisible="{Binding HasLayers.Value}">
+            <ScrollViewer MaxHeight="152"
+                          HorizontalScrollBarVisibility="Disabled"
+                          VerticalScrollBarVisibility="Auto">
+                <ItemsControl IsEnabled="{Binding CanEditProperty.Value}"
+                              ItemsSource="{Binding Layers.Value}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <CheckBox MinHeight="30"
+                                      HorizontalAlignment="Stretch"
+                                      AutomationProperties.Name="{Binding Name}"
+                                      IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                      ToolTip.Tip="{Binding RowLabel}">
+                                <TextBlock Text="{Binding Name}"
+                                           TextTrimming="CharacterEllipsis" />
+                            </CheckBox>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+        </Border>
+        <TextBlock x:Name="emptyMessage"
+                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                   IsVisible="{Binding !HasLayers.Value}"
+                   Text="{x:Static lang:AudioStrings.DuckingEffect_NoSourceLayers}"
+                   TextWrapping="Wrap" />
+    </StackPanel>
+</UserControl>

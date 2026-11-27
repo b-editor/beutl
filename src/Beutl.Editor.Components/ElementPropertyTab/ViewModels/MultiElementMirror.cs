@@ -183,21 +183,22 @@ internal sealed class MultiElementMirror : IPropertyEditorMirror, IDisposable
         return ShownValue(targetProperty, shift);
     }
 
-    // What an editor of property shows with the playhead moved by shift: its expression, the value of the keyframe it
-    // edits there, or its value.
+    // What an editor of property shows with the playhead moved by shift: its expression and underlying value, the
+    // value of the keyframe it edits there, or its value.
     private object? ShownValue(IProperty property, MediaTime shift)
     {
-        if (property is IExpressionProperty { HasExpression: true } expressionProperty)
-            return new ExpressionValue(DescribeExpression(expressionProperty.SerializeExpression()));
-
         MediaTime time = (_clock?.CurrentTime.Value ?? MediaTime.Zero) + shift;
-        return property.GetPropertyAnimation() switch
+        object? value = property.GetPropertyAnimation() switch
         {
             IComponentAnimation components => ComponentValue(components, time),
             IKeyFrameAnimation { KeyFrames.Count: > 0 } animation
                 => AnimationOperations.FindEditingKeyFrame(animation, time, AnimationOperations.GetFrameRate(_scene))?.Value,
             _ => property.Value,
         };
+        if (property is IExpressionProperty { HasExpression: true } expressionProperty)
+            return new ExpressionValue(DescribeExpression(expressionProperty.SerializeExpression()), value);
+
+        return value;
     }
 
     // The value separated components make at time, which IComponentAnimation<T> gives for its own T.
@@ -224,7 +225,7 @@ internal sealed class MultiElementMirror : IPropertyEditorMirror, IDisposable
     private static string Format(object? value) => value switch
     {
         null => "-",
-        ExpressionValue expression => "= " + expression.Source,
+        ExpressionValue expression => $"= {expression.Source} ({Format(expression.Value)})",
         CoreObject obj => TypeDisplayHelpers.GetLocalizedName(obj.GetType()),
         float number => number.ToString("0.###", CultureInfo.CurrentCulture),
         double number => number.ToString("0.###", CultureInfo.CurrentCulture),
@@ -233,8 +234,8 @@ internal sealed class MultiElementMirror : IPropertyEditorMirror, IDisposable
         _ => value.ToString() ?? "-",
     };
 
-    // An expression stands for itself: two properties show the same when they have the same one.
-    private readonly record struct ExpressionValue(string? Source);
+    // An expression and the editable value below it: two properties show the same when both match.
+    private readonly record struct ExpressionValue(string? Source, object? Value);
 
     // Objects are told apart by their type only: an editor of an object property shows of what type it is, and the
     // editors of its properties show what differs inside. Each element holds a list of its own, so lists are told apart
@@ -245,12 +246,18 @@ internal sealed class MultiElementMirror : IPropertyEditorMirror, IDisposable
 
         public new bool Equals(object? x, object? y) => (x, y) switch
         {
+            (ExpressionValue a, ExpressionValue b) => a.Source == b.Source && Equals(a.Value, b.Value),
             (CoreObject a, _) => y is CoreObject b && a.GetType() == b.GetType(),
             (IEnumerable a, IEnumerable b) when x is not string => a.Cast<object?>().SequenceEqual(b.Cast<object?>(), this),
             _ => object.Equals(x, y),
         };
 
-        public int GetHashCode(object? obj) => obj is CoreObject ? obj.GetType().GetHashCode() : obj?.GetHashCode() ?? 0;
+        public int GetHashCode(object? obj) => obj switch
+        {
+            ExpressionValue e => HashCode.Combine(e.Source, GetHashCode(e.Value)),
+            CoreObject => obj.GetType().GetHashCode(),
+            _ => obj?.GetHashCode() ?? 0,
+        };
     }
 
     // An editor of one element's properties that are at the places of the copy's, which no control shows.
@@ -311,6 +318,9 @@ internal sealed class MultiElementMirror : IPropertyEditorMirror, IDisposable
             }
 
             found.DefersCommit = true;
+            // A default the host gave the editor shown, such as a pin's rest position, reads the property it is the
+            // default of, so the target's editor takes it too and finds the target's own.
+            found.DefaultValueOverride = editor.DefaultValueOverride;
             return new TargetEditor(target, found, shift, contexts, clock);
         }
 

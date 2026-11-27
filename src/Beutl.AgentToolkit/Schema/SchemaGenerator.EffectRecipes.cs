@@ -114,13 +114,13 @@ public sealed partial class SchemaGenerator
                 blendMode: BlendMode.Multiply,
                 opacity: 50f,
                 duplicateInputHint,
-                "This is the self-composite darkening glaze part; a true edge vignette also needs the drawable's own dark radial fill."),
+                "This is the self-composite darkening glaze part; for darker edges, add the Vignette effect instead of painting a dark radial fill."),
             CreateEffectRecipe(
                 "chromatic-aberration-lite",
-                "Subtle chromatic aberration and lens character: a gentle red/blue split, unlike the aggressive ColorShift inside digital-glitch.",
+                "Subtle lens chromatic aberration that spreads the red and blue channels farther apart toward the edges.",
                 ["chromatic", "aberration", "lens", "subtle", "stylize"],
                 CreateFilterEffectGroup(
-                    CreateColorShift(3, 0, -3, 0))),
+                    CreateLensChromaticAberration(2f))),
             CreateEffectRecipe(
                 "soft-paper-depth",
                 "Subtle paper/editorial depth chain that avoids heavy card shadows.",
@@ -143,7 +143,7 @@ public sealed partial class SchemaGenerator
                 "Fine monochrome film-grain overlay for texture when flat vector plates feel sterile.",
                 ["grain", "texture", "organic", "field", "subtle"],
                 CreateFilterEffectGroup(
-                    CreateFilmGrainEffect(),
+                    new FilmGrain(),
                     CreateBrightness(102))),
             CreateEffectRecipe(
                 "editorial-color-grade",
@@ -156,7 +156,7 @@ public sealed partial class SchemaGenerator
                     CreateHighContrast(8))),
             CreateEffectRecipe(
                 "organic-shader-field",
-                "SKSL shader field for organic heat, ink, glass, smoke, grain, or caustic motion that would look flat as stacked gradients alone.",
+                "SKSL shader field for organic heat, ink, glass, smoke, or caustic motion that would look flat as stacked gradients alone.",
                 ["shader", "organic", "thermal", "ink", "glass", "field", "motion"],
                 CreateFilterEffectGroup(
                     CreateOrganicShaderEffect(),
@@ -457,13 +457,13 @@ public sealed partial class SchemaGenerator
             .ToArray();
         string[] notes = type == typeof(SKSLScriptEffect)
             ? metadata.Notes
-                .Append("This recipe is a blank pass-through SKSL scaffold for authoring your own shader; use organic-shader-field for a ready-made organic field and fine-film-grain-field for grain.")
+                .Append("This recipe is a blank pass-through SKSL scaffold for authoring your own shader; use organic-shader-field for a ready-made organic field and the built-in FilmGrain effect (fine-film-grain-field) for grain.")
                 .Append("Colour space: the shader runs in LINEAR, premultiplied-alpha space. src.eval() returns linear premultiplied values and main must return the same; the sRGB encode happens after the effect. An sRGB constant pasted straight into the shader therefore reads far brighter than intended — convert it (roughly pow(c, 2.2)) before mixing, and un-premultiply before any operation that assumes straight alpha.")
                 .Distinct(StringComparer.Ordinal)
                 .ToArray()
             : metadata.Notes.ToArray();
         string description = type == typeof(SKSLScriptEffect)
-            ? "Single-effect recipe for SKSL script effect. This is a blank pass-through scaffold for authoring your own shader; use organic-shader-field for a ready-made organic field or fine-film-grain-field for grain."
+            ? "Single-effect recipe for SKSL script effect. This is a blank pass-through scaffold for authoring your own shader; use organic-shader-field for a ready-made organic field or the built-in FilmGrain effect for grain."
             : $"Single-effect recipe for {displayName}. Use this when you want to intentionally exercise the {type.Name} filter.";
         JsonObject patch = type == typeof(FilterEffectGroup)
             ? CreateEffectPatch((FilterEffectGroup)effect)
@@ -565,6 +565,9 @@ public sealed partial class SchemaGenerator
             case Brightness brightness:
                 brightness.Amount.Value = 116;
                 break;
+            case OpacityEffect opacity:
+                opacity.Opacity.Value = 55;
+                break;
             case Gamma gamma:
                 gamma.Amount.Value = 92;
                 gamma.Strength.Value = 65;
@@ -594,6 +597,7 @@ public sealed partial class SchemaGenerator
                 chromaKey.HueRange.Value = 12;
                 chromaKey.SaturationRange.Value = 35;
                 chromaKey.Boundary.Value = 3;
+                chromaKey.SpillSuppression.Value = 50;
                 break;
             case ColorKey colorKey:
                 colorKey.Color.Value = Color.Parse("#ffffffff");
@@ -626,6 +630,9 @@ public sealed partial class SchemaGenerator
                 colorShift.RedOffset.Value = new PixelPoint(12, 0);
                 colorShift.BlueOffset.Value = new PixelPoint(-12, 0);
                 break;
+            case LensChromaticAberration lensChromaticAberration:
+                lensChromaticAberration.Amount.Value = 8f;
+                break;
             case ShakeEffect shake:
                 shake.StrengthX.Value = 18;
                 shake.StrengthY.Value = 7;
@@ -640,13 +647,37 @@ public sealed partial class SchemaGenerator
 
                 displacement.Signed.Value = true;
                 break;
+            case MeshWarp meshWarp:
+                // An identity mesh renders as a pass-through. Push the center point gently up and to the right.
+                MeshWarpGrid grid = meshWarp.Mesh.Value;
+                Point center = grid.GetRestPoint(grid.Rows / 2, grid.Columns / 2);
+                meshWarp.Mesh.Value = grid.WithPoint(grid.Rows / 2, grid.Columns / 2, new Point(center.X + 0.04f, center.Y - 0.06f));
+                break;
+            case CornerPin cornerPin:
+                cornerPin.TopLeft.Value = new RelativePoint(0.23f, 0.22f, RelativeUnit.Relative);
+                cornerPin.TopRight.Value = new RelativePoint(0.83f, 0.07f, RelativeUnit.Relative);
+                break;
+            case Puppet puppet:
+                // Pins left at their rest positions render as a pass-through. Hold the left and the middle, and lift the right.
+                puppet.Pins.Add(CreatePuppetPin(new Point(0.2f, 0.5f), new Point(0.2f, 0.5f)));
+                puppet.Pins.Add(CreatePuppetPin(new Point(0.5f, 0.5f), new Point(0.5f, 0.5f)));
+                puppet.Pins.Add(CreatePuppetPin(new Point(0.8f, 0.5f), new Point(0.8f, 0.42f)));
+                break;
             case PathFollowEffect pathFollow:
                 pathFollow.Progress.Value = 42;
                 pathFollow.FollowRotation.Value = true;
                 break;
             case DelayAnimationEffect delay:
                 delay.Delay.Value = 55;
+                delay.Unit.Value = TextAnimationUnit.Lines;
                 delay.Effect.Value = CreateDropShadow(0, 0, 18, "#9936f0ff");
+                break;
+            case RangeAnimatorEffect range:
+                range.RangeStart.Value = 20;
+                range.RangeEnd.Value = 65;
+                range.Unit.Value = TextAnimationUnit.Words;
+                range.Position.Value = new Point(0, -30);
+                range.Opacity.Value = 55;
                 break;
             case PixelSortEffect pixelSort:
                 pixelSort.Direction.Value = PixelSortDirection.Horizontal;
@@ -746,31 +777,6 @@ public sealed partial class SchemaGenerator
                """;
     }
 
-    private static SKSLScriptEffect CreateFilmGrainEffect()
-    {
-        var effect = new SKSLScriptEffect();
-        effect.Script.Value = CreateFilmGrainScript();
-        return effect;
-    }
-
-    private static string CreateFilmGrainScript()
-    {
-        // Must stay distinct from CreateOrganicShaderScript: monochrome low-amplitude grain, not the colored field.
-        return """
-               uniform shader src;
-               uniform float time;
-               uniform float progress;
-               uniform float2 iResolution;
-
-               half4 main(float2 fragCoord) {
-                   half4 base = src.eval(fragCoord);
-                   float grain = fract(sin(dot(fragCoord, float2(12.9898, 78.233)) + time * 1.7) * 43758.5453);
-                   float amt = (grain - 0.5) * 0.035;
-                   return half4(base.rgb + half3(amt, amt, amt), base.a);
-               }
-               """;
-    }
-
     private static string ToKebabCase(string name)
     {
         var builder = new StringBuilder(name.Length + 8);
@@ -832,6 +838,14 @@ public sealed partial class SchemaGenerator
         flatShadow.Length.Value = length;
         flatShadow.Brush.Value = new SolidColorBrush(Color.Parse(color));
         return flatShadow;
+    }
+
+    private static PuppetPin CreatePuppetPin(Point restPosition, Point position)
+    {
+        var pin = new PuppetPin();
+        pin.RestPosition.Value = restPosition;
+        pin.Position.Value = position;
+        return pin;
     }
 
     private static PixelSortEffect CreatePixelSort()

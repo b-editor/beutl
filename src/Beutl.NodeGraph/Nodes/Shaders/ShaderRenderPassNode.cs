@@ -30,21 +30,25 @@ public partial class ShaderRenderPassNode : ShaderGraphicsPassNode
         }
         """;
 
-    public ShaderRenderPassNode()
+    public ShaderRenderPassNode() : this(deferFixedPorts: false)
+    {
+    }
+
+    private protected ShaderRenderPassNode(bool deferFixedPorts)
     {
         ScanProperties<ShaderRenderPassNode>();
         DepthOutput = CreateOutput<ShaderGraphValue<ShaderImage>>("DepthOutput", ShaderPortDisplays.Get("DepthOutput"));
         Items.Add(DepthOutput);
         AddCodeInput(Vertex);
         AddCodeInput(Fragment);
-        AddExtraStagePorts();
-        AddFixedPorts(Format, Targets);
-        InsertDefaultPorts(["color"], []);
+        if (!deferFixedPorts)
+            FinishPortInitialization();
     }
 
-    /// <summary>Adds the ports of stages beyond vertex and fragment.</summary>
-    private protected virtual void AddExtraStagePorts()
+    private protected void FinishPortInitialization()
     {
+        AddFixedPorts(Format, Targets);
+        InsertDefaultPorts(["color"], []);
     }
 
     [DataType(CustomDataTypes.Code)]
@@ -105,13 +109,13 @@ public partial class ShaderExtendedRenderPassNode : ShaderRenderPassNode
     [Display(Name = nameof(NodeGraphStrings.ShaderPort_GeometryCode), ResourceType = typeof(NodeGraphStrings))]
     public IProperty<string> Geometry { get; } = new ValueOnlyProperty<string>("");
 
-    // Runs inside the base constructor, ahead of this class's own, and a port takes its name from the scan.
-    private protected override void AddExtraStagePorts()
+    public ShaderExtendedRenderPassNode() : base(deferFixedPorts: true)
     {
         ScanProperties<ShaderExtendedRenderPassNode>();
         AddCodeInput(TessellationControl);
         AddCodeInput(TessellationEvaluation);
         AddCodeInput(Geometry);
+        FinishPortInitialization();
     }
 
     private protected override IReadOnlyList<(ShaderStage Stage, string Code)> GetStages()

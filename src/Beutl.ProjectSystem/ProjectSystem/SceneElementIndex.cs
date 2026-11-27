@@ -92,10 +92,10 @@ internal sealed class SceneElementIndex
         lock (_sync) return _layers.ContainsKey(layer);
     }
 
-    public bool Intersects(int layer, TimeRange range)
+    public bool Intersects(int layer, TimeRange range, IReadOnlySet<Element>? excluded = null)
     {
         lock (_sync)
-            return !range.IsEmpty && _layers.TryGetValue(layer, out Tree? tree) && tree.Intersects(range);
+            return !range.IsEmpty && _layers.TryGetValue(layer, out Tree? tree) && tree.Intersects(range, excluded);
     }
 
     // Whether a clip placed at range would land on another one. Unlike Intersects, this counts an empty range or
@@ -106,10 +106,10 @@ internal sealed class SceneElementIndex
             return _layers.TryGetValue(layer, out Tree? tree) && tree.Overlaps(range);
     }
 
-    public (Element? Before, Element? After) Neighbors(int layer, TimeRange range)
+    public (Element? Before, Element? After) Neighbors(int layer, TimeRange range, IReadOnlySet<Element>? excluded = null)
     {
         lock (_sync)
-            return _layers.TryGetValue(layer, out Tree? tree) ? tree.Neighbors(range) : (null, null);
+            return _layers.TryGetValue(layer, out Tree? tree) ? tree.Neighbors(range, excluded) : (null, null);
     }
 
     public int CompareSceneOrder(Element left, Element right)
@@ -272,12 +272,13 @@ internal sealed class SceneElementIndex
             Query(node.Right, start, end, result);
         }
 
-        public bool Intersects(TimeRange range) => Intersects(_root, range);
+        public bool Intersects(TimeRange range, IReadOnlySet<Element>? excluded) => Intersects(_root, range, excluded);
 
-        private static bool Intersects(Node? node, TimeRange range)
+        private static bool Intersects(Node? node, TimeRange range, IReadOnlySet<Element>? excluded)
             => node is not null && node.MaxEnd > range.Start
-               && (Intersects(node.Left, range) || node.Entry.Range.Start < range.End
-                   && (node.Entry.Range.Intersects(range) || Intersects(node.Right, range)));
+               && (Intersects(node.Left, range, excluded) || node.Entry.Range.Start < range.End
+                   && ((excluded?.Contains(node.Entry.Element) != true && node.Entry.Range.Intersects(range))
+                       || Intersects(node.Right, range, excluded)));
 
         public bool Overlaps(TimeRange range) => Overlaps(_root, range);
 
@@ -291,20 +292,10 @@ internal sealed class SceneElementIndex
                 || Overlaps(node.Right, range);
         }
 
-        public (Element? Before, Element? After) Neighbors(TimeRange range)
+        public (Element? Before, Element? After) Neighbors(TimeRange range, IReadOnlySet<Element>? excluded)
         {
-            // Equal boundaries choose the last element in scene order, as AccumulateNeighbor does.
-            Node? node = _root;
-            Element? before = null;
-            while (node is not null)
-            {
-                if (node.Entry.Range.Start < range.Start)
-                {
-                    before = node.Entry.Element;
-                    node = node.Right;
-                }
-                else node = node.Left;
-            }
+            // Equal boundaries choose the last element in scene order.
+            Element? before = FindBefore(_root, range.Start, excluded);
             Entry[] ends = _ends ??= Enumerate(_root).OrderBy(entry => entry.Range.End)
                 .ThenByDescending(entry => entry.Order).ToArray();
             int low = 0, high = ends.Length;
@@ -314,7 +305,18 @@ internal sealed class SceneElementIndex
                 if (ends[middle].Range.End <= range.End) low = middle + 1;
                 else high = middle;
             }
+            while (low < ends.Length && excluded?.Contains(ends[low].Element) == true)
+                low++;
             return (before, low < ends.Length ? ends[low].Element : null);
+        }
+
+        private static Element? FindBefore(Node? node, MediaTime start, IReadOnlySet<Element>? excluded)
+        {
+            if (node is null) return null;
+            if (node.Entry.Range.Start >= start) return FindBefore(node.Left, start, excluded);
+
+            return FindBefore(node.Right, start, excluded)
+                ?? (excluded?.Contains(node.Entry.Element) == true ? FindBefore(node.Left, start, excluded) : node.Entry.Element);
         }
 
         private static IEnumerable<Entry> Enumerate(Node? node)

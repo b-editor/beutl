@@ -1,0 +1,529 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
+  <data name="Title" xml:space="preserve"><value>代理</value></data>
+  <data name="ThreadPicker" xml:space="preserve"><value>对话</value></data>
+  <data name="NewThread" xml:space="preserve"><value>新建对话</value></data>
+  <data name="RenameThread" xml:space="preserve"><value>重命名对话</value></data>
+  <data name="ThreadName" xml:space="preserve"><value>对话名称</value></data>
+  <data name="DeleteThread" xml:space="preserve"><value>删除对话</value></data>
+  <data name="DeleteConfirm" xml:space="preserve"><value>要删除此对话及其记录吗？</value></data>
+  <data name="Save" xml:space="preserve"><value>保存</value></data>
+  <data name="Delete" xml:space="preserve"><value>删除</value></data>
+  <data name="Cancel" xml:space="preserve"><value>取消</value></data>
+  <data name="Provider" xml:space="preserve"><value>提供方</value></data>
+  <data name="ProviderAvailable" xml:space="preserve"><value>可用</value></data>
+  <data name="ProviderUnavailable" xml:space="preserve"><value>不可用</value></data>
+  <data name="PermissionMode" xml:space="preserve"><value>权限</value></data>
+  <data name="Supervised" xml:space="preserve"><value>需要批准</value></data>
+  <data name="AutoAcceptEdits" xml:space="preserve"><value>自动批准编辑</value></data>
+  <data name="Auto" xml:space="preserve"><value>自动</value></data>
+  <data name="FullAccess" xml:space="preserve"><value>完全访问</value></data>
+  <data name="FollowEdits" xml:space="preserve"><value>跟随实时编辑</value></data>
+  <data name="SceneContext" xml:space="preserve"><value>场景信息</value></data>
+  <data name="SceneContextTooltip" xml:space="preserve"><value>包含场景、播放位置和选中项</value></data>
+  <data name="CurrentFrame" xml:space="preserve"><value>当前帧</value></data>
+  <data name="AttachCurrentFrame" xml:space="preserve"><value>附加当前帧</value></data>
+  <data name="AttachFile" xml:space="preserve"><value>添加文件</value></data>
+  <data name="RemoveAttachment" xml:space="preserve"><value>移除附件</value></data>
+  <data name="Prompt" xml:space="preserve"><value>向代理发送消息…</value></data>
+  <data name="Send" xml:space="preserve"><value>发送</value></data>
+  <data name="Stop" xml:space="preserve"><value>停止</value></data>
+  <data name="Thinking" xml:space="preserve"><value>思考中</value></data>
+  <data name="Tool" xml:space="preserve"><value>工具</value></data>
+  <data name="ToolInput" xml:space="preserve"><value>输入</value></data>
+  <data name="ToolOutput" xml:space="preserve"><value>输出</value></data>
+  <data name="Plan" xml:space="preserve"><value>计划</value></data>
+  <data name="Pending" xml:space="preserve"><value>等待中</value></data>
+  <data name="Running" xml:space="preserve"><value>正在运行</value></data>
+  <data name="Completed" xml:space="preserve"><value>已完成</value></data>
+  <data name="Failed" xml:space="preserve"><value>失败</value></data>
+  <data name="Stopped" xml:space="preserve"><value>已停止</value></data>
+  <data name="ToolImageUnavailable" xml:space="preserve"><value>无法预览图像。</value></data>
+  <data name="PermissionRequest" xml:space="preserve"><value>需要批准</value></data>
+  <data name="AllowOnce" xml:space="preserve"><value>仅允许本次</value></data>
+  <data name="AllowAlways" xml:space="preserve"><value>在本次会话中允许</value></data>
+  <data name="RejectOnce" xml:space="preserve"><value>仅拒绝本次</value></data>
+  <data name="RejectAlways" xml:space="preserve"><value>始终拒绝</value></data>
+  <data name="RequestClosed" xml:space="preserve"><value>请求已关闭</value></data>
+  <data name="Question" xml:space="preserve"><value>需要回答</value></data>
+  <data name="ChooseOption" xml:space="preserve"><value>选择一个选项</value></data>
+  <data name="YourAnswer" xml:space="preserve"><value>输入回答</value></data>
+  <data name="Submit" xml:space="preserve"><value>确认</value></data>
+  <data name="Answered" xml:space="preserve"><value>已回答</value></data>
+  <data name="TurnEditCount" xml:space="preserve"><value>本轮场景编辑：{0} 项</value></data>
+  <data name="RevertTurn" xml:space="preserve"><value>撤销</value></data>
+  <data name="TurnReverted" xml:space="preserve"><value>已撤销本轮更改。</value></data>
+  <data name="HistoryChanged" xml:space="preserve"><value>场景历史已更改，无法一次撤销本轮更改。</value></data>
+  <data name="RevertUnavailable" xml:space="preserve"><value>原始编辑器会话不可用。</value></data>
+  <data name="TurnStopped" xml:space="preserve"><value>本轮已停止。</value></data>
+  <data name="HistorySaveFailed" xml:space="preserve"><value>无法保存本轮的编辑次数。</value></data>
+  <data name="EditorUnavailable" xml:space="preserve"><value>场景编辑器不可用。</value></data>
+  <data name="ThreadBusy" xml:space="preserve"><value>此对话已有一轮正在运行。</value></data>
+  <data name="FrameCaptureFailed" xml:space="preserve"><value>无法保存当前帧。</value></data>
+  <data name="McpLauncherMissing" xml:space="preserve"><value>找不到 Beutl MCP 启动程序。</value></data>
+  <data name="McpNotReady" xml:space="preserve"><value>实时 MCP 未能及时启动。代理可以在启动期间继续工作。</value></data>
+  <data name="TurnFailed" xml:space="preserve"><value>代理运行失败。</value></data>
+  <data name="ThreadActions" xml:space="preserve"><value>对话操作</value></data>
+  <data name="SearchThreads" xml:space="preserve"><value>搜索对话…</value></data>
+  <data name="NoThreadsFound" xml:space="preserve"><value>未找到对话。</value></data>
+  <data name="RefreshThreads" xml:space="preserve"><value>刷新对话</value></data>
+  <data name="RecentThreads" xml:space="preserve"><value>最近的对话</value></data>
+  <data name="ProviderLocked" xml:space="preserve"><value>此对话使用创建时选定的提供方。</value></data>
+  <data name="NoProvider" xml:space="preserve"><value>未选择提供方</value></data>
+  <data name="SupervisedDescription" xml:space="preserve"><value>执行命令和修改文件前先询问。</value></data>
+  <data name="AutoAcceptEditsDescription" xml:space="preserve"><value>自动批准编辑，其他操作前先询问。</value></data>
+  <data name="AutoDescription" xml:space="preserve"><value>支持的提供程序会自动批准常规操作，其余操作仍会询问。</value></data>
+  <data name="FullAccessDescription" xml:space="preserve"><value>无需提示即可执行命令和编辑。</value></data>
+  <data name="EmptyTitle" xml:space="preserve"><value>要编辑什么？</value></data>
+  <data name="StarterReviewFrame" xml:space="preserve"><value>查看此帧</value></data>
+  <data name="StarterReviewFramePrompt" xml:space="preserve"><value>查看播放位置的帧，并提出改进构图的建议。</value></data>
+  <data name="StarterSuggestCuts" xml:space="preserve"><value>查找剪切点</value></data>
+  <data name="StarterSuggestCutsPrompt" xml:space="preserve"><value>查看此场景，并建议能改善节奏的剪切点。</value></data>
+  <data name="StarterRefineTitle" xml:space="preserve"><value>调整标题</value></data>
+  <data name="StarterRefineTitlePrompt" xml:space="preserve"><value>查看片头标题，并对其位置和动画提出改进建议。</value></data>
+  <data name="RunningPrompt" xml:space="preserve"><value>输入后续消息</value></data>
+  <data name="Working" xml:space="preserve"><value>正在生成回答…</value></data>
+  <data name="CopyResponse" xml:space="preserve"><value>复制回答</value></data>
+  <data name="ComposerAdd" xml:space="preserve"><value>添加</value></data>
+  <data name="AttachSceneContext" xml:space="preserve"><value>附加场景信息</value></data>
+  <data name="RemoveSceneContext" xml:space="preserve"><value>移除场景信息</value></data>
+  <data name="ModelPicker" xml:space="preserve"><value>选择模型</value></data>
+  <data name="ModelSearch" xml:space="preserve"><value>搜索模型…</value></data>
+  <data name="ModelProviderDefault" xml:space="preserve"><value>提供方默认值</value></data>
+  <data name="ModelShowMore" xml:space="preserve"><value>查看更多</value></data>
+  <data name="UseCustomModel" xml:space="preserve"><value>使用“{0}”</value></data>
+  <data name="ReasoningEffort" xml:space="preserve"><value>推理</value></data>
+  <data name="EffortDefault" xml:space="preserve"><value>默认</value></data>
+  <data name="EffortUnavailable" xml:space="preserve"><value>没有可用的推理选项</value></data>
+  <data name="EffortNone" xml:space="preserve"><value>无</value></data>
+  <data name="EffortMinimal" xml:space="preserve"><value>极低</value></data>
+  <data name="EffortLow" xml:space="preserve"><value>低</value></data>
+  <data name="EffortMedium" xml:space="preserve"><value>中</value></data>
+  <data name="EffortHigh" xml:space="preserve"><value>高</value></data>
+  <data name="EffortExtraHigh" xml:space="preserve"><value>很高</value></data>
+  <data name="EffortMax" xml:space="preserve"><value>最高</value></data>
+  <data name="EffortUltra" xml:space="preserve"><value>超高</value></data>
+  <data name="AllowToolQuestion" xml:space="preserve"><value>允许执行“{0}”吗？</value></data>
+  <data name="ApprovalAllowOnce" xml:space="preserve"><value>仅允许本次</value></data>
+  <data name="ApprovalAllowAlways" xml:space="preserve"><value>允许，并且本次会话中不再询问</value></data>
+  <data name="ApprovalReject" xml:space="preserve"><value>拒绝</value></data>
+  <data name="ApprovalSubmit" xml:space="preserve"><value>确认</value></data>
+  <data name="QuestionOther" xml:space="preserve">
+    <value>其他</value>
+  </data>
+  <data name="QuestionBack" xml:space="preserve">
+    <value>上一步</value>
+  </data>
+  <data name="QuestionSkip" xml:space="preserve">
+    <value>跳过</value>
+  </data>
+  <data name="QuestionSkipped" xml:space="preserve">
+    <value>已跳过</value>
+  </data>
+  <data name="QuestionNext" xml:space="preserve">
+    <value>下一步</value>
+  </data>
+  <data name="Subagent" xml:space="preserve">
+    <value>子代理</value>
+  </data>
+  <data name="Subagents" xml:space="preserve">
+    <value>子代理</value>
+  </data>
+  <data name="SubagentToolCount" xml:space="preserve">
+    <value>{0} 次子工具调用</value>
+  </data>
+  <data name="BackgroundCommand" xml:space="preserve">
+    <value>后台命令</value>
+  </data>
+  <data name="BackgroundCommands" xml:space="preserve">
+    <value>后台命令</value>
+  </data>
+  <data name="BackgroundWork" xml:space="preserve">
+    <value>后台任务</value>
+  </data>
+  <data name="SuggestionCommand" xml:space="preserve">
+    <value>命令</value>
+  </data>
+  <data name="SuggestionSkill" xml:space="preserve">
+    <value>技能</value>
+  </data>
+  <data name="ComposerSuggestions" xml:space="preserve">
+    <value>命令和技能</value>
+  </data>
+  <data name="QueuedMessages" xml:space="preserve">
+    <value>排队中的消息</value>
+  </data>
+  <data name="QueueMessage" xml:space="preserve">
+    <value>将消息加入队列</value>
+  </data>
+  <data name="SendQueuedMessage" xml:space="preserve">
+    <value>立即发送</value>
+  </data>
+  <data name="SteerNow" xml:space="preserve">
+    <value>立即引导</value>
+  </data>
+  <data name="SteerPromptShortcut" xml:space="preserve">
+    <value>引导当前轮次 ({0})</value>
+  </data>
+  <data name="EditQueuedMessage" xml:space="preserve">
+    <value>编辑排队中的消息</value>
+  </data>
+  <data name="RemoveQueuedMessage" xml:space="preserve">
+    <value>从队列中移除消息</value>
+  </data>
+  <data name="ApprovalQueuePosition" xml:space="preserve">
+    <value>{0} / {1}</value>
+  </data>
+  <data name="PreviousApproval" xml:space="preserve">
+    <value>上一项审批</value>
+  </data>
+  <data name="NextApproval" xml:space="preserve">
+    <value>下一项审批</value>
+  </data>
+  <data name="ThreadNeedsAttention" xml:space="preserve">
+    <value>等待你的回复</value>
+  </data>
+  <data name="SteerFailed" xml:space="preserve">
+    <value>未能引导当前轮次。你的消息仍在队列中。</value>
+  </data>
+  <data name="ReorderQueuedMessage" xml:space="preserve">
+    <value>调整消息顺序</value>
+  </data>
+  <data name="ReorderQueuedMessageHint" xml:space="preserve">
+    <value>拖动或使用 ↑ 和 ↓ 调整顺序</value>
+  </data>
+  <data name="ActiveRunSendAction" xml:space="preserve">
+    <value>轮次运行时发送</value>
+  </data>
+  <data name="QueuePromptShortcut" xml:space="preserve">
+    <value>将后续消息加入队列 ({0})</value>
+  </data>
+  <data name="MentionScene" xml:space="preserve">
+    <value>场景</value>
+  </data>
+  <data name="MentionElement" xml:space="preserve">
+    <value>元素</value>
+  </data>
+  <data name="MentionFile" xml:space="preserve">
+    <value>文件</value>
+  </data>
+  <data name="MentionSceneDetail" xml:space="preserve">
+    <value>{0} × {1} · {2:0.##} fps · {3:0.##} 秒</value>
+  </data>
+  <data name="MentionElementDetail" xml:space="preserve">
+    <value>{0:0.###}–{1:0.###} 秒 · 图层 {2}</value>
+  </data>
+  <data name="PastedImage" xml:space="preserve">
+    <value>粘贴的图片</value>
+  </data>
+  <data name="PastedText" xml:space="preserve">
+    <value>粘贴的文本</value>
+  </data>
+  <data name="PastedTextDetail" xml:space="preserve">
+    <value>{0:N0} 行 · {1:N0} 字符</value>
+  </data>
+  <data name="PasteFailed" xml:space="preserve">
+    <value>无法从剪贴板粘贴。</value>
+  </data>
+  <data name="CopyMessage" xml:space="preserve">
+    <value>复制消息</value>
+  </data>
+  <data name="EditFromHere" xml:space="preserve">
+    <value>从此处编辑</value>
+  </data>
+  <data name="ForkFromHere" xml:space="preserve">
+    <value>从此处分支</value>
+  </data>
+  <data name="ForkedThreadTitle" xml:space="preserve">
+    <value>{0}的分支</value>
+  </data>
+  <data name="RetryTurn" xml:space="preserve">
+    <value>重新生成回复</value>
+  </data>
+  <data name="ScrollToBottom" xml:space="preserve">
+    <value>滚动到底部</value>
+  </data>
+  <data name="ThinkingInProgress" xml:space="preserve">
+    <value>正在思考…</value>
+  </data>
+  <data name="ThinkingForSeconds" xml:space="preserve">
+    <value>正在思考… {0:0} 秒</value>
+  </data>
+  <data name="ThoughtForSeconds" xml:space="preserve">
+    <value>已思考 {0:0.#} 秒</value>
+  </data>
+  <data name="RunningTool" xml:space="preserve">
+    <value>正在运行 {0}…</value>
+  </data>
+  <data name="CompactingContext" xml:space="preserve">
+    <value>正在压缩上下文…</value>
+  </data>
+  <data name="RetryingTurn" xml:space="preserve">
+    <value>正在重试…</value>
+  </data>
+  <data name="TurnDuration" xml:space="preserve">
+    <value>{0:0.#} 秒</value>
+  </data>
+  <data name="TurnTokens" xml:space="preserve">
+    <value>{0} 个令牌</value>
+  </data>
+  <data name="TokensThousands" xml:space="preserve">
+    <value>{0:0.#} 千</value>
+  </data>
+  <data name="TokensMillions" xml:space="preserve">
+    <value>{0:0.#} 百万</value>
+  </data>
+  <data name="TurnInputTokens" xml:space="preserve">
+    <value>输入令牌 · {0}</value>
+  </data>
+  <data name="TurnOutputTokens" xml:space="preserve">
+    <value>输出令牌 · {0}</value>
+  </data>
+  <data name="TurnCachedInputTokens" xml:space="preserve">
+    <value>缓存的输入令牌 · {0}</value>
+  </data>
+  <data name="ToolGroupChecks" xml:space="preserve">
+    <value>{0:N0} 项检查</value>
+  </data>
+  <data name="MoreHistoryChanges" xml:space="preserve">
+    <value>另有 {0:N0} 项更改</value>
+  </data>
+  <data name="CopyCode" xml:space="preserve">
+    <value>复制代码</value>
+  </data>
+  <data name="WrapCode" xml:space="preserve">
+    <value>自动换行</value>
+  </data>
+  <data name="OpenImagePreview" xml:space="preserve">
+    <value>打开图片预览</value>
+  </data>
+  <data name="ImagePreview" xml:space="preserve">
+    <value>图片预览</value>
+  </data>
+  <data name="ImageDimensions" xml:space="preserve">
+    <value>{0:N0} × {1:N0} 像素</value>
+  </data>
+  <data name="CloseImagePreview" xml:space="preserve">
+    <value>关闭预览</value>
+  </data>
+  <data name="ZoomImageIn" xml:space="preserve">
+    <value>放大</value>
+  </data>
+  <data name="ZoomImageOut" xml:space="preserve">
+    <value>缩小</value>
+  </data>
+  <data name="FitImage" xml:space="preserve">
+    <value>适应</value>
+  </data>
+  <data name="FitImageTooltip" xml:space="preserve">
+    <value>使图片适应窗口</value>
+  </data>
+  <data name="ActualImageSize" xml:space="preserve">
+    <value>显示实际大小</value>
+  </data>
+  <data name="CopyImage" xml:space="preserve">
+    <value>复制图片</value>
+  </data>
+  <data name="CopyImagePath" xml:space="preserve">
+    <value>复制图片路径</value>
+  </data>
+  <data name="StopTurn" xml:space="preserve">
+    <value>停止本轮</value>
+  </data>
+  <data name="StopBackgroundTask" xml:space="preserve">
+    <value>停止任务</value>
+  </data>
+  <data name="StopBackgroundTaskFailed" xml:space="preserve">
+    <value>无法停止任务。</value>
+  </data>
+  <data name="TurnWorkingFor" xml:space="preserve">
+    <value>工作中 {0}</value>
+  </data>
+  <data name="TurnWorkedFor" xml:space="preserve">
+    <value>已工作 {0}</value>
+  </data>
+  <data name="TurnDurationMinutes" xml:space="preserve">
+    <value>{0} 分 {1} 秒</value>
+  </data>
+  <data name="TurnDurationHours" xml:space="preserve">
+    <value>{0} 小时 {1} 分 {2} 秒</value>
+  </data>
+  <data name="ModelChangeNotice" xml:space="preserve">
+    <value>切换模型 · {0} → {1}</value>
+  </data>
+  <data name="EffortChangeNotice" xml:space="preserve">
+    <value>切换推理强度 · {0} → {1}</value>
+  </data>
+  <data name="ContextCompacted" xml:space="preserve">
+    <value>已压缩上下文</value>
+  </data>
+  <data name="ContextMeterSummary" xml:space="preserve">
+    <value>上下文 · {0} / {1}（{2}）</value>
+  </data>
+  <data name="CompactContext" xml:space="preserve">
+    <value>压缩上下文</value>
+  </data>
+  <data name="ClearContext" xml:space="preserve">
+    <value>清除上下文</value>
+  </data>
+  <data name="ContextCleared" xml:space="preserve">
+    <value>已清除上下文</value>
+  </data>
+  <data name="ProviderChangeNotice" xml:space="preserve">
+    <value>提供方已切换 · {0} → {1}</value>
+  </data>
+  <data name="PinThread" xml:space="preserve">
+    <value>置顶会话</value>
+  </data>
+  <data name="UnpinThread" xml:space="preserve">
+    <value>取消置顶会话</value>
+  </data>
+  <data name="ArchiveThread" xml:space="preserve">
+    <value>归档会话</value>
+  </data>
+  <data name="UnarchiveThread" xml:space="preserve">
+    <value>取消归档会话</value>
+  </data>
+  <data name="ShowArchivedThreads" xml:space="preserve">
+    <value>显示已归档会话</value>
+  </data>
+  <data name="ArchivedThread" xml:space="preserve">
+    <value>已归档</value>
+  </data>
+  <data name="UnreadThread" xml:space="preserve">
+    <value>未读</value>
+  </data>
+  <data name="RegenerateThreadTitle" xml:space="preserve">
+    <value>重新生成标题</value>
+  </data>
+  <data name="ForkThread" xml:space="preserve">
+    <value>创建会话分支</value>
+  </data>
+  <data name="CompactionFailed" xml:space="preserve">
+    <value>无法压缩上下文。</value>
+  </data>
+  <data name="ToolGroupCommands" xml:space="preserve">
+    <value>已执行 {0} 条命令</value>
+  </data>
+  <data name="ToolGroupMixed" xml:space="preserve">
+    <value>命令 {0} 条 · 工具 {1} 项</value>
+  </data>
+  <data name="ToolGroupTools" xml:space="preserve">
+    <value>已执行 {0} 项工具操作</value>
+  </data>
+  <data name="ToolGroupFailures" xml:space="preserve">
+    <value>部分失败</value>
+  </data>
+  <data name="AttentionTabHeader" xml:space="preserve">
+    <value>! {0}</value>
+  </data>
+  <data name="UnreadTabHeader" xml:space="preserve">
+    <value>• {0}</value>
+  </data>
+  <data name="BackgroundThreadActivity" xml:space="preserve">
+    <value>其他会话有新动态</value>
+  </data>
+  <data name="NotificationApproval" xml:space="preserve">
+    <value>智能体需要审批</value>
+  </data>
+  <data name="NotificationQuestion" xml:space="preserve">
+    <value>智能体正在等待回答</value>
+  </data>
+  <data name="NotificationCompleted" xml:space="preserve">
+    <value>智能体已完成工作</value>
+  </data>
+  <data name="ShortcutTooltip" xml:space="preserve">
+    <value>{0}（{1}）</value>
+  </data>
+  <data name="StopShortcutKeys" xml:space="preserve">
+    <value>按两次 Esc</value>
+  </data>
+  <data name="EscapeStopHint" xml:space="preserve">
+    <value>再按一次 Esc 停止</value>
+  </data>
+  <data name="ProviderOutdatedVersion" xml:space="preserve">
+    <value>v{0} · 需要更新</value>
+  </data>
+  <data name="ProviderAvailableVersion" xml:space="preserve">
+    <value>v{0}</value>
+  </data>
+  <data name="DiagnosticCliMissing" xml:space="preserve">
+    <value>找不到 CLI</value>
+  </data>
+  <data name="DiagnosticAuthRequired" xml:space="preserve">
+    <value>需要登录</value>
+  </data>
+  <data name="DiagnosticOutdatedCli" xml:space="preserve">
+    <value>需要更新 CLI</value>
+  </data>
+  <data name="DiagnosticRateLimited" xml:space="preserve">
+    <value>已达到提供商的使用限额</value>
+  </data>
+  <data name="DiagnosticMcpUnavailable" xml:space="preserve">
+    <value>Beutl MCP 不可用</value>
+  </data>
+  <data name="DiagnosticGeneric" xml:space="preserve">
+    <value>智能体出错</value>
+  </data>
+  <data name="DiagnosticInstall" xml:space="preserve">
+    <value>在终端中安装 {0}，然后重新检查。</value>
+  </data>
+  <data name="DiagnosticExecutablePath" xml:space="preserve">
+    <value>请在智能体设置中检查 {0} 的可执行文件路径。</value>
+  </data>
+  <data name="DiagnosticSignIn" xml:space="preserve">
+    <value>在终端中登录 {0}，然后重新检查。</value>
+  </data>
+  <data name="DiagnosticCredentials" xml:space="preserve">
+    <value>请检查为 {0} 配置的凭据。</value>
+  </data>
+  <data name="DiagnosticVersion" xml:space="preserve">
+    <value>将 {0} 从 v{1} 更新到 v{2} 或更高版本，然后重新检查。</value>
+  </data>
+  <data name="DiagnosticUpdate" xml:space="preserve">
+    <value>将 {0} 更新到受支持的版本，然后重新检查。</value>
+  </data>
+  <data name="DiagnosticRetryLater" xml:space="preserve">
+    <value>请稍后重试，或选择其他模型或提供商。</value>
+  </data>
+  <data name="DiagnosticCheckMcp" xml:space="preserve">
+    <value>打开智能体设置，检查 Beutl MCP 配置。</value>
+  </data>
+  <data name="DiagnosticReviewDetails" xml:space="preserve">
+    <value>请查看技术详情后重试。</value>
+  </data>
+  <data name="DiagnosticDismiss" xml:space="preserve">
+    <value>关闭</value>
+  </data>
+  <data name="DiagnosticCopyCommand" xml:space="preserve">
+    <value>复制命令</value>
+  </data>
+  <data name="DiagnosticOpenSettings" xml:space="preserve">
+    <value>打开设置</value>
+  </data>
+  <data name="DiagnosticOpenAiAgentSettings" xml:space="preserve">
+    <value>打开智能体设置</value>
+  </data>
+  <data name="DiagnosticRecheck" xml:space="preserve">
+    <value>重新检查</value>
+  </data>
+  <data name="DiagnosticTechnicalDetails" xml:space="preserve">
+    <value>技术详情</value>
+  </data>
+  <data name="SendToAgent" xml:space="preserve">
+    <value>发送到智能体</value>
+  </data>
+  <data name="SendFrameToAgent" xml:space="preserve">
+    <value>将当前帧发送到智能体</value>
+  </data>
+  <data name="MentionObject" xml:space="preserve">
+    <value>对象</value>
+  </data>
+  <data name="LinkUnavailable" xml:space="preserve">
+    <value>找不到或无法打开链接目标。</value>
+  </data>
+</root>

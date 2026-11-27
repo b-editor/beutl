@@ -142,6 +142,12 @@ jobs:
       - name: Check third-party notices for shipped packages
         run: python3 build/check_third_party_notices.py
 
+      - name: Setup Node.js for the agent bridge build
+        uses: actions/setup-node@v7.1.0
+        with:
+          node-version: '24'
+          package-manager-cache: false
+
       - name: Build
         run: dotnet build Beutl.slnx --no-restore
 
@@ -475,6 +481,12 @@ jobs:
         with:
           global-json-file: global.json
 
+      - name: Setup Node.js for the agent bridge build
+        uses: actions/setup-node@v7.1.0
+        with:
+          node-version: '24'
+          package-manager-cache: false
+
       - name: Test shortcut fonts and emoji on macOS
         run: >-
           dotnet test tests/Beutl.HeadlessUITests/Beutl.HeadlessUITests.csproj
@@ -558,6 +570,12 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
+      - name: Setup Node.js for the agent bridge build
+        uses: actions/setup-node@v7.1.0
+        with:
+          node-version: '24'
+          package-manager-cache: false
+
       # Match the Linux coverage build so both reports use the same lines and branches.
       - name: Test new-tab referrers on WebView2
         run: >-
@@ -619,6 +637,12 @@ jobs:
         uses: actions/setup-dotnet@v6.1.0
         with:
           global-json-file: global.json
+
+      - name: Setup Node.js for the agent bridge build
+        uses: actions/setup-node@v7.1.0
+        with:
+          node-version: '24'
+          package-manager-cache: false
 
       - name: Cross-publish to win-x64
         run: ./build.sh publish --runtime win_x64 --self-contained true

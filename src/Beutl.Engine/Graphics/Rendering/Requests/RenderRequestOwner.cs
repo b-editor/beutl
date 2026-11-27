@@ -16,6 +16,8 @@ internal sealed class RenderRequestOwner : IDisposable
 
     public bool IsCleanedUp { get; private set; }
 
+    public PreviewRenderDiagnostics PreviewDiagnostics { get; private set; }
+
     public RenderRequestResourceRegistry ResourceRegistry { get; } = new();
 
     public RenderRecordingFamily RecordingFamily { get; } = new();
@@ -56,6 +58,15 @@ internal sealed class RenderRequestOwner : IDisposable
             _primaryFailure = ExceptionDispatchInfo.Capture(exception);
         }
     }
+
+    public void RecordPreviewWarning(string message)
+    {
+        if (PreviewDiagnostics.Warning is null)
+            PreviewDiagnostics = PreviewDiagnostics with { Warning = message };
+    }
+
+    public void RecordPreviewWorkingScaleClamp()
+        => PreviewDiagnostics = PreviewDiagnostics with { IsWorkingScaleClamped = true };
 
     public void Cleanup()
     {

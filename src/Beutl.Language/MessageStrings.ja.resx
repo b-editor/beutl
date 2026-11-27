@@ -39,6 +39,12 @@
   <data name="ConfirmExcludeItem" xml:space="preserve">
     <value>プロジェクトからこのアイテムを除外しますか？</value>
   </data>
+  <data name="CannotRemoveLastScene" xml:space="preserve">
+    <value>プロジェクトの最後のシーンは除外できません。</value>
+  </data>
+  <data name="SaveSceneBeforeRemoving" xml:space="preserve">
+    <value>除外する前に、このシーンの変更を保存してください。</value>
+  </data>
   <data name="FailedToOpenFileWithExtension" xml:space="preserve">
     <value>'{0}'で次のファイルを開くことができませんでした。
 '{1}'</value>
@@ -106,6 +112,24 @@
   </data>
   <data name="FrameDrawingException" xml:space="preserve">
     <value>フレームの描画中に例外が発生しました。</value>
+  </data>
+  <data name="PreviewWorkingScaleClamped" xml:space="preserve">
+    <value>このフレームは、書き出し時よりも低い処理解像度でプレビューされています。書き出した結果は見え方が異なる場合があります。</value>
+  </data>
+  <data name="RenderTargetLiveByteBudgetExceeded" xml:space="preserve">
+    <value>{0} × {1} ピクセルの描画ターゲットを追加すると、このレンダーリクエストのメモリ上限（{2:N0} バイト）を超えます。使用中の描画ターゲットはすでに {3:N0} バイトを使用しています。</value>
+  </data>
+  <data name="Scene3DBackendUnavailable" xml:space="preserve">
+    <value>Vulkan を利用できないため、3D を描画できません。</value>
+  </data>
+  <data name="Scene3DExtentLimitExceeded" xml:space="preserve">
+    <value>3D 描画に必要な {0} × {1} px のバッファが、GPU の上限（1 辺 {2} px）を超えています。</value>
+  </data>
+  <data name="Scene3DSurfaceUnavailable" xml:space="preserve">
+    <value>3D 描画用のバッファを作成できませんでした。</value>
+  </data>
+  <data name="Scene3DAntiAliasingReduced" xml:space="preserve">
+    <value>GPU メモリが足りないため、3D のアンチエイリアスを {0}x に下げました。</value>
   </data>
   <data name="OutputException" xml:space="preserve">
     <value>出力中に例外が発生しました。</value>
@@ -506,6 +530,9 @@
   <data name="ConfirmDeleteProjectFolderFromDisk" xml:space="preserve">
     <value>このプロジェクトのフォルダーと、その中のすべてのファイルを完全に削除しますか？この操作は元に戻せません。</value>
   </data>
+  <data name="ConfirmDeleteHostedRepository" xml:space="preserve">
+    <value>Beutl 上のリポジトリと履歴を完全に削除します。&#10;削除後もローカルのコピーを開けます。</value>
+  </data>
   <data name="ConfirmDeleteProjectFileFromDisk" xml:space="preserve">
     <value>このプロジェクトは専用のフォルダーにないため、プロジェクトファイルだけを削除します。シーンなどのファイルはディスクに残ります。プロジェクトファイルを完全に削除しますか？この操作は元に戻せません。</value>
   </data>
@@ -559,5 +586,14 @@
   </data>
   <data name="ExtensionUpdatesIncluded" xml:space="preserve">
     <value>拡張機能{0}件も一緒に更新します。</value>
+  </data>
+  <data name="FlowInputMissingDrawable" xml:space="preserve">
+    <value>「{0}」には描画オブジェクトが必要です。下のレイヤーに時間が重なるように配置してください。このオペレーターの前にポータルを追加するか有効にし、ポータルの［個数］でそのレイヤーを範囲に含めてください。</value>
+  </data>
+  <data name="FlowInputMissingObject3D" xml:space="preserve">
+    <value>「{0}」には3Dオブジェクトが必要です。下のレイヤーに時間が重なるように配置してください。このオペレーターの前にポータルを追加するか有効にし、ポータルの［個数］でそのレイヤーを範囲に含めてください。</value>
+  </data>
+  <data name="FlowInputMissingSound" xml:space="preserve">
+    <value>「{0}」には音声オブジェクトが必要です。下のレイヤーに時間が重なるように配置してください。このオペレーターの前にポータルを追加するか有効にし、ポータルの［個数］でそのレイヤーを範囲に含めてください。</value>
   </data>
 </root>

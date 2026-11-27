@@ -35,17 +35,23 @@ internal static class FileSystemEnumerator
         bool includeChildren = true)
         => RefreshCollection(thumbnails, collection, EnumerateEntries(path), includeChildren);
 
-    // Reconcile startup snapshots without replacing selected or expanded items that still exist.
+    // Reuse existing rows in order, including a favorite that shares a path with a fixed folder.
     internal static void RefreshCollection(FileThumbnailService thumbnails, ObservableCollection<FileSystemItemViewModel> collection,
         IEnumerable<(string Path, bool IsDirectory)> entries, bool includeChildren = true)
     {
-        var desired = entries.ToArray();
-        var paths = desired.ToHashSet();
-        var existing = collection.ToDictionary(item => (item.FullPath, item.IsDirectory));
+        var existing = collection.ToLookup(item => (item.FullPath, item.IsDirectory));
+        var retained = new HashSet<FileSystemItemViewModel>();
+        var desired = entries.Select(entry =>
+        {
+            var item = existing[entry].FirstOrDefault(candidate => !retained.Contains(candidate));
+            if (item is not null)
+                retained.Add(item);
+            return (entry.Path, entry.IsDirectory, Item: item);
+        }).ToArray();
         for (int i = collection.Count - 1; i >= 0; i--)
         {
             var item = collection[i];
-            if (!paths.Contains((item.FullPath, item.IsDirectory)))
+            if (!retained.Contains(item))
             {
                 collection.RemoveAt(i);
                 item.Dispose();
@@ -53,7 +59,7 @@ internal static class FileSystemEnumerator
         }
         for (int i = 0; i < desired.Length; i++)
         {
-            if (existing.TryGetValue(desired[i], out var item))
+            if (desired[i].Item is { } item)
             {
                 if (!ReferenceEquals(collection[i], item))
                     collection.Move(collection.IndexOf(item), i);

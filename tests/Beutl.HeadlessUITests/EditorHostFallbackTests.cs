@@ -371,6 +371,7 @@ public class EditorHostFallbackTests
                 Assert.That(Shown(view), Is.EqualTo(files));
                 Assert.That(Row(list, files[0]).GetVisualDescendants().OfType<WideFramePanel>(), Is.Empty);
                 Assert.That(Row(list, files[0]).Bounds.Width, Is.EqualTo(list.Bounds.Width).Within(8));
+                Assert.That(Row(list, files[0]).TranslatePoint(default, list)!.Value.Y, Is.LessThan(16));
             });
 
             var next = new EditorHostFallback { DataContext = TestShell.MainViewModel };
@@ -511,7 +512,7 @@ public class EditorHostFallbackTests
                 FAMenuFlyoutItem[] items = [.. menu.Items.OfType<FAMenuFlyoutItem>().Where(item => item.IsVisible)];
                 Assert.That(items.Select(item => item.Text), Is.EqualTo(new[]
                 {
-                    Strings.Open, EditorHostFallback.FileManagerMenuHeader, Strings.Remove, Strings.DeleteFromDisk,
+                    Strings.Open, EditorHostFallback.FileManagerMenuHeader, Strings.Remove, Strings.DeleteFromDiskMenu,
                 }));
                 Assert.That(items.Select(item => item.Bounds.Height), Is.All.GreaterThan(0));
                 Assert.That(items.Select(item => item.DataContext), Is.All.SameAs(row.DataContext), "The handlers read the entry from it.");

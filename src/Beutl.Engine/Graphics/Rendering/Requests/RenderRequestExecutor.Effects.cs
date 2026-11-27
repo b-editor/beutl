@@ -60,6 +60,9 @@ internal sealed partial class RenderRequestExecutor
                     fragment.Bounds,
                     scale,
                     allowPreviewDrop: _previewDropEligibleMaterializations.Contains(fragment));
+                // The composite occupies one animation slot, including when only one glyph remains visible.
+                if (TextPartTag.GetCommon(values, static value => value.TextPart) is { } textPart)
+                    value.TextPart = textPart with { IncludeHiddenUnits = false };
                 bool succeeded = false;
                 try
                 {
@@ -229,7 +232,7 @@ internal sealed partial class RenderRequestExecutor
                     requestedScale);
             }
 
-            var inputs = new List<MaterializedRenderValue>();
+            var inputs = new EffectRenderValues();
             EffectiveScale inputRequestScale = requestedScale
                 ?? (!fragment.EffectiveScale.IsUnbounded
                     ? fragment.EffectiveScale
@@ -237,7 +240,7 @@ internal sealed partial class RenderRequestExecutor
             for (int index = 0; index < fragment.Inputs.Length; index++)
             {
                 RenderFragmentReference input = fragment.Inputs[index];
-                inputs.AddRange(Materialize(
+                inputs.Append(Materialize(
                     input,
                     currentTarget,
                     input.EffectiveScale.IsUnbounded ? inputRequestScale : null));
@@ -268,9 +271,14 @@ internal sealed partial class RenderRequestExecutor
                             target: null,
                             requiredRegion);
 
-                        var result = new List<MaterializedRenderValue>(executor.CurrentTargets.Count);
-                        foreach (EffectTarget target in executor.CurrentTargets)
+                        EffectTargets output = executor.CurrentTargets;
+                        var result = new EffectRenderValues(output.Count);
+                        IReadOnlyList<ClippedTextOccurrence> clipped = output.ClippedText;
+                        int nextClipped = 0;
+                        for (int i = 0; i < output.Count; i++)
                         {
+                            result.CopyClippedTextAt(clipped, i, ref nextClipped);
+                            EffectTarget target = output[i];
                             if (target.RenderTarget is not { } renderTarget)
                                 continue;
 
@@ -279,6 +287,7 @@ internal sealed partial class RenderRequestExecutor
                                 target,
                                 renderTarget,
                                 target.CompleteBounds ?? target.Bounds);
+                            value.TextPart = target.TextPart;
                             _ownedValues.Add(value);
 
                             // Cropping the input to the backward region leaves the surrounding output
@@ -312,6 +321,7 @@ internal sealed partial class RenderRequestExecutor
 
                             result.Add(value);
                         }
+                        result.CopyClippedTextAt(clipped, output.Count, ref nextClipped);
 
                         return (IReadOnlyList<MaterializedRenderValue>)result;
                     });
@@ -400,8 +410,12 @@ internal sealed partial class RenderRequestExecutor
                         OriginalBounds = new Rect(default, bounds.Size),
                         Bounds = bounds,
                         CompleteBounds = completeBounds,
+                        TextPart = input.TextPart,
                     });
                 }
+
+                if (inputs is EffectRenderValues { ClippedText: { } clipped })
+                    targets.SetClippedText(clipped);
 
                 return targets;
             }
@@ -409,6 +423,32 @@ internal sealed partial class RenderRequestExecutor
             {
                 targets.Dispose();
                 throw;
+            }
+        }
+
+        // Clipped occurrences have an order among paint values but never own a raster.
+        private sealed class EffectRenderValues(int capacity = 0) : List<MaterializedRenderValue>(capacity)
+        {
+            public List<ClippedTextOccurrence>? ClippedText { get; set; }
+
+            public static IReadOnlyList<ClippedTextOccurrence> GetClippedText(IReadOnlyList<MaterializedRenderValue> values)
+                => values is EffectRenderValues { ClippedText: { } clipped } ? clipped : Array.Empty<ClippedTextOccurrence>();
+
+            public void Append(IReadOnlyList<MaterializedRenderValue> values)
+            {
+                if (values is EffectRenderValues { ClippedText: { } clipped })
+                {
+                    var destination = ClippedText ??= [];
+                    foreach (ClippedTextOccurrence entry in clipped)
+                        destination.Add(entry with { TargetIndex = Count + entry.TargetIndex });
+                }
+                AddRange(values);
+            }
+
+            public void CopyClippedTextAt(IReadOnlyList<ClippedTextOccurrence> clipped, int index, ref int next)
+            {
+                while (next < clipped.Count && clipped[next].TargetIndex == index)
+                    (ClippedText ??= []).Add(new ClippedTextOccurrence(Count, clipped[next++].Tag));
             }
         }
 
@@ -511,6 +551,7 @@ internal sealed partial class RenderRequestExecutor
                     scale,
                     fragment.Bounds,
                     allowPreviewDrop: _previewDropEligibleMaterializations.Contains(fragment));
+                output.TextPart = GetReplayTextPart(input);
                 using var builder = new SKImageFilterBuilder();
                 foreach (IFEItem item in payload.BoundsItems)
                     ((IFEItem_Skia)item).AcceptsDirect(builder);

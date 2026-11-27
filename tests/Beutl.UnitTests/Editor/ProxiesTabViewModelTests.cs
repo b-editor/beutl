@@ -7,6 +7,7 @@ using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Language;
 using Beutl.Media;
+using Beutl.Media.Decoding;
 using Beutl.Media.Proxy;
 using Beutl.Media.Source;
 using Beutl.NodeGraph;
@@ -62,6 +63,51 @@ public sealed class ProxiesTabViewModelTests
         Assert.That(clip.FailureReason.Value, Is.Null);
         clip.UpdateEntry(null);
         Assert.That(clip.FailureReason.Value, Is.Null);
+    }
+
+    [Test]
+    public async Task RowsAndJobsSeparateDifferentDeinterlacingSettingsForOneFile()
+    {
+        string root = CreateRoot();
+        string source = CreateSourceFile(root, "clip.mov", 1024);
+        var store = new ProxyStore(Path.Combine(root, "proxies"));
+        Scene scene = CreateScene(root, "test.scene");
+        AddSourceVideo(scene, root, source);
+        Element filtered = AddSourceVideo(scene, root, source);
+        var video = (SourceVideo)filtered.Objects.Single();
+        video.DeinterlaceMode.Value = DeinterlaceMode.On;
+        video.DeinterlaceFrameRateMode.Value = DeinterlaceFrameRateMode.Field;
+        var queue = new TestProxyJobQueue();
+        using var model = new ProxiesTabViewModel(CreateContext(scene, store, queue));
+
+        var off = model.Clips.Single(clip => clip.Deinterlace.Mode == DeinterlaceMode.Off);
+        var fields = model.Clips.Single(clip => clip.Deinterlace == video.GetDeinterlaceOptions());
+        Assert.That(off.Source, Is.EqualTo(fields.Source));
+        Assert.That(fields.DisplayName, Does.Contain("BWDIF 2×"));
+        await model.GenerateAsync(off);
+        await model.GenerateAsync(fields);
+        Assert.That(queue.Pending().Select(job => job.Deinterlace), Is.EqualTo(new[] { off.Deinterlace, fields.Deinterlace }));
+    }
+
+    [Test]
+    public void AnOfflineClipWithDifferentDeinterlacingSettingsStillHasAProxyRow()
+    {
+        string root = CreateRoot();
+        string source = CreateSourceFile(root, "offline.mov", 1024);
+        var store = new ProxyStore(Path.Combine(root, "proxies"));
+        var fingerprint = ProxyFingerprint.FromFile(source);
+        DateTime now = DateTime.UtcNow;
+        RegisterProxyEntry(store, new ProxyEntry(fingerprint, ProxyPreset.Quarter,
+            ProxyState.Ready, "hash/quarter.mp4", 8, new PixelSize(1920, 1080), new PixelSize(480, 270), now, now, null));
+        Scene scene = CreateScene(root, "test.scene");
+        Element element = AddSourceVideo(scene, root, source);
+        ((SourceVideo)element.Objects.Single()).DeinterlaceMode.Value = DeinterlaceMode.On;
+        File.Delete(source);
+
+        using var model = new ProxiesTabViewModel(CreateContext(scene, store));
+        var clip = model.Clips.Single();
+        Assert.That(clip.Source, Is.EqualTo(fingerprint));
+        Assert.That(clip.IsMissing.Value, Is.True);
     }
 
     [TestCase("clip")]
@@ -1541,7 +1587,7 @@ public sealed class ProxiesTabViewModelTests
     // be deleted, which is exactly the shape the ViewModel must report to the user.
     private sealed class UndeletableStore(IProxyStore inner) : DelegatingProxyStore(inner)
     {
-        public override bool Delete(ProxyFingerprint source, ProxyPreset preset) => false;
+        public override bool Delete(ProxyFingerprint source, ProxyPreset preset, VideoDeinterlaceOptions deinterlace = default) => false;
     }
 
     private static void RegisterProxyEntry(ProxyStore store, ProxyEntry entry)
@@ -1568,9 +1614,9 @@ public sealed class ProxiesTabViewModelTests
             ProxyFingerprint source,
             ProxyPreset preset,
             int priority = 0,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken = default, VideoDeinterlaceOptions deinterlace = default)
         {
-            var job = new ProxyJob(source, preset, priority: priority);
+            var job = new ProxyJob(source, preset, priority: priority, deinterlace: deinterlace);
             _pendingJobs.Add(job);
             JobChanged?.Invoke(this, new ProxyJobChangedEventArgs
             {

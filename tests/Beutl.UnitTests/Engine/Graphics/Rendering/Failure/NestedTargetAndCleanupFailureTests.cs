@@ -531,7 +531,7 @@ public sealed class NestedTargetAndCleanupFailureTests
         {
             Assert.That(failure!.Flatten().InnerExceptions, Does.Contain(cleanup));
             Assert.That(order, Is.EqualTo(new[] { "last", "throwing", "first" }));
-            Assert.That(node.Resources, Has.All.Matches<OrderedDisposable>(resource => resource.DisposeCalls == 1));
+            Assert.That(node.Resources, Has.All.Matches<OrderedDisposable>(resource => resource is { DisposeCalls: 1 }));
             Assert.That(node.Cache.IsCached, Is.False);
             Assert.That(renderer.TargetPoolStatistics.LeasedTargets, Is.Zero);
         });

@@ -32,7 +32,7 @@ public sealed partial class TransformEffect : FilterEffect
     /// maps to nothing is dropped.
     /// </summary>
     private static void TransformTargets(
-        (Matrix mat, RelativePoint originPoint) data,
+        (Matrix mat, RelativePoint originPoint, EffectEditingPlacement.TransformCapture? capture) data,
         CustomFilterEffectContext effectContext)
     {
         for (int i = 0; i < effectContext.Targets.Count; i++)
@@ -55,9 +55,13 @@ public sealed partial class TransformEffect : FilterEffect
             }
 
             if (RedrawTransformed(effectContext, target, newBounds, m2) is not { } newTarget)
+            {
+                data.capture?.Record(Matrix.Identity);
                 continue;
+            }
 
             effectContext.Targets[i] = newTarget;
+            data.capture?.Record(m1);
         }
     }
 
@@ -71,7 +75,7 @@ public sealed partial class TransformEffect : FilterEffect
         Rect bounds,
         Matrix transform)
     {
-        EffectTarget newTarget = context.CreateTarget(bounds);
+        EffectTarget newTarget = context.CreateTarget(bounds, target);
         if (newTarget.IsEmpty)
         {
             newTarget.Dispose();
@@ -98,22 +102,25 @@ public sealed partial class TransformEffect : FilterEffect
             {
                 var mat = Transform.Matrix;
                 RelativePoint originPoint = TransformOrigin;
+                var capture = context.IsPreviewFrame ? EffectEditingPlacement.FindCapture(this) : null;
 
                 if (!ApplyToTarget)
                 {
                     context.Transform(
-                        (mat, originPoint),
+                        (mat, originPoint, capture),
                         static (data, bounds) =>
                         {
                             Vector origin = data.originPoint.ToPixels(bounds.Size) + bounds.Position;
                             Matrix offset = Matrix.CreateTranslation(origin);
-                            return (-offset) * data.mat * offset;
+                            Matrix matrix = (-offset) * data.mat * offset;
+                            data.capture?.Record(matrix);
+                            return matrix;
                         },
                         BitmapInterpolationMode);
                 }
                 else
                 {
-                    context.CustomEffect((mat, originPoint), TransformTargets);
+                    context.CustomEffect((mat, originPoint, capture), TransformTargets);
                 }
             }
         }

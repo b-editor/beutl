@@ -209,8 +209,41 @@
   <data name="Sharpen_Threshold_Description" xml:space="preserve">
     <value>Las diferencias menores que este valor no se realzan, lo que evita que el ruido destaque.</value>
   </data>
+  <data name="FilmGrain" xml:space="preserve">
+    <value>Grano de película</value>
+  </data>
+  <data name="FilmGrain_Size" xml:space="preserve">
+    <value>Tamaño</value>
+  </data>
+  <data name="FilmGrain_Size_Description" xml:space="preserve">
+    <value>Tamaño de cada celda de grano en píxeles lógicos.</value>
+  </data>
+  <data name="FilmGrain_Softness" xml:space="preserve">
+    <value>Suavidad</value>
+  </data>
+  <data name="FilmGrain_Softness_Description" xml:space="preserve">
+    <value>Los valores más altos suavizan las transiciones entre las celdas de grano.</value>
+  </data>
+  <data name="FilmGrain_Color" xml:space="preserve">
+    <value>Color</value>
+  </data>
+  <data name="FilmGrain_Color_Description" xml:space="preserve">
+    <value>Al 0 %, todos los canales comparten el mismo grano. Al 100 %, cada canal tiene su propio grano.</value>
+  </data>
+  <data name="FilmGrain_Seed" xml:space="preserve">
+    <value>Semilla</value>
+  </data>
+  <data name="FilmGrain_Animate" xml:space="preserve">
+    <value>Animar</value>
+  </data>
+  <data name="FilmGrain_Animate_Description" xml:space="preserve">
+    <value>Cambia el patrón de grano en cada fotograma.</value>
+  </data>
   <data name="Brightness" xml:space="preserve">
     <value>Brillo</value>
+  </data>
+  <data name="OpacityEffect" xml:space="preserve">
+    <value>Opacidad</value>
   </data>
   <data name="ChromaKey" xml:space="preserve">
     <value>Clave de croma</value>
@@ -223,6 +256,9 @@
   </data>
   <data name="ChromaKey_SaturationRange" xml:space="preserve">
     <value>Rango de saturación</value>
+  </data>
+  <data name="ChromaKey_SpillSuppression" xml:space="preserve">
+    <value>Supresión de derrame</value>
   </data>
   <data name="LumaKey" xml:space="preserve">
     <value>Clave de luminancia</value>
@@ -341,6 +377,18 @@
   <data name="ColorShift_RedOffset" xml:space="preserve">
     <value>Desplazamiento rojo</value>
   </data>
+  <data name="LensChromaticAberration" xml:space="preserve">
+    <value>Aberración cromática de lente</value>
+  </data>
+  <data name="LensChromaticAberration_Amount_Description" xml:space="preserve">
+    <value>Aplica al canal rojo un factor de escala de (1 + Cantidad/100) y al canal azul un factor de (1 - Cantidad/100) respecto al centro. El canal verde conserva su posición. Los valores negativos intercambian los colores de los bordes.</value>
+  </data>
+  <data name="LensChromaticAberration_RepeatEdgePixels" xml:space="preserve">
+    <value>Repetir píxeles del borde</value>
+  </data>
+  <data name="LensChromaticAberration_RepeatEdgePixels_Description" xml:space="preserve">
+    <value>Cuando un canal lee más allá del borde de la imagen, repite los píxeles del borde, de modo que los bordes conservan su color y el resultado queda dentro de la imagen. Si está desactivado, las franjas de color se extienden más allá de la imagen, lo que conviene a un objeto sobre un fondo transparente.</value>
+  </data>
   <data name="Curves" xml:space="preserve">
     <value>Curvas</value>
   </data>
@@ -371,6 +419,21 @@
   <data name="Curves_SaturationVsSaturation" xml:space="preserve">
     <value>Saturación vs Saturación</value>
   </data>
+  <data name="Vignette" xml:space="preserve">
+    <value>Viñeta</value>
+  </data>
+  <data name="Vignette_Amount_Description" xml:space="preserve">
+    <value>Los valores positivos oscurecen los bordes. Los valores negativos los aclaran.</value>
+  </data>
+  <data name="Vignette_Midpoint" xml:space="preserve">
+    <value>Punto medio</value>
+  </data>
+  <data name="Vignette_Roundness" xml:space="preserve">
+    <value>Redondez</value>
+  </data>
+  <data name="Vignette_Feather" xml:space="preserve">
+    <value>Desvanecimiento</value>
+  </data>
   <data name="DelayAnimationEffect" xml:space="preserve">
     <value>Retardo de animación</value>
   </data>
@@ -379,6 +442,63 @@
   </data>
   <data name="DelayAnimationEffect_Effect" xml:space="preserve">
     <value>Efecto de filtro</value>
+  </data>
+  <data name="DelayAnimationEffect_Order" xml:space="preserve">
+    <value>Orden</value>
+  </data>
+  <data name="DelayAnimationEffect_Order_Description" xml:space="preserve">
+    <value>Determina qué parte empieza primero. Los órdenes por posición avanzan el tamaño típico de una parte por paso de retardo. Desde el centro usa la distancia al centro del rectángulo que engloba todas las partes. Las partes a la misma distancia a lo largo del barrido empiezan juntas.</value>
+  </data>
+  <data name="DelayAnimationEffect_DelayMode" xml:space="preserve">
+    <value>Modo de retardo</value>
+  </data>
+  <data name="DelayAnimationEffect_DelayMode_Description" xml:space="preserve">
+    <value>Por paso aplica el retardo en milisegundos a cada paso. Total mide el retardo desde el inicio de la primera parte hasta el inicio de la última.</value>
+  </data>
+  <data name="TextAnimationUnit" xml:space="preserve">
+    <value>Unidad</value>
+  </data>
+  <data name="TextAnimationUnit_Characters" xml:space="preserve">
+    <value>Caracteres</value>
+  </data>
+  <data name="TextAnimationUnit_Words" xml:space="preserve">
+    <value>Palabras</value>
+  </data>
+  <data name="TextAnimationUnit_Lines" xml:space="preserve">
+    <value>Líneas</value>
+  </data>
+  <data name="DelayAnimationMode_PerStep" xml:space="preserve">
+    <value>Por paso</value>
+  </data>
+  <data name="DelayAnimationMode_Total" xml:space="preserve">
+    <value>Total</value>
+  </data>
+  <data name="DelayAnimationEffect_RandomSeed" xml:space="preserve">
+    <value>Semilla aleatoria</value>
+  </data>
+  <data name="DelayAnimationOrder_Forward" xml:space="preserve">
+    <value>De principio a fin</value>
+  </data>
+  <data name="DelayAnimationOrder_Reverse" xml:space="preserve">
+    <value>De fin a principio</value>
+  </data>
+  <data name="DelayAnimationOrder_FromCenter" xml:space="preserve">
+    <value>Desde el centro</value>
+  </data>
+  <data name="DelayAnimationOrder_Random" xml:space="preserve">
+    <value>Aleatorio</value>
+  </data>
+  <data name="DelayAnimationOrder_LeftToRight" xml:space="preserve">
+    <value>De izquierda a derecha</value>
+  </data>
+  <data name="DelayAnimationOrder_RightToLeft" xml:space="preserve">
+    <value>De derecha a izquierda</value>
+  </data>
+  <data name="DelayAnimationOrder_TopToBottom" xml:space="preserve">
+    <value>De arriba abajo</value>
+  </data>
+  <data name="DelayAnimationOrder_BottomToTop" xml:space="preserve">
+    <value>De abajo arriba</value>
   </data>
   <data name="Dilate" xml:space="preserve">
     <value>Dilatar</value>
@@ -429,7 +549,7 @@
     <value>Decorador</value>
   </data>
   <data name="DrawableTimeController" xml:space="preserve">
-    <value>Controlador de tiempo (video)</value>
+    <value>Controlador de tiempo</value>
   </data>
   <data name="DrawableTimeController_AdjustTimeRange" xml:space="preserve">
     <value>Ajustar rango de tiempo</value>
@@ -534,6 +654,12 @@
     <value>Gamma</value>
   </data>
   <data name="GeometryShape" xml:space="preserve">
+    <value>Geometría</value>
+  </data>
+  <data name="GeometryShapeNode" xml:space="preserve">
+    <value>Forma</value>
+  </data>
+  <data name="Geometry" xml:space="preserve">
     <value>Geometría</value>
   </data>
   <data name="GeometryShape_Data" xml:space="preserve">
@@ -799,6 +925,81 @@
   </data>
   <data name="SourceVideo_IsLoop" xml:space="preserve">
     <value>Bucle</value>
+  </data>
+  <data name="SourceVideo_Deinterlace" xml:space="preserve">
+    <value>Desentrelazado</value>
+  </data>
+  <data name="SourceVideo_DeinterlaceFieldOrder" xml:space="preserve">
+    <value>Orden de campos</value>
+  </data>
+  <data name="SourceVideo_DeinterlaceMethod" xml:space="preserve">
+    <value>Método</value>
+  </data>
+  <data name="SourceVideo_DeinterlaceFrameRate" xml:space="preserve">
+    <value>Frecuencia de fotogramas</value>
+  </data>
+  <data name="VideoDeinterlace_Off" xml:space="preserve">
+    <value>Desactivado</value>
+  </data>
+  <data name="VideoDeinterlace_Auto" xml:space="preserve">
+    <value>Automático</value>
+  </data>
+  <data name="VideoDeinterlace_On" xml:space="preserve">
+    <value>Activado</value>
+  </data>
+  <data name="VideoDeinterlace_TopFieldFirst" xml:space="preserve">
+    <value>Campo superior primero (TFF)</value>
+  </data>
+  <data name="VideoDeinterlace_BottomFieldFirst" xml:space="preserve">
+    <value>Campo inferior primero (BFF)</value>
+  </data>
+  <data name="VideoDeinterlace_Bwdif" xml:space="preserve">
+    <value>BWDIF</value>
+  </data>
+  <data name="VideoDeinterlace_Yadif" xml:space="preserve">
+    <value>YADIF</value>
+  </data>
+  <data name="VideoDeinterlace_Frame" xml:space="preserve">
+    <value>Fotograma (1×)</value>
+  </data>
+  <data name="VideoDeinterlace_Field" xml:space="preserve">
+    <value>Campo (2×)</value>
+  </data>
+  <data name="VideoDeinterlace_Progressive" xml:space="preserve">
+    <value>Progresivo</value>
+  </data>
+  <data name="VideoDeinterlace_Mixed" xml:space="preserve">
+    <value>Exploración mixta</value>
+  </data>
+  <data name="VideoDeinterlace_ProgressiveNoProcessing" xml:space="preserve">
+    <value>Progresivo · No requiere desentrelazado</value>
+  </data>
+  <data name="VideoDeinterlace_Automatic" xml:space="preserve">
+    <value>Detección automática por fotograma</value>
+  </data>
+  <data name="VideoDeinterlace_Applied" xml:space="preserve">
+    <value>Desentrelazado aplicado</value>
+  </data>
+  <data name="VideoDeinterlace_Unsupported" xml:space="preserve">
+    <value>El decodificador no admite el desentrelazado</value>
+  </data>
+  <data name="SourceVideo_TransferInterpretation" xml:space="preserve">
+    <value>Curva de transferencia</value>
+  </data>
+  <data name="VideoTransfer_Auto" xml:space="preserve">
+    <value>Automático (según las etiquetas)</value>
+  </data>
+  <data name="VideoTransfer_QuickTime" xml:space="preserve">
+    <value>QuickTime</value>
+  </data>
+  <data name="VideoTransfer_Bt1886" xml:space="preserve">
+    <value>BT.1886</value>
+  </data>
+  <data name="VideoTransfer_Srgb" xml:space="preserve">
+    <value>sRGB</value>
+  </data>
+  <data name="VideoTransfer_Bt709Scene" xml:space="preserve">
+    <value>BT.709 (referido a escena)</value>
   </data>
   <data name="SourceVideo_OffsetPosition" xml:space="preserve">
     <value>Posición de desplazamiento</value>
@@ -1259,6 +1460,9 @@
   <data name="Scene3D" xml:space="preserve">
     <value>Escena 3D</value>
   </data>
+  <data name="LibraryGroup3D" xml:space="preserve">
+    <value>3D (Experimental)</value>
+  </data>
   <data name="Scene3D_AmbientColor" xml:space="preserve">
     <value>Color ambiental</value>
   </data>
@@ -1267,6 +1471,69 @@
   </data>
   <data name="Scene3D_BackgroundColor" xml:space="preserve">
     <value>Color de fondo</value>
+  </data>
+  <data name="Scene3D_Skybox" xml:space="preserve">
+    <value>Fondo celeste</value>
+  </data>
+  <data name="Skybox3D_Tint" xml:space="preserve">
+    <value>Tinte</value>
+  </data>
+  <data name="Skybox3D_Intensity" xml:space="preserve">
+    <value>Intensidad</value>
+  </data>
+  <data name="EquirectangularSkybox" xml:space="preserve">
+    <value>Cielo equirectangular</value>
+  </data>
+  <data name="EquirectangularSkybox_Texture" xml:space="preserve">
+    <value>Textura panorámica</value>
+  </data>
+  <data name="CubemapSkybox" xml:space="preserve">
+    <value>Cielo cúbico</value>
+  </data>
+  <data name="CubemapSkybox_PositiveX" xml:space="preserve">
+    <value>Cara +X</value>
+  </data>
+  <data name="CubemapSkybox_NegativeX" xml:space="preserve">
+    <value>Cara −X</value>
+  </data>
+  <data name="CubemapSkybox_PositiveY" xml:space="preserve">
+    <value>Cara +Y</value>
+  </data>
+  <data name="CubemapSkybox_NegativeY" xml:space="preserve">
+    <value>Cara −Y</value>
+  </data>
+  <data name="CubemapSkybox_PositiveZ" xml:space="preserve">
+    <value>Cara +Z</value>
+  </data>
+  <data name="CubemapSkybox_NegativeZ" xml:space="preserve">
+    <value>Cara −Z</value>
+  </data>
+  <data name="ProceduralSkybox" xml:space="preserve">
+    <value>Cielo procedural</value>
+  </data>
+  <data name="ProceduralSkybox_SkyColor" xml:space="preserve">
+    <value>Color del cielo</value>
+  </data>
+  <data name="ProceduralSkybox_HorizonColor" xml:space="preserve">
+    <value>Color del horizonte</value>
+  </data>
+  <data name="ProceduralSkybox_GroundColor" xml:space="preserve">
+    <value>Color del suelo</value>
+  </data>
+  <data name="ProceduralSkybox_HorizonExponent" xml:space="preserve">
+    <value>Exponente del horizonte</value>
+  </data>
+  <data name="ProceduralSkybox_SunDirection" xml:space="preserve">
+    <value>Dirección del sol</value>
+  </data>
+  <data name="ProceduralSkybox_SunColor" xml:space="preserve">
+    <value>Color del sol</value>
+  </data>
+  <data name="ProceduralSkybox_SunSize" xml:space="preserve">
+    <value>Radio angular del sol</value>
+  </data>
+  <data name="ProceduralSkybox_SunIntensity" xml:space="preserve">
+    <value>Intensidad del sol</value>
   </data>
   <data name="Scene3D_Camera" xml:space="preserve">
     <value>Cámara</value>
@@ -1285,6 +1552,24 @@
   </data>
   <data name="Scene3D_RenderSize" xml:space="preserve">
     <value>Tamaño de renderizado</value>
+  </data>
+  <data name="Scene3D_AntiAliasing" xml:space="preserve">
+    <value>Suavizado de bordes</value>
+  </data>
+  <data name="Scene3D_AntiAliasing_Description" xml:space="preserve">
+    <value>Suaviza los bordes de los objetos 3D. Usar más muestras mejora el suavizado, pero consume más memoria de la GPU y aumenta el tiempo de renderizado.</value>
+  </data>
+  <data name="AntiAliasingMode_Off" xml:space="preserve">
+    <value>Desactivado</value>
+  </data>
+  <data name="AntiAliasingMode_Msaa2x" xml:space="preserve">
+    <value>2x</value>
+  </data>
+  <data name="AntiAliasingMode_Msaa4x" xml:space="preserve">
+    <value>4x</value>
+  </data>
+  <data name="AntiAliasingMode_Msaa8x" xml:space="preserve">
+    <value>8x</value>
   </data>
   <data name="SolidColorBrush" xml:space="preserve">
     <value>Sólido</value>
@@ -1433,6 +1718,9 @@
   <data name="Drawable" xml:space="preserve">
     <value>Dibujable</value>
   </data>
+  <data name="DrawableBrushNode" xml:space="preserve">
+    <value>Dibujable como pincel</value>
+  </data>
   <data name="EndPoint" xml:space="preserve">
     <value>Punto final</value>
   </data>
@@ -1486,6 +1774,12 @@
   </data>
   <data name="Stroke" xml:space="preserve">
     <value>Trazo</value>
+  </data>
+  <data name="Pen" xml:space="preserve">
+    <value>Trazo</value>
+  </data>
+  <data name="StrokeEffect" xml:space="preserve">
+    <value>Contorno</value>
   </data>
   <data name="Target" xml:space="preserve">
     <value>Destino</value>
@@ -1634,6 +1928,18 @@
   <data name="ClipTransition" xml:space="preserve">
     <value>Transición</value>
   </data>
+  <data name="ClipTransitionCategory_FadesAndDissolves" xml:space="preserve">
+    <value>Fundidos y disoluciones</value>
+  </data>
+  <data name="ClipTransitionCategory_Wipes" xml:space="preserve">
+    <value>Barridos</value>
+  </data>
+  <data name="ClipTransitionCategory_Motion" xml:space="preserve">
+    <value>Movimiento</value>
+  </data>
+  <data name="ClipTransitionCategory_Stylized" xml:space="preserve">
+    <value>Estilización</value>
+  </data>
   <data name="ClipTransition_Duration" xml:space="preserve">
     <value>Duración</value>
   </data>
@@ -1651,9 +1957,6 @@
   </data>
   <data name="DipToColorTransition" xml:space="preserve">
     <value>Fundido a color</value>
-  </data>
-  <data name="DipToWhiteTransition" xml:space="preserve">
-    <value>Fundido a blanco</value>
   </data>
   <data name="ClipTransitionDirection_LeftToRight" xml:space="preserve">
     <value>De izquierda a derecha</value>
@@ -1844,6 +2147,60 @@
   <data name="Bloom_PreserveAlpha" xml:space="preserve">
     <value>Conservar alfa</value>
   </data>
+  <data name="PolarCoordinates" xml:space="preserve">
+    <value>Coordenadas polares</value>
+  </data>
+  <data name="PolarCoordinates_Direction" xml:space="preserve">
+    <value>Dirección</value>
+  </data>
+  <data name="PolarCoordinates_Amount" xml:space="preserve">
+    <value>Cantidad</value>
+  </data>
+  <data name="PolarCoordinatesDirection_RectangularToPolar" xml:space="preserve">
+    <value>De cartesianas a polares</value>
+  </data>
+  <data name="PolarCoordinatesDirection_PolarToRectangular" xml:space="preserve">
+    <value>De polares a cartesianas</value>
+  </data>
+  <data name="PolarCoordinates_InnerRadius" xml:space="preserve">
+    <value>Radio interior</value>
+  </data>
+  <data name="PolarCoordinates_Swirl" xml:space="preserve">
+    <value>Remolino</value>
+  </data>
+  <data name="PolarCoordinates_InvertRadius" xml:space="preserve">
+    <value>Invertir radio</value>
+  </data>
+  <data name="PolarCoordinates_ReverseAngle" xml:space="preserve">
+    <value>Invertir ángulo</value>
+  </data>
+  <data name="PolarCoordinates_Repeat" xml:space="preserve">
+    <value>Repetición</value>
+  </data>
+  <data name="PolarCoordinates_Mirror" xml:space="preserve">
+    <value>Espejo</value>
+  </data>
+  <data name="PolarCoordinates_SweepAngle" xml:space="preserve">
+    <value>Ángulo de barrido</value>
+  </data>
+  <data name="PolarCoordinates_EdgeMode" xml:space="preserve">
+    <value>Modo de borde</value>
+  </data>
+  <data name="PolarCoordinates_ClipToBounds" xml:space="preserve">
+    <value>Recortar al tamaño original</value>
+  </data>
+  <data name="PolarCoordinatesEdgeMode_Transparent" xml:space="preserve">
+    <value>Transparente</value>
+  </data>
+  <data name="PolarCoordinatesEdgeMode_Clamp" xml:space="preserve">
+    <value>Fijar</value>
+  </data>
+  <data name="PolarCoordinatesEdgeMode_Repeat" xml:space="preserve">
+    <value>Repetir</value>
+  </data>
+  <data name="PolarCoordinatesEdgeMode_Mirror" xml:space="preserve">
+    <value>Espejo</value>
+  </data>
   <data name="WaveRefraction" xml:space="preserve">
     <value>Refracción de ondas</value>
   </data>
@@ -1922,6 +2279,60 @@
   <data name="MotionBlur_End" xml:space="preserve">
     <value>Final</value>
   </data>
+  <data name="Echo" xml:space="preserve">
+    <value>Eco</value>
+  </data>
+  <data name="Echo_Description" xml:space="preserve">
+    <value>Dibuja copias del objeto en instantes anteriores o posteriores con opacidad decreciente. Los efectos posteriores se aplican una sola vez al resultado combinado.</value>
+  </data>
+  <data name="Echo_Interval" xml:space="preserve">
+    <value>Intervalo (s)</value>
+  </data>
+  <data name="Echo_Interval_Description" xml:space="preserve">
+    <value>Tiempo entre copias en segundos. Los valores negativos muestrean instantes anteriores, los positivos muestrean instantes posteriores y cero repite el instante actual.</value>
+  </data>
+  <data name="Echo_Count" xml:space="preserve">
+    <value>Cantidad</value>
+  </data>
+  <data name="Echo_Count_Description" xml:space="preserve">
+    <value>Número total de copias, incluida la del instante actual (1–64). Más copias aumentan el tiempo de renderizado y el uso de memoria.</value>
+  </data>
+  <data name="Echo_StartingIntensity" xml:space="preserve">
+    <value>Intensidad inicial</value>
+  </data>
+  <data name="Echo_StartingIntensity_Description" xml:space="preserve">
+    <value>Opacidad de la copia del instante actual. Al 0%, todas las copias son transparentes.</value>
+  </data>
+  <data name="Echo_Decay" xml:space="preserve">
+    <value>Atenuación</value>
+  </data>
+  <data name="Echo_Decay_Description" xml:space="preserve">
+    <value>Porcentaje de opacidad que conserva cada copia sucesiva. Al 0%, solo se dibuja la copia del instante actual. Al 100%, todas las copias tienen la misma opacidad.</value>
+  </data>
+  <data name="Echo_BlendMode" xml:space="preserve">
+    <value>Modo de mezcla</value>
+  </data>
+  <data name="Echo_BlendMode_Description" xml:space="preserve">
+    <value>Dibuja encima la copia más reciente en orden cronológico o suma los colores en las zonas donde se superponen las copias.</value>
+  </data>
+  <data name="EchoBlendMode_NewestOnTop" xml:space="preserve">
+    <value>Más reciente encima</value>
+  </data>
+  <data name="EchoBlendMode_Add" xml:space="preserve">
+    <value>Aditivo</value>
+  </data>
+  <data name="SteppedMotion" xml:space="preserve">
+    <value>Movimiento a saltos</value>
+  </data>
+  <data name="SteppedMotion_Description" xml:space="preserve">
+    <value>Mantiene cada muestra durante un intervalo fijo a partir del inicio del elemento.</value>
+  </data>
+  <data name="SteppedMotion_FrameRate" xml:space="preserve">
+    <value>Cadencia (fps)</value>
+  </data>
+  <data name="SteppedMotion_FrameRate_Description" xml:space="preserve">
+    <value>Número de muestras por segundo. Un valor menor mantiene cada fotograma durante más tiempo. Para variar la cadencia con el tiempo, use fotogramas clave: la de una expresión se aplica a todo el tiempo desde el inicio.</value>
+  </data>
   <data name="AlphaMode" xml:space="preserve">
     <value>Modo alfa</value>
   </data>
@@ -1939,5 +2350,485 @@
   </data>
   <data name="UnlitMaterial_AlphaCutoff" xml:space="preserve">
     <value>Umbral alfa</value>
+  </data>
+  <data name="MeshWarp" xml:space="preserve">
+    <value>Deformación de malla</value>
+  </data>
+  <data name="MeshWarp_Rows" xml:space="preserve">
+    <value>Filas</value>
+  </data>
+  <data name="MeshWarp_Columns" xml:space="preserve">
+    <value>Columnas</value>
+  </data>
+  <data name="MeshWarp_Interpolation" xml:space="preserve">
+    <value>Interpolación</value>
+  </data>
+  <data name="MeshWarp_Smooth" xml:space="preserve">
+    <value>Suave</value>
+  </data>
+  <data name="MeshWarp_Mesh" xml:space="preserve">
+    <value>Malla</value>
+  </data>
+  <data name="MeshWarp_Mesh_Description" xml:space="preserve">
+    <value>Arrastra los puntos de control en la vista previa. Los tiradores muestran la malla completa con cualquier intensidad.</value>
+  </data>
+  <data name="MeshWarp_Reset" xml:space="preserve">
+    <value>Restablecer malla</value>
+  </data>
+  <data name="MeshWarp_Point" xml:space="preserve">
+    <value>Punto de malla {0}, {1}</value>
+  </data>
+  <data name="MeshWarp_EditingPreviewHint" xml:space="preserve">
+    <value>Editando los puntos de malla. La vista previa oculta los efectos posteriores.</value>
+  </data>
+  <data name="CornerPin" xml:space="preserve">
+    <value>Anclaje de esquinas</value>
+  </data>
+  <data name="CornerPin_TopLeft" xml:space="preserve">
+    <value>Superior izquierda</value>
+  </data>
+  <data name="CornerPin_TopRight" xml:space="preserve">
+    <value>Superior derecha</value>
+  </data>
+  <data name="CornerPin_BottomRight" xml:space="preserve">
+    <value>Inferior derecha</value>
+  </data>
+  <data name="CornerPin_BottomLeft" xml:space="preserve">
+    <value>Inferior izquierda</value>
+  </data>
+  <data name="CornerPin_EditingPreviewHint" xml:space="preserve">
+    <value>Arrastra las esquinas para ajustar la perspectiva. Los efectos posteriores se ocultan en la vista previa.</value>
+  </data>
+  <data name="Puppet" xml:space="preserve">
+    <value>Marioneta</value>
+  </data>
+  <data name="Puppet_Pins" xml:space="preserve">
+    <value>Pines</value>
+  </data>
+  <data name="Puppet_Pin" xml:space="preserve">
+    <value>Pin</value>
+  </data>
+  <data name="Puppet_AddPin" xml:space="preserve">
+    <value>Añadir pin</value>
+  </data>
+  <data name="Puppet_FinishPlacement" xml:space="preserve">
+    <value>Terminar</value>
+  </data>
+  <data name="Puppet_PlacementHint" xml:space="preserve">
+    <value>Haz clic en la imagen para colocar pines. Pulsa Esc para terminar.</value>
+  </data>
+  <data name="Puppet_EditingPreviewHint" xml:space="preserve">
+    <value>Editando los pines de Marioneta. La vista previa oculta los efectos posteriores.</value>
+  </data>
+  <data name="Puppet_PreparingPlacement" xml:space="preserve">
+    <value>Preparando la colocación de pines…</value>
+  </data>
+  <data name="Puppet_PlacementUnavailable" xml:space="preserve">
+    <value>En este fotograma no hay una imagen visible para colocar pines.</value>
+  </data>
+  <data name="Puppet_RemovePin" xml:space="preserve">
+    <value>Eliminar pin seleccionado</value>
+  </data>
+  <data name="Puppet_PositionDescription" xml:space="preserve">
+    <value>Coordenadas relativas a la imagen. La esquina superior izquierda es (0, 0) y la inferior derecha es (1, 1).</value>
+  </data>
+  <data name="Puppet_LibraryDescription" xml:space="preserve">
+    <value>Deforma una imagen al colocar y mover pines (pin de marioneta, herramienta de marioneta / puppet pin, puppet tool, deform).</value>
+  </data>
+  <data name="EllipseShape_LibraryDescription" xml:space="preserve">
+    <value>Dibuja un círculo o una elipse que también puede usarse como mate (elipse, forma, sólido, máscara, mate de pista / ellipse, shape, solid, mask, track matte).</value>
+  </data>
+  <data name="RectShape_LibraryDescription" xml:space="preserve">
+    <value>Dibuja un rectángulo que también puede usarse como mate (rectángulo, forma, sólido, máscara, mate de pista / rectangle, shape, solid, mask, track matte).</value>
+  </data>
+  <data name="RoundedRectShape_LibraryDescription" xml:space="preserve">
+    <value>Dibuja un rectángulo redondeado que también puede usarse como mate (rectángulo redondeado, forma, sólido, máscara, mate de pista / rounded rectangle, shape, solid, mask, track matte).</value>
+  </data>
+  <data name="GeometryShape_LibraryDescription" xml:space="preserve">
+    <value>Dibuja una forma personalizada a partir de un trazado vectorial para usarla como gráfico o máscara (trazado vectorial, forma personalizada, máscara de capa, mate de pista / vector path, custom shape, layer mask, track matte).</value>
+  </data>
+  <data name="TextBlock_LibraryDescription" xml:space="preserve">
+    <value>Añade texto con formato a la escena (título, rótulo, subtítulo / title, caption, subtitle).</value>
+  </data>
+  <data name="SourceVideo_LibraryDescription" xml:space="preserve">
+    <value>Reproduce un archivo de vídeo en la escena (clip de vídeo, metraje / video clip, footage).</value>
+  </data>
+  <data name="SourceImage_LibraryDescription" xml:space="preserve">
+    <value>Muestra una imagen fija desde un archivo (imagen fija, capa de imagen / still image, image layer).</value>
+  </data>
+  <data name="SourceBackdrop_LibraryDescription" xml:space="preserve">
+    <value>Aplica efectos a todo lo que queda debajo (capa de ajuste / adjustment layer).</value>
+  </data>
+  <data name="Scene3D_LibraryDescription" xml:space="preserve">
+    <value>Renderiza objetos y luces 3D desde una cámara (composición 3D, escena 3D / 3D composition, 3D scene).</value>
+  </data>
+  <data name="Cube3D_LibraryDescription" xml:space="preserve">
+    <value>Añade una caja con anchura, altura y profundidad ajustables (caja 3D, cubo primitivo / 3D box, cube primitive).</value>
+  </data>
+  <data name="Sphere3D_LibraryDescription" xml:space="preserve">
+    <value>Añade una esfera con radio y nivel de detalle ajustables (esfera 3D, esfera primitiva / 3D sphere, sphere primitive).</value>
+  </data>
+  <data name="Plane3D_LibraryDescription" xml:space="preserve">
+    <value>Añade una superficie rectangular plana en el espacio 3D (plano 3D, superficie primitiva / 3D plane, surface primitive).</value>
+  </data>
+  <data name="Model3D_LibraryDescription" xml:space="preserve">
+    <value>Carga un modelo 3D desde un archivo en la escena (importar modelo 3D, importar malla / 3D model import, mesh import).</value>
+  </data>
+  <data name="DrawableObject3D_LibraryDescription" xml:space="preserve">
+    <value>Coloca contenido 2D en una tarjeta plana dentro de una escena 3D (capa 3D, plano de imagen, 2.5D / 3D layer, image plane, 2.5D).</value>
+  </data>
+  <data name="DirectionalLight3D_LibraryDescription" xml:space="preserve">
+    <value>Ilumina una escena 3D con rayos paralelos como los del sol (luz solar, luz paralela / sun light, parallel light).</value>
+  </data>
+  <data name="PointLight3D_LibraryDescription" xml:space="preserve">
+    <value>Emite luz en todas las direcciones desde un punto de la escena 3D (luz puntual, luz omnidireccional / point light, omni light).</value>
+  </data>
+  <data name="SpotLight3D_LibraryDescription" xml:space="preserve">
+    <value>Proyecta un cono de luz en una escena 3D (foco, luz cónica / spotlight, cone light).</value>
+  </data>
+  <data name="ParticleEmitter_LibraryDescription" xml:space="preserve">
+    <value>Emite y anima muchos objetos pequeños, como chispas o copos de nieve (sistema de partículas, generador de partículas / particle system, particle generator).</value>
+  </data>
+  <data name="NodeGraphDrawable_LibraryDescription" xml:space="preserve">
+    <value>Genera gráficos a partir de una red de nodos conectados (gráficos basados en nodos, gráficos procedurales / node-based graphics, procedural graphics).</value>
+  </data>
+  <data name="SceneDrawable_LibraryDescription" xml:space="preserve">
+    <value>Muestra otra escena como una sola capa visual (precomposición, secuencia anidada, clip compuesto / precomp, pre-compose, nested sequence, compound clip).</value>
+  </data>
+  <data name="DrawableDecorator_LibraryDescription" xml:space="preserve">
+    <value>Aplica la transformación, la opacidad, la mezcla y los efectos a cada objeto secundario por separado, con sus propios límites y origen (grupo de efectos / effect group).</value>
+  </data>
+  <data name="DrawableGroup_LibraryDescription" xml:space="preserve">
+    <value>Transforma sus objetos secundarios alrededor de un origen común. La opacidad y la mezcla se aplican a todo el grupo, y los efectos pueden usar sus límites (objeto padre, objeto nulo / parent, null object).</value>
+  </data>
+  <data name="DrawableTimeController_LibraryDescription" xml:space="preserve">
+    <value>Cambia la posición y la velocidad de reproducción. La velocidad de fotogramas define los pasos de tiempo con los que se evalúa el objeto (remapeo de tiempo, rampa de velocidad, fotograma congelado / time remap, speed ramp, freeze frame).</value>
+  </data>
+  <data name="AudioWaveformDrawable_LibraryDescription" xml:space="preserve">
+    <value>Dibuja la amplitud del audio a lo largo del tiempo (forma de onda de audio, visualizador de ondas / audio waveform, waveform visualizer).</value>
+  </data>
+  <data name="AudioSpectrumDrawable_LibraryDescription" xml:space="preserve">
+    <value>Muestra el nivel de las distintas frecuencias del audio (espectro de audio, analizador de espectro / audio spectrum, spectrum analyzer).</value>
+  </data>
+  <data name="AudioSpectrogramDrawable_LibraryDescription" xml:space="preserve">
+    <value>Usa colores para mostrar cómo cambian las frecuencias del audio con el tiempo (espectrograma, mapa de calor de frecuencia / spectrogram, frequency heatmap).</value>
+  </data>
+  <data name="TranslateTransform_LibraryDescription" xml:space="preserve">
+    <value>Mueve un objeto en horizontal y en vertical (posición, traslación / position, translation).</value>
+  </data>
+  <data name="SkewTransform_LibraryDescription" xml:space="preserve">
+    <value>Inclina un objeto sesgando sus lados (sesgado, cizalla / skew, shear).</value>
+  </data>
+  <data name="ScaleTransform_LibraryDescription" xml:space="preserve">
+    <value>Cambia la anchura y la altura de un objeto (escala, redimensionar / scale, resize).</value>
+  </data>
+  <data name="RotationTransform_LibraryDescription" xml:space="preserve">
+    <value>Gira un objeto alrededor de su pivote en el plano de la imagen (rotación, giro 2D / rotation, 2D rotate).</value>
+  </data>
+  <data name="Rotation3DTransform_LibraryDescription" xml:space="preserve">
+    <value>Inclina y gira un objeto plano en perspectiva (rotación 3D, transformación en perspectiva / 3D rotation, perspective transform).</value>
+  </data>
+  <data name="Blur_LibraryDescription" xml:space="preserve">
+    <value>Suaviza la imagen mediante un desenfoque gaussiano (desenfoque gaussiano, enfoque suave / Gaussian blur, soft focus).</value>
+  </data>
+  <data name="Sharpen_LibraryDescription" xml:space="preserve">
+    <value>Realza los detalles aumentando el contraste en los bordes (máscara de enfoque, nitidez / unsharp mask, sharpen details).</value>
+  </data>
+  <data name="RadialBlur_LibraryDescription" xml:space="preserve">
+    <value>Desenfoca la imagen como si se ampliara o girara alrededor de un punto (desenfoque de zoom, desenfoque giratorio / zoom blur, spin blur).</value>
+  </data>
+  <data name="MotionBlur_LibraryDescription" xml:space="preserve">
+    <value>Promedia el aspecto del objeto durante el intervalo de obturación para desenfocar el movimiento (desenfoque de obturación / shutter blur).</value>
+  </data>
+  <data name="Echo_LibraryDescription" xml:space="preserve">
+    <value>Superpone copias de instantes anteriores o posteriores a intervalos regulares, con atenuación ajustable (estela, rastro fantasma / afterimage, ghost trail, motion trails).</value>
+  </data>
+  <data name="SteppedMotion_LibraryDescription" xml:space="preserve">
+    <value>Mantiene cada fotograma muestreado hasta el siguiente. Los efectos posteriores pueden seguir animándose (baja frecuencia de fotogramas / frame hold, stop motion, posterize time).</value>
+  </data>
+  <data name="Bokeh_LibraryDescription" xml:space="preserve">
+    <value>Desenfoca la imagen con la forma de la apertura del objetivo (desenfoque de lente, desenfoque de objetivo / lens blur, defocus).</value>
+  </data>
+  <data name="Bloom_LibraryDescription" xml:space="preserve">
+    <value>Hace que las zonas brillantes proyecten un resplandor a su alrededor (resplandor, halo / glow, bloom).</value>
+  </data>
+  <data name="LightRays_LibraryDescription" xml:space="preserve">
+    <value>Estira las zonas brillantes en rayos que irradian desde un punto (rayos de luz, luz volumétrica / god rays, volumetric light).</value>
+  </data>
+  <data name="WaveRefraction_LibraryDescription" xml:space="preserve">
+    <value>Distorsiona la imagen como la luz al atravesar agua ondulante (ondas, distorsión ondulada / ripple, wave distortion).</value>
+  </data>
+  <data name="PolarCoordinates_LibraryDescription" xml:space="preserve">
+    <value>Enrolla una imagen alrededor de un centro o la desenrolla en una franja (rectangular a polar, polar a rectangular / rectangular to polar, polar to rectangular).</value>
+  </data>
+  <data name="DropShadow_LibraryDescription" xml:space="preserve">
+    <value>Proyecta una sombra desplazada detrás del objeto (sombra paralela, sombra proyectada / drop shadow, cast shadow).</value>
+  </data>
+  <data name="InnerShadow_LibraryDescription" xml:space="preserve">
+    <value>Oscurece los bordes interiores para dar profundidad al objeto (sombra interior, sombra interna / inner shadow, inset shadow).</value>
+  </data>
+  <data name="FlatShadow_LibraryDescription" xml:space="preserve">
+    <value>Extiende una sombra de color uniforme desde el objeto en una dirección (sombra larga, sombra plana / long shadow, flat shadow).</value>
+  </data>
+  <data name="StrokeEffect_LibraryDescription" xml:space="preserve">
+    <value>Dibuja una línea alrededor de la silueta del objeto (contorno, borde, trazo / outline, border, stroke).</value>
+  </data>
+  <data name="Clipping_LibraryDescription" xml:space="preserve">
+    <value>Recorta la imagen desde sus cuatro lados (recorte, recortar bordes, máscara / crop, trim, mask).</value>
+  </data>
+  <data name="DiagonalClipping_LibraryDescription" xml:space="preserve">
+    <value>Recorta la imagen según un borde o una franja inclinados (recorte, máscara, barrido diagonal / crop, trim, mask, diagonal wipe).</value>
+  </data>
+  <data name="Dilate_LibraryDescription" xml:space="preserve">
+    <value>Amplía las zonas brillantes u opacas de la imagen (dilatar, expandir mate, estrangulador de mate / expand, grow matte, matte choker).</value>
+  </data>
+  <data name="Erode_LibraryDescription" xml:space="preserve">
+    <value>Reduce las zonas brillantes u opacas de la imagen (erosionar, contraer mate, estrangulador de mate / shrink, choke, matte choker).</value>
+  </data>
+  <data name="HighContrast_LibraryDescription" xml:space="preserve">
+    <value>Ajusta el contraste y permite convertir la imagen a gris o invertirla (aumento de contraste, blanco y negro / contrast boost, black and white).</value>
+  </data>
+  <data name="HueRotate_LibraryDescription" xml:space="preserve">
+    <value>Desplaza los colores alrededor del círculo cromático (desplazamiento de tono, cambio de matiz / hue shift, hue offset).</value>
+  </data>
+  <data name="Lighting_LibraryDescription" xml:space="preserve">
+    <value>Ajusta los colores de la imagen al multiplicarlos y sumarles otro color (multiplicación de color, suma de color / color multiply, color add).</value>
+  </data>
+  <data name="LumaColor_LibraryDescription" xml:space="preserve">
+    <value>Convierte la luminancia de la imagen en transparencia (luminancia a alfa, mate de luminancia / luma to alpha, luminance matte).</value>
+  </data>
+  <data name="Saturate_LibraryDescription" xml:space="preserve">
+    <value>Aumenta o reduce la intensidad de los colores (saturación, desaturar / saturation, desaturate).</value>
+  </data>
+  <data name="Threshold_LibraryDescription" xml:space="preserve">
+    <value>Separa la imagen en zonas claras y oscuras según un umbral de brillo (binarización, umbral de blanco y negro / binarize, black and white threshold).</value>
+  </data>
+  <data name="EdgeDetection_LibraryDescription" xml:space="preserve">
+    <value>Dibuja líneas donde cambia el brillo, el color o la transparencia (hallar bordes, contorno / find edges, contour).</value>
+  </data>
+  <data name="Brightness_LibraryDescription" xml:space="preserve">
+    <value>Aclara u oscurece toda la imagen (aclarar, oscurecer / brighten, darken).</value>
+  </data>
+  <data name="OpacityEffect_LibraryDescription" xml:space="preserve">
+    <value>Cambia la transparencia en este punto de la cadena de efectos. Usa la Opacidad del objeto para un fundido general (alfa, transparencia / alpha, transparency).</value>
+  </data>
+  <data name="Gamma_LibraryDescription" xml:space="preserve">
+    <value>Aclara u oscurece los tonos medios para ajustar el equilibrio tonal (corrección gamma, tonos medios / gamma correction, midtones).</value>
+  </data>
+  <data name="ColorGrading_LibraryDescription" xml:space="preserve">
+    <value>Ajusta los colores y los tonos generales de la imagen (corrección de color, equilibrio de blancos, etalonaje / color correction, white balance, grading).</value>
+  </data>
+  <data name="Curves_LibraryDescription" xml:space="preserve">
+    <value>Modifica el brillo y cada canal de color mediante curvas (curva tonal, curvas RGB / tone curve, RGB curves).</value>
+  </data>
+  <data name="FilmGrain_LibraryDescription" xml:space="preserve">
+    <value>Añade un ruido fino parecido al grano de película (ruido, grano / noise, grain).</value>
+  </data>
+  <data name="Vignette_LibraryDescription" xml:space="preserve">
+    <value>Oscurece los bordes de la imagen alrededor del centro elegido, o los aclara con una cantidad negativa (viñeta de lente, oscurecimiento de bordes / lens vignette, edge darkening).</value>
+  </data>
+  <data name="Invert_LibraryDescription" xml:space="preserve">
+    <value>Invierte los colores de la imagen y también puede invertir el canal alfa (inversión de color / invert colors).</value>
+  </data>
+  <data name="LutEffect_LibraryDescription" xml:space="preserve">
+    <value>Transforma los colores mediante una tabla de consulta (tabla de consulta de color, LUT, etalonaje / color lookup, LUT, color grading).</value>
+  </data>
+  <data name="BlendEffect_LibraryDescription" xml:space="preserve">
+    <value>Mezcla un pincel con la imagen. Usa el Modo de mezcla del objeto para mezclarlo con las capas inferiores (superposición de color, tinte / color overlay, tint).</value>
+  </data>
+  <data name="Negaposi_LibraryDescription" xml:space="preserve">
+    <value>A cada componente RGB de referencia le resta el correspondiente de la imagen. Con los ajustes predeterminados, la imagen se ve negra (negativo / color negative).</value>
+  </data>
+  <data name="ChromaKey_LibraryDescription" xml:space="preserve">
+    <value>Elimina un fondo en función de su tono y saturación y suprime el color del fondo que se derrama sobre el sujeto (pantalla verde, pantalla azul, croma, supresión de derrame / green screen, blue screen, keylight, despill, spill suppressor).</value>
+  </data>
+  <data name="ColorKey_LibraryDescription" xml:space="preserve">
+    <value>Hace transparentes los píxeles cercanos a un color elegido (clave de color, incrustación por color, mate de color / keying, color key, color matte).</value>
+  </data>
+  <data name="LumaKey_LibraryDescription" xml:space="preserve">
+    <value>Hace transparentes las zonas de la imagen según su brillo (incrustación, clave de luminancia, mate de luminancia / keying, luminance key, luma matte).</value>
+  </data>
+  <data name="SplitEffect_LibraryDescription" xml:space="preserve">
+    <value>Divide la imagen en una cuadrícula de piezas que se pueden separar (división en cuadrícula, troceado / grid split, slice).</value>
+  </data>
+  <data name="PartsSplitEffect_LibraryDescription" xml:space="preserve">
+    <value>Separa en piezas las zonas visibles desconectadas de la imagen (división por alfa, separación de islas / split by alpha, separate islands).</value>
+  </data>
+  <data name="RepeatEffect_LibraryDescription" xml:space="preserve">
+    <value>Repite la imagen en filas y columnas (mosaico, mosaico en movimiento, repetidor / tile, motion tile, repeater).</value>
+  </data>
+  <data name="TransformEffect_LibraryDescription" xml:space="preserve">
+    <value>Mueve, escala o gira la imagen dentro de la cadena de efectos (posición, escala, rotación / position, scale, rotation).</value>
+  </data>
+  <data name="MosaicEffect_LibraryDescription" xml:space="preserve">
+    <value>Sustituye los detalles de la imagen por bloques de color (pixelado, censura / pixelate, censor).</value>
+  </data>
+  <data name="ColorShift_LibraryDescription" xml:space="preserve">
+    <value>Desplaza los canales rojo, verde, azul y alfa de forma independiente en horizontal y vertical (separación RGB / RGB split, channel shift).</value>
+  </data>
+  <data name="LensChromaticAberration_LibraryDescription" xml:space="preserve">
+    <value>Amplía el canal rojo o el azul y reduce el otro alrededor de un centro para simular las franjas de color de una lente (aberración cromática / chromatic aberration).</value>
+  </data>
+  <data name="ShakeEffect_LibraryDescription" xml:space="preserve">
+    <value>Sacude la imagen con velocidad e intensidad ajustables (temblor, sacudida de cámara / wiggle, camera shake).</value>
+  </data>
+  <data name="DisplacementMapEffect_LibraryDescription" xml:space="preserve">
+    <value>Distorsiona la imagen moviendo píxeles según un mapa de desplazamiento (distorsionar, deformar, mapa de desplazamiento / distort, warp, displacement map).</value>
+  </data>
+  <data name="MeshWarp_LibraryDescription" xml:space="preserve">
+    <value>Deforma la imagen al mover puntos de control en una cuadrícula (deformación de malla, deformación de cuadrícula / mesh distortion, grid warp).</value>
+  </data>
+  <data name="CornerPin_LibraryDescription" xml:space="preserve">
+    <value>Ajusta la imagen a cuatro esquinas móviles (distorsión de perspectiva, transformación de cuatro puntos, four-point, CC Power Pin).</value>
+  </data>
+  <data name="PathFollowEffect_LibraryDescription" xml:space="preserve">
+    <value>Mueve un objeto por un trazado y permite orientarlo en la dirección del movimiento (trazado de movimiento, animación de trazado / motion path, path animation).</value>
+  </data>
+  <data name="LayerEffect_LibraryDescription" xml:space="preserve">
+    <value>Combina varias salidas de un efecto en una sola imagen (acoplar, combinar capas / flatten, merge layers).</value>
+  </data>
+  <data name="DelayAnimationEffect_LibraryDescription" xml:space="preserve">
+    <value>Aplica un mismo efecto animado a distintas copias, piezas o caracteres de un texto con un desfase de tiempo para que se animen uno tras otro (animación escalonada, desfase temporal, animación de texto / stagger, time offset, text animator).</value>
+  </data>
+  <data name="PixelSortEffect_LibraryDescription" xml:space="preserve">
+    <value>Ordena grupos de píxeles por brillo o color para crear estelas (ordenación de píxeles, distorsión en franjas / pixel sorting, streak glitch).</value>
+  </data>
+  <data name="NodeGraphFilterEffect_LibraryDescription" xml:space="preserve">
+    <value>Procesa la imagen a través de una red de nodos de efectos conectados (composición por nodos, efecto por nodos / node-based compositing, node effect).</value>
+  </data>
+  <data name="CSharpScriptEffect_LibraryDescription" xml:space="preserve">
+    <value>Ejecuta un script de C# para aplicar un efecto personalizado (scripts de C#, efecto programado / C# scripting, scripted effect).</value>
+  </data>
+  <data name="SKSLScriptEffect_LibraryDescription" xml:space="preserve">
+    <value>Procesa la imagen con un sombreador de Skia escrito en SkSL (sombreador de Skia, sombreador personalizado / Skia shader, custom shader).</value>
+  </data>
+  <data name="GLSLScriptEffect_LibraryDescription" xml:space="preserve">
+    <value>Procesa la imagen con un sombreador de fragmentos GLSL (sombreador de fragmentos, sombreador personalizado / fragment shader, custom shader).</value>
+  </data>
+  <data name="CrossDissolveTransition_LibraryDescription" xml:space="preserve">
+    <value>Mezcla el clip saliente con el entrante variando sus opacidades a la vez (fundido cruzado, disolución / crossfade, dissolve).</value>
+  </data>
+  <data name="FadeTransition_LibraryDescription" xml:space="preserve">
+    <value>Hace desaparecer el clip saliente hasta dejarlo transparente antes de mostrar gradualmente el entrante (fundido de entrada, fundido de salida / fade in, fade out).</value>
+  </data>
+  <data name="WipeTransition_LibraryDescription" xml:space="preserve">
+    <value>Revela el clip entrante con un borde móvil o una forma que se expande (barrido lineal, barrido de reloj / linear wipe, clock wipe).</value>
+  </data>
+  <data name="DipToColorTransition_LibraryDescription" xml:space="preserve">
+    <value>Funde el clip saliente a un color sólido antes de mostrar el entrante (fundido a color, fundido a negro / fade through color, dip to black).</value>
+  </data>
+  <data name="PushTransition_LibraryDescription" xml:space="preserve">
+    <value>Desplaza el clip entrante al cuadro mientras empuja el saliente hacia fuera (empuje, barrido de empuje / push wipe, slide push).</value>
+  </data>
+  <data name="SlideTransition_LibraryDescription" xml:space="preserve">
+    <value>Desliza el clip entrante sobre el saliente (deslizamiento, barrido deslizante / slide in, slide wipe).</value>
+  </data>
+  <data name="ZoomTransition_LibraryDescription" xml:space="preserve">
+    <value>Acerca o aleja los clips desde el centro mientras se funden (acercamiento, alejamiento, fundido con zoom / zoom in, zoom out, zoom dissolve).</value>
+  </data>
+  <data name="IrisTransition_LibraryDescription" xml:space="preserve">
+    <value>Muestra u oculta un clip mediante una abertura que se expande o se contrae desde el centro (barrido de iris, revelado circular / iris wipe, circle reveal).</value>
+  </data>
+  <data name="SplitTransition_LibraryDescription" xml:space="preserve">
+    <value>Abre el clip saliente desde el centro para revelar el entrante (barrido dividido, puertas / split wipe, barn doors).</value>
+  </data>
+  <data name="BlindsTransition_LibraryDescription" xml:space="preserve">
+    <value>Revela el clip entrante en franjas paralelas que se abren como persianas (persianas venecianas, barrido de franjas / venetian blinds, strip wipe).</value>
+  </data>
+  <data name="CheckerboardTransition_LibraryDescription" xml:space="preserve">
+    <value>Revela el clip entrante al expandir primero las casillas alternas de un tablero (barrido de damero, revelado por casillas / checker wipe, tile reveal).</value>
+  </data>
+  <data name="ZoomBlurTransition_LibraryDescription" xml:space="preserve">
+    <value>Aplica zoom a la imagen y lleva el desenfoque radial a su máximo en el corte (desenfoque de zoom, transición de desenfoque radial / zoom blur, radial blur transition).</value>
+  </data>
+  <data name="WhipPanTransition_LibraryDescription" xml:space="preserve">
+    <value>Barre la imagen en el corte con un desenfoque direccional como el de un paneo rápido (paneo rápido, desenfoque de paneo / swish pan, pan blur).</value>
+  </data>
+  <data name="GlitchTransition_LibraryDescription" xml:space="preserve">
+    <value>Altera el corte con franjas horizontales desplazadas y colores separados (fallo digital, separación RGB / digital glitch, RGB split).</value>
+  </data>
+  <data name="LightLeakTransition_LibraryDescription" xml:space="preserve">
+    <value>Hace pasar una filtración de luz cálida y un destello sobre el corte (quemadura de película, fuga de luz, destello / film burn, light flash).</value>
+  </data>
+  <data name="RangeAnimatorEffect" xml:space="preserve">
+    <value>Animador de rango</value>
+  </data>
+  <data name="RangeAnimatorEffect_LibraryDescription" xml:space="preserve">
+    <value>Anima un rango de caracteres de un texto dividido o de piezas obtenidas con Dividir por partes.</value>
+  </data>
+  <data name="RangeAnimatorEffect_Start" xml:space="preserve">
+    <value>Inicio</value>
+  </data>
+  <data name="RangeAnimatorEffect_End" xml:space="preserve">
+    <value>Fin</value>
+  </data>
+  <data name="RangeAnimatorEffect_Shape" xml:space="preserve">
+    <value>Forma</value>
+  </data>
+  <data name="RangeAnimatorEffect_Smoothness" xml:space="preserve">
+    <value>Suavidad</value>
+  </data>
+  <data name="RangeAnimatorEffect_Smoothness_Description" xml:space="preserve">
+    <value>Suaviza los bordes de la forma Cuadrada. Al 100%, cada parte recibe un efecto proporcional a la porción de su intervalo que cubre el rango. Al 0%, la selección depende de si su centro cae dentro del rango.</value>
+  </data>
+  <data name="RangeAnimatorEffect_ColorAmount" xml:space="preserve">
+    <value>Cantidad de color</value>
+  </data>
+  <data name="RangeAnimatorShape_Square" xml:space="preserve">
+    <value>Cuadrada</value>
+  </data>
+  <data name="RangeAnimatorShape_RampUp" xml:space="preserve">
+    <value>Rampa ascendente</value>
+  </data>
+  <data name="RangeAnimatorShape_RampDown" xml:space="preserve">
+    <value>Rampa descendente</value>
+  </data>
+  <data name="RangeAnimatorShape_Triangle" xml:space="preserve">
+    <value>Triangular</value>
+  </data>
+  <data name="RangeAnimatorShape_Round" xml:space="preserve">
+    <value>Redonda</value>
+  </data>
+  <data name="RangeAnimatorShape_Smooth" xml:space="preserve">
+    <value>Suave</value>
+  </data>
+  <data name="FilterEffectCategory_BlurAndSharpen" xml:space="preserve">
+    <value>Desenfoque y nitidez</value>
+  </data>
+  <data name="FilterEffectCategory_ColorCorrection" xml:space="preserve">
+    <value>Corrección de color</value>
+  </data>
+  <data name="FilterEffectCategory_LightAndShadow" xml:space="preserve">
+    <value>Luz y sombra</value>
+  </data>
+  <data name="FilterEffectCategory_MaskingAndKeying" xml:space="preserve">
+    <value>Máscaras e incrustación</value>
+  </data>
+  <data name="FilterEffectCategory_TransformAndDistort" xml:space="preserve">
+    <value>Transformación y distorsión</value>
+  </data>
+  <data name="FilterEffectCategory_TimeAndAnimation" xml:space="preserve">
+    <value>Tiempo y animación</value>
+  </data>
+  <data name="FilterEffectCategory_Stylize" xml:space="preserve">
+    <value>Estilización</value>
+  </data>
+  <data name="FilterEffectCategory_Compositing" xml:space="preserve">
+    <value>Composición</value>
+  </data>
+  <data name="FilterEffectCategory_ScriptAndNodes" xml:space="preserve">
+    <value>Scripts y nodos</value>
+  </data>
+  <data name="TextOnPathEffect" xml:space="preserve">
+    <value>Texto en un trazado</value>
+  </data>
+  <data name="TextOnPathEffect_Path" xml:space="preserve">
+    <value>Trazado</value>
+  </data>
+  <data name="TextOnPathEffect_PathOffset" xml:space="preserve">
+    <value>Desplazamiento en el trazado (px)</value>
+  </data>
+  <data name="TextOnPathEffect_LibraryDescription" xml:space="preserve">
+    <value>Coloca texto a lo largo de un trazado. Activa Dividir por caracteres en el texto.</value>
   </data>
 </root>

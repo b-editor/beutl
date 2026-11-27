@@ -1,5 +1,6 @@
 ﻿using System.Runtime.InteropServices;
 using System.Windows.Input;
+using Beutl.Editor.Components.AiWorkspaceTab.ViewModels;
 using Beutl.ViewModels;
 
 namespace Beutl.Services.PrimitiveImpls;
@@ -51,6 +52,12 @@ public class MainViewExtension : ViewExtension
             main => main.MenuBar.RecentFileItems.Count > 0, (main, interaction) => main.OpenRecentFileAsync(interaction)),
         Palette("main.changeTheme", Strings.ChangeTheme,
             _ => ThemeRegistry.Enumerate().Count > 1, (main, interaction) => main.ChangeThemeAsync(interaction)),
+        OpenAiPage("main.openAiImageGeneration", Strings.AiImageGeneration, AiWorkspaceSection.ImageGeneration),
+        OpenAiPage("main.openAiImageEdit", Strings.AiImageEdit, AiWorkspaceSection.ImageEdit),
+        OpenAiPage("main.openAiVideoGeneration", Strings.AiVideoGeneration, AiWorkspaceSection.VideoGeneration),
+        OpenAiPage("main.openAiVideoEditing", Strings.AiVideoEditing, AiWorkspaceSection.VideoEditing),
+        OpenAiPage("main.openAiSubtitles", Strings.AiSubtitle, AiWorkspaceSection.Subtitles),
+        OpenAiPage("main.openAiJobCenter", Strings.AiJobCenter, AiWorkspaceSection.Jobs),
         Menu("main.enableVersionControl", Strings.VersionControl_Enable, "", [],
             menuBar => menuBar.EnableVersionControl),
         new ContextCommandDefinition<MainViewModel>("main.commitVersion", Strings.VersionControl_Commit, "", [])
@@ -73,7 +80,7 @@ public class MainViewExtension : ViewExtension
             [new("Ctrl+OemComma"), new("Cmd+OemComma", OSPlatform.OSX)], menuBar => menuBar.ShowSettings),
         Menu("main.showTutorials", Strings.Tutorials, "",
             [new("Cmd+Shift+OemQuestion", OSPlatform.OSX)], menuBar => menuBar.ShowTutorials),
-        // The other platforms' title bars have these, so only macOS has keys for them by default.
+        // Only macOS gives these window commands default shortcuts.
         Menu("main.minimizeWindow", Strings.MinimizeWindow, "",
             [new("Cmd+M", OSPlatform.OSX)], menuBar => menuBar.MinimizeWindow),
         Menu("main.toggleFullScreen", Strings.ToggleFullScreen, "",
@@ -116,6 +123,15 @@ public class MainViewExtension : ViewExtension
         {
             CanExecuteOn = (main, _) => command(main.MenuBar).CanExecute(null),
             ExecuteOnAsync = (main, _) => MenuBarViewModel.ExecuteCommandAsync(command(main.MenuBar))
+        };
+
+    private static ContextCommandDefinition<MainViewModel> OpenAiPage(string id, string displayName, AiWorkspaceSection section)
+        => new(id, displayName, "", [])
+        {
+            CanExecuteOn = (main, _) => main.EnabledSceneEditor is not null,
+            ExecuteOnAsync = (main, _) => main.EnabledSceneEditor is { } editor
+                ? main.OpenAiWorkspaceAsync(section, editor)
+                : Task.CompletedTask
         };
 
     // Palette-only: it asks for its argument, so it has no default gesture.

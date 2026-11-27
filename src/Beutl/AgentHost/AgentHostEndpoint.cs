@@ -8,6 +8,7 @@ using Beutl.AgentToolkit.Live;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Tools;
 using Beutl.Configuration;
+using Beutl.Editor.Services;
 using Beutl.Extensibility;
 using Beutl.Logging;
 using Beutl.Media.Decoding;
@@ -143,6 +144,8 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
     public string Token { get; private set; }
 
     public string InstanceId => _instanceId;
+
+    internal AgentTurnHistoryTracker TurnHistory { get; } = new();
 
     private AgentHostInstanceRouter InstanceRouter => _instanceRouter
         ?? throw new InvalidOperationException("The live MCP credentials have not been initialized.");
@@ -419,11 +422,13 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
             builder.Services.Configure<SocketTransportOptions>(options => options.CreateBoundListenSocket = createBoundListenSocket);
 
         builder.Services
-            .AddSingleton(_ => new Beutl.AgentToolkit.Schema.SchemaGenerator(
-                _editorService.AppServices.GetRequiredService<Beutl.Services.LibraryService>()))
+            .AddSingleton(_editorService.AppServices.GetRequiredService<LibraryService>())
+            .AddSingleton(_editorService.AppServices.GetRequiredService<ObjectTemplateService>())
+            .AddSingleton<Beutl.AgentToolkit.Schema.SchemaGenerator>()
             .AddSingleton(_projectService.Fonts)
             .AddSingleton<Beutl.AgentToolkit.Sessions.IOpenProjectFonts>(new OpenProjectFonts(_projectService))
             .AddSingleton(_editorService.AppServices.GetRequiredService<DecoderRegistry>())
+            .AddSingleton(_editorService.AppServices.GetRequiredService<GlobalConfiguration>())
             .AddSingleton(_projectService)
             .AddSingleton(_editorService)
             .AddSingleton(InstanceRouter)
@@ -434,6 +439,7 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
             .AddScoped<AgentSessionManager>()
             .AddSingleton<IOutputOperationLeaseProvider>(_ => _editorService)
             .AddAgentToolkitRendering()
+            .AddSingleton<ProxyTools.JobHistory>()
             .AddSingleton<AgentAiJobManager>()
             .AddSingleton(_aiBackend);
 
@@ -461,7 +467,10 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
             })
             .WithTools<AgentHostInstanceTools>()
             .WithTools<AgentHostTools>()
+            .WithTools<AgentHostExtensionTools>()
+            .WithTools<ProxyTools>()
             .WithSharedAgentToolkitTools()
+            .WithAgentToolkitSkills()
             .WithTools<AgentHostAiTools>();
 
         WebApplication app = builder.Build();
@@ -558,7 +567,10 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
             return;
         }
 
-        await next(context).ConfigureAwait(false);
+        if (Guid.TryParse(context.Request.Headers[AgentHostPeerClient.AgentThreadHeader].ToString(), out Guid threadId))
+            await TurnHistory.RunRequestAsync(threadId, () => next(context)).ConfigureAwait(false);
+        else
+            await next(context).ConfigureAwait(false);
     }
 
     // Constant-time compare: the token drives the editing surface even on loopback.

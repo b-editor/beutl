@@ -137,9 +137,6 @@ internal static partial class SceneSnapshot
         {
             project.Id.Value = sourceProject.Id.Value;
             project.Name.Value = sourceProject.Name.Value;
-            project.FrameRate.Value = sourceProject.FrameRate.Value;
-            project.SampleRate.Value = sourceProject.SampleRate.Value;
-            project.ChannelLayout.Value = sourceProject.ChannelLayout.Value;
             foreach ((string key, string value) in sourceProject.Variables.Value)
             {
                 project.Variables.Value[key] = value;

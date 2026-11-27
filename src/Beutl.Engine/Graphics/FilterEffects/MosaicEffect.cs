@@ -74,26 +74,6 @@ public partial class MosaicEffect : FilterEffect
             (value.Y + semanticOrigin.Y) * context.OutputPlacement.Scale.Value));
     }
 
-    // Source texels per stage pixel; without a source grid the stage's own grid is snapped instead.
-    private static void BindSourceRatio(ShaderUniformWriter writer, Vector2 unit, ShaderExecutionContext context)
-        => writer.Set(context.InputRasterOrigin is null
-            ? unit
-            : unit * (context.InputEffectiveScale.Value / context.OutputPlacement.Scale.Value));
-
-    // The source texel coordinate of stage pixel 0.
-    private static void BindSourceOffset(ShaderUniformWriter writer, Vector2 none, ShaderExecutionContext context)
-    {
-        if (context.InputRasterOrigin is not { } inputOrigin)
-        {
-            writer.Set(none);
-            return;
-        }
-
-        float scale = context.InputEffectiveScale.Value;
-        Point logicalOrigin = context.OutputPlacement.LogicalOrigin;
-        writer.Set(new Vector2((logicalOrigin.X - inputOrigin.X) * scale, (logicalOrigin.Y - inputOrigin.Y) * scale));
-    }
-
     public new partial class Resource
     {
         protected override void ApplyTo(FilterEffectContext context)
@@ -113,8 +93,8 @@ public partial class MosaicEffect : FilterEffect
                         "tileSize",
                         tileSize,
                         static (writer, tile, execution) => writer.Set(tile * execution.OutputPlacement.Scale.Value));
-                    bindings.Uniform("sourceRatio", Vector2.One, BindSourceRatio);
-                    bindings.Uniform("sourceOffset", Vector2.Zero, BindSourceOffset);
+                    bindings.Uniform("sourceRatio", Vector2.One, RasterShaderMapping.BindSourceRatio);
+                    bindings.Uniform("sourceOffset", Vector2.Zero, RasterShaderMapping.BindSourceOffset);
                     if (Origin.Unit == RelativeUnit.Relative)
                     {
                         bindings.Uniform(

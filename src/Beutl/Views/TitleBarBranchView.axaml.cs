@@ -30,6 +30,11 @@ public sealed partial class TitleBarBranchView : UserControl
         if (DataContext is TitleBarBranchViewModel viewModel)
         {
             viewModel.RequestNewBranchNameAsync = ShowNewBranchFlyoutAsync;
+            viewModel.LaunchUriAsync = uri =>
+            {
+                TitleBarBranchButton.Flyout?.Hide();
+                return TopLevel.GetTopLevel(this)?.Launcher.LaunchUriAsync(uri) ?? Task.FromResult(false);
+            };
         }
     }
 

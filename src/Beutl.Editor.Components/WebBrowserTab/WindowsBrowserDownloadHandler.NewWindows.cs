@@ -77,20 +77,27 @@ internal sealed partial class WindowsBrowserDownloadHandler
         {
             if (!Uri.TryCreate(GetString(args, 3), UriKind.Absolute, out Uri? uri)) return;
             (Uri Source, BrowserReferrerPolicy Policy)? referrer = null;
+            nint named = 0;
             try
             {
-                string? name = ReadWindowName(args);
-                string? decision = name;
-                // Frames must not consume the main document's decisions, even for the same name and URL.
-                if (IsPageWindowName(name) && !owner.IsWindowTarget(name) && IsMainFrame(args))
+                // Args3 inherits Args2::get_Name (11) and adds get_OriginalSourceFrameInfo (12).
+                var iid = new Guid("842BED3C-6AD6-4DD9-B938-28C96667AD66");
+                if (Marshal.QueryInterface(args, in iid, out named) >= 0)
                 {
-                    // Deferring can block the message too. Use only decisions already delivered.
-                    if (!TakeWindowDecision(owner._windowDecisions, name!, uri, out decision))
-                        RememberWindowDecision(owner._unmatchedWindows, name!, uri, null);
+                    string? name = GetString(named, 11);
+                    string? decision = name;
+                    // Frames must not consume the main document's decisions, even for the same name and URL.
+                    if (IsPageWindowName(name) && !owner.IsWindowTarget(name) && IsMainFrame(named))
+                    {
+                        // Deferring can block the message too. Use only decisions already delivered.
+                        if (!TakeWindowDecision(owner._windowDecisions, name!, uri, out decision))
+                            RememberWindowDecision(owner._unmatchedWindows, name!, uri, null);
+                    }
+                    referrer = owner.ReadWindowReferrer(named, decision);
                 }
-                referrer = owner.ReadWindowReferrer(args, decision);
             }
             catch (Exception ex) { ReportWindowReferrerError(ex); }
+            finally { if (named != 0) Marshal.Release(named); }
             if (open(uri, referrer?.Source, referrer?.Policy ?? BrowserReferrerPolicy.NoReferrer))
                 _ = ((delegate* unmanaged[Stdcall]<nint, int, int>)Method(args, 6))(args, 1); // put_Handled
         }
@@ -153,63 +160,42 @@ internal sealed partial class WindowsBrowserDownloadHandler
 
     private static bool IsPageWindowName(string? name) => !string.IsNullOrEmpty(name) && !name.StartsWith('_');
 
-    private static string? ReadWindowName(nint args)
-    {
-        // Args3 inherits Args2::get_Name (11) and adds get_OriginalSourceFrameInfo (12).
-        var iid = new Guid("842BED3C-6AD6-4DD9-B938-28C96667AD66");
-        if (Marshal.QueryInterface(args, in iid, out nint named) < 0) return null;
-        try { return GetString(named, 11); }
-        finally { Marshal.Release(named); }
-    }
-
     private bool IsWindowTarget(string? name) =>
         name == _windowTarget || name == _windowTarget + "-document" || name == _windowTarget + "-same-origin";
 
-    private (Uri Source, BrowserReferrerPolicy Policy)? ReadWindowReferrer(nint args, string? decision)
+    private (Uri Source, BrowserReferrerPolicy Policy)? ReadWindowReferrer(nint named, string? decision)
     {
         if (!IsWindowTarget(decision)) return null;
         bool inherit = decision == _windowTarget + "-document";
         bool sameOrigin = decision == _windowTarget + "-same-origin";
-        var iid = new Guid("842BED3C-6AD6-4DD9-B938-28C96667AD66");
-        if (Marshal.QueryInterface(args, in iid, out nint named) < 0) return null;
+        nint frame = GetObject(named, 12);
+        if (frame == 0) return null;
         try
         {
-            nint frame = GetObject(named, 12);
-            if (frame == 0) return null;
-            try
-            {
-                if (!Uri.TryCreate(GetString(frame, 4), UriKind.Absolute, out Uri? source)) return null;
-                if (!inherit) return (source, sameOrigin ? BrowserReferrerPolicy.SameOrigin : BrowserReferrerPolicy.Origin);
-                // History changes the displayed URL, but the committed document keeps its HTTP response policy.
-                if (_committedDocument is not { Policy: { } policy } document || source != GetDocument()
-                    || !BrowserMediaDownload.IsSameOrigin(document.Address, source)) return null;
-                return (source, policy);
-            }
-            finally { Marshal.Release(frame); }
+            if (!Uri.TryCreate(GetString(frame, 4), UriKind.Absolute, out Uri? source)) return null;
+            if (!inherit) return (source, sameOrigin ? BrowserReferrerPolicy.SameOrigin : BrowserReferrerPolicy.Origin);
+            // History changes the displayed URL, but the committed document keeps its HTTP response policy.
+            if (source != GetDocument() || DocumentReferrerPolicy is not { } policy) return null;
+            return (source, policy);
         }
-        finally { Marshal.Release(named); }
+        finally { Marshal.Release(frame); }
     }
 
-    private static unsafe bool IsMainFrame(nint args)
+    private static bool IsMainFrame(nint named)
     {
-        var iid = new Guid("842BED3C-6AD6-4DD9-B938-28C96667AD66");
-        if (Marshal.QueryInterface(args, in iid, out nint named) < 0) return false;
         nint frame = 0, info = 0;
         try
         {
             frame = GetObject(named, 12);
             if (frame == 0) return false;
-            iid = new Guid("56F85CFA-72C4-11EE-B962-0242AC120002"); // ICoreWebView2FrameInfo2
+            var iid = new Guid("56F85CFA-72C4-11EE-B962-0242AC120002"); // ICoreWebView2FrameInfo2
             if (Marshal.QueryInterface(frame, in iid, out info) < 0) return false;
-            int kind;
-            Marshal.ThrowExceptionForHR(((delegate* unmanaged[Stdcall]<nint, int*, int>)Method(info, 7))(info, &kind));
-            return kind == 1; // COREWEBVIEW2_FRAME_KIND_MAIN_FRAME
+            return GetValue<int>(info, 7) == 1; // COREWEBVIEW2_FRAME_KIND_MAIN_FRAME
         }
         finally
         {
             if (info != 0) Marshal.Release(info);
             if (frame != 0) Marshal.Release(frame);
-            Marshal.Release(named);
         }
     }
 
@@ -245,7 +231,7 @@ internal sealed partial class WindowsBrowserDownloadHandler
                 if (!Uri.TryCreate(GetString(request, 3), UriKind.Absolute, out Uri? page) || page != pending.Address) return;
                 // Subresources and inline frames can have different policies, even at the same URL.
                 requestHeaders = GetObject(request, 9);
-                if (GetHeader(requestHeaders, "Sec-Fetch-Dest") != "document") return;
+                if (GetDestination(requestHeaders) is not { } destination || owner.ResolveDestination(destination, page) != "document") return;
                 response = GetObject(args, 4);
                 responseHeaders = GetObject(response, 3);
                 pending.Policy = ReadDocumentPolicy(responseHeaders);
@@ -294,81 +280,14 @@ internal sealed partial class WindowsBrowserDownloadHandler
 
     // WebView2 omits Referer from NewWindowRequested. Carry the decision in the native request's
     // target name when safe, or post it before a name that might belong to an existing frame is used.
-    private static string WindowScript(string target) => $$"""
+    private static string WindowScript(string target) => BrowserReferrerPolicyScript.Source + "\n" + $$"""
         (() => {
             if (!['https:', 'http:'].includes(location.protocol) || self.origin === 'null') return;
             const allowed = '{{target}}';
-            const policyValue = document.createElement('a');
-            let documentPolicy = '';
-            const observedMetas = new WeakSet();
-            function* metasIn(nodes) {
-                for (const node of nodes) {
-                    if (node instanceof HTMLMetaElement) yield node;
-                    if (node.firstElementChild) {
-                        for (const meta of node.getElementsByTagName('meta')) {
-                            if (meta instanceof HTMLMetaElement) yield meta;
-                        }
-                    }
-                }
-            }
-            const legacy = { never: 'no-referrer', always: 'unsafe-url', default: 'strict-origin-when-cross-origin',
-                'origin-when-crossorigin': 'origin-when-cross-origin' };
-
-            // A removed or invalid meta leaves the last applied policy in effect. Several attributes can change
-            // in the same script, so replay the values at each mutation, including before a synchronous popup.
-            function applyChanges(records) {
-                if (!records.length) return;
-                const states = new Map();
-                const updates = new Map();
-                const renamedReferrers = new Set();
-                for (let i = records.length - 1; i >= 0; i--) {
-                    const record = records[i], meta = record.target;
-                    if (record.type !== 'attributes' || !(meta instanceof HTMLMetaElement)) continue;
-                    if (record.attributeName === 'name' && record.oldValue?.toLowerCase() === 'referrer') renamedReferrers.add(meta);
-                    const state = states.get(meta) ?? { name: meta.name, content: meta.content };
-                    updates.set(record, state);
-                    states.set(meta, { ...state, [record.attributeName]: record.oldValue ?? '' });
-                }
-                function applyMeta(meta) {
-                    const state = states.get(meta) ?? meta;
-                    if (state.name.toLowerCase() !== 'referrer') return;
-                    const value = state.content.replace(/^[\t\n\f\r ]+|[\t\n\f\r ]+$/g, '').toLowerCase();
-                    policyValue.referrerPolicy = Object.hasOwn(legacy, value) ? legacy[value] : value;
-                    if (policyValue.referrerPolicy) documentPolicy = document.contains(meta) ? policyValue.referrerPolicy : 'no-referrer';
-                }
-                for (const record of records) {
-                    if (updates.has(record)) {
-                        states.set(record.target, updates.get(record));
-                        applyMeta(record.target);
-                    } else {
-                        for (const meta of metasIn(record.removedNodes)) {
-                            // An inserted wrapper may already have lost this meta when its addition is replayed.
-                            if (!observedMetas.delete(meta) && (meta.name.toLowerCase() === 'referrer' || renamedReferrers.has(meta)))
-                                documentPolicy = 'no-referrer';
-                        }
-                        for (const meta of metasIn(record.addedNodes)) {
-                            // The observer can still report additions inside a removed subtree until delivery.
-                            if (document.contains(meta)) observedMetas.add(meta);
-                            else observedMetas.delete(meta);
-                            applyMeta(meta);
-                        }
-                    }
-                }
-            }
-            const observer = new MutationObserver(applyChanges);
-            observer.observe(document, {subtree:true, childList:true, attributes:true, attributeOldValue:true, attributeFilter:['name','content']});
-            // Download links need the applied meta policy, even after its element is removed.
-            Object.defineProperty(window, '__beutlReferrerPolicy', {
-                value: () => {
-                    applyChanges(observer.takeRecords());
-                    return documentPolicy;
-                }
-            });
 
             function windowTarget(url, link) {
                 if (!['https:', 'http:'].includes(url.protocol) || link?.rel.toLowerCase().split(/\s+/).includes('noreferrer')) return null;
-                applyChanges(observer.takeRecords());
-                const policy = link?.referrerPolicy || documentPolicy;
+                const policy = link?.referrerPolicy || window.__beutlReferrerPolicy();
                 if (!policy) return self === top ? allowed + '-document' : null;
                 if (policy === 'same-origin') return url.origin === self.origin ? allowed + '-same-origin' : null;
                 return policy === 'no-referrer' ? null : allowed;

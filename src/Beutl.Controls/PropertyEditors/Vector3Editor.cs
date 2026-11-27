@@ -1,14 +1,11 @@
 ﻿using System.Numerics;
-using System.Reactive.Disposables;
 using System.Reactive.Linq;
 
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Metadata;
-using Avalonia.Interactivity;
 
 using Beutl.Extensibility;
-using Beutl.Reactive;
 
 namespace Beutl.Controls.PropertyEditors;
 
@@ -82,24 +79,23 @@ public class Vector3Editor<TElement> : Vector3Editor, IValueEditorControl<(TElem
 
     public void Connect(IValueEditorContext<(TElement, TElement, TElement)> context)
     {
-        CompositeDisposable connection = StartConnection();
-        (TElement, TElement, TElement) shown = (TElement.Zero, TElement.Zero, TElement.Zero);
-        context.EditValue.Subscribe(value => shown = value).DisposeWith(connection);
-        _values.ReadIncrementValues = () =>
-        {
-            var value = context.GetIncrementValue((FirstValue, SecondValue, ThirdValue));
-            return [value.Item1, value.Item2, value.Item3];
-        };
-        BindComponent(FirstValueProperty, context.EditValue.Select(v => v.Item1), connection);
-        BindComponent(SecondValueProperty, context.EditValue.Select(v => v.Item2), connection);
-        BindComponent(ThirdValueProperty, context.EditValue.Select(v => v.Item3), connection);
-        this.AddDisposableHandler(ValueChangedEvent, (s, e) =>
+        ConnectComponents(
+            context,
+            connection =>
             {
-                if (e.Expect<(TElement, TElement, TElement)>(s) is { } args)
-                    (FirstValue, SecondValue, ThirdValue) = PreviewEdit(context, args.NewValue, IsRelativeEdit);
-            })
-            .DisposeWith(connection);
-        ConfirmEdits(context, connection, () => (FirstValue, SecondValue, ThirdValue) = shown);
+                _values.ReadIncrementValues = () =>
+                {
+                    var value = context.GetIncrementValue((FirstValue, SecondValue, ThirdValue));
+                    return [value.Item1, value.Item2, value.Item3];
+                };
+                _values.ReadFocusedValues = () => context.TryGetFocusedEditValue(out var focused)
+                    ? [focused.Item1, focused.Item2, focused.Item3]
+                    : null;
+                BindComponent(FirstValueProperty, context.EditValue.Select(v => v.Item1), connection);
+                BindComponent(SecondValueProperty, context.EditValue.Select(v => v.Item2), connection);
+                BindComponent(ThirdValueProperty, context.EditValue.Select(v => v.Item3), connection);
+            },
+            value => (FirstValue, SecondValue, ThirdValue) = value);
     }
 }
 
@@ -113,7 +109,7 @@ public class Vector3Editor<TElement> : Vector3Editor, IValueEditorControl<(TElem
 [TemplatePart("PART_HeaderSecondTextBlock", typeof(TextBlock))]
 [TemplatePart("PART_HeaderThirdTextBlock", typeof(TextBlock))]
 [TemplatePart("PART_BackgroundBorder", typeof(Border))]
-public class Vector3Editor : VectorEditorBase
+public partial class Vector3Editor : VectorEditorBase
 {
     public static readonly DirectProperty<Vector3Editor, string> FirstTextProperty =
         Vector4Editor.FirstTextProperty.AddOwner<Vector3Editor>(
@@ -129,21 +125,6 @@ public class Vector3Editor : VectorEditorBase
         Vector4Editor.ThirdTextProperty.AddOwner<Vector3Editor>(
             o => o.ThirdText,
             (o, v) => o.ThirdText = v);
-
-    public static readonly StyledProperty<string?> FirstHeaderProperty =
-        Vector4Editor.FirstHeaderProperty.AddOwner<Vector3Editor>();
-
-    public static readonly StyledProperty<string?> SecondHeaderProperty =
-        Vector4Editor.SecondHeaderProperty.AddOwner<Vector3Editor>();
-
-    public static readonly StyledProperty<string?> ThirdHeaderProperty =
-        Vector4Editor.ThirdHeaderProperty.AddOwner<Vector3Editor>();
-
-    public static readonly StyledProperty<bool> IsUniformProperty =
-        Vector4Editor.IsUniformProperty.AddOwner<Vector3Editor>();
-
-    public static readonly StyledProperty<string?> NumberFormatProperty =
-        Vector4Editor.NumberFormatProperty.AddOwner<Vector3Editor>();
 
     public Vector3Editor()
         : base([FirstTextProperty, SecondTextProperty, ThirdTextProperty], IsUniformProperty, componentHeaders: true)
@@ -168,35 +149,20 @@ public class Vector3Editor : VectorEditorBase
         set => SetText(2, value);
     }
 
-    public string? FirstHeader
-    {
-        get => GetValue(FirstHeaderProperty);
-        set => SetValue(FirstHeaderProperty, value);
-    }
+    [GeneratedStyledProperty(AddOwnerFrom = typeof(Vector4Editor))]
+    public partial string? FirstHeader { get; set; }
 
-    public string? SecondHeader
-    {
-        get => GetValue(SecondHeaderProperty);
-        set => SetValue(SecondHeaderProperty, value);
-    }
+    [GeneratedStyledProperty(AddOwnerFrom = typeof(Vector4Editor))]
+    public partial string? SecondHeader { get; set; }
 
-    public string? ThirdHeader
-    {
-        get => GetValue(ThirdHeaderProperty);
-        set => SetValue(ThirdHeaderProperty, value);
-    }
+    [GeneratedStyledProperty(AddOwnerFrom = typeof(Vector4Editor))]
+    public partial string? ThirdHeader { get; set; }
 
-    public bool IsUniform
-    {
-        get => GetValue(IsUniformProperty);
-        set => SetValue(IsUniformProperty, value);
-    }
+    [GeneratedStyledProperty(AddOwnerFrom = typeof(Vector4Editor))]
+    public partial bool IsUniform { get; set; }
 
-    public string? NumberFormat
-    {
-        get => GetValue(NumberFormatProperty);
-        set => SetValue(NumberFormatProperty, value);
-    }
+    [GeneratedStyledProperty(AddOwnerFrom = typeof(Vector4Editor))]
+    public partial string? NumberFormat { get; set; }
 
     protected override Type StyleKeyOverride => typeof(Vector3Editor);
 }

@@ -5,21 +5,10 @@ using Avalonia.Controls.PanAndZoom;
 namespace Beutl.Editor.Components.NodeGraphTab.Views;
 
 // A node graph layer that redraws whenever its ZoomBorder pans or zooms.
-public abstract class ZoomBorderBoundControl : Control
+public abstract partial class ZoomBorderBoundControl : Control
 {
-    public static readonly DirectProperty<ZoomBorderBoundControl, ZoomBorder> ZoomBorderProperty
-        = AvaloniaProperty.RegisterDirect<ZoomBorderBoundControl, ZoomBorder>(
-            nameof(ZoomBorder),
-            o => o.ZoomBorder,
-            (o, v) => o.ZoomBorder = v);
-
-    private ZoomBorder _zoomBorder = null!;
-
-    public ZoomBorder ZoomBorder
-    {
-        get => _zoomBorder;
-        set => SetAndRaise(ZoomBorderProperty, ref _zoomBorder, value);
-    }
+    [GeneratedDirectProperty]
+    public partial ZoomBorder ZoomBorder { get; set; } = null!;
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {

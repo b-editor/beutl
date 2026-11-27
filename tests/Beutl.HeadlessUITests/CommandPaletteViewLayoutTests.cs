@@ -123,6 +123,7 @@ public class CommandPaletteViewLayoutTests
             Assert.That(firstTop - queryBottom, Is.InRange(0d, 16d),
                 "The command list must follow the input without reserving blank prompt messages.");
             Assert.That(results.GetVisualDescendants().OfType<TextBlock>().Any(text => text.Text == "."), Is.True);
+            HeadlessCapture.SaveIfRequested(window, nameof(CommandPaletteViewLayoutTests), $"command-search-{width}-{light}");
 
             // Returning from an interactive step must not leave its message area behind.
             Task operation = palette.ExecuteSelectedAsync();

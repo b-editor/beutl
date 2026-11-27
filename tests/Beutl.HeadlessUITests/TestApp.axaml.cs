@@ -31,7 +31,7 @@ public sealed class TestApp : Application
         Tutorials = new Beutl.Services.Tutorials.TutorialServiceHandler(Configuration.TutorialConfig);
         Decoders = new DecoderRegistry(Configuration.ExtensionConfig);
         Fonts = new Beutl.Media.FontManager(Configuration.FontConfig);
-        Templates = new(Fonts, Configuration.EditorConfig, Configuration.ProxyStoreConfig, Decoders);
+        Templates = new(new SceneRenderServices(Fonts, Decoders, Configuration.EditorConfig, Configuration.ProxyStoreConfig));
         Services = new Beutl.Editor.Services.EditorServiceRegistry()
             .Add(() => Configuration)
             .Add(() => Fonts)
@@ -81,14 +81,11 @@ public sealed class TestApp : Application
         {
             _mainViewModel = new MainViewModel(Services, "headless-test-session");
 
-            // ContextCommandManager.Attach is a no-op unless each ViewExtension was registered first;
+            // ContextCommandManager.Attach is a no-op until the extension's commands are registered;
             // AddExtensions alone wires up resolution but not keyboard/command gestures.
             foreach (Extension item in LoadPrimitiveExtensionTask.PrimitiveExtensions)
             {
-                if (item is ViewExtension viewExtension)
-                {
-                    _mainViewModel.ContextCommandManager?.Register(viewExtension);
-                }
+                _mainViewModel.ContextCommandManager.RegisterExtension(item);
             }
 
             // Register the loaded built-in extensions in this MainViewModel's provider; the shell resolves

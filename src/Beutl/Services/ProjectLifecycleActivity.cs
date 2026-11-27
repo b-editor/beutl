@@ -19,4 +19,9 @@ internal enum ProjectLifecycleActivity
     /// recorded while its editors are suspended.
     /// </summary>
     EnablingVersionControl,
+
+    CommittingVersion,
+    RestoringVersion,
+    SwitchingBranch,
+    ApplyingPull,
 }

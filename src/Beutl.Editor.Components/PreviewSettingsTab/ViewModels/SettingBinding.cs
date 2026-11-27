@@ -12,7 +12,7 @@ internal static class SettingBinding
     {
         ReactiveProperty<TValue> reactive = property.GetObservable()
             .Select(read)
-            .ToReactiveProperty()
+            .ToReactiveProperty<TValue>()
             .DisposeWith(disposables);
         reactive.Skip(1).Subscribe(value => property.Value = write(value)).DisposeWith(disposables);
         return reactive;

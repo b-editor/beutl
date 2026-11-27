@@ -59,14 +59,19 @@ internal sealed partial class AiVideoGenerationDialogViewModel
         _runningRequest = operation;
         try
         {
+            using var account = new AiAccountJobScope(_requestRecoveryContext);
+            using CancellationTokenSource cancellation = account.Link(operation.CancellationToken);
+            CancellationToken requestToken = cancellation.Token;
             (AiPendingJobState state, AiJob? job) = await AiPendingJobLookup.FindAsync(
-                _jobs, _jobKinds, _requestRecoveryContext, attempt, operation.CancellationToken);
+                _jobs, _jobKinds, _requestRecoveryContext, attempt, account, requestToken);
             if (state is AiPendingJobState.Succeeded or AiPendingJobState.Running)
             {
-                using IDisposable scope = _requestRecoveryContext.Enter(attempt.AccountId);
                 // The clip's length is read from the file, as the request that made it is not kept.
-                if (await PollJobAsync(job!.Id, operation, resultDurationSeconds: null))
+                if (await PollJobAsync(job!.Id, operation, resultDurationSeconds: null, account, requestToken)
+                    && !account.AccountChanged)
+                {
                     _recovery.TrySettle(attempt);
+                }
             }
             else
             {

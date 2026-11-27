@@ -81,6 +81,12 @@
                                 </FocusAdornerTemplate>
                             </Setter>
                         </Style>
+                        <Style Selector="local|ColorPaletteItem.palette-swatch:pointerover">
+                            <Setter Property="ZIndex" Value="1" />
+                        </Style>
+                        <Style Selector="local|ColorPaletteItem.palette-swatch:pressed">
+                            <Setter Property="ZIndex" Value="1" />
+                        </Style>
                     </ScrollViewer.Styles>
 
                     <StackPanel Name="PART_Sections" Margin="5,0,5,5" />

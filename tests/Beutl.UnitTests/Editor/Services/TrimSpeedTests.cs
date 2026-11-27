@@ -1,6 +1,7 @@
 ﻿using Beutl.Animation;
 using Beutl.Animation.Easings;
 using Beutl.Audio;
+using Beutl.Audio.Graph;
 using Beutl.Composition;
 using Beutl.Configuration;
 using Beutl.Editor;
@@ -203,7 +204,7 @@ public class TrimSpeedTests
         }
         else
         {
-            using var integrator = new SpeedIntegrator(44100);
+            using var integrator = new SpeedIntegrator();
             integrator.EnsureCache(animation);
             sourceEnd = media.Offset.Value + integrator.Integrate(back.Length.Value, animation);
         }
@@ -275,9 +276,9 @@ public class TrimSpeedTests
         }
         else
         {
-            using var integrator = new SpeedIntegrator(44100);
-            integrator.EnsureCache(animation);
-            sourceEnd = integrator.Integrate(middle.Range.End, animation) - integrator.Integrate(middle.Start.Value, animation);
+            using var mapping = new AudioSpeedMapping { Speed = media.Speed };
+            mapping.Configure(44100);
+            sourceEnd = media.Offset.Value + mapping.MapOutputTimeToSource(middle.Length.Value);
         }
 
         Assert.Multiple(() =>
@@ -329,7 +330,7 @@ public class TrimSpeedTests
         sound.Speed.SetKeyFrameAnimation(animation);
         element.Objects.Add(sound);
         _resize.Resize(_scene, [new(element, element.Start.Value, MediaTime.FromSeconds(250), 0)]);
-        using var playback = new SpeedIntegrator(44100);
+        using var playback = new SpeedIntegrator();
         playback.EnsureCache(animation);
         Assert.That(playback.Integrate(element.Length.Value, animation), Is.LessThanOrEqualTo(MediaTime.FromSeconds(300)));
     }
@@ -340,7 +341,7 @@ public class TrimSpeedTests
         Element front = AddElement(0, 2);
         Element back = AddElement(2, 2);
         var animation = CreateSpeedRamp(useGlobalClock: true);
-        using var playback = new SpeedIntegrator(44100);
+        using var playback = new SpeedIntegrator();
         playback.EnsureCache(animation);
         MediaTime duration = playback.Integrate(back.Range.End, animation) - playback.Integrate(back.Start.Value, animation);
         var sound = new SceneSound { ReferencedScene = { Value = new Scene { Duration = { Value = duration } } } };
@@ -365,7 +366,7 @@ public class TrimSpeedTests
         animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = { Value = MediaTime.FromSeconds(1000) }, Value = { Value = 200 }, Easing = { Value = new NarrowPeakEasing() } });
         sound.Speed.SetKeyFrameAnimation(animation);
         back.Objects.Add(sound);
-        using var playback = new SpeedIntegrator(44100);
+        using var playback = new SpeedIntegrator();
         playback.EnsureCache(animation);
         Assert.That(playback.Integrate(MediaTime.FromSeconds(250), animation).ToSeconds(), Is.GreaterThan(340));
         int history = _history.UndoCount;

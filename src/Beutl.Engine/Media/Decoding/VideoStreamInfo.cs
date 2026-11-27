@@ -44,4 +44,12 @@ public sealed record VideoStreamInfo : StreamInfo
     public Rational FrameRate { get; init; }
 
     public long NumFrames { get; init; }
+
+    public VideoColorTags ColorTags { get; init; }
+
+    public bool HasIccProfile { get; init; }
+
+    public VideoFieldOrder DetectedFieldOrder { get; init; }
+
+    public DeinterlaceApplicationStatus DeinterlaceStatus { get; init; }
 }

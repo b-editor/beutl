@@ -117,6 +117,8 @@ public sealed class EffectTarget : IDisposable
     /// </remarks>
     internal Rect? CompleteBounds { get; set; }
 
+    internal TextPartTag? TextPart { get; set; }
+
     /// <summary>The current content and raster footprint. Moving Bounds translates the raster on its original allocation.</summary>
     public RenderPlacement Placement => _allocation.MoveContent(Bounds);
 
@@ -124,15 +126,19 @@ public sealed class EffectTarget : IDisposable
 
     internal bool PreserveImperativeRasterPlacement { get; }
 
+    /// <summary>Rebuilds this target on its device grid so fractional edge pixels stay in the buffer.</summary>
+    internal bool KeepDeviceFootprintOnFlush { get; set; }
+
     /// <summary>
-    /// Gets or sets where the content lies, when a flush laid it on whole device pixels for a callback that keeps it in
-    /// place; <see langword="null"/> when <see cref="Bounds"/> are the content's own.
+    /// Gets or sets the logical bounds of the content, including fractional edges, during a placement-preserving
+    /// custom effect callback. When this is <see langword="null"/>, use <see cref="Bounds"/> for the content.
     /// </summary>
     /// <remarks>
-    /// Such a callback maps what it lays over the content, such as a brush, onto these bounds, and sets them on each
-    /// target it makes from this one. The target goes on with them after the callback.
+    /// These bounds share the coordinate space of <see cref="Bounds"/>. Use them to position content-relative
+    /// drawing such as a brush. Set them on replacement targets to pass the logical output bounds to downstream
+    /// effects while keeping the raster in place.
     /// </remarks>
-    internal Rect? ContentBounds { get; set; }
+    public Rect? ContentBounds { get; set; }
 
     // Where Draw puts the raster: at Placement.RasterBounds, or at Bounds for a target that keeps an imperative placement.
     internal Rect DrawnBounds
@@ -159,18 +165,20 @@ public sealed class EffectTarget : IDisposable
 
     public EffectTarget Clone()
     {
-        if (_target is EffectTargetRenderTargetLease renderTargetLease)
+        EffectTarget clone = _target switch
         {
-            return CreateReplacement(renderTargetLease.Retain());
-        }
-        else if (RenderTarget != null)
-        {
-            return CreateReplacement(RenderTarget);
-        }
-        else
-        {
-            return new EffectTarget { OriginalBounds = OriginalBounds, Bounds = Bounds, CompleteBounds = CompleteBounds };
-        }
+            EffectTargetRenderTargetLease renderTargetLease => CreateReplacement(renderTargetLease.Retain()),
+            RenderTarget renderTarget => CreateReplacement(renderTarget),
+            _ => new EffectTarget
+            {
+                OriginalBounds = OriginalBounds,
+                Bounds = Bounds,
+                CompleteBounds = CompleteBounds,
+                TextPart = TextPart,
+            },
+        };
+        clone.ContentBounds = ContentBounds;
+        return clone;
     }
 
     /// <summary>
@@ -215,6 +223,8 @@ public sealed class EffectTarget : IDisposable
             Bounds = Bounds,
             OriginalBounds = OriginalBounds,
             CompleteBounds = CompleteBounds,
+            TextPart = TextPart,
+            KeepDeviceFootprintOnFlush = KeepDeviceFootprintOnFlush,
         };
     }
 
@@ -235,6 +245,8 @@ public sealed class EffectTarget : IDisposable
             preserveImperativeRasterPlacement: false)
         {
             CompleteBounds = CompleteBounds,
+            TextPart = TextPart,
+            KeepDeviceFootprintOnFlush = KeepDeviceFootprintOnFlush,
         };
         _target = null;
         return result;

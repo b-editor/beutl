@@ -12,7 +12,7 @@
              xmlns:v="using:Beutl.Editor.Components.TimelineTab.Views"
              xmlns:vm="using:Beutl.Editor.Components.TimelineTab.ViewModels"
              x:Name="root"
-             Height="{DynamicResource LayerHeight}"
+             Height="{CompiledBinding Timeline.LayerRowHeight.Value}"
              Margin="{CompiledBinding Margin.Value}"
              Padding="0,1"
              HorizontalAlignment="Stretch"
@@ -35,8 +35,20 @@
             Classes.elm-disabled="{Binding !IsEnabled.Value}"
             Classes.elm-locked="{Binding !IsEditable.Value}"
             Classes.selected="{Binding IsSelected.Value}"
-            ToolTip.Tip="{Binding RecoveryProtectionToolTip.Value}">
+            ToolTip.Tip="{Binding ClipToolTip.Value}">
+        <Border.Transitions>
+            <Transitions>
+                <DoubleTransition Property="Opacity" Duration="00:00:00.083" />
+            </Transitions>
+        </Border.Transitions>
         <Border.Styles>
+            <Style Selector="ToolTip">
+                <Setter Property="ContentTemplate">
+                    <DataTemplate x:DataType="x:String">
+                        <TextBlock MaxWidth="300" Text="{Binding}" TextWrapping="Wrap" />
+                    </DataTemplate>
+                </Setter>
+            </Style>
             <Style Selector="Border:pressed">
                 <Setter Property="Opacity" Value="0.8" />
             </Style>
@@ -103,11 +115,12 @@
                 <ui:FAMenuFlyoutItem x:Name="autoSplitBySilence"
                                      usage:UsageTracking.Feature="Timeline.AutoSplitBySilence"
                                      Click="AutoSplitBySilence_Click"
-                                     Text="{x:Static lang:Strings.AutoSplitBySilence}">
+                                     Text="{x:Static lang:Strings.AutoSplitBySilenceMenu}">
                     <ui:FAMenuFlyoutItem.IconSource>
                         <icons:FluentIconSource Icon="Cut" />
                     </ui:FAMenuFlyoutItem.IconSource>
                 </ui:FAMenuFlyoutItem>
+                <ui:FAMenuFlyoutSeparator />
                 <ui:FAMenuFlyoutItem x:Name="cut"
                                      usage:UsageTracking.Feature="Timeline.Cut"
                                      Command="{Binding Cut}"
@@ -127,6 +140,16 @@
                         <icons:FluentIconSource Icon="Copy" />
                     </ui:FAMenuFlyoutItem.IconSource>
                 </ui:FAMenuFlyoutItem>
+                <ui:FAMenuFlyoutItem x:Name="duplicate"
+                                     usage:UsageTracking.Feature="Timeline.Duplicate"
+                                     Click="Duplicate_Click"
+                                     InputGesture="{h:GetCommandGesture timeline.duplicate,
+                                                                      ExtensionType={x:Type p:TimelineTabExtension}}"
+                                     Text="{x:Static lang:Strings.Duplicate}">
+                    <ui:FAMenuFlyoutItem.IconSource>
+                        <icons:FluentIconSource Icon="DocumentCopy" />
+                    </ui:FAMenuFlyoutItem.IconSource>
+                </ui:FAMenuFlyoutItem>
                 <ui:FAMenuFlyoutItem x:Name="delete"
                                      usage:UsageTracking.Feature="Timeline.Delete"
                                      Command="{Binding Delete}"
@@ -137,6 +160,21 @@
                         <icons:FluentIconSource Icon="DeleteDismiss" />
                     </ui:FAMenuFlyoutItem.IconSource>
                 </ui:FAMenuFlyoutItem>
+                <ui:FAMenuFlyoutItem x:Name="rename"
+                                     usage:UsageTracking.Feature="Timeline.Rename"
+                                     Click="Rename_Click"
+                                     InputGesture="{h:GetCommandGesture timeline.rename,
+                                                                      ExtensionType={x:Type p:TimelineTabExtension}}"
+                                     Text="{x:Static lang:Strings.RenameMenu}">
+                    <ui:FAMenuFlyoutItem.IconSource>
+                        <icons:FluentIconSource Icon="Rename" />
+                    </ui:FAMenuFlyoutItem.IconSource>
+                </ui:FAMenuFlyoutItem>
+                <ui:FAMenuFlyoutItem x:Name="change2OriginalDuration"
+                                     usage:UsageTracking.Feature="Timeline.ChangeToOriginalDuration"
+                                     Command="{Binding ChangeToOriginalDuration}"
+                                     Text="{x:Static lang:Strings.ChangeToOriginalLength}" />
+                <ui:FAMenuFlyoutSeparator />
                 <ui:FAMenuFlyoutSubItem x:Name="bulkSelectionMenu" Text="{x:Static lang:Strings.BulkSelection}" />
                 <ui:FAMenuFlyoutItem x:Name="groupSelectedElements"
                                      usage:UsageTracking.Feature="Timeline.GroupSelectedElements"
@@ -146,20 +184,7 @@
                                      usage:UsageTracking.Feature="Timeline.UngroupSelectedElements"
                                      Command="{Binding UngroupSelectedElements}"
                                      Text="{x:Static lang:Strings.UngroupSelectedElements}" />
-                <ui:FAMenuFlyoutItem x:Name="rename"
-                                     usage:UsageTracking.Feature="Timeline.Rename"
-                                     Click="Rename_Click"
-                                     InputGesture="{h:GetCommandGesture timeline.rename,
-                                                                      ExtensionType={x:Type p:TimelineTabExtension}}"
-                                     Text="{x:Static lang:Strings.Rename}">
-                    <ui:FAMenuFlyoutItem.IconSource>
-                        <icons:FluentIconSource Icon="Rename" />
-                    </ui:FAMenuFlyoutItem.IconSource>
-                </ui:FAMenuFlyoutItem>
-                <ui:FAMenuFlyoutItem x:Name="change2OriginalDuration"
-                                     usage:UsageTracking.Feature="Timeline.ChangeToOriginalDuration"
-                                     Command="{Binding ChangeToOriginalDuration}"
-                                     Text="{x:Static lang:Strings.ChangeToOriginalLength}" />
+                <ui:FAMenuFlyoutSeparator />
                 <ui:FAMenuFlyoutItem x:Name="changeColor"
                                      usage:UsageTracking.Feature="Timeline.ChangeColor"
                                      Click="ChangeColor_Click"
@@ -183,13 +208,21 @@
                 <ui:FAMenuFlyoutSeparator />
                 <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="Timeline.SaveAsTemplate"
                                      Click="SaveAsTemplate_Click"
-                                     Text="{x:Static lang:Strings.SaveAsTemplate}">
+                                     Text="{x:Static lang:Strings.SaveAsTemplateMenu}">
                     <ui:FAMenuFlyoutItem.IconSource>
                         <icons:FluentIconSource Icon="DocumentCopy" />
                     </ui:FAMenuFlyoutItem.IconSource>
                 </ui:FAMenuFlyoutItem>
+                <ui:FAMenuFlyoutItem x:Name="sendToAgent"
+                                     Click="SendToAgent_Click"
+                                     Text="{x:Static lang:AgentStrings.SendToAgent}">
+                    <ui:FAMenuFlyoutItem.IconSource>
+                        <icons:FluentIconSource Icon="Bot" />
+                    </ui:FAMenuFlyoutItem.IconSource>
+                </ui:FAMenuFlyoutItem>
                 <ui:FAMenuFlyoutSeparator />
-                <ui:FAMenuFlyoutSubItem Text="{x:Static lang:Strings.Animation}">
+                <!--  The properties with keyframes go before these items each time the menu opens; see PopulateAnimationMenu.  -->
+                <ui:FAMenuFlyoutSubItem x:Name="animationMenu" Text="{x:Static lang:Strings.Animation}">
                     <ui:FAMenuFlyoutItem x:Name="finishEditingAnimation"
                                          usage:UsageTracking.Feature="Timeline.FinishEditingAnimation"
                                          Command="{Binding FinishEditingAnimation}"
@@ -209,6 +242,9 @@
                     <v:ThumbnailStripControl x:Name="thumbnailStrip"
                                              HorizontalAlignment="Stretch"
                                              VerticalAlignment="Stretch"
+                                             ContentOffsetX="{Binding ThumbnailContentOffsetX.Value}"
+                                             ContentWidth="{Binding ThumbnailContentWidth.Value}"
+                                             IsPreviewActive="{Binding IsThumbnailPreviewActive.Value}"
                                              IsVisible="{Binding IsThumbnailsKindVideo.Value}"
                                              ThumbnailCount="{Binding VideoThumbnailCount.Value}" />
 
@@ -216,6 +252,9 @@
                                        HorizontalAlignment="Stretch"
                                        VerticalAlignment="Stretch"
                                        ChunkCount="{Binding WaveformChunkCount.Value}"
+                                       ContentOffsetX="{Binding ThumbnailContentOffsetX.Value}"
+                                       ContentWidth="{Binding ThumbnailContentWidth.Value}"
+                                       IsPreviewActive="{Binding IsThumbnailPreviewActive.Value}"
                                        IsVisible="{Binding IsThumbnailsKindAudio.Value}"
                                        WaveformBrush="{Binding TextColor.Value, Converter={StaticResource ColorToBrushConverter}}" />
                 </Panel>
@@ -258,15 +297,25 @@
                         Background="Transparent"
                         Cursor="SizeWestEast" />
             </Panel>
-            <!-- The lock and recovery (part of the clip could not be loaded) glyphs own columns; the label clears them.
-                 None of them takes pointer input, so a long name does not cover the transition handles. -->
-            <Grid ColumnDefinitions="Auto,Auto,Auto,*" IsHitTestVisible="False">
+            <!--  The keyframe times of the element's objects, along its bottom edge above the inline layers. It spans the
+                  border too, so a time maps to the same x as on the clip and a key at its end is not cut off.  -->
+            <v:ElementKeyFrameMarks x:Name="keyFrameMarks"
+                                    Height="9"
+                                    Margin="-1,0"
+                                    VerticalAlignment="Bottom"
+                                    Fill="{Binding TextColor.Value, Converter={StaticResource ColorToBrushConverter}}"
+                                    Scale="{Binding Timeline.Scale^}"
+                                    Stroke="{Binding Color.Value, Converter={StaticResource ColorToBrushConverter}}"
+                                    Times="{Binding KeyFrameMarkTimes.Value}" />
+            <!-- The status glyphs own columns and leave pointer input to the clip. -->
+            <Grid Height="21" ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,*" VerticalAlignment="Center">
                 <icons:FluentIcon x:Name="lockIcon"
                                   Grid.Column="0"
                                   Margin="6,0,0,0"
                                   VerticalAlignment="Center"
                                   FontSize="12"
                                   Foreground="{Binding TextColor.Value, Converter={StaticResource ColorToBrushConverter}}"
+                                  IsHitTestVisible="False"
                                   IsVisible="{Binding IsLockedByUser.Value}"
                                   Icon="LockClosed" />
                 <icons:FluentIcon x:Name="recoveryIcon"
@@ -275,29 +324,55 @@
                                   VerticalAlignment="Center"
                                   FontSize="12"
                                   Foreground="{Binding TextColor.Value, Converter={StaticResource ColorToBrushConverter}}"
+                                  IsHitTestVisible="False"
                                   IsVisible="{Binding IsRecoveryProtected.Value}"
                                   Icon="Warning" />
+                <icons:FluentIcon x:Name="undisplayableDataIcon"
+                                  Grid.Column="2"
+                                  Margin="6,0,0,0"
+                                  VerticalAlignment="Center"
+                                  FontSize="13"
+                                  Foreground="{Binding TextColor.Value, Converter={StaticResource ColorToBrushConverter}}"
+                                  IsHitTestVisible="False"
+                                  IsVisible="{Binding UndisplayableDataToolTip.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                  Icon="DocumentError" />
+                <icons:FluentIcon x:Name="flowInputWarningIcon"
+                                  Grid.Column="3"
+                                  Margin="6,0,0,0"
+                                  VerticalAlignment="Center"
+                                  FontSize="14"
+                                  Foreground="{Binding TextColor.Value, Converter={StaticResource ColorToBrushConverter}}"
+                                  IsHitTestVisible="False"
+                                  IsVisible="{Binding FlowInputWarning.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                  Icon="Warning"
+                                  IconVariant="Filled" />
                 <TextBlock x:Name="matteIndicator"
-                           Grid.Column="2"
+                           Grid.Column="4"
                            Margin="6,0,0,1"
                            VerticalAlignment="Center"
                            Foreground="{Binding TextColor.Value, Converter={StaticResource ColorToBrushConverter}}"
+                           IsHitTestVisible="False"
                            Text="{Binding MatteIndicator.Value}"
                            IsVisible="{Binding MatteIndicator.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
                 <TextBlock x:Name="textBlock"
-                           Grid.Column="3"
+                           Grid.Column="5"
                            Margin="6,0,0,1"
                            VerticalAlignment="Center"
                            ClipToBounds="True"
                            Foreground="{Binding TextColor.Value, Converter={StaticResource ColorToBrushConverter}}"
+                           IsHitTestVisible="False"
                            Text="{Binding Name.Value}" />
+                <TextBox x:Name="textBox"
+                         Grid.Column="5"
+                         Height="21"
+                         MinHeight="0"
+                         HorizontalAlignment="Stretch"
+                         VerticalAlignment="Center"
+                         IsEnabled="{Binding IsEditable.Value}"
+                         IsVisible="False"
+                         Text="{Binding Name.Value, UpdateSourceTrigger=LostFocus}"
+                         Theme="{StaticResource ElementNameTextBoxTheme}" />
             </Grid>
-            <TextBox x:Name="textBox"
-                     HorizontalAlignment="Stretch"
-                     IsEnabled="{Binding IsEditable.Value}"
-                     IsVisible="False"
-                     Text="{Binding Name.Value, UpdateSourceTrigger=LostFocus}"
-                     Theme="{StaticResource ElementNameTextBoxTheme}" />
 
             <Border Width="8"
                     Height="8"

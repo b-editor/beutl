@@ -9,21 +9,8 @@ using Beutl.Reactive;
 
 namespace Beutl.Controls.PropertyEditors;
 
-public class ExpressionEditorFlyoutPresenter : DraggablePickerFlyoutPresenter
+public partial class ExpressionEditorFlyoutPresenter : DraggablePickerFlyoutPresenter
 {
-    public static readonly StyledProperty<string?> ExpressionTextProperty =
-        AvaloniaProperty.Register<ExpressionEditorFlyoutPresenter, string?>(nameof(ExpressionText));
-
-    public static readonly StyledProperty<string?> ErrorMessageProperty =
-        AvaloniaProperty.Register<ExpressionEditorFlyoutPresenter, string?>(nameof(ErrorMessage));
-
-    public static readonly StyledProperty<string?> ExpressionHintProperty =
-        AvaloniaProperty.Register<ExpressionEditorFlyoutPresenter, string?>(nameof(ExpressionHint));
-
-    public static readonly StyledProperty<string> ExpressionPlaceholderProperty =
-        AvaloniaProperty.Register<ExpressionEditorFlyoutPresenter, string>(
-            nameof(ExpressionPlaceholder), "Sin(Time * 2 * PI) * 100");
-
     private readonly CompositeDisposable _disposables = [];
     private const string HasErrorPseudoClass = ":has-error";
     private const string HelpTabPseudoClass = ":help-tab";
@@ -31,29 +18,17 @@ public class ExpressionEditorFlyoutPresenter : DraggablePickerFlyoutPresenter
     private RadioButton? _inputTabButton;
     private RadioButton? _helpTabButton;
 
-    public string? ExpressionText
-    {
-        get => GetValue(ExpressionTextProperty);
-        set => SetValue(ExpressionTextProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial string? ExpressionText { get; set; }
 
-    public string? ErrorMessage
-    {
-        get => GetValue(ErrorMessageProperty);
-        set => SetValue(ErrorMessageProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial string? ErrorMessage { get; set; }
 
-    public string? ExpressionHint
-    {
-        get => GetValue(ExpressionHintProperty);
-        set => SetValue(ExpressionHintProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial string? ExpressionHint { get; set; }
 
-    public string ExpressionPlaceholder
-    {
-        get => GetValue(ExpressionPlaceholderProperty);
-        set => SetValue(ExpressionPlaceholderProperty, value);
-    }
+    [GeneratedStyledProperty(DefaultValue = "Sin(Time * 2 * PI) * 100")]
+    public partial string ExpressionPlaceholder { get; set; }
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {

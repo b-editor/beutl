@@ -17,6 +17,12 @@ public static class BeutlClipboardFormats
     /// </summary>
     public const string ElementGroups = "BeutlElementGroupsJson";
 
+    public const string KeyFrame = nameof(Animation.KeyFrame);
+
+    public const string KeyFrameAnimation = nameof(Animation.KeyFrameAnimation<object>);
+
+    public const string KeyFrameSelection = "Beutl.KeyFrameSelection";
+
     public const string Files = "Files";
 
     public const string Bitmap = "Bitmap";

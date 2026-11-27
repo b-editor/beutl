@@ -1,6 +1,4 @@
-﻿using Beutl.IO;
-
-namespace Beutl.Editor.Components.MissingMediaTab;
+﻿namespace Beutl.Editor.Components.MissingMediaTab;
 
 // The editor's part of a media repair: its notification and scan, its suspension and the state a save carries.
 internal interface IMediaRepairHost
@@ -14,14 +12,16 @@ internal interface IMediaRepairHost
 
     Task<IReadOnlyList<MissingMedia>> FindMissingMediaAsync(CancellationToken token);
 
-    // The scene's media sources with a file URI, each once. The editor's index walks only what changed since it was asked.
-    IReadOnlyList<IFileSource> GetMediaSources();
+    IReadOnlyList<MediaReference> GetMediaReferencesForRepair();
 
     Task RefreshMissingMediaAsync();
 
     void DismissMissingMediaNotification();
 
     IDisposable SuspendEditor();
+
+    // Called while the repair holds the project-file write lease.
+    ValueTask<bool> SaveRepairsAsync();
 
     void ScheduleMediaFingerprints(bool finishSaveSnapshot);
 

@@ -57,6 +57,12 @@ public sealed class MediaTimeFileRoundTripTests
             .Select(pair => (FromTicks(pair.First), FromTicks(pair.First + pair.Second), FromTicks(pair.Second))));
         using (MediaTimeJsonConverter.WriteTimeSpanStrings())
             CoreSerializer.StoreToUri(scene, scene.Uri!);
+        // Earlier versions did not record audio/video rate members on Scene.
+        JsonObject earlierSceneJson = JsonNode.Parse(File.ReadAllText(scene.Uri!.LocalPath))!.AsObject();
+        earlierSceneJson.Remove(nameof(Scene.FrameRate));
+        earlierSceneJson.Remove(nameof(Scene.SampleRate));
+        earlierSceneJson.Remove(nameof(Scene.ChannelLayout));
+        File.WriteAllText(scene.Uri!.LocalPath, earlierSceneJson.ToJsonString());
         string earlierFile = File.ReadAllText(scene.Children[0].Uri!.LocalPath);
 
         Scene read = CoreSerializer.RestoreFromUri<Scene>(scene.Uri!);

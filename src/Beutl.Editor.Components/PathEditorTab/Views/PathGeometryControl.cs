@@ -13,24 +13,8 @@ using PathGeometry = Beutl.Media.PathGeometry;
 
 namespace Beutl.Editor.Components.PathEditorTab.Views;
 
-public class PathGeometryControl : Control
+public partial class PathGeometryControl : Control
 {
-    public static readonly StyledProperty<Media.PathFigure?> FigureProperty =
-        AvaloniaProperty.Register<PathGeometryControl, Media.PathFigure?>(nameof(Figure));
-
-    public static readonly StyledProperty<Media.PathSegment?> SelectedOperationProperty =
-        AvaloniaProperty.Register<PathGeometryControl, Media.PathSegment?>(nameof(SelectedOperation));
-
-    public static readonly StyledProperty<EngineResourceHandle<PathGeometry.Resource>?> GeometryResourceProperty =
-        AvaloniaProperty.Register<PathGeometryControl, EngineResourceHandle<PathGeometry.Resource>?>(
-            nameof(GeometryResource));
-
-    public static readonly StyledProperty<AvaMatrix> MatrixProperty =
-        AvaloniaProperty.Register<PathGeometryControl, AvaMatrix>(nameof(Matrix), AvaMatrix.Identity);
-
-    public static readonly StyledProperty<double> ScaleProperty =
-        AvaloniaProperty.Register<PathGeometryControl, double>(nameof(Scale), 1.0);
-
     private Avalonia.Media.IPen _handlePen = new Avalonia.Media.Immutable.ImmutablePen(
         new Avalonia.Media.Immutable.ImmutableSolidColorBrush(0xFF168BFF), 1);
 
@@ -46,25 +30,22 @@ public class PathGeometryControl : Control
         });
     }
 
+    public static readonly StyledProperty<AvaMatrix> MatrixProperty =
+        AvaloniaProperty.Register<PathGeometryControl, AvaMatrix>(nameof(Matrix), AvaMatrix.Identity);
+
     static PathGeometryControl()
     {
         AffectsRender<PathGeometryControl>(FigureProperty, MatrixProperty, ScaleProperty,
             SelectedOperationProperty, GeometryResourceProperty);
     }
 
-    public EngineResourceHandle<PathGeometry.Resource>? GeometryResource
-    {
-        get => GetValue(GeometryResourceProperty);
-        set => SetValue(GeometryResourceProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial EngineResourceHandle<PathGeometry.Resource>? GeometryResource { get; set; }
 
     public IReadOnlyList<Media.PathSegment> SelectedOperations { get; set; } = [];
 
-    public Media.PathSegment? SelectedOperation
-    {
-        get => GetValue(SelectedOperationProperty);
-        set => SetValue(SelectedOperationProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial Media.PathSegment? SelectedOperation { get; set; }
 
     public AvaMatrix Matrix
     {
@@ -72,17 +53,11 @@ public class PathGeometryControl : Control
         set => SetValue(MatrixProperty, value);
     }
 
-    public Media.PathFigure? Figure
-    {
-        get => GetValue(FigureProperty);
-        set => SetValue(FigureProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial Media.PathFigure? Figure { get; set; }
 
-    public double Scale
-    {
-        get => GetValue(ScaleProperty);
-        set => SetValue(ScaleProperty, value);
-    }
+    [GeneratedStyledProperty(DefaultValue = 1.0)]
+    public partial double Scale { get; set; }
 
     public override void Render(DrawingContext context)
     {

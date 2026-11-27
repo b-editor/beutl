@@ -1,4 +1,5 @@
 ﻿using Beutl.Audio;
+using Beutl.Models;
 using Beutl.ViewModels;
 
 namespace Beutl.HeadlessUITests;
@@ -142,6 +143,65 @@ public class AudioSinkRefillLoopTests
         });
     }
 
+    [Test]
+    public async Task Selected_audio_queues_the_wrap_without_silence_or_samples_from_the_old_range()
+    {
+        const int rate = 25;
+        const int samplesPerFrame = SampleRate / rate;
+        var next = new PlaybackRange(4, 7);
+        var playback = new LoopPlayback(next, new Rational(rate), SampleRate, () => next);
+        var queued = new List<float[]>();
+        var sink = new FakeAudioSink(2, audio =>
+        {
+            queued.Add(audio!.GetChannelData(0).ToArray());
+            // The first packet has already gone to the device. Change the selection before
+            // composing the packet that spans the first cut.
+            next = new PlaybackRange(8, 10);
+        });
+        using var stop = new CancellationTokenSource();
+        var refill = new AudioSinkRefillLoop
+        {
+            Sink = sink,
+            Clock = new AudioPlaybackClock(),
+            StartTime = MediaTime.Zero,
+            SampleRate = SampleRate,
+            BufferDuration = LoopPlayback.BufferDuration,
+            RefillInterval = LoopPlayback.PollInterval,
+            Compose = time => (playback.ComposeAudio(time, 1, range =>
+            {
+                int count = (int)range.Duration.ToSamples(SampleRate, MidpointRounding.ToPositiveInfinity);
+                long start = range.Start.ToSamples(SampleRate, MidpointRounding.AwayFromZero);
+                var audio = new AudioBuffer(SampleRate, 1, count);
+                Span<float> samples = audio.GetChannelData(0);
+                for (int i = 0; i < samples.Length; i++)
+                    samples[i] = (start + i) / samplesPerFrame;
+                return audio;
+            }), MediaTime.MaxValue),
+            Publish = (_, _) => { },
+            IsPlaying = () => true,
+            Delay = (_, _) =>
+            {
+                sink.CompleteBuffers(1);
+                if (queued.Count >= 3) stop.Cancel();
+                return Task.CompletedTask;
+            }
+        };
+
+        await refill.RunAsync(stop.Token).WaitAsync(TimeSpan.FromSeconds(10));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(queued, Has.Count.EqualTo(3));
+            Assert.That(queued.SelectMany(x => x).Take(7 * samplesPerFrame),
+                Is.EqualTo(new[] { 4f, 5f, 6f, 8f, 9f, 8f, 9f }.SelectMany(x => Enumerable.Repeat(x, samplesPerFrame))));
+            Assert.That(sink.Events.Count(x => x == "play"), Is.EqualTo(1));
+            Assert.That(playback.GetPosition(MediaTime.FromSamples(3 * samplesPerFrame - 1, SampleRate)), Is.EqualTo(2));
+            Assert.That(playback.GetPosition(MediaTime.FromSamples(3 * samplesPerFrame, SampleRate)), Is.EqualTo(3));
+            Assert.That(playback.GetSceneTime(MediaTime.FromSamples(3 * samplesPerFrame, SampleRate)),
+                Is.EqualTo(MediaTime.FromFrames(8, new Rational(rate))));
+        });
+    }
+
     private static AudioSinkRefillLoop CreateLoop(
         FakeAudioSink sink, List<double> composed, double sceneEndSeconds, Action<int> onPoll,
         List<double>? published = null, Func<bool>? isPlaying = null,
@@ -174,7 +234,7 @@ public class AudioSinkRefillLoopTests
     }
 
     // Plays buffers only when the test completes them. Like OpenAL, it stops once nothing is queued.
-    private sealed class FakeAudioSink(int bufferCount) : IAudioSink
+    private sealed class FakeAudioSink(int bufferCount, Action<AudioBuffer?>? onQueue = null) : IAudioSink
     {
         private readonly Queue<int> _queued = new();
         private readonly Queue<int> _processed = new();
@@ -188,7 +248,7 @@ public class AudioSinkRefillLoopTests
 
         public int MaxQueued { get; private set; }
 
-        public int BufferCount => bufferCount;
+        public int BufferCount { get; } = bufferCount;
 
         // One sample into the playing buffer, so the startup wait sees progress.
         public long PlayedSamples => _completedSamples + (_playing && _queued.Count > 0 ? 1 : 0);
@@ -244,6 +304,7 @@ public class AudioSinkRefillLoopTests
 
         private void Enqueue(AudioBuffer? audio)
         {
+            onQueue?.Invoke(audio);
             _queued.Enqueue(audio?.SampleCount ?? 0);
             MaxQueued = Math.Max(MaxQueued, _queued.Count + _processed.Count);
         }

@@ -96,7 +96,7 @@ public sealed class VersionControlPolicyTests : RealGitTestRepository
             Assert.That(
                 recordingRunner.Commands,
                 Has.None.Matches<RecordedCommand>(static command =>
-                    command.Arguments.FirstOrDefault() == "check-attr"));
+                    command?.Arguments.FirstOrDefault() == "check-attr"));
         });
     }
 
@@ -390,7 +390,7 @@ public sealed class VersionControlPolicyTests : RealGitTestRepository
             Assert.That(
                 runner.Commands,
                 Has.All.Matches<RecordedCommand>(command =>
-                    command.Options.MaxStdoutBytes == 256 * 1024
+                    command is not null && command.Options.MaxStdoutBytes == 256 * 1024
                     && command.Options.StandardInput!
                         .Split('\0', StringSplitOptions.RemoveEmptyEntries)
                         .Sum(static path => System.Text.Encoding.UTF8.GetByteCount(path) + 12)

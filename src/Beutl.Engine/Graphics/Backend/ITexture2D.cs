@@ -24,6 +24,11 @@ public interface ITexture2D : IDisposable
     TextureFormat Format { get; }
 
     /// <summary>
+    /// Gets the number of samples per pixel in the texture.
+    /// </summary>
+    int SampleCount => 1;
+
+    /// <summary>
     /// Gets the native handle of the texture (Vulkan Image handle).
     /// </summary>
     IntPtr NativeHandle { get; }

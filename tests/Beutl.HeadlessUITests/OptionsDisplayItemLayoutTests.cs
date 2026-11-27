@@ -160,9 +160,19 @@ public class OptionsDisplayItemLayoutTests
                 CheckRows((Control)frame.Content!);
             }
 
-            frame.Navigate(typeof(EditorSettingsPage), model.Editor, new FASuppressNavigationTransitionInfo());
-            HeadlessTestHelpers.Render(3);
-            CheckRows((Control)frame.Content!);
+            (Type Page, object Context)[] splitPages =
+            [
+                (typeof(EditorSettingsPage), model.Editor),
+                (typeof(PreviewSettingsPage), model.Preview),
+                (typeof(PerformanceSettingsPage), model.Performance),
+                (typeof(VersionControlSettingsPage), model.VersionControl),
+            ];
+            foreach ((Type page, object context) in splitPages)
+            {
+                frame.Navigate(page, context, new FASuppressNavigationTransitionInfo());
+                HeadlessTestHelpers.Render(3);
+                CheckRows((Control)frame.Content!);
+            }
 
             nav.PaneDisplayMode = FANavigationViewPaneDisplayMode.Auto;
             dialog.Width = 480;
@@ -181,12 +191,15 @@ public class OptionsDisplayItemLayoutTests
             OptionsDisplayItem[] rows = page.GetVisualDescendants().OfType<OptionsDisplayItem>().ToArray();
             Assert.That(rows, Is.Not.Empty);
             // A row hidden on this platform, such as the Windows-only display peak, has no layout to check.
-            foreach (OptionsDisplayItem row in rows.Where(x => x.IsEffectivelyVisible && x.ActionButton?.IsVisible == true))
+            foreach (OptionsDisplayItem row in rows)
             {
+                if (!row.IsEffectivelyVisible || row.ActionButton is not { IsVisible: true } button)
+                    continue;
+
                 StackPanel text = Part<StackPanel>(row, "TextHost");
                 if (row.Description is string { Length: > 0 })
                     Assert.That(text.Bounds.Width, Is.GreaterThanOrEqualTo(120), $"Description width for {row.Header}");
-                AssertContained(row.ActionButton, row);
+                AssertContained(button, row);
             }
         }
     }

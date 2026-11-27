@@ -19,12 +19,12 @@ public sealed class CreateNewProjectViewModel
 
     internal CreateNewProjectViewModel(
         ProjectService projectService,
-        IProjectVersionControlInitializer versionControlInitializer, GlobalConfiguration configuration)
+        IProjectVersionControlInitializer versionControlInitializer, GlobalConfiguration configuration, string? initialLocation = null)
     {
         _configuration = configuration;
         _projectService = projectService ?? throw new ArgumentNullException(nameof(projectService));
         _versionControlInitializer = versionControlInitializer;
-        Location.Value = GetDefaultLocation();
+        Location.Value = initialLocation ?? GetDefaultLocation(configuration.ViewConfig);
         Name.Value = NewDocumentValidation.UniqueName(Location.Value, "Project");
         _ = DetectGitAsync();
 
@@ -104,7 +104,7 @@ public sealed class CreateNewProjectViewModel
     // A rate from FrameRates or another, such as 12 or 30000/1001.
     public ReactiveProperty<string> FrameRate { get; } = new("30");
 
-    public IReadOnlyList<string> FrameRates { get; } = ["23.976", "24", "25", "29.97", "30", "50", "59.94", "60"];
+    public IReadOnlyList<string> FrameRates => FrameRateText.Presets;
 
     public ReactiveProperty<int> SampleRate { get; } = new(44100);
 
@@ -145,19 +145,13 @@ public sealed class CreateNewProjectViewModel
         }
     }
 
-    private string GetDefaultLocation()
+    internal static string GetDefaultLocation(ViewConfig config)
     {
-        ViewConfig config = _configuration.ViewConfig;
-        try
+        if (config.RecentProjects.FirstOrDefault() is { } last
+            && Path.GetDirectoryName(last) is { } projectFolder
+            && Path.GetDirectoryName(projectFolder) is { Length: > 0 } directory)
         {
-            if (config.RecentProjects.FirstOrDefault() is { } last)
-            {
-                ReadOnlySpan<char> span = last.AsSpan();
-                return new string(Path.GetDirectoryName(Path.GetDirectoryName(span)));
-            }
-        }
-        catch
-        {
+            return directory;
         }
 
         return Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);

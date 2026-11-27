@@ -1,10 +1,9 @@
 ﻿using System.Text.Json.Nodes;
-using Avalonia.Input;
-using Avalonia.Input.Platform;
 using Beutl.Animation;
 using Beutl.Animation.Easings;
 using Beutl.Editor.Components.GraphEditorTab.ViewModels;
 using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Components.Services;
 using Beutl.Editor.Services;
 using Beutl.Logging;
 using Beutl.Serialization;
@@ -57,6 +56,10 @@ public sealed class InlineKeyFrameViewModel : IDisposable
 
     public ReactiveProperty<double> Left { get; }
 
+    // The scene time the key times count from, and the row draws them from: the start of the object the animation
+    // belongs to, or 0 on the global clock.
+    internal MediaTime TimeOrigin => AnimationOperations.GetTimeOrigin(Animation);
+
     public AsyncReactiveCommand CopyCommand { get; }
 
     public AsyncReactiveCommand PasteCommand { get; }
@@ -65,28 +68,28 @@ public sealed class InlineKeyFrameViewModel : IDisposable
 
     private async Task CopyAsync()
     {
-        await KeyFrameClipboardCommands.CopyAsync(Model, BeutlDataFormats.KeyFrame, ex =>
+        await KeyFrameClipboardCommands.CopyAsync(Timeline.EditorContext, Model, BeutlClipboardFormats.KeyFrame, ex =>
         {
             _logger.LogError(ex, "Failed to copy keyframe");
             Timeline.EditorContext.GetRequiredService<INotificationService>().ShowError(Strings.Copy, MessageStrings.FailedToCopyKeyframe);
         });
     }
 
-    internal async Task PasteAsync(IClipboard? clipboard = null)
+    internal async Task PasteAsync(IClipboardGateway? clipboard = null)
     {
         if (!Parent.IsEditable) return;
-        clipboard ??= ClipboardHelper.GetClipboard();
+        clipboard ??= AvaloniaClipboardGateway.Resolve(Timeline.EditorContext);
         if (clipboard == null) return;
 
         try
         {
-            if (await clipboard.TryGetValueAsync(BeutlDataFormats.KeyFrame) is { } json
+            if (await clipboard.TryGetStringAsync(BeutlClipboardFormats.KeyFrame) is { } json
                 && JsonNode.Parse(json) is JsonObject jsonObj)
             {
                 ApplyPastedKeyFrame(jsonObj);
                 return;
             }
-            else if (await clipboard.TryGetValueAsync(BeutlDataFormats.KeyFrameSelection) is { } selectionJson)
+            else if (await clipboard.TryGetStringAsync(BeutlClipboardFormats.KeyFrameSelection) is { } selectionJson)
             {
                 if (!Parent.IsEditable || !ReferenceEquals(Parent.Property.Animation, Animation)
                     || !Animation.KeyFrames.Contains(Model)) return;
@@ -165,6 +168,25 @@ public sealed class InlineKeyFrameViewModel : IDisposable
         history.Commit(CommandNames.MoveKeyFrame);
 
         Left.Value = time.TimeToPixel(scale);
+    }
+
+    // Where the key stops when dragged to a scene time: the targets of the timeline's other drags, element edges and the
+    // keys of the other open rows, else a line of the BPM grid. Its own row's keys are no target, as a key dragged to a
+    // frame beside its neighbour would land on it.
+    internal SnapResult SnapTime(MediaTime time, bool disabled)
+    {
+        IEnumerable<MediaTime> keys = Timeline.Inlines
+            .Where(row => !ReferenceEquals(row, Parent))
+            .SelectMany(row => row.Items)
+            .Select(item => item.Animation.ToScene(item.Model.KeyTime.Value));
+        SnapResult snap = Timeline.SnapTime(time, Timeline.Options.Value.Scale, disabled, exclude: null, extra: keys);
+        if (!snap.DidSnap) return snap;
+
+        // Key times stay on the frames of their own clock, so with an origin between the scene's frames a key lands on
+        // the frame nearest its target. It is shown there during the drag too, rather than moving on release.
+        MediaTime origin = TimeOrigin;
+        Rational rate = SceneTimeRangeService.GetFrameRate(Timeline.Scene);
+        return snap with { Time = origin + (snap.Time - origin).RoundToFrame(rate, MidpointRounding.AwayFromZero) };
     }
 
     // For a cancelled drag: restores only the view and leaves the model as it is.

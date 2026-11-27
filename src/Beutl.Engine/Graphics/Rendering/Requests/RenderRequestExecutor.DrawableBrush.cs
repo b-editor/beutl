@@ -180,6 +180,11 @@ internal sealed partial class RenderRequestExecutor
             }
             finally
             {
+                if (compiled?.Request.Options.Owner.PreviewDiagnostics.Warning is { } warning)
+                    _options.ReportPreviewWarning(warning);
+                if (_options.CanReportPreviewWorkingScaleClamp
+                    && compiled?.Request.Options.Owner.PreviewDiagnostics.IsWorkingScaleClamped == true)
+                    _options.Owner.RecordPreviewWorkingScaleClamp();
                 CloseAndCapture(canvas, ref failure);
                 DisposeAndCapture(lease, ref failure);
                 DisposeAndCapture(compiled, ref failure);

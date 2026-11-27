@@ -573,7 +573,7 @@ public sealed class RenderNodeRendererContractTests
         renderer.Dispose();
         Assert.That(bitmap.IsDisposed, Is.False, "Renderer disposal does not dispose an already returned rasterization.");
         Assert.That(factory.Targets, Is.Not.Empty);
-        Assert.That(factory.Targets, Has.All.Matches<CpuRenderTarget>(target => target.IsDisposed));
+        Assert.That(factory.Targets, Has.All.Matches<CpuRenderTarget>(target => target is { IsDisposed: true }));
 
         rasterization.Dispose();
         rasterization.Dispose();

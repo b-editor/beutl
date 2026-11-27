@@ -474,19 +474,26 @@ public sealed class CommandPaletteViewModel : IDisposable
             return 0;
         }
 
+        PaletteSearchText english = command.EnglishSearchText;
         int best = -1;
-        Update(ref best, command.DisplayName, query, baseScore: 100);
-        Update(ref best, command.Description, query, baseScore: 60);
-        Update(ref best, command.CategoryName, query, baseScore: 40);
+        UpdateScore(ref best, command.DisplayName, english.DisplayName, query, baseScore: 100);
+        UpdateScore(ref best, command.Description, english.Description, query, baseScore: 60);
+        UpdateScore(ref best, command.CategoryName, english.CategoryName, query, baseScore: 40);
         return best;
     }
 
-    private static void Update(ref int best, string? haystack, string needle, int baseScore)
+    private static void UpdateScore(ref int best, string? localized, string? english, string query, int baseScore)
     {
-        if (string.IsNullOrEmpty(haystack)) return;
+        best = Math.Max(best, ScoreText(localized, query, baseScore, StringComparison.CurrentCultureIgnoreCase));
+        best = Math.Max(best, ScoreText(english, query, baseScore, StringComparison.InvariantCultureIgnoreCase));
+    }
 
-        int idx = haystack.IndexOf(needle, StringComparison.CurrentCultureIgnoreCase);
-        if (idx < 0) return;
+    private static int ScoreText(string? haystack, string needle, int baseScore, StringComparison comparison)
+    {
+        if (string.IsNullOrEmpty(haystack)) return -1;
+
+        int idx = haystack.IndexOf(needle, comparison);
+        if (idx < 0) return -1;
 
         int score = baseScore;
         if (idx == 0)
@@ -498,7 +505,7 @@ public sealed class CommandPaletteViewModel : IDisposable
             score += 15;
         }
 
-        if (score > best) best = score;
+        return score;
     }
 
     public void Dispose()

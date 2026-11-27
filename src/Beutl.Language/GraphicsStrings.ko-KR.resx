@@ -209,8 +209,41 @@
   <data name="Sharpen_Threshold_Description" xml:space="preserve">
     <value>이보다 작은 차이는 강조하지 않아 노이즈가 두드러지지 않습니다.</value>
   </data>
+  <data name="FilmGrain" xml:space="preserve">
+    <value>필름 그레인</value>
+  </data>
+  <data name="FilmGrain_Size" xml:space="preserve">
+    <value>크기</value>
+  </data>
+  <data name="FilmGrain_Size_Description" xml:space="preserve">
+    <value>각 그레인 입자의 크기를 논리 픽셀 단위로 지정합니다.</value>
+  </data>
+  <data name="FilmGrain_Softness" xml:space="preserve">
+    <value>부드러움</value>
+  </data>
+  <data name="FilmGrain_Softness_Description" xml:space="preserve">
+    <value>값이 높을수록 그레인 입자 사이의 경계가 부드러워집니다.</value>
+  </data>
+  <data name="FilmGrain_Color" xml:space="preserve">
+    <value>색상</value>
+  </data>
+  <data name="FilmGrain_Color_Description" xml:space="preserve">
+    <value>0%에서는 모든 채널에 같은 그레인을 사용하고, 100%에서는 채널마다 다른 그레인을 사용합니다.</value>
+  </data>
+  <data name="FilmGrain_Seed" xml:space="preserve">
+    <value>시드</value>
+  </data>
+  <data name="FilmGrain_Animate" xml:space="preserve">
+    <value>애니메이션</value>
+  </data>
+  <data name="FilmGrain_Animate_Description" xml:space="preserve">
+    <value>프레임마다 그레인 패턴을 바꿉니다.</value>
+  </data>
   <data name="Brightness" xml:space="preserve">
     <value>밝기</value>
+  </data>
+  <data name="OpacityEffect" xml:space="preserve">
+    <value>불투명도</value>
   </data>
   <data name="ChromaKey" xml:space="preserve">
     <value>크로마 키</value>
@@ -223,6 +256,9 @@
   </data>
   <data name="ChromaKey_SaturationRange" xml:space="preserve">
     <value>채도 범위</value>
+  </data>
+  <data name="ChromaKey_SpillSuppression" xml:space="preserve">
+    <value>스필 억제</value>
   </data>
   <data name="LumaKey" xml:space="preserve">
     <value>루마 키</value>
@@ -341,6 +377,18 @@
   <data name="ColorShift_RedOffset" xml:space="preserve">
     <value>빨간색 오프셋</value>
   </data>
+  <data name="LensChromaticAberration" xml:space="preserve">
+    <value>렌즈 색수차</value>
+  </data>
+  <data name="LensChromaticAberration_Amount_Description" xml:space="preserve">
+    <value>중심을 기준으로 빨간색 채널의 배율은 (1 + 양/100), 파란색 채널의 배율은 (1 - 양/100)입니다. 녹색 채널의 위치는 그대로 유지됩니다. 음수 값을 사용하면 색 번짐의 빨간색과 파란색이 서로 바뀝니다.</value>
+  </data>
+  <data name="LensChromaticAberration_RepeatEdgePixels" xml:space="preserve">
+    <value>가장자리 픽셀 반복</value>
+  </data>
+  <data name="LensChromaticAberration_RepeatEdgePixels_Description" xml:space="preserve">
+    <value>채널이 이미지 가장자리 바깥을 읽을 때 가장자리 픽셀을 반복합니다. 가장자리의 색이 유지되고 결과가 이미지 안에 머뭅니다. 끄면 색 번짐이 이미지 바깥까지 퍼지므로 투명한 배경 위의 개체에 적합합니다.</value>
+  </data>
   <data name="Curves" xml:space="preserve">
     <value>곡선</value>
   </data>
@@ -371,6 +419,21 @@
   <data name="Curves_SaturationVsSaturation" xml:space="preserve">
     <value>채도 vs 채도</value>
   </data>
+  <data name="Vignette" xml:space="preserve">
+    <value>비네팅</value>
+  </data>
+  <data name="Vignette_Amount_Description" xml:space="preserve">
+    <value>양수 값은 가장자리를 어둡게 하고 음수 값은 밝게 합니다.</value>
+  </data>
+  <data name="Vignette_Midpoint" xml:space="preserve">
+    <value>중간점</value>
+  </data>
+  <data name="Vignette_Roundness" xml:space="preserve">
+    <value>둥글기</value>
+  </data>
+  <data name="Vignette_Feather" xml:space="preserve">
+    <value>페더</value>
+  </data>
   <data name="DelayAnimationEffect" xml:space="preserve">
     <value>지연 애니메이션</value>
   </data>
@@ -379,6 +442,63 @@
   </data>
   <data name="DelayAnimationEffect_Effect" xml:space="preserve">
     <value>필터 효과</value>
+  </data>
+  <data name="DelayAnimationEffect_Order" xml:space="preserve">
+    <value>순서</value>
+  </data>
+  <data name="DelayAnimationEffect_Order_Description" xml:space="preserve">
+    <value>어느 파트가 먼저 시작할지 정합니다. 위치를 기준으로 정렬하면 지연 단계마다 보통 파트 하나의 크기만큼 진행합니다. 가운데에서부터는 모든 파트를 감싸는 영역의 중심까지의 거리로 순서를 정합니다. 진행 방향을 기준으로 거리가 같은 파트는 동시에 시작합니다.</value>
+  </data>
+  <data name="DelayAnimationEffect_DelayMode" xml:space="preserve">
+    <value>지연 방식</value>
+  </data>
+  <data name="DelayAnimationEffect_DelayMode_Description" xml:space="preserve">
+    <value>단계별은 각 단계의 지연을 밀리초 단위로 지정합니다. 전체는 첫 파트가 시작한 때부터 마지막 파트가 시작할 때까지 걸리는 시간을 지정합니다.</value>
+  </data>
+  <data name="TextAnimationUnit" xml:space="preserve">
+    <value>단위</value>
+  </data>
+  <data name="TextAnimationUnit_Characters" xml:space="preserve">
+    <value>문자</value>
+  </data>
+  <data name="TextAnimationUnit_Words" xml:space="preserve">
+    <value>단어</value>
+  </data>
+  <data name="TextAnimationUnit_Lines" xml:space="preserve">
+    <value>줄</value>
+  </data>
+  <data name="DelayAnimationMode_PerStep" xml:space="preserve">
+    <value>단계별</value>
+  </data>
+  <data name="DelayAnimationMode_Total" xml:space="preserve">
+    <value>전체</value>
+  </data>
+  <data name="DelayAnimationEffect_RandomSeed" xml:space="preserve">
+    <value>난수 시드</value>
+  </data>
+  <data name="DelayAnimationOrder_Forward" xml:space="preserve">
+    <value>앞에서부터</value>
+  </data>
+  <data name="DelayAnimationOrder_Reverse" xml:space="preserve">
+    <value>뒤에서부터</value>
+  </data>
+  <data name="DelayAnimationOrder_FromCenter" xml:space="preserve">
+    <value>가운데에서부터</value>
+  </data>
+  <data name="DelayAnimationOrder_Random" xml:space="preserve">
+    <value>무작위</value>
+  </data>
+  <data name="DelayAnimationOrder_LeftToRight" xml:space="preserve">
+    <value>왼쪽에서 오른쪽으로</value>
+  </data>
+  <data name="DelayAnimationOrder_RightToLeft" xml:space="preserve">
+    <value>오른쪽에서 왼쪽으로</value>
+  </data>
+  <data name="DelayAnimationOrder_TopToBottom" xml:space="preserve">
+    <value>위에서 아래로</value>
+  </data>
+  <data name="DelayAnimationOrder_BottomToTop" xml:space="preserve">
+    <value>아래에서 위로</value>
   </data>
   <data name="Dilate" xml:space="preserve">
     <value>팽창</value>
@@ -429,7 +549,7 @@
     <value>데코레이터</value>
   </data>
   <data name="DrawableTimeController" xml:space="preserve">
-    <value>시간 컨트롤러 (비디오)</value>
+    <value>시간 컨트롤러</value>
   </data>
   <data name="DrawableTimeController_AdjustTimeRange" xml:space="preserve">
     <value>시간 범위 조정</value>
@@ -534,6 +654,12 @@
     <value>감마</value>
   </data>
   <data name="GeometryShape" xml:space="preserve">
+    <value>기하 도형</value>
+  </data>
+  <data name="GeometryShapeNode" xml:space="preserve">
+    <value>도형</value>
+  </data>
+  <data name="Geometry" xml:space="preserve">
     <value>기하 도형</value>
   </data>
   <data name="GeometryShape_Data" xml:space="preserve">
@@ -799,6 +925,81 @@
   </data>
   <data name="SourceVideo_IsLoop" xml:space="preserve">
     <value>반복</value>
+  </data>
+  <data name="SourceVideo_Deinterlace" xml:space="preserve">
+    <value>디인터레이스</value>
+  </data>
+  <data name="SourceVideo_DeinterlaceFieldOrder" xml:space="preserve">
+    <value>필드 순서</value>
+  </data>
+  <data name="SourceVideo_DeinterlaceMethod" xml:space="preserve">
+    <value>처리 방식</value>
+  </data>
+  <data name="SourceVideo_DeinterlaceFrameRate" xml:space="preserve">
+    <value>프레임 레이트</value>
+  </data>
+  <data name="VideoDeinterlace_Off" xml:space="preserve">
+    <value>끄기</value>
+  </data>
+  <data name="VideoDeinterlace_Auto" xml:space="preserve">
+    <value>자동</value>
+  </data>
+  <data name="VideoDeinterlace_On" xml:space="preserve">
+    <value>켜기</value>
+  </data>
+  <data name="VideoDeinterlace_TopFieldFirst" xml:space="preserve">
+    <value>상위 필드 우선 (TFF)</value>
+  </data>
+  <data name="VideoDeinterlace_BottomFieldFirst" xml:space="preserve">
+    <value>하위 필드 우선 (BFF)</value>
+  </data>
+  <data name="VideoDeinterlace_Bwdif" xml:space="preserve">
+    <value>BWDIF</value>
+  </data>
+  <data name="VideoDeinterlace_Yadif" xml:space="preserve">
+    <value>YADIF</value>
+  </data>
+  <data name="VideoDeinterlace_Frame" xml:space="preserve">
+    <value>프레임 (1배)</value>
+  </data>
+  <data name="VideoDeinterlace_Field" xml:space="preserve">
+    <value>필드 (2배)</value>
+  </data>
+  <data name="VideoDeinterlace_Progressive" xml:space="preserve">
+    <value>프로그레시브</value>
+  </data>
+  <data name="VideoDeinterlace_Mixed" xml:space="preserve">
+    <value>혼합 주사</value>
+  </data>
+  <data name="VideoDeinterlace_ProgressiveNoProcessing" xml:space="preserve">
+    <value>프로그레시브 · 디인터레이스 불필요</value>
+  </data>
+  <data name="VideoDeinterlace_Automatic" xml:space="preserve">
+    <value>프레임별 자동 감지</value>
+  </data>
+  <data name="VideoDeinterlace_Applied" xml:space="preserve">
+    <value>디인터레이스 적용됨</value>
+  </data>
+  <data name="VideoDeinterlace_Unsupported" xml:space="preserve">
+    <value>디코더가 디인터레이스를 지원하지 않음</value>
+  </data>
+  <data name="SourceVideo_TransferInterpretation" xml:space="preserve">
+    <value>전달 곡선</value>
+  </data>
+  <data name="VideoTransfer_Auto" xml:space="preserve">
+    <value>자동(태그 따르기)</value>
+  </data>
+  <data name="VideoTransfer_QuickTime" xml:space="preserve">
+    <value>QuickTime</value>
+  </data>
+  <data name="VideoTransfer_Bt1886" xml:space="preserve">
+    <value>BT.1886</value>
+  </data>
+  <data name="VideoTransfer_Srgb" xml:space="preserve">
+    <value>sRGB</value>
+  </data>
+  <data name="VideoTransfer_Bt709Scene" xml:space="preserve">
+    <value>BT.709(장면 기준)</value>
   </data>
   <data name="SourceVideo_OffsetPosition" xml:space="preserve">
     <value>오프셋 위치</value>
@@ -1259,6 +1460,9 @@
   <data name="Scene3D" xml:space="preserve">
     <value>3D 장면</value>
   </data>
+  <data name="LibraryGroup3D" xml:space="preserve">
+    <value>3D (실험적)</value>
+  </data>
   <data name="Scene3D_AmbientColor" xml:space="preserve">
     <value>주변 색상</value>
   </data>
@@ -1267,6 +1471,69 @@
   </data>
   <data name="Scene3D_BackgroundColor" xml:space="preserve">
     <value>배경 색상</value>
+  </data>
+  <data name="Scene3D_Skybox" xml:space="preserve">
+    <value>스카이박스</value>
+  </data>
+  <data name="Skybox3D_Tint" xml:space="preserve">
+    <value>색조</value>
+  </data>
+  <data name="Skybox3D_Intensity" xml:space="preserve">
+    <value>강도</value>
+  </data>
+  <data name="EquirectangularSkybox" xml:space="preserve">
+    <value>정거원통형 스카이박스</value>
+  </data>
+  <data name="EquirectangularSkybox_Texture" xml:space="preserve">
+    <value>파노라마 텍스처</value>
+  </data>
+  <data name="CubemapSkybox" xml:space="preserve">
+    <value>큐브맵 스카이박스</value>
+  </data>
+  <data name="CubemapSkybox_PositiveX" xml:space="preserve">
+    <value>+X 면</value>
+  </data>
+  <data name="CubemapSkybox_NegativeX" xml:space="preserve">
+    <value>−X 면</value>
+  </data>
+  <data name="CubemapSkybox_PositiveY" xml:space="preserve">
+    <value>+Y 면</value>
+  </data>
+  <data name="CubemapSkybox_NegativeY" xml:space="preserve">
+    <value>−Y 면</value>
+  </data>
+  <data name="CubemapSkybox_PositiveZ" xml:space="preserve">
+    <value>+Z 면</value>
+  </data>
+  <data name="CubemapSkybox_NegativeZ" xml:space="preserve">
+    <value>−Z 면</value>
+  </data>
+  <data name="ProceduralSkybox" xml:space="preserve">
+    <value>절차적 스카이박스</value>
+  </data>
+  <data name="ProceduralSkybox_SkyColor" xml:space="preserve">
+    <value>하늘 색상</value>
+  </data>
+  <data name="ProceduralSkybox_HorizonColor" xml:space="preserve">
+    <value>수평선 색상</value>
+  </data>
+  <data name="ProceduralSkybox_GroundColor" xml:space="preserve">
+    <value>지면 색상</value>
+  </data>
+  <data name="ProceduralSkybox_HorizonExponent" xml:space="preserve">
+    <value>수평선 지수</value>
+  </data>
+  <data name="ProceduralSkybox_SunDirection" xml:space="preserve">
+    <value>태양 방향</value>
+  </data>
+  <data name="ProceduralSkybox_SunColor" xml:space="preserve">
+    <value>태양 색상</value>
+  </data>
+  <data name="ProceduralSkybox_SunSize" xml:space="preserve">
+    <value>태양의 각반지름</value>
+  </data>
+  <data name="ProceduralSkybox_SunIntensity" xml:space="preserve">
+    <value>태양 강도</value>
   </data>
   <data name="Scene3D_Camera" xml:space="preserve">
     <value>카메라</value>
@@ -1285,6 +1552,24 @@
   </data>
   <data name="Scene3D_RenderSize" xml:space="preserve">
     <value>렌더 크기</value>
+  </data>
+  <data name="Scene3D_AntiAliasing" xml:space="preserve">
+    <value>안티앨리어싱</value>
+  </data>
+  <data name="Scene3D_AntiAliasing_Description" xml:space="preserve">
+    <value>3D 오브젝트의 가장자리를 부드럽게 합니다. 샘플 수를 늘리면 더 부드러워지지만 GPU 메모리와 렌더링 시간이 더 필요합니다.</value>
+  </data>
+  <data name="AntiAliasingMode_Off" xml:space="preserve">
+    <value>끄기</value>
+  </data>
+  <data name="AntiAliasingMode_Msaa2x" xml:space="preserve">
+    <value>2x</value>
+  </data>
+  <data name="AntiAliasingMode_Msaa4x" xml:space="preserve">
+    <value>4x</value>
+  </data>
+  <data name="AntiAliasingMode_Msaa8x" xml:space="preserve">
+    <value>8x</value>
   </data>
   <data name="SolidColorBrush" xml:space="preserve">
     <value>단색</value>
@@ -1433,6 +1718,9 @@
   <data name="Drawable" xml:space="preserve">
     <value>드로어블</value>
   </data>
+  <data name="DrawableBrushNode" xml:space="preserve">
+    <value>드로어블을 브러시로</value>
+  </data>
   <data name="EndPoint" xml:space="preserve">
     <value>끝점</value>
   </data>
@@ -1486,6 +1774,12 @@
   </data>
   <data name="Stroke" xml:space="preserve">
     <value>획</value>
+  </data>
+  <data name="Pen" xml:space="preserve">
+    <value>펜</value>
+  </data>
+  <data name="StrokeEffect" xml:space="preserve">
+    <value>윤곽선</value>
   </data>
   <data name="Target" xml:space="preserve">
     <value>대상</value>
@@ -1634,6 +1928,18 @@
   <data name="ClipTransition" xml:space="preserve">
     <value>전환</value>
   </data>
+  <data name="ClipTransitionCategory_FadesAndDissolves" xml:space="preserve">
+    <value>페이드 및 디졸브</value>
+  </data>
+  <data name="ClipTransitionCategory_Wipes" xml:space="preserve">
+    <value>와이프</value>
+  </data>
+  <data name="ClipTransitionCategory_Motion" xml:space="preserve">
+    <value>모션</value>
+  </data>
+  <data name="ClipTransitionCategory_Stylized" xml:space="preserve">
+    <value>스타일화</value>
+  </data>
   <data name="ClipTransition_Duration" xml:space="preserve">
     <value>길이</value>
   </data>
@@ -1651,9 +1957,6 @@
   </data>
   <data name="DipToColorTransition" xml:space="preserve">
     <value>색으로 디프</value>
-  </data>
-  <data name="DipToWhiteTransition" xml:space="preserve">
-    <value>흰색으로 디프</value>
   </data>
   <data name="ClipTransitionDirection_LeftToRight" xml:space="preserve">
     <value>왼쪽에서 오른쪽</value>
@@ -1844,6 +2147,60 @@
   <data name="Bloom_PreserveAlpha" xml:space="preserve">
     <value>알파 유지</value>
   </data>
+  <data name="PolarCoordinates" xml:space="preserve">
+    <value>극좌표</value>
+  </data>
+  <data name="PolarCoordinates_Direction" xml:space="preserve">
+    <value>방향</value>
+  </data>
+  <data name="PolarCoordinates_Amount" xml:space="preserve">
+    <value>양</value>
+  </data>
+  <data name="PolarCoordinatesDirection_RectangularToPolar" xml:space="preserve">
+    <value>직교좌표에서 극좌표로</value>
+  </data>
+  <data name="PolarCoordinatesDirection_PolarToRectangular" xml:space="preserve">
+    <value>극좌표에서 직교좌표로</value>
+  </data>
+  <data name="PolarCoordinates_InnerRadius" xml:space="preserve">
+    <value>내부 반경</value>
+  </data>
+  <data name="PolarCoordinates_Swirl" xml:space="preserve">
+    <value>소용돌이</value>
+  </data>
+  <data name="PolarCoordinates_InvertRadius" xml:space="preserve">
+    <value>반경 반전</value>
+  </data>
+  <data name="PolarCoordinates_ReverseAngle" xml:space="preserve">
+    <value>각도 반전</value>
+  </data>
+  <data name="PolarCoordinates_Repeat" xml:space="preserve">
+    <value>반복</value>
+  </data>
+  <data name="PolarCoordinates_Mirror" xml:space="preserve">
+    <value>미러</value>
+  </data>
+  <data name="PolarCoordinates_SweepAngle" xml:space="preserve">
+    <value>각도 범위</value>
+  </data>
+  <data name="PolarCoordinates_EdgeMode" xml:space="preserve">
+    <value>가장자리 모드</value>
+  </data>
+  <data name="PolarCoordinates_ClipToBounds" xml:space="preserve">
+    <value>원본 크기로 자르기</value>
+  </data>
+  <data name="PolarCoordinatesEdgeMode_Transparent" xml:space="preserve">
+    <value>투명</value>
+  </data>
+  <data name="PolarCoordinatesEdgeMode_Clamp" xml:space="preserve">
+    <value>클램프</value>
+  </data>
+  <data name="PolarCoordinatesEdgeMode_Repeat" xml:space="preserve">
+    <value>반복</value>
+  </data>
+  <data name="PolarCoordinatesEdgeMode_Mirror" xml:space="preserve">
+    <value>미러</value>
+  </data>
   <data name="WaveRefraction" xml:space="preserve">
     <value>물결 굴절</value>
   </data>
@@ -1922,6 +2279,60 @@
   <data name="MotionBlur_End" xml:space="preserve">
     <value>끝</value>
   </data>
+  <data name="Echo" xml:space="preserve">
+    <value>에코</value>
+  </data>
+  <data name="Echo_Description" xml:space="preserve">
+    <value>이전 또는 이후 시점의 개체 복사본을 불투명도를 낮추면서 겹쳐 그립니다. 후속 효과는 합성 결과에 한 번 적용됩니다.</value>
+  </data>
+  <data name="Echo_Interval" xml:space="preserve">
+    <value>간격 (초)</value>
+  </data>
+  <data name="Echo_Interval_Description" xml:space="preserve">
+    <value>복사본 사이의 시간 간격입니다. 음수는 이전 시점, 양수는 이후 시점을 사용하며 0은 현재 시점을 반복합니다.</value>
+  </data>
+  <data name="Echo_Count" xml:space="preserve">
+    <value>개수</value>
+  </data>
+  <data name="Echo_Count_Description" xml:space="preserve">
+    <value>현재 시점을 포함한 전체 복사본 수(1~64)입니다. 복사본이 많을수록 렌더링 시간과 메모리 사용량이 늘어납니다.</value>
+  </data>
+  <data name="Echo_StartingIntensity" xml:space="preserve">
+    <value>시작 강도</value>
+  </data>
+  <data name="Echo_StartingIntensity_Description" xml:space="preserve">
+    <value>현재 시점 복사본의 불투명도입니다. 0%에서는 모든 복사본이 투명합니다.</value>
+  </data>
+  <data name="Echo_Decay" xml:space="preserve">
+    <value>감쇠</value>
+  </data>
+  <data name="Echo_Decay_Description" xml:space="preserve">
+    <value>다음 복사본이 유지할 불투명도의 비율입니다. 0%에서는 현재 시점의 복사본만 그리며 100%에서는 모든 복사본의 불투명도가 같습니다.</value>
+  </data>
+  <data name="Echo_BlendMode" xml:space="preserve">
+    <value>혼합 모드</value>
+  </data>
+  <data name="Echo_BlendMode_Description" xml:space="preserve">
+    <value>시간상 가장 최근 복사본을 맨 위에 그리거나 복사본이 겹치는 부분의 색을 더합니다.</value>
+  </data>
+  <data name="EchoBlendMode_NewestOnTop" xml:space="preserve">
+    <value>최근 시점을 맨 위에</value>
+  </data>
+  <data name="EchoBlendMode_Add" xml:space="preserve">
+    <value>더하기</value>
+  </data>
+  <data name="SteppedMotion" xml:space="preserve">
+    <value>스톱 모션</value>
+  </data>
+  <data name="SteppedMotion_Description" xml:space="preserve">
+    <value>요소의 시작 시점부터 일정한 간격으로 입력을 샘플링하여 유지합니다.</value>
+  </data>
+  <data name="SteppedMotion_FrameRate" xml:space="preserve">
+    <value>프레임률 (fps)</value>
+  </data>
+  <data name="SteppedMotion_FrameRate_Description" xml:space="preserve">
+    <value>초당 샘플 수입니다. 값이 낮을수록 각 프레임을 더 오래 유지합니다. 시간에 따라 바꾸려면 키프레임을 사용하세요. 식으로 지정한 프레임률은 시작부터의 시간 전체에 적용됩니다.</value>
+  </data>
   <data name="AlphaMode" xml:space="preserve">
     <value>알파 모드</value>
   </data>
@@ -1939,5 +2350,485 @@
   </data>
   <data name="UnlitMaterial_AlphaCutoff" xml:space="preserve">
     <value>알파 임계값</value>
+  </data>
+  <data name="MeshWarp" xml:space="preserve">
+    <value>메시 워프</value>
+  </data>
+  <data name="MeshWarp_Rows" xml:space="preserve">
+    <value>행 수</value>
+  </data>
+  <data name="MeshWarp_Columns" xml:space="preserve">
+    <value>열 수</value>
+  </data>
+  <data name="MeshWarp_Interpolation" xml:space="preserve">
+    <value>보간</value>
+  </data>
+  <data name="MeshWarp_Smooth" xml:space="preserve">
+    <value>부드럽게</value>
+  </data>
+  <data name="MeshWarp_Mesh" xml:space="preserve">
+    <value>메시</value>
+  </data>
+  <data name="MeshWarp_Mesh_Description" xml:space="preserve">
+    <value>미리 보기에서 제어점을 끌어 이동합니다. 핸들은 강도와 관계없이 메시의 전체 변형을 표시합니다.</value>
+  </data>
+  <data name="MeshWarp_Reset" xml:space="preserve">
+    <value>메시 재설정</value>
+  </data>
+  <data name="MeshWarp_Point" xml:space="preserve">
+    <value>메시 제어점({0}행, {1}열)</value>
+  </data>
+  <data name="MeshWarp_EditingPreviewHint" xml:space="preserve">
+    <value>메시 제어점 편집 중입니다. 미리 보기에서 이후 효과를 일시적으로 숨깁니다.</value>
+  </data>
+  <data name="CornerPin" xml:space="preserve">
+    <value>코너 핀</value>
+  </data>
+  <data name="CornerPin_TopLeft" xml:space="preserve">
+    <value>왼쪽 위</value>
+  </data>
+  <data name="CornerPin_TopRight" xml:space="preserve">
+    <value>오른쪽 위</value>
+  </data>
+  <data name="CornerPin_BottomRight" xml:space="preserve">
+    <value>오른쪽 아래</value>
+  </data>
+  <data name="CornerPin_BottomLeft" xml:space="preserve">
+    <value>왼쪽 아래</value>
+  </data>
+  <data name="CornerPin_EditingPreviewHint" xml:space="preserve">
+    <value>모서리를 드래그해 원근을 조정합니다. 후속 효과는 미리 보기에서 숨겨집니다.</value>
+  </data>
+  <data name="Puppet" xml:space="preserve">
+    <value>퍼펫</value>
+  </data>
+  <data name="Puppet_Pins" xml:space="preserve">
+    <value>핀</value>
+  </data>
+  <data name="Puppet_Pin" xml:space="preserve">
+    <value>핀</value>
+  </data>
+  <data name="Puppet_AddPin" xml:space="preserve">
+    <value>핀 추가</value>
+  </data>
+  <data name="Puppet_FinishPlacement" xml:space="preserve">
+    <value>배치 끝내기</value>
+  </data>
+  <data name="Puppet_PlacementHint" xml:space="preserve">
+    <value>이미지를 클릭해 핀을 배치하세요. Esc로 종료합니다.</value>
+  </data>
+  <data name="Puppet_EditingPreviewHint" xml:space="preserve">
+    <value>퍼펫 핀 편집 중입니다. 미리 보기에서 이후 효과를 일시적으로 숨깁니다.</value>
+  </data>
+  <data name="Puppet_PreparingPlacement" xml:space="preserve">
+    <value>핀 배치 준비 중…</value>
+  </data>
+  <data name="Puppet_PlacementUnavailable" xml:space="preserve">
+    <value>이 프레임에 핀을 배치할 수 있는 이미지가 없습니다.</value>
+  </data>
+  <data name="Puppet_RemovePin" xml:space="preserve">
+    <value>선택한 핀 삭제</value>
+  </data>
+  <data name="Puppet_PositionDescription" xml:space="preserve">
+    <value>이미지를 기준으로 한 상대 좌표입니다. 왼쪽 위는 (0, 0), 오른쪽 아래는 (1, 1)입니다.</value>
+  </data>
+  <data name="Puppet_LibraryDescription" xml:space="preserve">
+    <value>이미지에 핀을 놓고 움직여 변형합니다 (퍼펫 핀, 퍼펫 도구 / puppet pin, puppet tool, deform).</value>
+  </data>
+  <data name="EllipseShape_LibraryDescription" xml:space="preserve">
+    <value>마스크로도 쓸 수 있는 원이나 타원을 그립니다 (타원, 도형, 솔리드, 마스크, 트랙 매트 / ellipse, shape, solid, mask, track matte).</value>
+  </data>
+  <data name="RectShape_LibraryDescription" xml:space="preserve">
+    <value>마스크로도 쓸 수 있는 사각형을 그립니다 (사각형, 도형, 솔리드, 마스크, 트랙 매트 / rectangle, shape, solid, mask, track matte).</value>
+  </data>
+  <data name="RoundedRectShape_LibraryDescription" xml:space="preserve">
+    <value>마스크로도 쓸 수 있는 둥근 사각형을 그립니다 (둥근 사각형, 도형, 솔리드, 마스크, 트랙 매트 / rounded rectangle, shape, solid, mask, track matte).</value>
+  </data>
+  <data name="GeometryShape_LibraryDescription" xml:space="preserve">
+    <value>벡터 패스로 그래픽이나 마스크에 쓸 도형을 그립니다 (벡터 패스, 사용자 정의 도형, 레이어 마스크, 트랙 매트 / vector path, custom shape, layer mask, track matte).</value>
+  </data>
+  <data name="TextBlock_LibraryDescription" xml:space="preserve">
+    <value>장면에 서식을 지정할 수 있는 텍스트를 추가합니다 (타이틀, 제목, 자막 / title, caption, subtitle).</value>
+  </data>
+  <data name="SourceVideo_LibraryDescription" xml:space="preserve">
+    <value>장면에서 동영상 파일을 재생합니다 (동영상 클립, 영상 소스 / video clip, footage).</value>
+  </data>
+  <data name="SourceImage_LibraryDescription" xml:space="preserve">
+    <value>파일의 정지 이미지를 표시합니다 (정지 이미지, 이미지 레이어 / still image, image layer).</value>
+  </data>
+  <data name="SourceBackdrop_LibraryDescription" xml:space="preserve">
+    <value>아래에 있는 모든 레이어에 효과를 적용합니다 (조정 레이어 / adjustment layer).</value>
+  </data>
+  <data name="Scene3D_LibraryDescription" xml:space="preserve">
+    <value>카메라를 통해 3D 오브젝트와 조명을 렌더링합니다 (3D 컴포지션, 3D 장면 / 3D composition, 3D scene).</value>
+  </data>
+  <data name="Cube3D_LibraryDescription" xml:space="preserve">
+    <value>너비, 높이, 깊이를 조절할 수 있는 상자를 추가합니다 (3D 상자, 큐브 기본 도형 / 3D box, cube primitive).</value>
+  </data>
+  <data name="Sphere3D_LibraryDescription" xml:space="preserve">
+    <value>반지름과 분할 수를 조절할 수 있는 구체를 추가합니다 (3D 구체, 구 기본 도형 / 3D sphere, sphere primitive).</value>
+  </data>
+  <data name="Plane3D_LibraryDescription" xml:space="preserve">
+    <value>3D 공간에 평평한 직사각형 표면을 추가합니다 (3D 평면, 평면 기본 도형 / 3D plane, surface primitive).</value>
+  </data>
+  <data name="Model3D_LibraryDescription" xml:space="preserve">
+    <value>파일에서 3D 모델을 불러와 장면에 추가합니다 (3D 모델 가져오기, 메시 가져오기 / 3D model import, mesh import).</value>
+  </data>
+  <data name="DrawableObject3D_LibraryDescription" xml:space="preserve">
+    <value>2D 콘텐츠를 평면 카드로 3D 장면에 배치합니다 (3D 레이어, 이미지 평면, 2.5D / 3D layer, image plane, 2.5D).</value>
+  </data>
+  <data name="DirectionalLight3D_LibraryDescription" xml:space="preserve">
+    <value>햇빛처럼 평행한 빛으로 3D 장면을 비춥니다 (태양광, 평행광 / sun light, parallel light).</value>
+  </data>
+  <data name="PointLight3D_LibraryDescription" xml:space="preserve">
+    <value>3D 장면의 한 지점에서 모든 방향으로 빛을 비춥니다 (점광원, 전방향 조명 / point light, omni light).</value>
+  </data>
+  <data name="SpotLight3D_LibraryDescription" xml:space="preserve">
+    <value>3D 장면에 원뿔 모양의 빛을 비춥니다 (스포트라이트, 원뿔형 조명 / spotlight, cone light).</value>
+  </data>
+  <data name="ParticleEmitter_LibraryDescription" xml:space="preserve">
+    <value>불꽃이나 눈송이 같은 작은 입자를 만들고 움직입니다 (파티클 시스템, 입자 생성기 / particle system, particle generator).</value>
+  </data>
+  <data name="NodeGraphDrawable_LibraryDescription" xml:space="preserve">
+    <value>연결된 노드 그래프에서 그래픽을 생성합니다 (노드 기반 그래픽, 절차적 그래픽 / node-based graphics, procedural graphics).</value>
+  </data>
+  <data name="SceneDrawable_LibraryDescription" xml:space="preserve">
+    <value>다른 장면의 영상을 하나의 레이어로 표시합니다 (사전 컴포지션, 프리컴프, 중첩 시퀀스, 복합 클립 / precomp, pre-compose, nested sequence, compound clip).</value>
+  </data>
+  <data name="DrawableDecorator_LibraryDescription" xml:space="preserve">
+    <value>각 하위 오브젝트의 영역과 변형 기준점을 사용해 변형, 불투명도, 혼합, 효과를 개별적으로 적용합니다 (효과 그룹 / effect group).</value>
+  </data>
+  <data name="DrawableGroup_LibraryDescription" xml:space="preserve">
+    <value>공통 기준점을 중심으로 하위 오브젝트를 함께 변형합니다. 불투명도와 혼합은 그룹 전체에 적용되며 효과는 그룹 전체 영역을 사용할 수 있습니다 (부모, 널 오브젝트, 널 개체, 그룹 제어 / parent, null object).</value>
+  </data>
+  <data name="DrawableTimeController_LibraryDescription" xml:space="preserve">
+    <value>오브젝트의 재생 위치와 속도를 바꿉니다. 프레임 속도는 오브젝트를 평가하는 시간 간격을 정합니다 (시간 다시 매핑, 속도 램프, 프레임 고정 / time remap, speed ramp, freeze frame).</value>
+  </data>
+  <data name="AudioWaveformDrawable_LibraryDescription" xml:space="preserve">
+    <value>시간에 따른 오디오 진폭을 그립니다 (오디오 파형, 파형 시각화 / audio waveform, waveform visualizer).</value>
+  </data>
+  <data name="AudioSpectrumDrawable_LibraryDescription" xml:space="preserve">
+    <value>오디오의 주파수별 레벨을 표시합니다 (오디오 스펙트럼, 스펙트럼 분석기 / audio spectrum, spectrum analyzer).</value>
+  </data>
+  <data name="AudioSpectrogramDrawable_LibraryDescription" xml:space="preserve">
+    <value>시간에 따른 오디오 주파수 변화를 색으로 표시합니다 (스펙트로그램, 주파수 히트맵 / spectrogram, frequency heatmap).</value>
+  </data>
+  <data name="TranslateTransform_LibraryDescription" xml:space="preserve">
+    <value>오브젝트를 가로와 세로 방향으로 이동합니다 (위치, 평행 이동 / position, translation).</value>
+  </data>
+  <data name="SkewTransform_LibraryDescription" xml:space="preserve">
+    <value>오브젝트의 변을 비스듬하게 기울입니다 (기울이기, 전단 / skew, shear).</value>
+  </data>
+  <data name="ScaleTransform_LibraryDescription" xml:space="preserve">
+    <value>오브젝트의 너비와 높이를 조절합니다 (스케일, 크기 조절 / scale, resize).</value>
+  </data>
+  <data name="RotationTransform_LibraryDescription" xml:space="preserve">
+    <value>이미지 평면에서 기준점을 중심으로 오브젝트를 회전합니다 (회전, 2D 회전 / rotation, 2D rotate).</value>
+  </data>
+  <data name="Rotation3DTransform_LibraryDescription" xml:space="preserve">
+    <value>평면 오브젝트를 원근감 있게 기울이고 회전합니다 (3D 회전, 원근 변형 / 3D rotation, perspective transform).</value>
+  </data>
+  <data name="Blur_LibraryDescription" xml:space="preserve">
+    <value>가우시안 흐림으로 이미지를 부드럽게 만듭니다 (가우시안 블러, 소프트 포커스 / Gaussian blur, soft focus).</value>
+  </data>
+  <data name="Sharpen_LibraryDescription" xml:space="preserve">
+    <value>윤곽 주변의 대비를 높여 세부를 선명하게 합니다 (언샵 마스크, 선명하게 / unsharp mask, sharpen details).</value>
+  </data>
+  <data name="RadialBlur_LibraryDescription" xml:space="preserve">
+    <value>한 점을 중심으로 확대하거나 회전하는 것처럼 이미지를 흐리게 합니다 (줌 블러, 회전 블러 / zoom blur, spin blur).</value>
+  </data>
+  <data name="MotionBlur_LibraryDescription" xml:space="preserve">
+    <value>셔터가 열린 시간 동안 오브젝트의 모습을 평균 내어 움직임을 흐리게 합니다 (셔터 블러 / shutter blur).</value>
+  </data>
+  <data name="Echo_LibraryDescription" xml:space="preserve">
+    <value>이전이나 이후 시점의 복사본을 일정 간격으로 가져와 불투명도를 줄이며 겹쳐 그립니다 (잔상, 고스트 트레일 / afterimage, ghost trail, motion trails).</value>
+  </data>
+  <data name="SteppedMotion_LibraryDescription" xml:space="preserve">
+    <value>샘플링한 프레임을 다음 샘플까지 유지합니다. 그동안 뒤에 있는 효과의 애니메이션은 계속 재생될 수 있습니다 (저프레임 레이트 / frame hold, stop motion, posterize time).</value>
+  </data>
+  <data name="Bokeh_LibraryDescription" xml:space="preserve">
+    <value>렌즈 조리개 모양으로 이미지를 흐리게 합니다 (렌즈 흐림, 디포커스 / lens blur, defocus).</value>
+  </data>
+  <data name="Bloom_LibraryDescription" xml:space="preserve">
+    <value>밝은 영역의 빛이 주변으로 번지게 합니다 (발광, 글로우 / glow, bloom).</value>
+  </data>
+  <data name="LightRays_LibraryDescription" xml:space="preserve">
+    <value>하이라이트를 한 점에서 뻗어 나가는 빛줄기로 만듭니다 (빛줄기, 볼류메트릭 라이트, 갓 레이 / god rays, volumetric light).</value>
+  </data>
+  <data name="WaveRefraction_LibraryDescription" xml:space="preserve">
+    <value>물결을 통과한 빛처럼 이미지를 왜곡합니다 (물결, 파형 왜곡 / ripple, wave distortion).</value>
+  </data>
+  <data name="PolarCoordinates_LibraryDescription" xml:space="preserve">
+    <value>이미지를 중심 주위로 감거나 원형 이미지를 띠로 펼칩니다 (직교 좌표에서 극좌표, 극좌표에서 직교 좌표 / rectangular to polar, polar to rectangular).</value>
+  </data>
+  <data name="DropShadow_LibraryDescription" xml:space="preserve">
+    <value>오브젝트 뒤에 위치를 옮긴 그림자를 드리웁니다 (드롭 섀도우, 투영 그림자 / drop shadow, cast shadow).</value>
+  </data>
+  <data name="InnerShadow_LibraryDescription" xml:space="preserve">
+    <value>안쪽 가장자리를 어둡게 하여 깊이감을 줍니다 (내부 그림자, 이너 섀도우 / inner shadow, inset shadow).</value>
+  </data>
+  <data name="FlatShadow_LibraryDescription" xml:space="preserve">
+    <value>오브젝트에서 한 방향으로 단색 그림자를 뻗게 합니다 (긴 그림자, 플랫 섀도우 / long shadow, flat shadow).</value>
+  </data>
+  <data name="StrokeEffect_LibraryDescription" xml:space="preserve">
+    <value>오브젝트의 윤곽을 따라 선을 그립니다 (윤곽선, 테두리, 선 / outline, border, stroke).</value>
+  </data>
+  <data name="Clipping_LibraryDescription" xml:space="preserve">
+    <value>이미지의 네 변에서 안쪽으로 잘라냅니다 (자르기, 크롭, 트리밍, 마스크 / crop, trim, mask).</value>
+  </data>
+  <data name="DiagonalClipping_LibraryDescription" xml:space="preserve">
+    <value>기울어진 경계선이나 띠를 따라 이미지를 잘라냅니다 (자르기, 크롭, 트리밍, 대각선 마스크 / crop, trim, mask, diagonal wipe).</value>
+  </data>
+  <data name="Dilate_LibraryDescription" xml:space="preserve">
+    <value>이미지의 밝거나 불투명한 부분을 넓힙니다 (팽창, 매트 확장, 매트 초커 / expand, grow matte, matte choker).</value>
+  </data>
+  <data name="Erode_LibraryDescription" xml:space="preserve">
+    <value>이미지의 밝거나 불투명한 부분을 줄입니다 (침식, 수축, 매트 초커 / shrink, choke, matte choker).</value>
+  </data>
+  <data name="HighContrast_LibraryDescription" xml:space="preserve">
+    <value>이미지의 대비를 조절하고 필요에 따라 회색조나 반전을 적용합니다 (대비 증가, 흑백 / contrast boost, black and white).</value>
+  </data>
+  <data name="HueRotate_LibraryDescription" xml:space="preserve">
+    <value>색상환을 따라 이미지의 색조를 바꿉니다 (색조 이동, 색상 변경 / hue shift, hue offset).</value>
+  </data>
+  <data name="Lighting_LibraryDescription" xml:space="preserve">
+    <value>이미지의 색에 다른 색을 곱하거나 더합니다 (색상 곱하기, 색상 더하기 / color multiply, color add).</value>
+  </data>
+  <data name="LumaColor_LibraryDescription" xml:space="preserve">
+    <value>이미지의 휘도를 투명도로 변환합니다 (루마를 알파로, 휘도 매트 / luma to alpha, luminance matte).</value>
+  </data>
+  <data name="Saturate_LibraryDescription" xml:space="preserve">
+    <value>색을 더 선명하게 하거나 옅게 합니다 (채도, 채도 감소 / saturation, desaturate).</value>
+  </data>
+  <data name="Threshold_LibraryDescription" xml:space="preserve">
+    <value>밝기 기준값으로 이미지를 밝은 영역과 어두운 영역으로 나눕니다 (이진화, 흑백 임계값 / binarize, black and white threshold).</value>
+  </data>
+  <data name="EdgeDetection_LibraryDescription" xml:space="preserve">
+    <value>밝기, 색 또는 투명도가 변하는 경계에 선을 그립니다 (가장자리 찾기, 윤곽 / find edges, contour).</value>
+  </data>
+  <data name="Brightness_LibraryDescription" xml:space="preserve">
+    <value>이미지 전체를 밝게 하거나 어둡게 합니다 (밝게 하기, 어둡게 하기 / brighten, darken).</value>
+  </data>
+  <data name="OpacityEffect_LibraryDescription" xml:space="preserve">
+    <value>효과 목록의 이 위치에서 이미지의 투명도를 바꿉니다. 오브젝트 전체를 페이드하려면 오브젝트의 불투명도를 사용합니다 (알파, 투명도 / alpha, transparency).</value>
+  </data>
+  <data name="Gamma_LibraryDescription" xml:space="preserve">
+    <value>중간톤을 밝게 하거나 어둡게 하여 톤 균형을 조절합니다 (감마 보정, 중간톤 / gamma correction, midtones).</value>
+  </data>
+  <data name="ColorGrading_LibraryDescription" xml:space="preserve">
+    <value>이미지의 전체적인 색과 톤을 조절합니다 (색 보정, 화이트 밸런스, 컬러 그레이딩 / color correction, white balance, grading).</value>
+  </data>
+  <data name="Curves_LibraryDescription" xml:space="preserve">
+    <value>곡선을 사용해 밝기와 색상 채널별 값을 조절합니다 (톤 곡선, RGB 곡선 / tone curve, RGB curves).</value>
+  </data>
+  <data name="FilmGrain_LibraryDescription" xml:space="preserve">
+    <value>필름 입자와 비슷한 미세한 노이즈를 추가합니다 (노이즈, 그레인, 필름 입자 / noise, grain).</value>
+  </data>
+  <data name="Vignette_LibraryDescription" xml:space="preserve">
+    <value>지정한 중심에서 멀어질수록 이미지를 어둡게 하고, 양을 음수로 하면 밝게 합니다 (비네팅, 가장자리 어둡게 / lens vignette, edge darkening).</value>
+  </data>
+  <data name="Invert_LibraryDescription" xml:space="preserve">
+    <value>이미지의 색을 반전하며 알파 채널도 반전할 수 있습니다 (색상 반전 / invert colors).</value>
+  </data>
+  <data name="LutEffect_LibraryDescription" xml:space="preserve">
+    <value>조회 테이블을 사용하여 이미지의 색을 변환합니다 (색상 조회 테이블, LUT, 컬러 그레이딩 / color lookup, LUT, color grading).</value>
+  </data>
+  <data name="BlendEffect_LibraryDescription" xml:space="preserve">
+    <value>브러시와 이미지를 혼합합니다. 아래 레이어와 섞으려면 오브젝트의 혼합 모드를 사용합니다 (색상 오버레이, 색조 / color overlay, tint).</value>
+  </data>
+  <data name="Negaposi_LibraryDescription" xml:space="preserve">
+    <value>기준 RGB 색에서 이미지의 색을 뺍니다. 기본 설정에서는 이미지가 검게 보입니다 (네거티브 / color negative).</value>
+  </data>
+  <data name="ChromaKey_LibraryDescription" xml:space="preserve">
+    <value>색조와 채도로 배경을 골라 투명하게 만들고 피사체에 번진 배경색을 억제합니다 (그린 스크린, 블루 스크린, 크로마 키, 키잉, 스필 억제 / green screen, blue screen, keylight, despill, spill suppressor).</value>
+  </data>
+  <data name="ColorKey_LibraryDescription" xml:space="preserve">
+    <value>지정한 색과 비슷한 픽셀을 투명하게 만듭니다 (키잉, 색상 키, 색상 매트 / keying, color key, color matte).</value>
+  </data>
+  <data name="LumaKey_LibraryDescription" xml:space="preserve">
+    <value>밝기를 기준으로 이미지의 일부를 투명하게 만듭니다 (키잉, 루마 키, 휘도 키, 루마 매트 / keying, luminance key, luma matte).</value>
+  </data>
+  <data name="SplitEffect_LibraryDescription" xml:space="preserve">
+    <value>이미지를 격자로 나누고 조각 사이의 간격을 조절합니다 (격자 분할, 슬라이스 / grid split, slice).</value>
+  </data>
+  <data name="PartsSplitEffect_LibraryDescription" xml:space="preserve">
+    <value>이미지에서 투명 영역으로 떨어져 있는 부분을 각각의 조각으로 분리합니다 (알파 분할, 파트 분리 / split by alpha, separate islands).</value>
+  </data>
+  <data name="RepeatEffect_LibraryDescription" xml:space="preserve">
+    <value>이미지의 복사본을 가로와 세로로 배열합니다 (타일, 모션 타일, 리피터 / tile, motion tile, repeater).</value>
+  </data>
+  <data name="TransformEffect_LibraryDescription" xml:space="preserve">
+    <value>효과를 적용하는 과정에서 이미지의 위치, 크기, 회전을 조절합니다 (위치, 스케일, 회전 / position, scale, rotation).</value>
+  </data>
+  <data name="MosaicEffect_LibraryDescription" xml:space="preserve">
+    <value>이미지 세부를 단색 블록으로 바꿉니다 (픽셀화, 모자이크, 검열 / pixelate, censor).</value>
+  </data>
+  <data name="ColorShift_LibraryDescription" xml:space="preserve">
+    <value>빨강, 초록, 파랑, 알파 채널을 각각 가로와 세로로 이동합니다 (RGB 분리 / RGB split, channel shift).</value>
+  </data>
+  <data name="LensChromaticAberration_LibraryDescription" xml:space="preserve">
+    <value>중심점을 기준으로 빨강과 파랑 중 하나는 확대하고 다른 하나는 축소해 렌즈의 색 번짐을 재현합니다 (색수차, 색 번짐 / chromatic aberration).</value>
+  </data>
+  <data name="ShakeEffect_LibraryDescription" xml:space="preserve">
+    <value>조절 가능한 속도와 강도로 이미지를 흔듭니다 (흔들기, 카메라 흔들림, 진동 / wiggle, camera shake).</value>
+  </data>
+  <data name="DisplacementMapEffect_LibraryDescription" xml:space="preserve">
+    <value>변위 맵에 따라 픽셀을 이동해 이미지를 왜곡합니다 (왜곡, 워프, 변위 맵 / distort, warp, displacement map).</value>
+  </data>
+  <data name="MeshWarp_LibraryDescription" xml:space="preserve">
+    <value>격자의 제어점을 움직여 이미지를 변형합니다 (메시 왜곡, 격자 워프 / mesh distortion, grid warp).</value>
+  </data>
+  <data name="CornerPin_LibraryDescription" xml:space="preserve">
+    <value>이미지의 네 모서리를 움직여 원근을 바꿉니다(원근 왜곡, 4점 변형, four-point, CC Power Pin).</value>
+  </data>
+  <data name="PathFollowEffect_LibraryDescription" xml:space="preserve">
+    <value>오브젝트를 경로를 따라 이동시키고 경로 방향으로 회전시킬 수 있습니다 (모션 패스, 경로 애니메이션 / motion path, path animation).</value>
+  </data>
+  <data name="LayerEffect_LibraryDescription" xml:space="preserve">
+    <value>분리된 효과 출력을 한 이미지로 합칩니다 (레이어 병합, 병합 / flatten, merge layers).</value>
+  </data>
+  <data name="DelayAnimationEffect_LibraryDescription" xml:space="preserve">
+    <value>복사본이나 조각, 텍스트의 문자마다 효과 애니메이션의 타이밍을 다르게 적용하여 차례로 움직이게 합니다 (시차 애니메이션, 시간 오프셋, 텍스트 애니메이션 / stagger, time offset, text animator).</value>
+  </data>
+  <data name="PixelSortEffect_LibraryDescription" xml:space="preserve">
+    <value>연속된 픽셀을 밝기나 색으로 정렬해 줄무늬를 만듭니다 (픽셀 정렬, 줄무늬 글리치 / pixel sorting, streak glitch).</value>
+  </data>
+  <data name="NodeGraphFilterEffect_LibraryDescription" xml:space="preserve">
+    <value>연결된 효과 노드 그래프로 이미지를 처리합니다 (노드 합성, 노드 효과 / node-based compositing, node effect).</value>
+  </data>
+  <data name="CSharpScriptEffect_LibraryDescription" xml:space="preserve">
+    <value>C# 스크립트를 실행해 사용자 정의 효과를 적용합니다 (C# 스크립팅, 스크립트 효과 / C# scripting, scripted effect).</value>
+  </data>
+  <data name="SKSLScriptEffect_LibraryDescription" xml:space="preserve">
+    <value>SkSL로 작성한 Skia 셰이더로 이미지를 처리합니다 (Skia 셰이더, 사용자 정의 셰이더 / Skia shader, custom shader).</value>
+  </data>
+  <data name="GLSLScriptEffect_LibraryDescription" xml:space="preserve">
+    <value>GLSL 프래그먼트 셰이더로 이미지를 처리합니다 (프래그먼트 셰이더, 사용자 정의 셰이더 / fragment shader, custom shader).</value>
+  </data>
+  <data name="CrossDissolveTransition_LibraryDescription" xml:space="preserve">
+    <value>나가는 클립과 들어오는 클립의 투명도를 동시에 바꿔 서로 섞습니다 (크로스페이드, 디졸브 / crossfade, dissolve).</value>
+  </data>
+  <data name="FadeTransition_LibraryDescription" xml:space="preserve">
+    <value>나가는 클립을 투명하게 사라지게 한 다음 들어오는 클립을 서서히 표시합니다 (페이드 인, 페이드 아웃 / fade in, fade out).</value>
+  </data>
+  <data name="WipeTransition_LibraryDescription" xml:space="preserve">
+    <value>움직이는 경계선이나 커지는 도형을 따라 들어오는 클립을 드러냅니다 (선형 와이프, 시계 와이프 / linear wipe, clock wipe).</value>
+  </data>
+  <data name="DipToColorTransition_LibraryDescription" xml:space="preserve">
+    <value>나가는 클립을 단색으로 페이드한 다음 들어오는 클립을 표시합니다 (색상으로 페이드, 검정으로 페이드 / fade through color, dip to black).</value>
+  </data>
+  <data name="PushTransition_LibraryDescription" xml:space="preserve">
+    <value>들어오는 클립이 화면 안으로 이동하면서 나가는 클립을 밖으로 밀어냅니다 (밀어내기, 푸시 전환 / push wipe, slide push).</value>
+  </data>
+  <data name="SlideTransition_LibraryDescription" xml:space="preserve">
+    <value>들어오는 클립을 나가는 클립 위로 미끄러지듯 이동시킵니다 (슬라이드 인, 슬라이드 전환 / slide in, slide wipe).</value>
+  </data>
+  <data name="ZoomTransition_LibraryDescription" xml:space="preserve">
+    <value>화면 중앙을 기준으로 클립을 확대하거나 축소하면서 디졸브합니다 (줌 인, 줌 아웃, 줌 디졸브 / zoom in, zoom out, zoom dissolve).</value>
+  </data>
+  <data name="IrisTransition_LibraryDescription" xml:space="preserve">
+    <value>중앙의 구멍을 넓히거나 좁혀 클립을 드러내거나 가립니다 (아이리스 와이프, 원형 와이프 / iris wipe, circle reveal).</value>
+  </data>
+  <data name="SplitTransition_LibraryDescription" xml:space="preserve">
+    <value>나가는 클립을 중앙에서 양쪽으로 열어 들어오는 클립을 드러냅니다 (분할 와이프, 문 열기 / split wipe, barn doors).</value>
+  </data>
+  <data name="BlindsTransition_LibraryDescription" xml:space="preserve">
+    <value>블라인드처럼 평행한 띠를 열어 들어오는 클립을 드러냅니다 (베네치안 블라인드, 줄무늬 와이프 / venetian blinds, strip wipe).</value>
+  </data>
+  <data name="CheckerboardTransition_LibraryDescription" xml:space="preserve">
+    <value>체커보드의 칸을 번갈아 넓혀 들어오는 클립을 드러냅니다 (체커보드 와이프, 격자 전환 / checker wipe, tile reveal).</value>
+  </data>
+  <data name="ZoomBlurTransition_LibraryDescription" xml:space="preserve">
+    <value>이미지를 확대하거나 축소하고 컷에서 방사형 흐림을 가장 강하게 적용합니다 (줌 블러, 방사형 흐림 전환 / zoom blur, radial blur transition).</value>
+  </data>
+  <data name="WhipPanTransition_LibraryDescription" xml:space="preserve">
+    <value>빠른 카메라 팬처럼 한 방향으로 흐리게 하며 클립을 전환합니다 (휩 팬, 패닝 블러 / swish pan, pan blur).</value>
+  </data>
+  <data name="GlitchTransition_LibraryDescription" xml:space="preserve">
+    <value>수평 띠를 옮기고 색을 분리해 화면이 깨지는 듯 전환합니다 (디지털 글리치, RGB 분리 / digital glitch, RGB split).</value>
+  </data>
+  <data name="LightLeakTransition_LibraryDescription" xml:space="preserve">
+    <value>따뜻한 빛샘과 플레어를 화면에 지나가게 하며 전환합니다 (필름 번, 빛샘, 섬광 / film burn, light flash).</value>
+  </data>
+  <data name="RangeAnimatorEffect" xml:space="preserve">
+    <value>범위 애니메이터</value>
+  </data>
+  <data name="RangeAnimatorEffect_LibraryDescription" xml:space="preserve">
+    <value>문자별로 분할한 텍스트나 부품별 분할로 나눈 이미지에서 지정한 범위에 애니메이션을 적용합니다.</value>
+  </data>
+  <data name="RangeAnimatorEffect_Start" xml:space="preserve">
+    <value>시작</value>
+  </data>
+  <data name="RangeAnimatorEffect_End" xml:space="preserve">
+    <value>끝</value>
+  </data>
+  <data name="RangeAnimatorEffect_Shape" xml:space="preserve">
+    <value>모양</value>
+  </data>
+  <data name="RangeAnimatorEffect_Smoothness" xml:space="preserve">
+    <value>부드러움</value>
+  </data>
+  <data name="RangeAnimatorEffect_Smoothness_Description" xml:space="preserve">
+    <value>사각형 모양의 경계를 부드럽게 합니다. 100%에서는 각 파트의 구간이 선택 범위와 겹치는 비율만큼 효과를 적용합니다. 0%에서는 구간의 중심이 범위 안에 있을 때만 효과를 적용합니다.</value>
+  </data>
+  <data name="RangeAnimatorEffect_ColorAmount" xml:space="preserve">
+    <value>색상 적용량</value>
+  </data>
+  <data name="RangeAnimatorShape_Square" xml:space="preserve">
+    <value>사각형</value>
+  </data>
+  <data name="RangeAnimatorShape_RampUp" xml:space="preserve">
+    <value>상승 경사</value>
+  </data>
+  <data name="RangeAnimatorShape_RampDown" xml:space="preserve">
+    <value>하강 경사</value>
+  </data>
+  <data name="RangeAnimatorShape_Triangle" xml:space="preserve">
+    <value>삼각형</value>
+  </data>
+  <data name="RangeAnimatorShape_Round" xml:space="preserve">
+    <value>반원</value>
+  </data>
+  <data name="RangeAnimatorShape_Smooth" xml:space="preserve">
+    <value>부드러운 곡선</value>
+  </data>
+  <data name="FilterEffectCategory_BlurAndSharpen" xml:space="preserve">
+    <value>흐림 및 선명화</value>
+  </data>
+  <data name="FilterEffectCategory_ColorCorrection" xml:space="preserve">
+    <value>색상 보정</value>
+  </data>
+  <data name="FilterEffectCategory_LightAndShadow" xml:space="preserve">
+    <value>빛과 그림자</value>
+  </data>
+  <data name="FilterEffectCategory_MaskingAndKeying" xml:space="preserve">
+    <value>마스킹 및 키잉</value>
+  </data>
+  <data name="FilterEffectCategory_TransformAndDistort" xml:space="preserve">
+    <value>변형 및 왜곡</value>
+  </data>
+  <data name="FilterEffectCategory_TimeAndAnimation" xml:space="preserve">
+    <value>시간 및 애니메이션</value>
+  </data>
+  <data name="FilterEffectCategory_Stylize" xml:space="preserve">
+    <value>스타일화</value>
+  </data>
+  <data name="FilterEffectCategory_Compositing" xml:space="preserve">
+    <value>합성</value>
+  </data>
+  <data name="FilterEffectCategory_ScriptAndNodes" xml:space="preserve">
+    <value>스크립트 및 노드</value>
+  </data>
+  <data name="TextOnPathEffect" xml:space="preserve">
+    <value>경로를 따르는 텍스트</value>
+  </data>
+  <data name="TextOnPathEffect_Path" xml:space="preserve">
+    <value>경로</value>
+  </data>
+  <data name="TextOnPathEffect_PathOffset" xml:space="preserve">
+    <value>경로 오프셋 (px)</value>
+  </data>
+  <data name="TextOnPathEffect_LibraryDescription" xml:space="preserve">
+    <value>텍스트를 경로를 따라 배치합니다. 텍스트에서 문자별 분할을 켜세요.</value>
   </data>
 </root>

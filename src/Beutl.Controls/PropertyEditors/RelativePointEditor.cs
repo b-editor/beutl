@@ -1,12 +1,9 @@
-﻿using System.Reactive.Disposables;
-using System.Reactive.Linq;
+﻿using System.Reactive.Linq;
 
 using Avalonia;
 using Avalonia.Data;
-using Avalonia.Interactivity;
 
 using Beutl.Extensibility;
-using Beutl.Reactive;
 
 namespace Beutl.Controls.PropertyEditors;
 
@@ -63,33 +60,28 @@ public class RelativePointEditor : Vector2Editor, IValueEditorControl<Graphics.R
 
     public void Connect(IValueEditorContext<Graphics.RelativePoint> context)
     {
-        CompositeDisposable connection = StartConnection();
-        Graphics.RelativePoint shown = default;
-        context.EditValue.Subscribe(value => shown = value).DisposeWith(connection);
-        _values.ReadIncrementValues = () =>
-        {
-            var value = context.GetIncrementValue(new Graphics.RelativePoint(FirstValue, SecondValue, Unit));
-            return [value.Point.X, value.Point.Y];
-        };
-        BindComponent(FirstValueProperty, context.EditValue.Select(v => v.Point.X), connection);
-        BindComponent(SecondValueProperty, context.EditValue.Select(v => v.Point.Y), connection);
-        BindComponent(UnitProperty, context.EditValue.Select(v => v.Unit), connection);
-        this.AddDisposableHandler(ValueChangedEvent, (_, e) =>
+        ConnectComponents(
+            context,
+            connection =>
             {
-                if (e is PropertyEditorValueChangedEventArgs<Graphics.RelativePoint> args)
+                _values.ReadIncrementValues = () =>
                 {
-                    Graphics.RelativePoint coerced = PreviewEdit(context, args.NewValue, IsRelativeEdit);
-                    FirstValue = coerced.Point.X;
-                    SecondValue = coerced.Point.Y;
-                    Unit = coerced.Unit;
-                }
-            })
-            .DisposeWith(connection);
-        ConfirmEdits(context, connection, () =>
-        {
-            FirstValue = shown.Point.X;
-            SecondValue = shown.Point.Y;
-            Unit = shown.Unit;
-        });
+                    var value = context.GetIncrementValue(new Graphics.RelativePoint(FirstValue, SecondValue, Unit));
+                    return [value.Point.X, value.Point.Y];
+                };
+                _values.ReadFocusedValues = () => context.TryGetFocusedEditValue(out var focused)
+                    ? ([focused.Point.X, focused.Point.Y], focused.Unit)
+                    : null;
+                BindComponent(FirstValueProperty, context.EditValue.Select(v => v.Point.X), connection);
+                BindComponent(SecondValueProperty, context.EditValue.Select(v => v.Point.Y), connection);
+                BindComponent(UnitProperty, context.EditValue.Select(v => v.Unit), connection);
+            },
+            value =>
+            {
+                FirstValue = value.Point.X;
+                SecondValue = value.Point.Y;
+                Unit = value.Unit;
+            },
+            reportsMismatch: false);
     }
 }

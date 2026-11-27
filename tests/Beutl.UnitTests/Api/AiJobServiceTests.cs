@@ -3,6 +3,7 @@ using System.Net;
 using System.Reactive;
 using System.Reactive.Subjects;
 using Beutl.Api;
+using Beutl.Api.Objects;
 using Beutl.Api.Services;
 using Beutl.Extensibility;
 using Beutl.UnitTests.TestInfrastructure;
@@ -633,6 +634,80 @@ public sealed class AiJobMonitorTests
         await TestWait.UntilAsync(
             () => service.Snapshot.Value.Jobs.SingleOrDefault()?.Status == AiJobStatuses.Succeeded,
             TimeSpan.FromSeconds(3));
+    }
+
+    [Test]
+    public async Task PollingRestart_AfterAccountSwitch_RefreshesVideoWithNewAccountScope()
+    {
+        var accountAPollStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseAccountAPoll = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var accountBPollOwner = new TaskCompletionSource<AuthenticatedUser?>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        int accountBCompleted = 0;
+        using var handler = new DelegateHttpHandler(async (request, cancellationToken) =>
+        {
+            switch (request.RequestUri?.AbsolutePath)
+            {
+                case "/api/v3/ai/videos/video-a":
+                    accountAPollStarted.TrySetResult();
+                    await releaseAccountAPoll.Task;
+                    cancellationToken.ThrowIfCancellationRequested();
+                    return TestHttp.Json(HttpStatusCode.OK, """{"jobId":"video-a","status":"running"}""");
+                case "/api/v3/ai/videos/video-b":
+                    Volatile.Write(ref accountBCompleted, 1);
+                    accountBPollOwner.TrySetResult(AiAuthenticatedRequestScope.Current);
+                    return TestHttp.Json(HttpStatusCode.OK, """{"jobId":"video-b","status":"succeeded"}""");
+                default:
+                    return TestHttp.Json(HttpStatusCode.NotFound, "{}");
+            }
+        });
+        using var httpClient = new HttpClient(handler);
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        var accountAJob = new AiJob(
+            new AiJobId("video-a"), AiJobKinds.Video, AiJobStatuses.Running,
+            null, null, null, null, false, now, now);
+        AiJob accountBJob = accountAJob with { Id = new AiJobId("video-b") };
+        AiJob completedAccountBJob = accountBJob with { Status = AiJobStatuses.Succeeded };
+        bool accountAHasJob = false;
+        var client = new RecordingJobClient
+        {
+            PageProvider = _ => AiAuthenticatedRequestScope.Current?.Profile.Id switch
+            {
+                "account-a" when accountAHasJob => new AiJobPage([accountAJob], null),
+                "account-b" when Volatile.Read(ref accountBCompleted) != 0 => new AiJobPage([completedAccountBJob], null),
+                "account-b" => new AiJobPage([accountBJob], null),
+                _ => new AiJobPage([], null),
+            },
+        };
+        using var changes = new Subject<Unit>();
+        using var service = new AiJobMonitor(
+            app, client, app.GetResource<IAiJobKindRegistry>(), changes, TimeSpan.FromMilliseconds(10));
+
+        try
+        {
+            ApiTestAuthentication.SignIn(app, "account-a", "token-a");
+            accountAHasJob = true;
+            await service.RefreshAsync(CancellationToken.None);
+            TimeSpan timeout = TimeSpan.FromSeconds(5);
+            await accountAPollStarted.Task.WaitAsync(timeout);
+            using IDisposable polling = service.AcquirePolling();
+
+            // Keep the canceled loop in the video request until the next account has loaded its jobs.
+            AuthenticatedUser accountB = ApiTestAuthentication.SignIn(app, "account-b", "token-b");
+            Assert.That(service.Snapshot.Value.Jobs.Single(), Is.EqualTo(accountBJob));
+            Assert.That(accountBPollOwner.Task.IsCompleted, Is.False);
+            releaseAccountAPoll.TrySetResult();
+
+            Assert.That(await accountBPollOwner.Task.WaitAsync(timeout), Is.SameAs(accountB));
+            await TestWait.UntilAsync(
+                () => service.Snapshot.Value.Jobs.SingleOrDefault() == completedAccountBJob,
+                timeout);
+        }
+        finally
+        {
+            releaseAccountAPoll.TrySetResult();
+        }
     }
 
     [Test]

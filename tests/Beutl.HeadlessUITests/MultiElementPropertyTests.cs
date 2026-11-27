@@ -18,6 +18,7 @@ using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transformation;
 using Beutl.Language;
 using Beutl.Media;
+using Beutl.Media.Decoding;
 using Beutl.NodeGraph;
 using Beutl.NodeGraph.Nodes;
 using Beutl.ProjectSystem;
@@ -34,6 +35,78 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public class MultiElementPropertyTests
 {
+    [AvaloniaTest]
+    public async Task DeinterlaceMenuAppliesMixedModesInOneHistoryStep()
+    {
+        (EditViewModel editor, Element[] elements) = await OpenElements(() => new SourceVideo(), () => new SourceVideo());
+        SourceVideo[] videos = Shapes<SourceVideo>(elements);
+        videos[1].DeinterlaceMode.Value = DeinterlaceMode.On;
+        editor.HistoryManager.Commit("test setup");
+        using ElementPropertyTabViewModel tab = OpenTab(editor, elements);
+        var model = (VideoSourceEditorViewModel)Editor(tab, Copy<SourceVideo>(tab).Source);
+        int before = editor.HistoryManager.UndoCount;
+
+        Assert.That(PropertyEditorHost.TryCreateControl(model, PropertyEditorSurface.Panel, out Control? control), Is.True);
+        control!.DataContext = model;
+        var window = VideoSourceDeinterlaceMenuTests.CreateWindow(control);
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render(3);
+            var menu = VideoSourceDeinterlaceMenuTests.DeinterlaceSubmenu(
+                VideoSourceDeinterlaceMenuTests.OpenMenu(VideoSourceDeinterlaceMenuTests.MenuButton(control)));
+            Assert.That(menu.Items.OfType<FARadioMenuFlyoutItem>().Any(item => item.IsChecked), Is.False);
+            Assert.That(menu.Items.OfType<FAMenuFlyoutSubItem>().Select(item => item.IsEnabled), Is.All.True);
+            VideoSourceDeinterlaceMenuTests.OpenSubmenu(menu);
+            VideoSourceDeinterlaceMenuTests.ClickRadio(menu, DeinterlaceMode.Auto);
+            HeadlessTestHelpers.Settle();
+            Assert.That(videos.Select(video => video.DeinterlaceMode.Value), Is.All.EqualTo(DeinterlaceMode.Auto));
+            Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(before + 1));
+
+            editor.HistoryManager.Undo();
+            HeadlessTestHelpers.Settle();
+            Assert.That(videos.Select(video => video.DeinterlaceMode.Value),
+                Is.EqualTo(new[] { DeinterlaceMode.Off, DeinterlaceMode.On }));
+            editor.HistoryManager.Redo();
+            HeadlessTestHelpers.Settle();
+            Assert.That(videos.Select(video => video.DeinterlaceMode.Value), Is.All.EqualTo(DeinterlaceMode.Auto));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task VideoTransferInterpretationEditsMixedValuesInOneUndoStep()
+    {
+        (EditViewModel editor, Element[] elements) = await OpenElements(() => new SourceVideo(), () => new SourceVideo());
+        SourceVideo[] videos = Shapes<SourceVideo>(elements);
+        videos[1].TransferInterpretation.Value = VideoTransferInterpretation.Bt1886;
+        editor.HistoryManager.Commit("test setup");
+        using ElementPropertyTabViewModel tab = OpenTab(editor, elements);
+        var source = (VideoSourceEditorViewModel)Editor(tab, Copy<SourceVideo>(tab).Source);
+        int before = editor.HistoryManager.UndoCount;
+
+        Assert.That(source.SelectedTransferInterpretation, Is.Null);
+        source.SetTransferInterpretation(VideoTransferInterpretation.Auto);
+        HeadlessTestHelpers.Settle();
+        Assert.That(videos.Select(video => video.TransferInterpretation.Value), Is.All.EqualTo(VideoTransferInterpretation.Auto));
+        Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(before + 1));
+
+        editor.HistoryManager.Undo();
+        HeadlessTestHelpers.Settle();
+        Assert.That(videos.Select(video => video.TransferInterpretation.Value), Is.EqualTo(
+            new[] { VideoTransferInterpretation.Auto, VideoTransferInterpretation.Bt1886 }));
+        source = (VideoSourceEditorViewModel)Editor(tab, Copy<SourceVideo>(tab).Source);
+        Assert.That(source.SelectedTransferInterpretation, Is.Null);
+
+        editor.HistoryManager.Redo();
+        HeadlessTestHelpers.Settle();
+        source = (VideoSourceEditorViewModel)Editor(tab, Copy<SourceVideo>(tab).Source);
+        Assert.That(source.SelectedTransferInterpretation, Is.EqualTo(VideoTransferInterpretation.Auto));
+    }
+
     [AvaloniaTest]
     public async Task ValueEditsReachEveryElementInOneUndoStep()
     {
@@ -799,7 +872,7 @@ public class MultiElementPropertyTests
     public async Task KeyFramesOfTheCopyGoOnTheProjectsFrames()
     {
         (EditViewModel editor, Element[] elements) = await OpenElements(() => new RectShape(), () => new RectShape());
-        editor.Scene.FindHierarchicalParent<Project>()!.FrameRate.Value = new Rational(60);
+        editor.Scene.FrameRate.Value = new Rational(60);
         RectShape[] shapes = Shapes<RectShape>(elements);
         using ElementPropertyTabViewModel tab = OpenTab(editor, elements);
         var opacity = (NumberEditorViewModel<float>)Editor(tab, Copy<RectShape>(tab).Opacity);
@@ -860,28 +933,51 @@ public class MultiElementPropertyTests
         });
     }
 
-    // An element whose value an expression gives takes no value from the tab, as its own editor lets none be entered.
+    // Value editors can edit the underlying value below an expression across all selected elements while keeping each
+    // element's expression intact; object editors that cannot edit under an expression still leave those elements alone.
     [AvaloniaTest]
-    public async Task AnElementWhoseValueAnExpressionGivesKeepsItsOwn()
+    public async Task ValueEditsUnderAnExpressionMirrorAcrossElementsAndDetectUnderlyingDifferences()
     {
         (EditViewModel editor, Element[] elements) = await OpenElements(() => new RectShape(), () => new RectShape());
         RectShape[] shapes = Shapes<RectShape>(elements);
-        shapes[1].Opacity.Value = 50;
-        shapes[1].Opacity.Expression = Beutl.Engine.Expressions.Expression.Create<float>("1 + 3");
+        shapes[0].Opacity.Value = 40;
+        shapes[1].Opacity.Value = 20;
+        shapes[0].Opacity.Expression = Beutl.Engine.Expressions.Expression.Create<float>("Value + 20");
+        shapes[1].Opacity.Expression = Beutl.Engine.Expressions.Expression.Create<float>("Value + 20");
         editor.HistoryManager.Commit("test setup");
         using ElementPropertyTabViewModel tab = OpenTab(editor, elements);
         var opacity = (NumberEditorViewModel<float>)Editor(tab, Copy<RectShape>(tab).Opacity);
-        int steps = editor.HistoryManager.UndoCount;
 
-        opacity.MatchOtherElements();
         Assert.Multiple(() =>
         {
-            Assert.That(shapes[1].Opacity.Value, Is.EqualTo(50f));
-            Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(steps), "nothing changed");
+            Assert.That(opacity.ValueDifference.Value, Does.StartWith(MessageStrings.MultipleElements_ValuesDiffer)
+                .And.Contain("40").And.Contain("20"));
         });
 
-        ((IValueEditorContext<float>)opacity).ConfirmEdit(100, 70);
-        Assert.That(shapes.Select(shape => shape.Opacity.Value), Is.EqualTo(new[] { 70f, 50f }));
+        opacity.MatchOtherElements();
+        HeadlessTestHelpers.Settle();
+        Assert.Multiple(() =>
+        {
+            Assert.That(shapes.Select(shape => shape.Opacity.Value), Is.All.EqualTo(40f));
+            Assert.That(shapes.Select(shape => shape.Opacity.Expression?.ExpressionString), Is.All.EqualTo("Value + 20"));
+            Assert.That(Editor(tab, Copy<RectShape>(tab).Opacity).ValueDifference.Value, Is.Null);
+        });
+
+        // Drag preview and confirm apply the mapped underlying value to every element in one undo step.
+        opacity = (NumberEditorViewModel<float>)Editor(tab, Copy<RectShape>(tab).Opacity);
+        int beforeDrag = editor.HistoryManager.UndoCount;
+        Assert.That(opacity.SetCurrentValueAndGetCoerced(70f), Is.EqualTo(70f));
+        Assert.That(shapes.Select(shape => shape.Opacity.Value), Is.All.EqualTo(50f));
+        ((IValueEditorContext<float>)opacity).ConfirmEdit(60f, 70f);
+        Assert.Multiple(() =>
+        {
+            Assert.That(shapes.Select(shape => shape.Opacity.Value), Is.All.EqualTo(50f));
+            Assert.That(shapes.Select(shape => shape.Opacity.Expression?.ExpressionString), Is.All.EqualTo("Value + 20"));
+            Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(beforeDrag + 1));
+        });
+
+        editor.HistoryManager.Undo();
+        Assert.That(shapes.Select(shape => shape.Opacity.Value), Is.All.EqualTo(40f));
     }
 
     // A value goes where each element's own editor would put it: to its keyframe at the playhead, or else its next one.

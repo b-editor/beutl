@@ -1,11 +1,14 @@
 ﻿using System.Globalization;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
+using Avalonia.Threading;
 using Beutl.Audio.Composing;
 using Beutl.Configuration;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.PathEditorTab.ViewModels;
 using Beutl.Editor.Components.PreviewSettingsTab.ViewModels;
+using Beutl.Editor.Components.TimelineTab.Models;
+using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Models;
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
@@ -64,8 +67,10 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
     private bool _isShuttling;
     private readonly PlaybackSessionGuard _sessionGuard = new();
     private readonly ReactivePropertySlim<string?> _previewRenderError = new();
-    private long _previewRenderErrorIssuedVersion;
-    private long _previewRenderErrorAppliedVersion;
+    private readonly ReactivePropertySlim<string?> _previewRenderWarning = new();
+    private readonly ReactivePropertySlim<bool> _isPreviewWorkingScaleClamped = new();
+    private long _previewRenderStatusIssuedVersion;
+    private long _previewRenderStatusAppliedVersion;
     // Serializes RestoreStoppedPreviewState so PlayInternal's finally and Pause()'s timeout path
     // cannot interleave the dispose/resubscribe and Scene.Edited unhook/hook steps across threads.
     private readonly object _restoreLock = new();
@@ -102,8 +107,8 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
             .ObserveOnUIDispatcher()
             .Subscribe(playing =>
             {
-                _ = _playbackTask.ContinueWith(
-                    _ => Avalonia.Threading.Dispatcher.UIThread.Post(UpdatePreviewSurfaceSize),
+                _ = Volatile.Read(ref _playbackTask).ContinueWith(
+                    completed => Avalonia.Threading.Dispatcher.UIThread.Post(() => RefreshPreviewAfterPlayback(completed)),
                     CancellationToken.None, TaskContinuationOptions.None, TaskScheduler.Default);
             })
             .DisposeWith(_disposables);
@@ -185,13 +190,19 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
             .DisposeWith(_disposables);
         _currentFrameSubscription = CurrentFrame.Subscribe(UpdateCurrentFrame);
 
+        FrameRate = Scene.FrameRate.GetObservable()
+            .Select(_ => GetFrameRate())
+            .DistinctUntilChanged()
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposables);
+
         Duration = _editorClock.MaximumTime
             .CombineLatest(Scene.Duration.GetObservable(), Scene.Start.GetObservable(),
-                CurrentFrame)
+                CurrentFrame, FrameRate)
             .Select(i =>
             {
                 // このDurationはSliderの最大値に使うので、一フレーム分を引く
-                var frame = MediaTime.FromFrames(1, GetFrameRate());
+                var frame = MediaTime.FromFrames(1, i.Fifth);
                 return new MediaTime(Math.Max(
                     Math.Max(i.First.Flicks - frame.Flicks, i.Second.Flicks + i.Third.Flicks - frame.Flicks),
                     i.Fourth.Flicks));
@@ -202,11 +213,6 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
         EndTime = Scene.Start.GetObservable()
             .CombineLatest(Scene.Duration.GetObservable(), (start, duration) => start + duration)
             .ToReadOnlyReactiveProperty()
-            .DisposeWith(_disposables);
-
-        FrameRate = (Project?.FrameRate.GetObservable() ?? Observable.Return(default(Rational)))
-            .Select(_ => GetFrameRate())
-            .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
         TimeDisplayFormat = SettingBinding.Bind(EditViewModel.GetRequiredService<GlobalConfiguration>().EditorConfig.TimeDisplayFormat, _disposables);
@@ -228,17 +234,9 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
 
         PathEditor = new PathEditorViewModel(_editViewModel, this)
             .DisposeWith(_disposables);
-
-        // The frame shows no boundary while the path editor is open (RenderOnRenderThread), so a paused frame is drawn
-        // again when it opens or closes.
-        PathEditor.IsVisible
-            .Skip(1)
-            .Subscribe(_ =>
-            {
-                if (!IsPlaying.Value)
-                    QueueRender();
-            })
-            .DisposeWith(_disposables);
+        InitializeEditingStage();
+        InitializeEffectComparison();
+        InitializePuppetPinEditor();
 
         IsCameraMode.Subscribe(isCameraMode =>
             {
@@ -372,7 +370,7 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
             return;
         }
 
-        QueueRender();
+        QueueRender(coalesceSceneEdits: true);
     }
 
     // The preview only needs to re-render when an edit touches a currently visible frame.
@@ -404,6 +402,10 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
     public ReactivePropertySlim<Ref<Bitmap>?> PreviewImage { get; } = new();
 
     public IReadOnlyReactiveProperty<string?> PreviewRenderError => _previewRenderError;
+
+    public IReadOnlyReactiveProperty<string?> PreviewRenderWarning => _previewRenderWarning;
+
+    public IReadOnlyReactiveProperty<bool> IsPreviewWorkingScaleClamped => _isPreviewWorkingScaleClamped;
 
     IReadOnlyReactiveProperty<Ref<Bitmap>?> IPreviewPlayer.PreviewImage => PreviewImage;
 
@@ -517,6 +519,9 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
         return Volatile.Read(ref _activeTicker)?.CurrentTime ?? _editorClock.CurrentTime.Value;
     }
 
+    internal (int AudioPassPosition, int RetainedPassCount)? GetLoopPlaybackState()
+        => Volatile.Read(ref _activeTicker)?.GetLoopPlaybackState();
+
     public void Play()
     {
         if (_isDisposing || _isPausing || IsPlaying.Value) return;
@@ -539,7 +544,7 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
             // ループ再生時は一度の Play() タスク内で再開する。
             // Post で Play() を再帰呼び出しすると _playbackTask が新しいタスクで上書きされ、
             // Pause() の `await _playbackTask;` が想定外のタスクを待ってしまうため避ける。
-            bool restart;
+            bool restart = false;
             do
             {
                 using var playbackCts = new CancellationTokenSource();
@@ -547,7 +552,7 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
                     .Where(static value => !value)
                     .Take(1)
                     .Subscribe(value => _ = CancelPlaybackAsync(playbackCts));
-                restart = await PlayInternal(generation, playbackCts.Token);
+                restart = await PlayInternal(generation, playbackCts.Token, restart);
                 // Stop restarting on a boundary-window pause (_stopRequested set without flipping
                 // IsPlaying), or when a Pause() timeout disowned this task and a newer session took
                 // over — a stale task must not re-arm and stomp the session that replaced it.
@@ -600,21 +605,44 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
         }
     }
 
-    private async Task<bool> PlayInternal(int generation, CancellationToken playbackToken)
+    private PlaybackRange? GetSelectedLoopRange(Scene scene, Rational rate)
     {
+        if (EditViewModel.FindToolTab<TimelineTabViewModel>()?.FrameSelection.Value is not FrameSelectionRange selection)
+            return null;
+
+        PlaybackRange sceneRange = PlaybackRange.From(scene.Start.Value, scene.Start.Value, scene.Duration.Value, rate);
+        int first = Math.Max(sceneRange.StartFrame, (int)selection.Start.ToFrame(rate, MidpointRounding.AwayFromZero));
+        int end = Math.Min(sceneRange.EndFrame, (int)selection.End.ToFrame(rate, MidpointRounding.AwayFromZero));
+        return first < end ? new PlaybackRange(first, end) : null;
+    }
+
+    private async Task<bool> PlayInternal(int generation, CancellationToken playbackToken, bool restarting)
+    {
+        // Pause closes admission before its UI drain runs. A queued playback worker must be
+        // able to stop at that point without waiting for the UI to capture the selection.
+        bool canStart = false;
+        if (!TryApplyLogged(generation, () =>
+        {
+            canStart = !IsPlaybackStartupCanceled(playbackToken);
+            if (!canStart) IsPlaying.Value = false;
+        }) || !canStart)
+        {
+            return false;
+        }
+
         Scene scene = null!;
         FrameCacheManager frameCacheManager = null!;
         Rational rate = default;
         int sampleRate = 0;
         PlaybackRange range = default;
+        LoopPlayback? loop = null;
         MediaTime startTime = default;
         bool ready = false;
         // Startup can resume after a timeout or disposal. Capture editor state while the session
         // still owns it; no native calls or composition run inside this short ownership lock.
-        if (!_sessionGuard.TryApply(generation, () =>
+        if (!await TryApplyOnUIThreadAsync(generation, () =>
         {
-            if (playbackToken.IsCancellationRequested || _isPausing || _stopRequested || _isDisposing
-                || !_isEnabled.Value || Scene is not { } currentScene)
+            if (IsPlaybackStartupCanceled(playbackToken) || !_isEnabled.Value || Scene is not { } currentScene)
             {
                 IsPlaying.Value = false;
                 return;
@@ -628,6 +656,22 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
             startTime = _editorClock.CurrentTime.Value;
             // Computed once for the producer and the ticker, rounded as the paused preview rounds the playhead.
             range = PlaybackRange.From(startTime, scene.Start.Value, scene.Duration.Value, rate);
+            if (IsLoopEnabled.Value)
+            {
+                PlaybackRange? selected = GetSelectedLoopRange(scene, rate);
+                if (selected is { } selection)
+                {
+                    MediaTime firstTime = MediaTime.FromFrames(selection.StartFrame, rate);
+                    MediaTime endTime = MediaTime.FromFrames(selection.EndFrame, rate);
+                    if (restarting || startTime < firstTime || startTime >= endTime)
+                        startTime = firstTime;
+                    int first = (int)startTime.ToFrame(rate, MidpointRounding.AwayFromZero);
+                    range = new PlaybackRange(Math.Clamp(first, selection.StartFrame, selection.EndFrame - 1), selection.EndFrame);
+                }
+
+                if (range.StartFrame < range.EndFrame)
+                    loop = CreateLoopPlayback(scene, range, rate, sampleRate, startTime, selected.HasValue, generation);
+            }
             scene.Edited -= OnSceneEdited;
             _currentFrameSubscription?.Dispose();
             _currentFrameSubscription = null;
@@ -651,7 +695,7 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
         {
             BufferedPlayer playerImpl = null!;
             if (!_sessionGuard.TryApply(generation, () =>
-                    playerImpl = new BufferedPlayer(EditViewModel, IsPlaying, rate, playbackToken)))
+                    playerImpl = new BufferedPlayer(EditViewModel, IsPlaying, rate, playbackToken, loop)))
                 return false;
             using var playerLifetime = playerImpl;
             if (!_sessionGuard.TryApply(generation, () => playerImpl.Start(range)))
@@ -659,8 +703,34 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
             _logger.LogInformation("Start the playback. ({SceneId}, {Rate}, {StartFrame}, {EndFrame})",
                 _editViewModel.SceneId, rate, range.StartFrame, range.EndFrame);
 
+            bool firstFrameShown = false;
+            if (loop != null)
+            {
+                // A cold render may take longer than a frame. Show the initial frame before the
+                // audio clock starts so the selected range begins with its picture and sound together.
+                try
+                {
+                    await playerImpl.FirstFrameReady.WaitAsync(playbackToken);
+                }
+                catch (OperationCanceledException) when (playbackToken.IsCancellationRequested)
+                {
+                    return false;
+                }
+
+                if (playerImpl.TryDequeue(0, out BufferedPlayer.Frame first))
+                {
+                    using (first)
+                    {
+                        firstFrameShown = await TryApplyOnUIThreadAsync(generation, () =>
+                            PresentPlaybackFrame(first, startTime, rate, generation));
+                    }
+
+                    if (!firstFrameShown) return false;
+                }
+            }
+
             var clock = new AudioPlaybackClock();
-            Task audioTask = PlayAudio(scene, clock, startTime, sampleRate, generation, playbackToken);
+            Task audioTask = PlayAudio(scene, clock, startTime, sampleRate, generation, playbackToken, loop);
 
             // 音声バッファの準備に1フレーム以上かかると、映像だけが先に進んでしまい、
             // その後音声がアンカーされた瞬間に「映像が先行した状態」で止まってしまう。
@@ -670,11 +740,12 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
 
             ticker = new PlaybackTicker(
                 this, generation, playerImpl, clock, rate, range.StartFrame, range.EndFrame, startTime,
-                DateTime.UtcNow);
+                DateTime.UtcNow, loop, firstFrameShown);
             // A session a Pause() timeout abandoned during startup must not replace the clock of the one after it.
             _sessionGuard.TryApply(generation, () => Volatile.Write(ref _activeTicker, ticker));
 
-            await using var timer = new Timer(ticker.OnTick, null, tick, tick);
+            TimeSpan interval = loop == null ? tick : TimeSpan.FromTicks(Math.Max(1, tick.Ticks / 2));
+            await using var timer = new Timer(ticker.OnTick, null, loop == null ? tick : TimeSpan.Zero, interval);
 
             await Task.WhenAll(ticker.Completion, audioTask);
 
@@ -707,10 +778,60 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
         if (_sessionGuard.Owns(generation) && IsLoopEnabled.Value && ticker is { ReachedNaturalEnd: true }
             && Scene is { } loopScene)
         {
-            return await TryApplyOnUIThreadAsync(generation, () => _editorClock.Seek(loopScene.Start.Value));
+            return await TryApplyOnUIThreadAsync(generation, () =>
+            {
+                MediaTime rewind = GetSelectedLoopRange(loopScene, rate) is { } selection
+                    ? MediaTime.FromFrames(selection.StartFrame, rate)
+                    : loopScene.Start.Value;
+                _editorClock.Seek(rewind);
+            });
         }
 
         return false;
+    }
+
+    private bool IsPlaybackStartupCanceled(CancellationToken playbackToken)
+        => playbackToken.IsCancellationRequested || _isPausing || _stopRequested || _isDisposing;
+
+    private void PresentPlaybackFrame(BufferedPlayer.Frame frame, MediaTime outputTime, Rational rate, int generation)
+    {
+        UpdateImage(frame.Bitmap, frame.CleanBitmap, outputTime, _previewPlaybackId, comparison: frame.Comparison);
+        UpdatePreviewRenderStatus(error: null, frame.Diagnostics, () => _sessionGuard.Owns(generation));
+
+        if (Scene != null)
+        {
+            _editorClock.Seek(MediaTime.FromFrames(frame.Time, rate));
+            EditViewModel.FrameCacheManager.Value.CurrentFrame = frame.Time;
+        }
+    }
+
+    private LoopPlayback CreateLoopPlayback(Scene scene, PlaybackRange first, Rational rate, int sampleRate,
+        MediaTime startTime, bool selectedPass, int generation)
+    {
+        return new LoopPlayback(first, rate, sampleRate, () => Dispatcher.UIThread.Invoke(() =>
+        {
+            if (!IsLoopEnabled.Value || _stopRequested || !_sessionGuard.Owns(generation))
+                return (PlaybackRange?)null;
+
+            PlaybackRange? selection = GetSelectedLoopRange(scene, rate);
+            // Without a selection on either side, use the existing whole-scene restart.
+            // Joining either side of a selected wrap keeps the audio device running.
+            if (!selectedPass && !selection.HasValue) return null;
+            selectedPass = selection.HasValue;
+            PlaybackRange next = selection ?? PlaybackRange.From(scene.Start.Value, scene.Start.Value, scene.Duration.Value, rate);
+            return next.StartFrame < next.EndFrame ? next : null;
+        }), startTime);
+    }
+
+    private void RefreshPreviewAfterPlayback(Task completed)
+    {
+        if (_isDisposing || IsPlaybackActive || !ReferenceEquals(completed, Volatile.Read(ref _playbackTask)))
+            return;
+
+        UpdatePreviewSurfaceSize();
+        // IsPlaying changes before the playback task ends, while editing stage renders are still suppressed.
+        if (_editingStageEffect.Value is not null)
+            QueueRender();
     }
 
     // Return the editor to a consistent stopped state: clear IsPlaying, reset the playback-only
@@ -754,7 +875,7 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
         }
     }
 
-    public Rational GetFrameRate() => Project.GetFrameRate();
+    public Rational GetFrameRate() => Scene.GetFrameRate();
 
     // Writes a time as the player writes the current time.
     public string FormatTime(MediaTime time) => TimeDisplayFormatter.Format(time, FrameRate.Value, TimeDisplayFormat.Value);
@@ -893,6 +1014,9 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
         // never disposed under the request holding its token. Pause then drains the compose and render
         // dispatchers, so the render thread cannot call OnNext on the subjects disposed below.
         renderCts?.Cancel();
+        EndEffectComparison();
+        StopPuppetPinPlacement();
+        SetSelectedPuppetPin(null);
         Disposing?.Invoke(this, EventArgs.Empty);
         UpdateCleanPreviewConsumers(0);
         await Pause();

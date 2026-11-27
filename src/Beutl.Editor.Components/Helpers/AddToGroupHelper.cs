@@ -1,4 +1,5 @@
-﻿using Beutl.Engine;
+﻿using Beutl.Editor.Services;
+using Beutl.Engine;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Transformation;
 
@@ -15,9 +16,5 @@ public static class AddToGroupHelper
     }
 
     public static void Add(IProperty<Transform?> property, Transform item)
-    {
-        TransformGroup group = EngineObjectGroups.GetOrCreateGroup<Transform, TransformGroup>(
-            property.Value, group => property.Value = group, group => group.Children, out _);
-        group.Children.Insert(CanonicalTransformLayout.GetInsertionIndex(group.Children, item), item);
-    }
+        => CanonicalTransformLayout.Insert(property, item);
 }

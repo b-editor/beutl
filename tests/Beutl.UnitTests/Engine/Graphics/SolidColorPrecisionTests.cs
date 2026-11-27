@@ -52,7 +52,7 @@ public sealed class SolidColorPrecisionTests
                 scene.Children.Add(element);
             }
 
-            using var renderer = new SceneRenderer(scene, TestFonts.Manager, RenderIntent.Delivery) { CacheOptions = RenderCacheOptions.Disabled };
+            using var renderer = new SceneRenderer(scene, TestFonts.RenderServices, RenderIntent.Delivery) { CacheOptions = RenderCacheOptions.Disabled };
             renderer.Render(renderer.Compositor.EvaluateGraphics(MediaTime.Zero));
             using Bitmap snapshot = renderer.Snapshot();
             using Bitmap srgb = snapshot.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Unpremul, BitmapColorSpace.Srgb);

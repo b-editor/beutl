@@ -6,7 +6,7 @@ using Reactive.Bindings;
 
 namespace Beutl.Editor.Components.PreviewSettingsTab.ViewModels;
 
-// The preview guides' settings, which the preview settings tab and the editor settings page both edit. EditorConfig
+// The preview guides' settings, which the preview settings tab and the Preview settings page both edit. EditorConfig
 // stays the single source of truth, so the guide toggle and every open view agree.
 public sealed class PreviewGuideSettingsViewModel : IDisposable
 {

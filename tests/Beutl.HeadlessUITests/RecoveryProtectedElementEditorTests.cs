@@ -95,6 +95,7 @@ public sealed class RecoveryProtectedElementEditorTests
             Control border = Named(view, "border");
             Control lockIcon = Named(view, "lockIcon");
             Control recoveryIcon = Named(view, "recoveryIcon");
+            Control dataIcon = Named(view, "undisplayableDataIcon");
             Control label = Named(view, "textBlock");
 
             Assert.Multiple(() =>
@@ -104,9 +105,11 @@ public sealed class RecoveryProtectedElementEditorTests
                 Assert.That(viewModel.IsLockedByUser.Value, Is.False);
                 Assert.That(viewModel.CanToggleLock.Value, Is.False, "A lock on this clip would not be saved.");
                 Assert.That(recoveryIcon.IsVisible, Is.True);
+                Assert.That(dataIcon.IsVisible, Is.True);
                 Assert.That(lockIcon.IsVisible, Is.False, "The clip is not locked by the user.");
-                Assert.That(ToolTip.GetTip(border), Is.EqualTo(MessageStrings.RecoveryProtectedElementToolTip));
-                double glyphRight = recoveryIcon.TranslatePoint(new Point(recoveryIcon.Bounds.Width, 0), view)!.Value.X;
+                Assert.That(ToolTip.GetTip(border), Does.StartWith(MessageStrings.RecoveryProtectedElementToolTip)
+                    .And.Contain(UndisplayableDataStrings.LossyEasing));
+                double glyphRight = dataIcon.TranslatePoint(new Point(dataIcon.Bounds.Width, 0), view)!.Value.X;
                 double labelLeft = label.TranslatePoint(new Point(0, 0), view)!.Value.X;
                 Assert.That(labelLeft, Is.GreaterThanOrEqualTo(glyphRight), "The name must clear the glyph.");
             });

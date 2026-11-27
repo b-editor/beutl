@@ -9,7 +9,7 @@ namespace Beutl.Animation;
 
 // A hierarchical container, not an EngineObject: its tracks inherit the owning object's time origin.
 public sealed partial class ComponentAnimation<T, TComponent> : Hierarchical, IComponentAnimation,
-    IComponentAnimation<T>, IKeyFrameExpression, IComponentInterpolator<TComponent>
+    IComponentAnimation<T>, IKeyFrameExpression, IComponentInterpolator<TComponent>, ILoopContinuation<T>
 {
     private static readonly ComponentSet<T, TComponent> s_set = ComponentAnimations.GetComponentSet<T, TComponent>();
     private readonly AnimatableProperty<TComponent>[] _components;
@@ -58,6 +58,24 @@ public sealed partial class ComponentAnimation<T, TComponent> : Hierarchical, IC
         T value = UnitSource.Value is { } source ? source.GetAnimatedValue(context.Time)! : BaseValue.Value;
         for (int i = 0; i < _components.Length; i++)
             value = s_set.Components[i].Set(value, _components[i].Evaluate(context));
+        return value;
+    }
+
+    // Each component track continues along its own boundary segment; a component with its own expression holds.
+    T ILoopContinuation<T>.Continue(ExpressionContext boundary, MediaTime time, bool loopOut)
+    {
+        T value = EvaluateComponents(boundary);
+        for (int i = 0; i < _components.Length; i++)
+        {
+            var component = _components[i];
+            if (component.HasExpression || component.GetKeyFrameAnimation() is not { KeyFrames.Count: > 1 } track)
+                continue;
+
+            var definition = s_set.Components[i];
+            value = definition.Set(value,
+                KeyFrameContinuation.Continue(track, definition.Get(value), time, boundary.Time, loopOut));
+        }
+
         return value;
     }
 
@@ -121,8 +139,12 @@ public sealed partial class ComponentAnimation<T, TComponent> : Hierarchical, IC
         }
     }
 
+    // Without a unit schedule, a linear value type interpolates each component linearly on its own.
+    bool IComponentInterpolator<TComponent>.InterpolatesLinearly
+        => s_set.UnitChanged is null && ComponentAnimations.InterpolatesLinearly<T>();
+
     TComponent IComponentInterpolator<TComponent>.Interpolate(KeyFrameAnimation<TComponent> animation,
-        float progress, TComponent oldValue, TComponent newValue, MediaTime previousTime, MediaTime nextTime)
+        float progress, TComponent oldValue, TComponent newValue, MediaTime previousTime, MediaTime nextTime, MediaTime time)
     {
         int index = Array.FindIndex(_components, property => ReferenceEquals(property.GetKeyFrameAnimation(), animation));
         var definition = s_set.Components[index];

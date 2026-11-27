@@ -224,7 +224,13 @@ public partial class PlayerViewPlaybackInputTests
     }
 
     [AvaloniaTest]
-    public async Task Playback_start_stops_camera_key_movement()
+    [TestCase(PhysicalKey.W)]
+    [TestCase(PhysicalKey.A)]
+    [TestCase(PhysicalKey.S)]
+    [TestCase(PhysicalKey.D)]
+    [TestCase(PhysicalKey.Q)]
+    [TestCase(PhysicalKey.E)]
+    public async Task Playback_start_stops_camera_key_movement(PhysicalKey key)
     {
         EditViewModel editor = await OpenEditor();
         Scene3D scene = await Add3DScene(editor);
@@ -241,7 +247,7 @@ public partial class PlayerViewPlaybackInputTests
             point = PreviewCenter(view, window);
             Vector3 originalPosition = camera.Position.Value;
             window.MouseDown(point, MouseButton.Right);
-            window.KeyPress(Key.W, RawInputModifiers.None, PhysicalKey.W, "w");
+            window.KeyPressQwerty(key, RawInputModifiers.None);
             for (int i = 0; i < 40 && camera.Position.Value == originalPosition; i++)
             {
                 await Task.Delay(25);
@@ -264,7 +270,7 @@ public partial class PlayerViewPlaybackInputTests
         }
         finally
         {
-            window.KeyRelease(Key.W, RawInputModifiers.None, PhysicalKey.W, "w");
+            window.KeyReleaseQwerty(key, RawInputModifiers.None);
             window.MouseUp(point, MouseButton.Right);
             await editor.Player.Pause();
             window.Close();

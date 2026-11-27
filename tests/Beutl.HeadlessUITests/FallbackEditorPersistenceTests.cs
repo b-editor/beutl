@@ -62,6 +62,26 @@ public sealed class FallbackEditorPersistenceTests
         }
     }
 
+    // Like NullableRecoveryHolder, with an animatable Transform so a single property can hold both a dropped value and an animation.
+    [SuppressResourceClassGeneration]
+    public sealed class AnimatableRecoveryHolder : EngineObject
+    {
+        public AnimatableRecoveryHolder() => ScanProperties<AnimatableRecoveryHolder>();
+
+        public IExpressionProperty<DisplacementMapTransform?> Transform { get; } = Property.CreateAnimatable<DisplacementMapTransform?>();
+
+        public override void Deserialize(ICoreSerializationContext context)
+        {
+            Id.Value = context.GetValue<Guid>(nameof(Id));
+            Transform.Value = context.GetValue<EngineObject>(nameof(Transform)) as DisplacementMapTransform;
+            if (context.GetValue<Dictionary<string, IPropertyAnimation>>("Animations") is { } animations
+                && animations.TryGetValue(nameof(Transform), out IPropertyAnimation? animation))
+            {
+                Transform.SetPropertyAnimation(animation);
+            }
+        }
+    }
+
     // Like NullableRecoveryHolder, but it does not read its Id, so recovery cannot tell which object held the transform.
     [SuppressResourceClassGeneration]
     public sealed class IdlessRecoveryHolder : EngineObject
@@ -898,7 +918,6 @@ public sealed class FallbackEditorPersistenceTests
     [AvaloniaTest]
     [TestCase(AnimationDiscardKind.RemoveKeyFrame)]
     [TestCase(AnimationDiscardKind.RemoveAnimation)]
-    [TestCase(AnimationDiscardKind.SetExpression)]
     public async Task LastLossyEasingDiscard_ResumesPersistenceInReplacementTransaction(AnimationDiscardKind kind)
     {
         await TestReset.ResetShellAsync();
@@ -926,9 +945,6 @@ public sealed class FallbackEditorPersistenceTests
                 case AnimationDiscardKind.RemoveAnimation:
                     viewModel.RemoveAnimation();
                     break;
-                case AnimationDiscardKind.SetExpression:
-                    Assert.That(viewModel.SetExpression("1 + 2", out string? error), Is.True, error);
-                    break;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(kind));
             }
@@ -945,6 +961,103 @@ public sealed class FallbackEditorPersistenceTests
                 Assert.That(undone, Is.True);
                 Assert.That(restoredAnimation.KeyFrames, Has.Count.EqualTo(1));
                 Assert.That(File.ReadAllBytes(recovered.ElementPath), Is.EqualTo(recovered.OriginalBytes));
+            });
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    // Setting an expression keeps the animation, so it does not discard a lossy easing and is refused.
+    [AvaloniaTest]
+    public async Task SetExpression_IsRefusedWhileAnAnimationHoldsALossyEasing()
+    {
+        await TestReset.ResetShellAsync();
+
+        string root = CreateRoot();
+        try
+        {
+            Recovered recovered = StoreCorruptAndRestore(root, CreateAnimatedShape(), CorruptTheEasing);
+            Element recoveredElement = recovered.Element;
+            var shape = (RectShape)recoveredElement.Objects.Single();
+            var animation = (KeyFrameAnimation<float>)shape.Width.GetKeyFrameAnimation()!;
+            using var history = new HistoryScope(recoveredElement);
+            using var viewModel = new ValueEditorViewModel<float>(new AnimatablePropertyAdapter<float>(
+                (AnimatableProperty<float>)shape.Width,
+                shape));
+            viewModel.Accept(Services(recoveredElement, history.History));
+
+            bool set = viewModel.SetExpression("1 + 2", out _);
+            CoreSerializer.StoreToUri(recoveredElement, recoveredElement.Uri!);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(set, Is.False);
+                Assert.That(shape.Width.HasExpression, Is.False);
+                Assert.That(shape.Width.GetKeyFrameAnimation(), Is.SameAs(animation));
+                Assert.That(recoveredElement.SuppressedStorageSource, Is.Not.Null);
+                Assert.That(File.ReadAllBytes(recovered.ElementPath), Is.EqualTo(recovered.OriginalBytes));
+            });
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    // Even when loading dropped the property's value, setting an expression must still be refused if the retained
+    // animation holds a lossy easing, because keeping that animation would leave the element protected and unsaved.
+    [AvaloniaTest]
+    [TestCase(true)]
+    [TestCase(false)]
+    public async Task SetExpression_OnPropertyWithDroppedValueAndAnimation_RespectsRetainedAnimationBlocker(bool lossyEasing)
+    {
+        await TestReset.ResetShellAsync();
+
+        string root = CreateRoot();
+        try
+        {
+            var holder = new AnimatableRecoveryHolder();
+            holder.Transform.Value = new DisplacementMapTranslateTransform();
+            var keyFrame = new KeyFrame<DisplacementMapTransform?>
+            {
+                KeyTime = { Value = MediaTime.Zero },
+                Value = { Value = new DisplacementMapTranslateTransform() },
+            };
+            holder.Transform.SetKeyFrameAnimation(CreateAnimation(keyFrame));
+
+            Recovered recovered = StoreCorruptAndRestore(root, holder, json =>
+            {
+                CorruptTheTransform(json);
+                if (lossyEasing)
+                    CorruptTheEasing(json);
+            });
+            Element recoveredElement = recovered.Element;
+            var recoveredHolder = (AnimatableRecoveryHolder)recoveredElement.Objects.Single();
+            IKeyFrameAnimation? animation = recoveredHolder.Transform.GetKeyFrameAnimation();
+            Assert.That(recoveredHolder.Transform.Value, Is.Null);
+            Assert.That(animation, Is.Not.Null);
+            Assert.That(recoveredElement.SuppressedStorageSource, Is.Not.Null);
+            using var history = new HistoryScope(recoveredElement);
+            using var viewModel = new ValueEditorViewModel<DisplacementMapTransform?>(
+                new AnimatablePropertyAdapter<DisplacementMapTransform?>(
+                    (AnimatableProperty<DisplacementMapTransform?>)recoveredHolder.Transform,
+                    recoveredHolder));
+            viewModel.Accept(Services(recoveredElement, history.History));
+
+            bool set = viewModel.SetExpression("null", out _);
+            CoreSerializer.StoreToUri(recoveredElement, recoveredElement.Uri!);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(set, Is.EqualTo(!lossyEasing));
+                Assert.That(recoveredHolder.Transform.HasExpression, Is.EqualTo(!lossyEasing));
+                Assert.That(recoveredHolder.Transform.GetKeyFrameAnimation(), Is.SameAs(animation));
+                Assert.That(recoveredElement.SuppressedStorageSource, lossyEasing ? Is.Not.Null : Is.Null);
+                Assert.That(
+                    File.ReadAllBytes(recovered.ElementPath),
+                    lossyEasing ? Is.EqualTo(recovered.OriginalBytes) : Is.Not.EqualTo(recovered.OriginalBytes));
             });
         }
         finally
@@ -1204,6 +1317,5 @@ public sealed class FallbackEditorPersistenceTests
     {
         RemoveKeyFrame,
         RemoveAnimation,
-        SetExpression,
     }
 }

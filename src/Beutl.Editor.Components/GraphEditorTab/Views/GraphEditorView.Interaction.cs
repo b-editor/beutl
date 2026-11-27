@@ -1,13 +1,13 @@
 ﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
-using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
 using Beutl.Animation;
 using Beutl.Animation.Easings;
 using Beutl.Editor.Components.GraphEditorTab.ViewModels;
 using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Components.Services;
 using Beutl.Editor.Services;
 using Beutl.Language;
 using FluentAvalonia.UI.Controls;
@@ -359,92 +359,43 @@ public partial class GraphEditorView
         SpeedGraph.InvalidateVisual();
     }
 
-    private async void OnGraphKeyDown(object? sender, KeyEventArgs e)
+    private void OnGraphKeyDown(object? sender, KeyEventArgs e)
     {
         if (VelocityFlyout?.IsOpen == true || ValueScaleFlyout?.IsOpen == true) return;
-        if (e.Source is TextBox || DataContext is not GraphEditorViewModel { SelectedView.Value: { } channel } model) return;
-        var command = KeyGestureHelper.GetCommandModifier();
-        if (e.Key == Key.Space)
-        {
-            _space.Press(e, _interactionPointer == null && ControlPointMoveState == null && _mouseFlag == TimelineHelper.MouseFlags.Free);
-            return;
-        }
-        if (e.Key == Key.Escape)
-        {
-            if (ControlPointMoveState is { } controlPoint) controlPoint.Complete?.Invoke(true);
-            else if (_interactionPointer != null) FinishInteraction(model, true);
-            else channel.SetSelection([]);
-        }
-        else if (_interactionPointer != null || ControlPointMoveState != null) return;
-        else if (e.Key == Key.A && e.KeyModifiers.HasFlag(command))
-            channel.SetSelection(e.KeyModifiers.HasFlag(KeyModifiers.Shift)
-                ? [] : channel.KeyFrames.Select(x => x.Model));
-        else if (e.Key == Key.F2 && e.KeyModifiers.HasFlag(KeyModifiers.Shift)) channel.SetSelection([]);
-        else if (e.Key is Key.C or Key.X && e.KeyModifiers.HasFlag(command))
-        {
-            e.Handled = true;
-            if (e.Key == Key.X) await CutSelectionAsync(TopLevel.GetTopLevel(this)?.Clipboard);
-            else await model.CopySelectionAsync(TopLevel.GetTopLevel(this)?.Clipboard);
-        }
-        else if (e.Key == Key.V && e.KeyModifiers.HasFlag(command))
-        {
-            e.Handled = true;
-            await model.PasteSelectionAsync(TopLevel.GetTopLevel(this)?.Clipboard);
-        }
-        else if (e.Key is Key.Delete or Key.Back) DeleteSelection();
-        else if (e.Key == Key.K && e.KeyModifiers.HasFlag(command | KeyModifiers.Shift))
-        {
-            e.Handled = true;
-            ShowVelocityFlyout();
-        }
-        else if (e.Key == Key.F9) ApplyEasing(e.KeyModifiers.HasFlag(KeyModifiers.Shift) ? "EaseIn"
-            : e.KeyModifiers.HasFlag(command) ? "EaseOut" : "Ease");
-        else if (e.Key == Key.D && e.KeyModifiers == KeyModifiers.Alt) DistributeSelectionEvenly();
-        else if (e.Key == Key.R && e.KeyModifiers == KeyModifiers.Alt) ReverseSelection();
-        else if (e.Key is Key.Left or Key.Right && e.KeyModifiers.HasFlag(KeyModifiers.Alt))
-        {
-            NudgeSelection(model, channel, e);
-        }
-        else if (e.Key is Key.J or Key.K)
-        {
-            JumpToAdjacentKeyFrame(model, channel, e.Key);
-        }
-        else if (e.Key == Key.F) FitGraph(e.KeyModifiers.HasFlag(KeyModifiers.Shift));
-        else if (e.Key == Key.Z && e.KeyModifiers.HasFlag(command))
-        {
-            // Through the editor, which pauses playback before it replays history and reports a failure.
-            if (model.EditorContext is not IUndoRedoEditorContext editor) return;
-            e.Handled = true;
-            if (e.KeyModifiers.HasFlag(KeyModifiers.Shift)) await editor.RedoAsync();
-            else await editor.UndoAsync();
-        }
-        else return;
-        UpdateSelectionAdorner();
-        e.Handled = true;
+        if (e.Source is TextBox || DataContext is not GraphEditorViewModel { SelectedView.Value: not null }) return;
+        if (_space.HandleRepeat(e)) return;
+
+        AppHelper.GetContextCommandManager?.Invoke()?.HandleKeyDown(GraphEditorTabExtension.Instance, this, e);
     }
 
-    private static void NudgeSelection(GraphEditorViewModel model, GraphEditorViewViewModel channel, KeyEventArgs e)
+    private void CancelKeyGesture(GraphEditorViewModel model, GraphEditorViewViewModel channel)
     {
-        double frames = e.KeyModifiers.HasFlag(KeyModifiers.Shift) ? 10 : 1;
-        double delta = (e.Key == Key.Left ? -frames : frames) / SceneTimeRangeService.GetFrameRate(model.Scene).ToDouble();
+        if (ControlPointMoveState is { } controlPoint) controlPoint.Complete?.Invoke(true);
+        else if (_interactionPointer != null) FinishInteraction(model, true);
+        else channel.SetSelection([]);
+    }
+
+    private static void NudgeSelection(GraphEditorViewModel model, GraphEditorViewViewModel channel, int frames)
+    {
+        double delta = frames / SceneTimeRangeService.GetFrameRate(model.Scene).ToDouble();
         var snapshot = new GraphEditorDragSnapshot(channel);
         if (snapshot.Entries.Length > 0 && model.CanEdit.Value)
             model.HistoryManager.ExecuteInTransaction(() => snapshot.Apply(entry => (entry.Time.ToSeconds() + delta, entry.Number)), CommandNames.MoveKeyFrame);
     }
 
-    // J jumps back to the previous keyframe, K forward to the next one.
-    private static void JumpToAdjacentKeyFrame(GraphEditorViewModel model, GraphEditorViewViewModel channel, Key key)
+    private static void JumpToAdjacentKeyFrame(GraphEditorViewModel model, GraphEditorViewViewModel channel, bool forward)
     {
         var times = channel.KeyFrames.Select(x => x.Model.KeyTime.Value + model.TimeOrigin.Value);
-        var target = key == Key.J ? times.Where(x => x < model.CurrentTime.Value).OrderDescending().Select(x => (MediaTime?)x).FirstOrDefault()
-            : times.Where(x => x > model.CurrentTime.Value).Order().Select(x => (MediaTime?)x).FirstOrDefault();
+        var target = forward ? times.Where(x => x > model.CurrentTime.Value).Order().Select(x => (MediaTime?)x).FirstOrDefault()
+            : times.Where(x => x < model.CurrentTime.Value).OrderDescending().Select(x => (MediaTime?)x).FirstOrDefault();
         if (target.HasValue) model.Seek(target.Value);
     }
 
-    internal async Task CutSelectionAsync(IClipboard? clipboard = null)
+    internal async Task CutSelectionAsync(IClipboardGateway? clipboard = null)
     {
         if (DataContext is not GraphEditorViewModel { IsDisposed: false, SelectedView.Value: { } channel } model
             || TopLevel.GetTopLevel(this) is not { PlatformImpl: not null } topLevel) return;
+        clipboard ??= AvaloniaClipboardGateway.Resolve(model.EditorContext, topLevel.Clipboard);
         int contextVersion = _contextVersion;
         var copied = channel.KeyFrames.Where(x => x.IsSelected.Value).Select(x => x.Model).ToArray();
         bool edited = false;
@@ -471,7 +422,7 @@ public partial class GraphEditorView
 
     private void OnGraphKeyUp(object? sender, KeyEventArgs e)
     {
-        if (e.Key == Key.Space) { _space.Release(e); e.Handled = true; }
+        if (_space.Release(e)) e.Handled = true;
     }
 
     private void DeleteSelection()

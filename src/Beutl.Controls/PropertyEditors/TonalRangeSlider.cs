@@ -26,33 +26,8 @@ public sealed class TonalRangeEventArgs(RoutedEvent routedEvent, TonalRangeHandl
 // fade in from High. A press on a handle grabs it and one on the bar brings the nearer handle there; the handles move
 // in steps of Step and do not pass each other. The slider asks for values through its events and shows the Low and
 // High it is given.
-public class TonalRangeSlider : Control
+public partial class TonalRangeSlider : Control
 {
-    public static readonly StyledProperty<double> LowProperty =
-        AvaloniaProperty.Register<TonalRangeSlider, double>(nameof(Low));
-
-    public static readonly StyledProperty<double> HighProperty =
-        AvaloniaProperty.Register<TonalRangeSlider, double>(nameof(High), 100);
-
-    public static readonly StyledProperty<double> MinimumProperty =
-        AvaloniaProperty.Register<TonalRangeSlider, double>(nameof(Minimum));
-
-    public static readonly StyledProperty<double> MaximumProperty =
-        AvaloniaProperty.Register<TonalRangeSlider, double>(nameof(Maximum), 100);
-
-    // The step the handles move in, such as the ranges' SmallChange; zero moves them freely.
-    public static readonly StyledProperty<double> StepProperty =
-        AvaloniaProperty.Register<TonalRangeSlider, double>(nameof(Step));
-
-    public static readonly StyledProperty<IBrush?> BorderBrushProperty =
-        Border.BorderBrushProperty.AddOwner<TonalRangeSlider>();
-
-    public static readonly StyledProperty<IBrush?> HandleBrushProperty =
-        AvaloniaProperty.Register<TonalRangeSlider, IBrush?>(nameof(HandleBrush));
-
-    public static readonly StyledProperty<IBrush?> HandleBorderBrushProperty =
-        AvaloniaProperty.Register<TonalRangeSlider, IBrush?>(nameof(HandleBorderBrush));
-
     public static readonly RoutedEvent<TonalRangeEventArgs> DragStartedEvent =
         RoutedEvent.Register<TonalRangeSlider, TonalRangeEventArgs>(nameof(DragStarted), RoutingStrategies.Bubble);
 
@@ -72,7 +47,7 @@ public class TonalRangeSlider : Control
         GradientStops = { new GradientStop(Colors.Black, 0), new GradientStop(Colors.White, 1) },
     }.ToImmutable();
 
-    private TonalRangeHandle? _dragging;
+    private (TonalRangeHandle Handle, IPointer Pointer)? _dragging;
     private double _grabOffset;
     private StreamGeometry? _grip;
 
@@ -84,53 +59,30 @@ public class TonalRangeSlider : Control
         FocusableProperty.OverrideDefaultValue<TonalRangeSlider>(false);
     }
 
-    public double Low
-    {
-        get => GetValue(LowProperty);
-        set => SetValue(LowProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial double Low { get; set; }
 
-    public double High
-    {
-        get => GetValue(HighProperty);
-        set => SetValue(HighProperty, value);
-    }
+    [GeneratedStyledProperty(DefaultValue = 100)]
+    public partial double High { get; set; }
 
-    public double Minimum
-    {
-        get => GetValue(MinimumProperty);
-        set => SetValue(MinimumProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial double Minimum { get; set; }
 
-    public double Maximum
-    {
-        get => GetValue(MaximumProperty);
-        set => SetValue(MaximumProperty, value);
-    }
+    [GeneratedStyledProperty(DefaultValue = 100)]
+    public partial double Maximum { get; set; }
 
-    public double Step
-    {
-        get => GetValue(StepProperty);
-        set => SetValue(StepProperty, value);
-    }
+    // The step the handles move in, such as the ranges' SmallChange; zero moves them freely.
+    [GeneratedStyledProperty]
+    public partial double Step { get; set; }
 
-    public IBrush? BorderBrush
-    {
-        get => GetValue(BorderBrushProperty);
-        set => SetValue(BorderBrushProperty, value);
-    }
+    [GeneratedStyledProperty(AddOwnerFrom = typeof(Border))]
+    public partial IBrush? BorderBrush { get; set; }
 
-    public IBrush? HandleBrush
-    {
-        get => GetValue(HandleBrushProperty);
-        set => SetValue(HandleBrushProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial IBrush? HandleBrush { get; set; }
 
-    public IBrush? HandleBorderBrush
-    {
-        get => GetValue(HandleBorderBrushProperty);
-        set => SetValue(HandleBorderBrushProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial IBrush? HandleBorderBrush { get; set; }
 
     public event EventHandler<TonalRangeEventArgs>? DragStarted
     {
@@ -151,6 +103,10 @@ public class TonalRangeSlider : Control
     }
 
     private Rect Bar => new(Inset, 2, Math.Max(Bounds.Width - (2 * Inset), 0), BarHeight);
+
+    internal IPointer? DragPointer => _dragging?.Pointer;
+
+    internal void StopDrag() => _dragging = null;
 
     internal double XOf(double value) => SliderTrack.XOf(value, Minimum, Maximum, Inset, Bar.Width);
 
@@ -204,7 +160,7 @@ public class TonalRangeSlider : Control
     {
         base.OnPointerPressed(e);
         PointerPoint point = e.GetCurrentPoint(this);
-        if (!point.Properties.IsLeftButtonPressed || !IsEffectivelyEnabled)
+        if (!point.Properties.IsLeftButtonPressed || !IsEffectivelyEnabled || _dragging.HasValue)
             return;
 
         e.Handled = true;
@@ -217,22 +173,22 @@ public class TonalRangeSlider : Control
             : TonalRangeHandle.High;
         double handleX = handle == TonalRangeHandle.Low ? lowX : highX;
         bool onHandle = Math.Abs(x - handleX) <= (GripSize / 2) + 2;
-        _dragging = handle;
+        _dragging = (handle, e.Pointer);
         _grabOffset = onHandle ? x - handleX : 0;
         e.Pointer.Capture(this);
         RaiseEvent(new TonalRangeEventArgs(DragStartedEvent, handle, ValueOf(handle)));
-        if (!onHandle)
+        if (!onHandle && _dragging.HasValue)
             RaiseDelta(handle, ValueAt(x));
     }
 
     protected override void OnPointerMoved(PointerEventArgs e)
     {
         base.OnPointerMoved(e);
-        if (_dragging is not { } handle)
+        if (_dragging is not { } drag)
             return;
 
         e.Handled = true;
-        RaiseDelta(handle, ValueAt(e.GetPosition(this).X - _grabOffset));
+        RaiseDelta(drag.Handle, ValueAt(e.GetPosition(this).X - _grabOffset));
     }
 
     protected override void OnPointerReleased(PointerReleasedEventArgs e)
@@ -253,11 +209,11 @@ public class TonalRangeSlider : Control
 
     private void EndDrag()
     {
-        if (_dragging is not { } handle)
+        if (_dragging is not { } drag)
             return;
 
-        _dragging = null;
-        RaiseEvent(new TonalRangeEventArgs(DragCompletedEvent, handle, ValueOf(handle)));
+        StopDrag();
+        RaiseEvent(new TonalRangeEventArgs(DragCompletedEvent, drag.Handle, ValueOf(drag.Handle)));
     }
 
     private double ValueOf(TonalRangeHandle handle) => handle == TonalRangeHandle.Low ? Low : High;

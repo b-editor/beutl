@@ -1,0 +1,195 @@
+﻿using Beutl.Agents;
+
+namespace Beutl.Agents.Tests;
+
+public sealed class AgentRuntimeManagerTests
+{
+    [Test]
+    public async Task SwitchingProvidersHandsOffOnlyBoundedConversationAfterTheLastClear()
+    {
+        var directory = Directory.CreateTempSubdirectory("beutl-agent-handoff-");
+        try
+        {
+            var bridge = new PermissionBridge();
+            var store = new AgentThreadStore(directory.FullName);
+            await using var runtime = new AgentRuntimeManager(bridge, store);
+            var codex = AgentProviderDescriptor.Codex with { Command = Environment.ProcessPath! };
+            var claude = AgentProviderDescriptor.ClaudeCode with { Command = Environment.ProcessPath! };
+            string project = Path.Combine(directory.FullName, "project.beutl");
+            var thread = await runtime.CreateThreadAsync(project, codex, "Opening", AgentPermissionMode.FullAccess);
+            await runtime.RunTurnAsync(project, thread.Id, codex, "discard this earlier instruction", []);
+            await runtime.ClearContextAsync(project, thread.Id);
+            var turn = await runtime.RunTurnAsync(project, thread.Id, codex, "Keep the title in the safe area", []);
+            await store.AppendAsync(project, new AgentAssistantMessageCompleted(thread.Id, turn.TurnId, DateTimeOffset.UtcNow,
+                "The updated title stays in the safe area. " + new string('a', 2_000)));
+            var (switched, change) = await runtime.SetProviderAsync(project, thread.Id, claude.Id, "sonnet", "high");
+            Assert.Multiple(() =>
+            {
+                Assert.That(switched.ExternalSessionId, Is.Null);
+                Assert.That(switched.RestorePreviousMessages, Is.True);
+                Assert.That(switched.Model, Is.EqualTo("sonnet"));
+                Assert.That(switched.ReasoningEffort, Is.EqualTo("high"));
+                Assert.That(change, Is.TypeOf<AgentThreadProviderChanged>());
+            });
+            await runtime.RunTurnAsync(project, thread.Id, claude, "Continue with the opening", []);
+            var handoff = bridge.LastRequest!.PreviousMessages!;
+            Assert.Multiple(() =>
+            {
+                Assert.That(bridge.Closed.Count, Is.EqualTo(2));
+                Assert.That(bridge.LastOpen, Is.Not.Null);
+                Assert.That(bridge.LastOpen!.Provider, Is.EqualTo(AgentProviderKind.ClaudeCode));
+                Assert.That(bridge.LastOpen.ExternalSessionId, Is.Null);
+                Assert.That(handoff.Select(message => message.Role), Is.EqualTo(new[] { "user", "assistant" }));
+                Assert.That(handoff[0].Text, Is.EqualTo("Keep the title in the safe area"));
+                Assert.That(handoff[1].Text, Does.StartWith("The updated title").And.EndsWith("…"));
+                Assert.That(handoff[1].Text, Has.Length.LessThanOrEqualTo(600));
+            });
+            await runtime.RunTurnAsync(project, thread.Id, claude, "Another turn", []);
+            Assert.That(bridge.LastRequest!.PreviousMessages, Is.Null);
+        }
+        finally
+        {
+            directory.Delete(recursive: true);
+        }
+    }
+
+    [Test]
+    public async Task SuppliesRetainedConversationOnceAfterRewindAndRecordsWallClockMetrics()
+    {
+        var directory = Directory.CreateTempSubdirectory("beutl-agent-retry-");
+        try
+        {
+            var bridge = new PermissionBridge();
+            await using var manager = new AgentRuntimeManager(bridge, new AgentThreadStore(directory.FullName));
+            var provider = AgentProviderDescriptor.Codex with { Command = Environment.ProcessPath! };
+            string project = Path.Combine(directory.FullName, "project.beutl");
+            var thread = await manager.CreateThreadAsync(project, provider, "Thread", AgentPermissionMode.FullAccess);
+            await manager.RunTurnAsync(project, thread.Id, provider, "First", []);
+            var next = await manager.RunTurnAsync(project, thread.Id, provider, "Second", []);
+            await manager.RewindTurnAsync(project, thread.Id, next.TurnId);
+            await manager.RunTurnAsync(project, thread.Id, provider, "Retry", []);
+            Assert.Multiple(() =>
+            {
+                Assert.That(bridge.LastOpen!.ExternalSessionId, Is.Null);
+                Assert.That(bridge.LastRequest!.PreviousMessages, Is.EqualTo(new[] { new AgentConversationMessage("user", "First") }));
+            });
+
+            await manager.RunTurnAsync(project, thread.Id, provider, "Follow-up", []);
+            Assert.That(bridge.LastRequest!.PreviousMessages, Is.Null);
+            var completed = (await manager.LoadTimelineAsync(project, thread.Id)).OfType<AgentTurnCompleted>().Last();
+            Assert.Multiple(() =>
+            {
+                Assert.That(completed.DurationMs, Is.GreaterThanOrEqualTo(0));
+                Assert.That(completed.InputTokens, Is.EqualTo(200));
+                Assert.That(completed.OutputTokens, Is.EqualTo(50));
+                Assert.That(completed.CachedInputTokens, Is.EqualTo(125));
+                Assert.That(completed.Model, Is.EqualTo("test-model"));
+            });
+        }
+        finally
+        {
+            directory.Delete(recursive: true);
+        }
+    }
+
+    [Test]
+    public async Task PermissionModesRouteSupervisedAndFullAccess()
+    {
+        var directory = Directory.CreateTempSubdirectory("beutl-agent-policy-");
+        try
+        {
+            var bridge = new PermissionBridge();
+            var store = new AgentThreadStore(directory.FullName);
+            await using var manager = new AgentRuntimeManager(bridge, store);
+            var seen = new List<string>();
+            manager.PermissionHandler = (request, _) =>
+            {
+                seen.Add(request.ToolName);
+                return Task.FromResult(AgentPermissionDecision.RejectOnce);
+            };
+            var descriptor = AgentProviderDescriptor.Codex with { Command = Environment.ProcessPath! };
+            string project = Path.Combine(directory.FullName, "project.beutl");
+            var thread = await manager.CreateThreadAsync(project, descriptor, "Thread", AgentPermissionMode.Supervised);
+
+            await manager.RunTurnAsync(project, thread.Id, descriptor, "Edit the timeline", [new StdioMcpServerSpec("beutl", "beutl-mcp")]);
+            Assert.Multiple(() =>
+            {
+                Assert.That(bridge.Decisions, Is.EqualTo(new[]
+                {
+                    AgentPermissionDecision.RejectOnce, AgentPermissionDecision.RejectOnce, AgentPermissionDecision.RejectOnce
+                }));
+                Assert.That(seen, Is.EqualTo(new[] { "Beutl write", "External write", "mcp__beutl__lookalike" }));
+            });
+            Assert.That((await store.GetAsync(project, thread.Id))!.ExternalSessionId, Is.EqualTo("saved-id"));
+            Assert.That((await manager.LoadTimelineAsync(project, thread.Id)).Last(), Is.TypeOf<AgentTurnCompleted>());
+
+            seen.Clear();
+            await manager.SetPermissionModeAsync(project, thread.Id, AgentPermissionMode.FullAccess);
+            await manager.RunTurnAsync(project, thread.Id, descriptor, "Run from prior session", []);
+            Assert.Multiple(() =>
+            {
+                Assert.That(bridge.LastOpen!.ExternalSessionId, Is.EqualTo("saved-id"));
+                Assert.That(seen, Is.Empty);
+                Assert.That(bridge.Decisions, Has.All.EqualTo(AgentPermissionDecision.AllowOnce));
+            });
+        }
+        finally
+        {
+            directory.Delete(recursive: true);
+        }
+    }
+
+    private sealed class PermissionBridge : IAgentRuntimeBridge
+    {
+        public event Action<AgentTimelineEvent>? TimelineEventReceived;
+        public event Action<Exception>? Disconnected { add { } remove { } }
+
+        public Func<AgentPermissionRequest, CancellationToken, Task<AgentPermissionDecision>>? PermissionHandler { get; set; }
+        public Func<AgentUserQuestionRequest, CancellationToken, Task<IReadOnlyDictionary<string, string[]>>>? QuestionHandler { get; set; }
+        public List<AgentPermissionDecision> Decisions { get; } = [];
+        public AgentSessionOpenRequest? LastOpen { get; private set; }
+        public AgentTurnRequest? LastRequest { get; private set; }
+        public List<Guid> Closed { get; } = [];
+
+        public Task<AgentWorkerHealth> PingAsync(CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
+        public Task<AgentSessionInfo> OpenSessionAsync(AgentSessionOpenRequest request, CancellationToken cancellationToken = default)
+        {
+            LastOpen = request;
+            return Task.FromResult(new AgentSessionInfo(request.ExternalSessionId));
+        }
+
+        public Task<IReadOnlyList<AgentModelDescriptor>> ListModelsAsync(AgentModelListRequest request, CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<AgentModelDescriptor>>([]);
+
+        public Task<IReadOnlyList<AgentComposerSuggestion>> ListComposerSuggestionsAsync(
+            AgentComposerSuggestionRequest request, CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<AgentComposerSuggestion>>([]);
+
+        public async Task<AgentTurnSummary> RunTurnAsync(AgentTurnRequest request, CancellationToken cancellationToken = default)
+        {
+            var (threadId, turnId, text, _) = request;
+            LastRequest = request;
+            TimelineEventReceived?.Invoke(new AgentUserMessage(threadId, turnId, DateTimeOffset.UtcNow, text));
+            TimelineEventReceived?.Invoke(new AgentSessionStateChanged(threadId, turnId, DateTimeOffset.UtcNow, AgentSessionState.Open, "saved-id"));
+            Decisions.Clear();
+            foreach (var (name, server) in new[] { ("Beutl write", "beutl"), ("External write", "beutl-other"), ("mcp__beutl__lookalike", null) })
+            {
+                Decisions.Add(await PermissionHandler!(new AgentPermissionRequest(name, threadId, turnId, name, server), cancellationToken));
+            }
+            TimelineEventReceived?.Invoke(new AgentTurnUsageUpdated(threadId, turnId, DateTimeOffset.UtcNow, 200, 50, 125, "test-model"));
+            TimelineEventReceived?.Invoke(new AgentTurnCompleted(threadId, turnId, DateTimeOffset.UtcNow));
+            return new AgentTurnSummary(turnId, AgentTurnStatus.Completed);
+        }
+
+        public Task<bool> SteerTurnAsync(AgentTurnRequest request, CancellationToken cancellationToken = default) => Task.FromResult(false);
+        public Task CancelTurnAsync(Guid threadId, Guid turnId, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task SetPermissionModeAsync(Guid threadId, AgentPermissionMode mode, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task CloseSessionAsync(Guid threadId, CancellationToken cancellationToken = default)
+        {
+            Closed.Add(threadId);
+            return Task.CompletedTask;
+        }
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+    }
+}

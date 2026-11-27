@@ -7,37 +7,8 @@ namespace Beutl.Controls.PropertyEditors;
 
 // A slim slider drawn in one piece: a rail, the part between Origin and Value filled, and a round thumb. It takes no
 // focus or keys, and leaves its pointer to the editor that owns it, as NumberSliderEditor does.
-public class ValueSlider : Control
+public partial class ValueSlider : Control
 {
-    public static readonly StyledProperty<double> MinimumProperty =
-        AvaloniaProperty.Register<ValueSlider, double>(nameof(Minimum));
-
-    public static readonly StyledProperty<double> MaximumProperty =
-        AvaloniaProperty.Register<ValueSlider, double>(nameof(Maximum), 1);
-
-    public static readonly StyledProperty<double> ValueProperty =
-        AvaloniaProperty.Register<ValueSlider, double>(nameof(Value));
-
-    // Where the fill starts, such as the property's default.
-    public static readonly StyledProperty<double> OriginProperty =
-        AvaloniaProperty.Register<ValueSlider, double>(nameof(Origin));
-
-    public static readonly StyledProperty<IBrush?> BackgroundProperty =
-        Border.BackgroundProperty.AddOwner<ValueSlider>();
-
-    public static readonly StyledProperty<IBrush?> ForegroundProperty =
-        AvaloniaProperty.Register<ValueSlider, IBrush?>(nameof(Foreground));
-
-    public static readonly StyledProperty<IBrush?> ThumbBrushProperty =
-        AvaloniaProperty.Register<ValueSlider, IBrush?>(nameof(ThumbBrush));
-
-    public static readonly StyledProperty<IBrush?> ThumbBorderBrushProperty =
-        AvaloniaProperty.Register<ValueSlider, IBrush?>(nameof(ThumbBorderBrush));
-
-    // The mark at the origin.
-    public static readonly StyledProperty<IBrush?> TickBrushProperty =
-        AvaloniaProperty.Register<ValueSlider, IBrush?>(nameof(TickBrush));
-
     internal const double ThumbRadius = 6;
     private const double RailThickness = 4;
 
@@ -49,59 +20,34 @@ public class ValueSlider : Control
         FocusableProperty.OverrideDefaultValue<ValueSlider>(false);
     }
 
-    public double Minimum
-    {
-        get => GetValue(MinimumProperty);
-        set => SetValue(MinimumProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial double Minimum { get; set; }
 
-    public double Maximum
-    {
-        get => GetValue(MaximumProperty);
-        set => SetValue(MaximumProperty, value);
-    }
+    [GeneratedStyledProperty(DefaultValue = 1)]
+    public partial double Maximum { get; set; }
 
-    public double Value
-    {
-        get => GetValue(ValueProperty);
-        set => SetValue(ValueProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial double Value { get; set; }
 
-    public double Origin
-    {
-        get => GetValue(OriginProperty);
-        set => SetValue(OriginProperty, value);
-    }
+    // Where the fill starts, such as the property's default.
+    [GeneratedStyledProperty]
+    public partial double Origin { get; set; }
 
-    public IBrush? Background
-    {
-        get => GetValue(BackgroundProperty);
-        set => SetValue(BackgroundProperty, value);
-    }
+    [GeneratedStyledProperty(AddOwnerFrom = typeof(Border))]
+    public partial IBrush? Background { get; set; }
 
-    public IBrush? Foreground
-    {
-        get => GetValue(ForegroundProperty);
-        set => SetValue(ForegroundProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial IBrush? Foreground { get; set; }
 
-    public IBrush? ThumbBrush
-    {
-        get => GetValue(ThumbBrushProperty);
-        set => SetValue(ThumbBrushProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial IBrush? ThumbBrush { get; set; }
 
-    public IBrush? ThumbBorderBrush
-    {
-        get => GetValue(ThumbBorderBrushProperty);
-        set => SetValue(ThumbBorderBrushProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial IBrush? ThumbBorderBrush { get; set; }
 
-    public IBrush? TickBrush
-    {
-        get => GetValue(TickBrushProperty);
-        set => SetValue(TickBrushProperty, value);
-    }
+    // The mark at the origin.
+    [GeneratedStyledProperty]
+    public partial IBrush? TickBrush { get; set; }
 
     // The value under x, clamped to the range.
     public double ValueAt(double x) => SliderTrack.ValueAt(x, Minimum, Maximum, ThumbRadius, Travel);

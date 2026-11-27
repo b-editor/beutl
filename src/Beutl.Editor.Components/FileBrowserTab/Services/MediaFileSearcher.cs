@@ -62,7 +62,7 @@ internal sealed class MediaFileSearcher(FileThumbnailService thumbnails) : IDisp
                     if (token.IsCancellationRequested)
                         return;
 
-                    // A startup rescan keeps displayed results and selection while it runs.
+                    // A watcher rescan keeps displayed results and selection while it runs.
                     FileSystemEnumerator.RefreshCollection(thumbnails, MediaFileItems, results.Select(path => (path, false)));
 
                     IsLoadingMediaFiles.Value = false;
@@ -125,8 +125,9 @@ internal sealed class MediaFileSearcher(FileThumbnailService thumbnails) : IDisp
                 }
             }
         }
-        catch (UnauthorizedAccessException)
+        catch (Exception ex) when (ex is UnauthorizedAccessException or DirectoryNotFoundException)
         {
+            // A folder may become inaccessible or disappear partway through the scan.
         }
     }
 

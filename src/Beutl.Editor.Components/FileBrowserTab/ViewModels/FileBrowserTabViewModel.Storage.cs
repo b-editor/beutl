@@ -28,10 +28,11 @@ public sealed partial class FileBrowserTabViewModel
     public void OpenStorage(IFileBrowserStorageProvider provider)
     {
         if (_disposed
-            || !StorageProviders.Any(item => ReferenceEquals(item, provider))
-            || ReferenceEquals(ActiveStorageProvider.Value, provider))
+            || !StorageProviders.Any(item => ReferenceEquals(item, provider)))
             return;
 
+        CloseProjectAssets();
+        if (ReferenceEquals(ActiveStorageProvider.Value, provider)) return;
         ShowLocalFiles();
         try
         {
@@ -58,7 +59,9 @@ public sealed partial class FileBrowserTabViewModel
 
     public void ShowLocalFiles()
     {
-        if (!_disposed) CloseStorageBrowser();
+        if (_disposed) return;
+        CloseProjectAssets();
+        CloseStorageBrowser();
     }
 
     private void CloseStorageBrowser()

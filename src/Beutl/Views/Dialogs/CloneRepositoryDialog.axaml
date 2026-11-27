@@ -1,0 +1,89 @@
+<ui:FAContentDialog xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:ui="using:FluentAvalonia.UI.Controls"
+                    xmlns:icons="using:FluentIcons.Avalonia.Fluent"
+                    xmlns:lang="using:Beutl.Language"
+                    xmlns:repo="using:Beutl.Editor.Components.VersionControl.Views"
+                    xmlns:vm="using:Beutl.ViewModels.Dialogs"
+                    x:Class="Beutl.Views.Dialogs.CloneRepositoryDialog"
+                    x:DataType="vm:CloneRepositoryDialogViewModel"
+                    x:CompileBindings="True"
+                    Title="{x:Static lang:Strings.HostedGit_CloneRepository}"
+                    PrimaryButtonText="{x:Static lang:Strings.HostedGit_Clone}"
+                    IsPrimaryButtonEnabled="{Binding CanClone.Value}"
+                    CloseButtonText="{x:Static lang:Strings.Cancel}"
+                    DefaultButton="Primary">
+    <ScrollViewer MaxHeight="450" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel MinWidth="280" MaxWidth="440" Spacing="12">
+            <StackPanel Spacing="14" IsEnabled="{Binding !IsBusy.Value}">
+                <StackPanel Spacing="10">
+                    <TabStrip Theme="{DynamicResource SegmentedTabStrip}"
+                              SelectedIndex="{Binding Mode.Value, Mode=TwoWay}">
+                        <TabStrip.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <UniformGrid Rows="1" />
+                            </ItemsPanelTemplate>
+                        </TabStrip.ItemsPanel>
+                        <TabStripItem x:Name="HostedSource" Content="{x:Static lang:Strings.HostedGit_BeutlRepositories}" />
+                        <TabStripItem x:Name="UrlSource" Content="{x:Static lang:Strings.HostedGit_CloneFromUrl}" />
+                    </TabStrip>
+                    <StackPanel IsVisible="{Binding #HostedSource.IsSelected}" Spacing="8">
+                        <repo:HostedRepositoryPicker DataContext="{Binding Picker}" />
+                        <Border Padding="8,6" CornerRadius="6"
+                                Background="{DynamicResource ControlAltFillColorSecondaryBrush}"
+                                IsVisible="{Binding Revision.Value, Converter={x:Static ObjectConverters.IsNotNull}}">
+                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                                <icons:FluentIcon Icon="BranchFork" FontSize="14" VerticalAlignment="Center"
+                                                  Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}" />
+                                <TextBlock Grid.Column="1" FontSize="12" TextWrapping="Wrap"
+                                           Text="{Binding Revision.Value, StringFormat={x:Static lang:Strings.HostedGit_RevisionFormat}}" />
+                            </Grid>
+                        </Border>
+                    </StackPanel>
+                    <StackPanel IsVisible="{Binding #UrlSource.IsSelected}" Spacing="4">
+                        <TextBlock FontWeight="SemiBold" Text="{x:Static lang:Strings.VersionControl_RemoteUrl}" />
+                        <TextBox Text="{Binding Url.Value, Mode=TwoWay}"
+                                 AutomationProperties.Name="{x:Static lang:Strings.VersionControl_RemoteUrl}" />
+                    </StackPanel>
+                </StackPanel>
+                <StackPanel Spacing="8">
+                    <Border Height="1" Background="{DynamicResource DividerStrokeColorDefaultBrush}" />
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                        <TextBlock FontWeight="SemiBold" Text="{x:Static lang:Strings.DestinationToSaveTo}" />
+                        <SelectableTextBlock Grid.Column="1" Text="{Binding Destination.Value}"
+                                             IsVisible="{Binding Destination.Value, Converter={x:Static ObjectConverters.IsNotNull}}"
+                                             FontSize="12" TextAlignment="Right" VerticalAlignment="Center"
+                                             TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Destination.Value}"
+                                             Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                    </Grid>
+                    <StackPanel Spacing="4">
+                        <TextBlock FontSize="12" Text="{x:Static lang:Strings.HostedGit_ParentFolder}"
+                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                            <TextBox Text="{Binding ParentFolder.Value, Mode=TwoWay}"
+                                     AutomationProperties.Name="{x:Static lang:Strings.HostedGit_ParentFolder}" />
+                            <Button Grid.Column="1" Click="PickFolder_Click" Content="{x:Static lang:Strings.Browse}" />
+                        </Grid>
+                    </StackPanel>
+                    <StackPanel Spacing="4">
+                        <TextBlock FontSize="12" Text="{x:Static lang:Strings.HostedGit_FolderName}"
+                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                        <TextBox Text="{Binding FolderName.Value, Mode=TwoWay}"
+                                 AutomationProperties.Name="{x:Static lang:Strings.HostedGit_FolderName}" />
+                    </StackPanel>
+                </StackPanel>
+            </StackPanel>
+            <StackPanel IsVisible="{Binding GitUnavailable.Value}" Spacing="8">
+                <TextBlock Text="{Binding GitStatus.Value}" TextWrapping="Wrap" />
+                <Button Click="DownloadGit_Click" Content="{x:Static lang:Strings.VersionControl_DownloadGit}" />
+            </StackPanel>
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8" IsVisible="{Binding IsBusy.Value}">
+                <ui:FAProgressRing Width="20" Height="20" IsActive="{Binding IsBusy.Value}" />
+                <TextBlock Grid.Column="1" Text="{Binding Progress.Value}" TextWrapping="Wrap" VerticalAlignment="Center" />
+            </Grid>
+            <TextBlock Text="{Binding Error.Value}" TextWrapping="Wrap"
+                       IsVisible="{Binding Error.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                       Foreground="{DynamicResource SystemFillColorCriticalBrush}" />
+        </StackPanel>
+    </ScrollViewer>
+</ui:FAContentDialog>

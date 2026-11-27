@@ -52,7 +52,7 @@ public sealed class ChangesModelTests
                 }));
             Assert.That(
                 model.InstallItems.Concat(model.UpdateItems).Concat(model.UninstallItems),
-                Is.All.Matches<PackageChangeModel>(item => item.IsRemote));
+                Is.All.Matches<PackageChangeModel>(item => item is { IsRemote: true }));
         }
     }
 

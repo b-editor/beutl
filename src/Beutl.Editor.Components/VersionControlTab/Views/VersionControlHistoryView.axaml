@@ -35,10 +35,13 @@
                                 <ui:FAMenuFlyout>
                                     <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="VersionControl.RestoreCommand"
                                                          Command="{Binding RestoreCommand}"
-                                                         Text="{x:Static lang:Strings.VersionControl_Restore}" />
+                                                         Text="{x:Static lang:Strings.VersionControl_RestoreMenu}" />
                                     <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="VersionControl.RestoreToNewBranchCommand"
                                                          Command="{Binding RestoreToNewBranchCommand}"
                                                          Text="{x:Static lang:Strings.VersionControl_RestoreToNewBranch}" />
+                                <ui:FAMenuFlyoutItem Command="{Binding OpenOnWebCommand}"
+                                                         Text="{x:Static lang:Strings.HostedGit_OpenCommitOnWeb}"
+                                                         IsVisible="{Binding IsHostedGitRemote.Value}" />
                                 </ui:FAMenuFlyout>
                             </Border.ContextFlyout>
                             <Grid ColumnDefinitions="*,Auto"

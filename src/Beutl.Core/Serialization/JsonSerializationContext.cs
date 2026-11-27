@@ -11,8 +11,11 @@ public partial class JsonSerializationContext(
     CoreSerializerOptions? options = null)
     : IJsonSerializationContext
 {
-    private List<(Guid, Action<ICoreSerializable>)>? _rootResolvers;
-    private List<(Guid, Action<ICoreSerializable>)>? _resolvers;
+    private readonly record struct PendingReference(
+        Guid Id, Action<ICoreSerializable> Callback, Func<bool>? CanWaitForAttachment);
+
+    private List<PendingReference>? _rootResolvers;
+    private List<PendingReference>? _resolvers;
     private Dictionary<Guid, ICoreSerializable>? _objects;
     private readonly JsonObject _json = json ?? [];
     private Dictionary<string, CapturedValue>? _preservedValues;
@@ -184,10 +187,14 @@ public partial class JsonSerializationContext(
             for (int i = _rootResolvers.Count - 1; i >= 0; i--)
             {
                 var item = _rootResolvers[i];
-                var (id, callback) = item;
+                var (id, callback, canWaitForAttachment) = item;
                 if (_objects.TryGetValue(id, out var resolved))
                 {
                     callback(resolved);
+                    _rootResolvers.RemoveAt(i);
+                }
+                else if (canWaitForAttachment?.Invoke() == false)
+                {
                     _rootResolvers.RemoveAt(i);
                 }
                 else if (coreObject is IHierarchical hierarchical)
@@ -217,9 +224,12 @@ public partial class JsonSerializationContext(
     }
 
     public void Resolve(Guid id, Action<ICoreSerializable> callback)
+        => Resolve(id, callback, canWaitForAttachment: null);
+
+    internal void Resolve(Guid id, Action<ICoreSerializable> callback, Func<bool>? canWaitForAttachment)
     {
         _resolvers ??= [];
-        _resolvers.Add((id, callback));
+        _resolvers.Add(new PendingReference(id, callback, canWaitForAttachment));
     }
 
     public bool Contains(string name)

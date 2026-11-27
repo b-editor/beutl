@@ -43,7 +43,7 @@ public sealed class RendererDisposalFailureTests
         context.Setup(c => c.CreateTexture2D(32, 32, It.IsAny<TextureFormat>()))
             .Returns((int width, int height, TextureFormat format) =>
             {
-                if (++viewportTextures == 10)
+                if (++viewportTextures == 9)
                     throw allocationFailure;
                 return CreateTexture(owners, width, height, format);
             });
@@ -67,7 +67,7 @@ public sealed class RendererDisposalFailureTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(viewportTextures, Is.EqualTo(10));
+            Assert.That(viewportTextures, Is.EqualTo(9));
             Assert.That((renderer.Width, renderer.Height), Is.EqualTo((0, 0)));
             Assert.That(compiler.Attempts, Is.Zero);
             Assert.That(owners.Where(o => o != compiler).Select(o => o.Attempts), Is.All.EqualTo(1));

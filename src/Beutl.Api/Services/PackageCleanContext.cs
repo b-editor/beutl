@@ -12,6 +12,8 @@ public class PackageCleanContext(PackageIdentity[] unnecessaryPackages, long siz
 
     public bool RegistryUnavailable { get; init; }
 
+    internal bool RecheckDependencies { get; init; }
+
     [AllowNull]
     public IReadOnlyList<string> FailedPackages { get; internal set; }
 }

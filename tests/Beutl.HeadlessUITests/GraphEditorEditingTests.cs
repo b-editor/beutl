@@ -16,6 +16,7 @@ using Beutl.Editor.Components;
 using Beutl.Editor.Components.GraphEditorTab.ViewModels;
 using Beutl.Editor.Components.GraphEditorTab.Views;
 using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Components.Services;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Components.TimelineTab.Views;
 using Beutl.Editor.Services;
@@ -84,7 +85,7 @@ public class GraphEditorEditingTests
         int undo = graph.Model.HistoryManager.UndoCount;
         try
         {
-            Task cut = graph.View.CutSelectionAsync(clipboard.Object);
+            Task cut = graph.View.CutSelectionAsync(new AvaloniaClipboardGateway(clipboard.Object));
             Assert.That(cut.IsCompleted, Is.False);
             Assert.That(data, Is.Not.Null);
             Assert.That(graph.Animation.KeyFrames, Has.Count.EqualTo(2));
@@ -163,7 +164,7 @@ public class GraphEditorEditingTests
         int undo = model.HistoryManager.UndoCount;
         try
         {
-            Task cut = graph.View.CutSelectionAsync(clipboard.Object);
+            Task cut = graph.View.CutSelectionAsync(new AvaloniaClipboardGateway(clipboard.Object));
             Assert.That(cut.IsCompleted, Is.False);
             if (navigate)
             {
@@ -196,9 +197,9 @@ public class GraphEditorEditingTests
         int undo = graph.Model.HistoryManager.UndoCount;
         Task paste = entry switch
         {
-            "key" => ((GraphEditorKeyFrameViewModel)graph.KeyFrame(graph.Second).DataContext!).PasteAsync(clipboard.Object),
-            "background" => graph.Model.PasteKeyFrameAtPositionAsync(MediaTime.FromSeconds(3), clipboard.Object),
-            _ => graph.Model.PasteSelectionAsync(clipboard.Object)
+            "key" => ((GraphEditorKeyFrameViewModel)graph.KeyFrame(graph.Second).DataContext!).PasteAsync(new AvaloniaClipboardGateway(clipboard.Object)),
+            "background" => graph.Model.PasteKeyFrameAtPositionAsync(MediaTime.FromSeconds(3), new AvaloniaClipboardGateway(clipboard.Object)),
+            _ => graph.Model.PasteSelectionAsync(new AvaloniaClipboardGateway(clipboard.Object))
         };
         Assert.That(paste.IsCompleted, Is.False);
         switch (change)
@@ -252,15 +253,14 @@ public class GraphEditorEditingTests
     }
 
     [AvaloniaTest]
-    [TestCase(KeyModifiers.Control)]
-    [TestCase(KeyModifiers.Meta)]
-    public async Task Cut_keyboard_shortcut_copies_and_deletes_with_one_undo(KeyModifiers command)
+    [TestCase(RawInputModifiers.None)]
+    [TestCase(RawInputModifiers.Alt)]
+    public async Task Cut_keyboard_shortcut_copies_and_deletes_with_one_undo(RawInputModifiers extra)
     {
         using var graph = await GraphScope.CreateAsync(separateHandles: true);
-        using var commandModifier = CommandModifierScope.Use(command);
         graph.View.Focus();
         int undo = graph.Model.HistoryManager.UndoCount;
-        var modifier = command == KeyModifiers.Meta ? RawInputModifiers.Meta : RawInputModifiers.Control;
+        var modifier = (OperatingSystem.IsMacOS() ? RawInputModifiers.Meta : RawInputModifiers.Control) | extra;
         graph.Window.KeyPress(Key.X, modifier, PhysicalKey.X, null);
         graph.Window.KeyRelease(Key.X, modifier, PhysicalKey.X, null);
         await HeadlessTestHelpers.WaitUntilAsync(() => graph.Animation.KeyFrames.Count == 0);
@@ -287,7 +287,7 @@ public class GraphEditorEditingTests
     public async Task Graph_selection_pastes_into_timeline_without_replacing_other_keys(bool globalClock, bool occupied, bool locked, bool keyMenu = false)
     {
         using var graph = await GraphScope.CreateAsync(separateHandles: true);
-        Assert.That(await graph.Model.CopySelectionAsync(graph.Window.Clipboard), Is.True);
+        Assert.That(await graph.Model.CopySelectionAsync(new AvaloniaClipboardGateway(graph.Window.Clipboard!)), Is.True);
         var shape = graph.Model.Element!.Objects.OfType<Beutl.Graphics.Shapes.RectShape>().Single();
         var target = new KeyFrameAnimation<float> { UseGlobalClock = { Value = globalClock } };
         target.KeyFrames.Add(new KeyFrame<float> { Value = { Value = 20 } });
@@ -302,8 +302,8 @@ public class GraphEditorEditingTests
         using var inline = new InlineAnimationLayerViewModel(property, timeline, timeline.AllElements().Single());
         string before = GraphScope.Snapshot(target);
         int undo = graph.Model.HistoryManager.UndoCount;
-        if (keyMenu) await inline.Items.Single(item => item.Model.KeyTime.Value.ToSeconds() == start).PasteAsync(graph.Window.Clipboard);
-        else await inline.PasteKeyFrameAtPositionAsync(MediaTime.FromSeconds(5), graph.Window.Clipboard);
+        if (keyMenu) await inline.Items.Single(item => item.Model.KeyTime.Value.ToSeconds() == start).PasteAsync(new AvaloniaClipboardGateway(graph.Window.Clipboard!));
+        else await inline.PasteKeyFrameAtPositionAsync(MediaTime.FromSeconds(5), new AvaloniaClipboardGateway(graph.Window.Clipboard!));
         if (locked)
         {
             Assert.That(GraphScope.Snapshot(target), Is.EqualTo(before));
@@ -331,7 +331,7 @@ public class GraphEditorEditingTests
     public async Task Pending_timeline_selection_paste_rechecks_the_destination(string change)
     {
         using var graph = await GraphScope.CreateAsync();
-        await graph.Model.CopySelectionAsync(graph.Window.Clipboard);
+        await graph.Model.CopySelectionAsync(new AvaloniaClipboardGateway(graph.Window.Clipboard!));
         string json = (await graph.Window.Clipboard!.TryGetValueAsync(BeutlDataFormats.KeyFrameSelection))!;
         var shape = graph.Model.Element!.Objects.OfType<Beutl.Graphics.Shapes.RectShape>().Single();
         var target = new KeyFrameAnimation<float>();
@@ -344,7 +344,7 @@ public class GraphEditorEditingTests
         var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var clipboard = new Mock<IClipboard>();
         clipboard.Setup(x => x.TryGetDataAsync()).Returns(Read);
-        Task paste = inline.PasteKeyFrameAtPositionAsync(MediaTime.FromSeconds(3), clipboard.Object);
+        Task paste = inline.PasteKeyFrameAtPositionAsync(MediaTime.FromSeconds(3), new AvaloniaClipboardGateway(clipboard.Object));
         Assert.That(paste.IsCompleted, Is.False);
         if (change == "lock") graph.Model.Element.IsLocked.Value = true;
         else if (change == "replace") shape.Height.SetKeyFrameAnimation(new KeyFrameAnimation<float>());
@@ -372,7 +372,7 @@ public class GraphEditorEditingTests
     public async Task Pasted_graph_selection_renders_in_the_timeline(bool light)
     {
         using var graph = await GraphScope.CreateAsync(light, separateHandles: true);
-        await graph.Model.CopySelectionAsync(graph.Window.Clipboard);
+        await graph.Model.CopySelectionAsync(new AvaloniaClipboardGateway(graph.Window.Clipboard!));
         var shape = graph.Model.Element!.Objects.OfType<Beutl.Graphics.Shapes.RectShape>().Single();
         var animation = new KeyFrameAnimation<float>();
         animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = { Value = MediaTime.FromSeconds(0.5) }, Value = { Value = 20 } });
@@ -386,7 +386,7 @@ public class GraphEditorEditingTests
         graph.Window.Width = 960;
         try
         {
-            await inline.PasteKeyFrameAtPositionAsync(MediaTime.FromSeconds(3), graph.Window.Clipboard);
+            await inline.PasteKeyFrameAtPositionAsync(MediaTime.FromSeconds(3), new AvaloniaClipboardGateway(graph.Window.Clipboard!));
             HeadlessTestHelpers.Render(3);
             var layer = view.GetVisualDescendants().OfType<InlineAnimationLayer>().Single(item => ReferenceEquals(item.DataContext, inline));
             var keys = layer.GetVisualDescendants().OfType<AvaloniaPath>().Where(item => item.DataContext is InlineKeyFrameViewModel).ToArray();
@@ -401,10 +401,19 @@ public class GraphEditorEditingTests
     public async Task Selected_clipboard_paste_keeps_spacing_and_existing_keys_and_undo()
     {
         using var graph = await GraphScope.CreateAsync(separateHandles: true);
-        Assert.That(await graph.Model.CopySelectionAsync(graph.Window.Clipboard), Is.True);
+        IClipboard clipboard = graph.Window.Clipboard!;
+        await clipboard.ClearAsync();
+        graph.View.Focus();
+        RawInputModifiers modifier = GraphScope.CommandModifier;
+        graph.Window.KeyPress(Key.C, modifier, PhysicalKey.C, null);
+        graph.Window.KeyRelease(Key.C, modifier, PhysicalKey.C, null);
+        Assert.That(await clipboard.TryGetValueAsync(BeutlDataFormats.KeyFrameSelection), Is.Not.Null);
+
         graph.Model.Seek(MediaTime.FromSeconds(3));
         int undo = graph.Model.HistoryManager.UndoCount;
-        await graph.Model.PasteSelectionAsync(graph.Window.Clipboard);
+        graph.Window.KeyPress(Key.V, modifier, PhysicalKey.V, null);
+        graph.Window.KeyRelease(Key.V, modifier, PhysicalKey.V, null);
+        await HeadlessTestHelpers.WaitUntilAsync(() => graph.Animation.KeyFrames.Count == 4);
         HeadlessTestHelpers.Render();
         Assert.That(graph.Animation.KeyFrames.Select(x => x.KeyTime.Value.ToSeconds()), Is.EqualTo(new[] { 0.5, 1.5, 3, 4 }));
         Assert.That(graph.Animation.KeyFrames.Select(x => x.Id.Value).Distinct().Count(), Is.EqualTo(4));
@@ -446,7 +455,7 @@ public class GraphEditorEditingTests
         var menuItem = ((FAMenuFlyout)key.ContextFlyout!).Items.OfType<FAMenuFlyoutItem>().Single(x => Equals(x.Text, Strings.Paste));
         var keyModel = (GraphEditorKeyFrameViewModel)key.DataContext!;
         Assert.That(menuItem.Command, Is.SameAs(keyModel.PasteCommand));
-        await keyModel.PasteAsync(graph.Window.Clipboard);
+        await keyModel.PasteAsync(new AvaloniaClipboardGateway(graph.Window.Clipboard!));
         Assert.That(graph.Animation.KeyFrames, Has.Count.EqualTo(2));
         Assert.That(graph.Second.KeyTime.Value, Is.EqualTo(MediaTime.FromSeconds(1.5)));
         Assert.That(graph.Second.Value.Value, Is.EqualTo(crossType ? 500f : 42f));
@@ -477,7 +486,7 @@ public class GraphEditorEditingTests
         data.Add(DataTransferItem.Create(fullAnimation ? BeutlDataFormats.KeyFrameAnimation : BeutlDataFormats.KeyFrame, json));
         await graph.Window.Clipboard!.SetDataAsync(data);
         graph.Model.Seek(MediaTime.Zero);
-        await graph.Model.PasteKeyFrameAtPositionAsync(MediaTime.FromSeconds(3), graph.Window.Clipboard);
+        await graph.Model.PasteKeyFrameAtPositionAsync(MediaTime.FromSeconds(3), new AvaloniaClipboardGateway(graph.Window.Clipboard!));
         Assert.That(graph.Animation.KeyFrames.Select(x => x.KeyTime.Value.ToSeconds()),
             Is.EqualTo(fullAnimation ? new[] { 8d } : new[] { 0.5, 1.5, 3 }));
         Assert.That(graph.Animation.KeyFrames[^1].Value, Is.EqualTo(42f));
@@ -509,10 +518,10 @@ public class GraphEditorEditingTests
         graph.Model.HistoryManager.Commit();
         graph.Model.SelectedView.Value!.SetSelection(multiple ? [graph.First, third] : [graph.First]);
         string before = GraphScope.Snapshot(graph.Animation);
-        Assert.That(await graph.Model.CopySelectionAsync(graph.Window.Clipboard), Is.True);
+        Assert.That(await graph.Model.CopySelectionAsync(new AvaloniaClipboardGateway(graph.Window.Clipboard!)), Is.True);
         graph.Model.Seek(MediaTime.Zero);
         int undo = graph.Model.HistoryManager.UndoCount;
-        await graph.Model.PasteKeyFrameAtPositionAsync(MediaTime.FromSeconds(5), graph.Window.Clipboard);
+        await graph.Model.PasteKeyFrameAtPositionAsync(MediaTime.FromSeconds(5), new AvaloniaClipboardGateway(graph.Window.Clipboard!));
         Assert.That(graph.Animation.KeyFrames, Does.Contain(graph.Second));
         Assert.That(graph.Second.Value.Value, Is.EqualTo(500));
         Assert.That(graph.Animation.KeyFrames.Select(key => key.KeyTime.Value.ToSeconds()),

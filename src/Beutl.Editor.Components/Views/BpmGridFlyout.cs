@@ -7,31 +7,19 @@ using FluentAvalonia.UI.Controls.Primitives;
 
 namespace Beutl.Editor.Components.Views;
 
-public sealed class BpmGridFlyout : FAPickerFlyoutBase
+public sealed partial class BpmGridFlyout : FAPickerFlyoutBase
 {
-    public static readonly StyledProperty<bool> IsEnabledCheckedProperty
-        = AvaloniaProperty.Register<BpmGridFlyout, bool>(nameof(IsEnabledChecked));
-
-    public static readonly StyledProperty<decimal> BpmProperty
-        = AvaloniaProperty.Register<BpmGridFlyout, decimal>(nameof(Bpm), 120m);
-
-    public static readonly StyledProperty<int> SubdivisionsProperty
-        = AvaloniaProperty.Register<BpmGridFlyout, int>(nameof(Subdivisions), 4);
-
-    public static readonly StyledProperty<decimal> OffsetSecondsProperty
-        = AvaloniaProperty.Register<BpmGridFlyout, decimal>(nameof(OffsetSeconds));
-
     private ToggleSwitch? _enabledToggle;
     private NumericUpDown? _bpmUpDown;
     private ComboBox? _subdivisionCombo;
     private NumericUpDown? _offsetUpDown;
     private BpmGridOptions _initialOptions;
 
-    public bool IsEnabledChecked
-    {
-        get => GetValue(IsEnabledCheckedProperty);
-        set => SetValue(IsEnabledCheckedProperty, value);
-    }
+    public static readonly StyledProperty<decimal> BpmProperty =
+        AvaloniaProperty.Register<BpmGridFlyout, decimal>(nameof(Bpm), 120m);
+
+    [GeneratedStyledProperty]
+    public partial bool IsEnabledChecked { get; set; }
 
     public decimal Bpm
     {
@@ -39,17 +27,11 @@ public sealed class BpmGridFlyout : FAPickerFlyoutBase
         set => SetValue(BpmProperty, value);
     }
 
-    public int Subdivisions
-    {
-        get => GetValue(SubdivisionsProperty);
-        set => SetValue(SubdivisionsProperty, value);
-    }
+    [GeneratedStyledProperty(DefaultValue = 4)]
+    public partial int Subdivisions { get; set; }
 
-    public decimal OffsetSeconds
-    {
-        get => GetValue(OffsetSecondsProperty);
-        set => SetValue(OffsetSecondsProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial decimal OffsetSeconds { get; set; }
 
     public event EventHandler<BpmGridOptions>? OptionsChanged;
 

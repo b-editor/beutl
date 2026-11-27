@@ -23,39 +23,22 @@ public enum PropertyEditorStyle
     Settings,
 }
 
+internal interface IPropertyEditorDragSession
+{
+    IDisposable Enter();
+
+    void Confirm();
+}
+
 [PseudoClasses(":compact", ":list-item", ":settings", ":visible-left-button", ":visible-right-button")]
 [TemplatePart("PART_LeftButton", typeof(Button))]
 [TemplatePart("PART_RightButton", typeof(Button))]
 [TemplatePart("PART_DeleteButton", typeof(Button))]
 [TemplatePart("PART_ReorderHandle", typeof(Control))]
-public class PropertyEditor : TemplatedControl, IPropertyEditorContextVisitor, IListItemEditor
+public partial class PropertyEditor : TemplatedControl, IPropertyEditorContextVisitor, IListItemEditor
 {
-    public static readonly StyledProperty<string?> HeaderProperty =
-        AvaloniaProperty.Register<PropertyEditor, string?>(nameof(Header));
-
-    public static readonly StyledProperty<string?> DescriptionProperty =
-        AvaloniaProperty.Register<PropertyEditor, string?>(nameof(Description));
-
-    public static readonly StyledProperty<string?> HoverInfoProperty =
-        AvaloniaProperty.Register<PropertyEditor, string?>(nameof(HoverInfo));
-
     public static readonly DirectProperty<PropertyEditor, string?> HeaderTooltipProperty =
         AvaloniaProperty.RegisterDirect<PropertyEditor, string?>(nameof(HeaderTooltip), o => o.HeaderTooltip);
-
-    public static readonly StyledProperty<bool> IsReadOnlyProperty =
-        TextBox.IsReadOnlyProperty.AddOwner<PropertyEditor>();
-
-    public static readonly StyledProperty<PropertyEditorStyle> EditorStyleProperty =
-        AvaloniaProperty.Register<PropertyEditor, PropertyEditorStyle>(nameof(EditorStyle), PropertyEditorStyle.Normal);
-
-    public static readonly StyledProperty<object?> MenuContentProperty =
-        AvaloniaProperty.Register<PropertyEditor, object?>(nameof(MenuContent));
-
-    public static readonly StyledProperty<IDataTemplate?> MenuContentTemplateProperty =
-        AvaloniaProperty.Register<PropertyEditor, IDataTemplate?>(nameof(MenuContentTemplate));
-
-    public static readonly StyledProperty<float> KeyFrameIndexProperty =
-        AvaloniaProperty.Register<PropertyEditor, float>(nameof(KeyFrameIndex), 0);
 
     public static readonly StyledProperty<int> KeyFrameCountProperty =
         AvaloniaProperty.Register<PropertyEditor, int>(nameof(KeyFrameCount), 0, coerce: (_, v) => Math.Max(v, 0));
@@ -72,6 +55,8 @@ public class PropertyEditor : TemplatedControl, IPropertyEditorContextVisitor, I
     private const double AutoCompactMaxWidth = 224;
     private readonly CompositeDisposable _eventRevokers = new(3);
     private readonly SerialDisposable _connection = new();
+    private (Control Owner, IPointer Pointer, Action Stop)? _valueDrag;
+    private IPropertyEditorDragSession? _dragSession;
     private string? _headerTooltip;
 
     static PropertyEditor()
@@ -79,55 +64,31 @@ public class PropertyEditor : TemplatedControl, IPropertyEditorContextVisitor, I
         MarginProperty.OverrideDefaultValue<PropertyEditor>(new(4, 0));
     }
 
-    public string? Header
-    {
-        get => GetValue(HeaderProperty);
-        set => SetValue(HeaderProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial string? Header { get; set; }
 
-    public string? Description
-    {
-        get => GetValue(DescriptionProperty);
-        set => SetValue(DescriptionProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial string? Description { get; set; }
 
-    public string? HoverInfo
-    {
-        get => GetValue(HoverInfoProperty);
-        set => SetValue(HoverInfoProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial string? HoverInfo { get; set; }
 
     public string? HeaderTooltip => _headerTooltip;
 
-    public bool IsReadOnly
-    {
-        get => GetValue(IsReadOnlyProperty);
-        set => SetValue(IsReadOnlyProperty, value);
-    }
+    [GeneratedStyledProperty(AddOwnerFrom = typeof(TextBox))]
+    public partial bool IsReadOnly { get; set; }
 
-    public PropertyEditorStyle EditorStyle
-    {
-        get => GetValue(EditorStyleProperty);
-        set => SetValue(EditorStyleProperty, value);
-    }
+    [GeneratedStyledProperty(DefaultValue = PropertyEditorStyle.Normal)]
+    public partial PropertyEditorStyle EditorStyle { get; set; }
 
-    public object? MenuContent
-    {
-        get => GetValue(MenuContentProperty);
-        set => SetValue(MenuContentProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial object? MenuContent { get; set; }
 
-    public IDataTemplate? MenuContentTemplate
-    {
-        get => GetValue(MenuContentTemplateProperty);
-        set => SetValue(MenuContentTemplateProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial IDataTemplate? MenuContentTemplate { get; set; }
 
-    public float KeyFrameIndex
-    {
-        get => GetValue(KeyFrameIndexProperty);
-        set => SetValue(KeyFrameIndexProperty, value);
-    }
+    [GeneratedStyledProperty(DefaultValue = 0)]
+    public partial float KeyFrameIndex { get; set; }
 
     public int KeyFrameCount
     {
@@ -159,7 +120,8 @@ public class PropertyEditor : TemplatedControl, IPropertyEditorContextVisitor, I
     {
     }
 
-    // Shows the context's value in valueProperty and confirms the edits this editor raises; an earlier connection ends.
+    // Shows the context's value in valueProperty, confirms the edits this editor raises and shows the context's value
+    // again after each, as one it turned down changes nothing; an earlier connection ends.
     private protected CompositeDisposable ConnectConfirmedValue<TEdit>(
         IValueEditorContext<TEdit> context, AvaloniaProperty<TEdit> valueProperty)
     {
@@ -183,18 +145,6 @@ public class PropertyEditor : TemplatedControl, IPropertyEditorContextVisitor, I
         return connection;
     }
 
-    // Like ConnectConfirmedValue, and shows the context's value again after each edit, as one it turned down changes nothing.
-    private protected CompositeDisposable ConnectRefreshedValue<TEdit>(
-        IValueEditorContext<TEdit> context, AvaloniaProperty<TEdit> valueProperty)
-    {
-        CompositeDisposable connection = StartConnection();
-        TEdit shown = default!;
-        context.EditValue.Subscribe(value => shown = value).DisposeWith(connection);
-        Bind(valueProperty, context.EditValue.ToBinding()).DisposeWith(connection);
-        ConfirmEdits(context, connection, () => SetValue(valueProperty, shown));
-        return connection;
-    }
-
     // Ends the typing in a text box, for a press on a box that starts a drag, so that what was typed is confirmed in an
     // undo step of its own. The focus goes to the nearest parent that takes it, as for a press on anything else; with
     // none, as in a floated property tab, it goes nowhere rather than stay in the text box.
@@ -213,6 +163,8 @@ public class PropertyEditor : TemplatedControl, IPropertyEditorContextVisitor, I
     // Ends the earlier connection and returns the one that holds the new connection's subscriptions.
     private protected CompositeDisposable StartConnection()
     {
+        _dragSession?.Confirm();
+        StopValueDrag();
         HasUnconfirmedEdit = false;
         var connection = new CompositeDisposable();
         _connection.Disposable = connection;
@@ -221,10 +173,55 @@ public class PropertyEditor : TemplatedControl, IPropertyEditorContextVisitor, I
 
     internal bool HasUnconfirmedEdit { get; private set; }
 
+    internal Func<Control, Action, IPropertyEditorDragSession?>? OpenDragSession { get; set; }
+
+    internal Control? ValueDragOwner => _valueDrag?.Owner;
+
+    internal void BeginValueDrag(Control owner, IPointer pointer, Action stop)
+    {
+        _valueDrag = (owner, pointer, stop);
+        _dragSession = OpenDragSession?.Invoke(owner, StopValueDrag);
+    }
+
+    internal void CompleteValueDrag()
+    {
+        _dragSession?.Confirm();
+        _valueDrag = null;
+    }
+
+    // An interrupted gesture clears its state before releasing capture, which can call the pointer handlers again.
+    private void StopValueDrag()
+    {
+        if (_valueDrag is not { } drag)
+            return;
+
+        _valueDrag = null;
+        _dragSession = null;
+        HasUnconfirmedEdit = false;
+        drag.Stop();
+        if (drag.Pointer.Captured == drag.Owner)
+            drag.Pointer.Capture(null);
+    }
+
     private protected TEdit PreviewEdit<TEdit>(IValueEditorContext<TEdit> context, TEdit value, bool relative)
     {
+        using var drag = _dragSession?.Enter();
         HasUnconfirmedEdit = true;
         return context.PreviewEdit(value, relative);
+    }
+
+    private protected TEdit PreviewEdit<TEdit>(IValueEditorContext<TEdit> context, TEdit value, bool relative, int editedComponents)
+    {
+        using var drag = _dragSession?.Enter();
+        HasUnconfirmedEdit = true;
+        return context.PreviewEdit(value, relative, editedComponents);
+    }
+
+    private protected TEdit PreviewFocusedEdit<TEdit>(IValueEditorContext<TEdit> context, TEdit value)
+    {
+        using var drag = _dragSession?.Enter();
+        HasUnconfirmedEdit = true;
+        return context.PreviewFocusedEdit(value);
     }
 
     // Hands the edits this editor confirms to the context, then runs afterConfirm.
@@ -238,7 +235,8 @@ public class PropertyEditor : TemplatedControl, IPropertyEditorContextVisitor, I
                     if (e.Expect<TEdit>(s) is { } args)
                     {
                         HasUnconfirmedEdit = false;
-                        context.ConfirmEdit(args.OldValue, args.NewValue);
+                        if (_dragSession is null)
+                            context.ConfirmEdit(args.OldValue, args.NewValue);
                         afterConfirm?.Invoke();
                     }
                 })

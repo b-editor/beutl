@@ -136,9 +136,8 @@
     <value>遥测</value>
     <comment />
   </data>
-  <data name="Telemetry_ShortDescription" xml:space="preserve">
-    <value>关于要收集的数据的设置</value>
-    <comment />
+  <data name="Privacy" xml:space="preserve">
+    <value>隐私</value>
   </data>
   <data name="AutoDownloadUpdates" xml:space="preserve">
     <value>自动下载更新</value>
@@ -148,14 +147,6 @@
   </data>
   <data name="Telemetry_Description" xml:space="preserve">
     <value>为了改进 Beutl，我们收集匿名的使用数据。这些设置将在应用程序重新启动后生效。有关详细信息，请参阅以下页面。</value>
-    <comment />
-  </data>
-  <data name="ShowExactBoundaries_Description" xml:space="preserve">
-    <value>在预览期间准确显示元素的边界。启用此设置可能会使边框不可见。</value>
-    <comment />
-  </data>
-  <data name="ShowExactBoundaries" xml:space="preserve">
-    <value>显示精确边界</value>
     <comment />
   </data>
   <data name="AutoAdjustSceneDuration" xml:space="preserve">
@@ -330,6 +321,25 @@
     <value>在时间轴片段上显示胶片缩略图和波形。关闭后，可从片段的右键菜单中逐个开启；这样可使包含大量媒体的时间轴缩放保持流畅。</value>
     <comment />
   </data>
+  <data name="TimelineLayerSize" xml:space="preserve">
+    <value>时间轴图层高度</value>
+    <comment />
+  </data>
+  <data name="TimelineLayerSize_Small" xml:space="preserve">
+    <value>小</value>
+    <comment />
+  </data>
+  <data name="TimelineLayerSize_Medium" xml:space="preserve">
+    <value>中</value>
+    <comment />
+  </data>
+  <data name="TimelineLayerSize_Large" xml:space="preserve">
+    <value>大</value>
+    <comment />
+  </data>
+  <data name="Performance" xml:space="preserve">
+    <value>性能</value>
+  </data>
   <data name="Graphics" xml:space="preserve">
     <value>图形</value>
     <comment />
@@ -369,6 +379,21 @@
   </data>
   <data name="Keymap" xml:space="preserve">
     <value>键位映射</value>
+  </data>
+  <data name="Keymap_Search" xml:space="preserve">
+    <value>搜索快捷键</value>
+  </data>
+  <data name="Keymap_NoResults" xml:space="preserve">
+    <value>没有匹配的快捷键</value>
+  </data>
+  <data name="Keymap_Reset" xml:space="preserve">
+    <value>恢复默认设置</value>
+  </data>
+  <data name="Keymap_Conflict" xml:space="preserve">
+    <value>与 {0} 冲突</value>
+  </data>
+  <data name="Keymap_Unassigned" xml:space="preserve">
+    <value>未分配</value>
   </data>
   <data name="Language" xml:space="preserve">
     <value>语言</value>
@@ -834,5 +859,64 @@
   </data>
   <data name="ExtensionUpdates_Always" xml:space="preserve">
     <value>始终自动更新</value>
+  </data>
+  <data name="AiAgents_Runtime" xml:space="preserve"><value>内置代理运行时</value></data>
+  <data name="AiAgents_RuntimeDefaultProvider" xml:space="preserve"><value>默认提供方</value></data>
+  <data name="AiAgents_RuntimeDefaultPermission" xml:space="preserve"><value>默认权限模式</value></data>
+  <data name="AiAgents_RuntimeDefaultModel" xml:space="preserve"><value>默认模型</value></data>
+  <data name="AiAgents_RuntimeProviderDefault" xml:space="preserve"><value>提供方默认值</value></data>
+  <data name="AiAgents_RuntimeAuto" xml:space="preserve"><value>自动</value></data>
+  <data name="AiAgents_RuntimeDetectedProviders" xml:space="preserve"><value>检测到的内置提供方</value></data>
+  <data name="AiAgents_RuntimeRecheck" xml:space="preserve"><value>重新检查</value></data>
+  <data name="AiAgents_RuntimeExecutableOverride" xml:space="preserve"><value>自定义可执行文件</value></data>
+  <data name="AiAgents_RuntimeClaudePath" xml:space="preserve"><value>Claude Code 可执行文件</value></data>
+  <data name="AiAgents_RuntimeCodexPath" xml:space="preserve"><value>Codex 可执行文件</value></data>
+  <data name="AiAgents_RuntimeSelectExecutable" xml:space="preserve"><value>选择代理可执行文件</value></data>
+  <data name="AiAgents_RuntimeChecking" xml:space="preserve"><value>正在检查…</value></data>
+  <data name="AiAgents_RuntimeAvailable" xml:space="preserve"><value>可用 · {0}</value></data>
+  <data name="AiAgents_RuntimeNotFound" xml:space="preserve"><value>未找到</value></data>
+  <data name="AiAgents_RuntimeProbeFailed" xml:space="preserve"><value>无法检查可执行文件</value></data>
+  <data name="AiAgents_RuntimeCustomProviders" xml:space="preserve"><value>自定义 ACP 提供方</value></data>
+  <data name="AiAgents_RuntimeAddProvider" xml:space="preserve"><value>添加提供方</value></data>
+  <data name="AiAgents_RuntimeRemove" xml:space="preserve"><value>移除</value></data>
+  <data name="AiAgents_RuntimeId" xml:space="preserve"><value>ID</value></data>
+  <data name="AiAgents_RuntimeDisplayName" xml:space="preserve"><value>显示名称</value></data>
+  <data name="AiAgents_RuntimeCommand" xml:space="preserve"><value>命令</value></data>
+  <data name="AiAgents_RuntimeArgumentsPlaceholder" xml:space="preserve"><value>每行一个参数</value></data>
+  <data name="AiAgents_RuntimeRequiredFields" xml:space="preserve"><value>请输入 ID、显示名称和命令。</value></data>
+  <data name="AiAgents_RuntimeDuplicateId" xml:space="preserve"><value>已存在具有此 ID 的提供方。</value></data>
+  <data name="AiAgents_RuntimeInvalidProviders" xml:space="preserve"><value>无法读取已保存的自定义提供方。请修正 Beutl 配置中的 CustomRuntimeProvidersJson，然后在此处编辑。</value></data>
+  <data name="AiAgents_RuntimeComposerSendKey" xml:space="preserve">
+    <value>编辑框发送键</value>
+  </data>
+  <data name="AiAgents_RuntimeComposerSendKeyEnter" xml:space="preserve">
+    <value>Enter</value>
+  </data>
+  <data name="AiAgents_RuntimeComposerSendKeyCtrlEnter" xml:space="preserve">
+    <value>Ctrl+Enter</value>
+  </data>
+  <data name="AiAgents_RuntimeComposerSendKeyCommandEnter" xml:space="preserve">
+    <value>⌘+Enter</value>
+  </data>
+  <data name="AiAgents_Notifications" xml:space="preserve">
+    <value>通知</value>
+  </data>
+  <data name="AiAgents_EnableNotifications" xml:space="preserve">
+    <value>应用内通知</value>
+  </data>
+  <data name="AiAgents_EnableNotifications_Description" xml:space="preserve">
+    <value>显示后台会话的审批请求、问题和执行结果。</value>
+  </data>
+  <data name="AiAgents_EnableNotificationSound" xml:space="preserve">
+    <value>通知声音</value>
+  </data>
+  <data name="AiAgents_EnableNotificationSound_Description" xml:space="preserve">
+    <value>显示通知时播放声音。</value>
+  </data>
+  <data name="AiAgents_RuntimeAvailableVersion" xml:space="preserve">
+    <value>v{0} · {1}</value>
+  </data>
+  <data name="AiAgents_RuntimeOutdated" xml:space="preserve">
+    <value>v{0} · 需要更新（v{1} 或更高版本）&#10;{2}</value>
   </data>
 </root>

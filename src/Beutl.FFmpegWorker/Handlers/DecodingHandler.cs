@@ -22,7 +22,11 @@ internal sealed partial class DecodingHandler : IDisposable
         var settings = new FFmpegDecodingSettings();
         ApplySettings(settings, request.ThreadCount, request.Acceleration);
 
-        var options = new MediaOptions((MediaMode)request.StreamsToLoad);
+        var options = new MediaOptions((MediaMode)request.StreamsToLoad)
+        {
+            Deinterlace = request.Deinterlace,
+            VideoThumbnailHeight = request.VideoThumbnailHeight,
+        };
         var reader = new FFmpegReader(request.FilePath, options, settings);
         int id = Interlocked.Increment(ref _nextReaderId);
 
@@ -43,16 +47,15 @@ internal sealed partial class DecodingHandler : IDisposable
     private OpenFileResponse CreateReaderBuffers(int id, ReaderState state)
     {
         var reader = state.Reader;
-        int slotCount = DefaultSlotCount;
+        int slotCount = reader.IsThumbnailReader ? 1 : DefaultSlotCount;
         long slotSize = 0;
         string? videoShmName = null;
 
         // 共有メモリ作成（リングバッファ）
         if (reader.HasVideo)
         {
-            int videoWidth = reader.VideoInfo.FrameSize.Width;
-            int videoHeight = reader.VideoInfo.FrameSize.Height;
-            slotSize = FFmpegVideoSlotSizing.GetSlotSize(videoWidth, videoHeight, reader.IsHdr);
+            var size = reader.GetVideoOutputSize(reader.VideoInfo.FrameSize);
+            slotSize = FFmpegVideoSlotSizing.GetSlotSize(size.Width, size.Height, reader.IsHdr);
 
             long totalSize = slotSize * slotCount;
             videoShmName = $"beutl-ffmpeg-video-{Environment.ProcessId}-{id}";
@@ -107,6 +110,10 @@ internal sealed partial class DecodingHandler : IDisposable
             response.FrameRateDen = vi.FrameRate.Denominator;
             response.DurationNum = vi.Duration.Numerator;
             response.DurationDen = vi.Duration.Denominator;
+            response.VideoColorTags = vi.ColorTags;
+            response.VideoHasIccProfile = vi.HasIccProfile;
+            response.DetectedFieldOrder = vi.DetectedFieldOrder;
+            response.DeinterlaceStatus = vi.DeinterlaceStatus;
         }
 
         if (reader.HasAudio)
@@ -153,7 +160,8 @@ internal sealed partial class DecodingHandler : IDisposable
         ReadVideoInUseForTest?.Invoke(request.ReaderId);
 
         if (state.RingBuffer != null)
-            return HandleReadVideoRingBuffer(msg.Id, request.Frame, state.RingBuffer);
+            return HandleReadVideoRingBuffer(msg.Id, request.Frame,
+                request.AllowKeyframe && state.Reader.IsThumbnailReader, state.RingBuffer);
 
         // HandleOpen gives every reader with a video stream a ring buffer, so only an audio-only reader gets here.
         return IpcMessage.CreateError(
@@ -161,9 +169,9 @@ internal sealed partial class DecodingHandler : IDisposable
             $"ReadVideo: reader {request.ReaderId} is audio-only and cannot satisfy a ReadVideo request.");
     }
 
-    private static IpcMessage HandleReadVideoRingBuffer(int msgId, int frame, VideoRingBuffer ringBuffer)
+    private static IpcMessage HandleReadVideoRingBuffer(int msgId, int frame, bool allowKeyframe, VideoRingBuffer ringBuffer)
     {
-        var result = ringBuffer.ReadFrame(frame);
+        var result = ringBuffer.ReadFrame(frame, allowKeyframe);
 
         return IpcMessage.Create(msgId, MessageType.ReadVideoResult, new ReadVideoResponse
         {

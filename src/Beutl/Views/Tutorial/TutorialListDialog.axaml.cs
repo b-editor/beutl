@@ -7,7 +7,7 @@ using FluentAvalonia.UI.Controls;
 
 namespace Beutl.Views.Tutorial;
 
-public partial class TutorialListDialog : FAContentDialog
+internal partial class TutorialListDialog : FAContentDialog
 {
     private readonly ITutorialService _service;
 

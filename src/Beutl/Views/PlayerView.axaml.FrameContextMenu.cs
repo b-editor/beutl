@@ -1,6 +1,7 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
+using Beutl.Editor.Components.AgentTab;
 using Beutl.Graphics;
 using Beutl.Helpers;
 using Beutl.IO;
@@ -8,6 +9,7 @@ using Beutl.Media;
 using Beutl.Models;
 using Beutl.ProjectSystem;
 using Beutl.Services;
+using Beutl.Services.PrimitiveImpls;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Dialogs;
 using Beutl.Views.Dialogs;
@@ -21,6 +23,8 @@ namespace Beutl.Views;
 public partial class PlayerView
 {
     private FAMenuFlyoutItem _saveElementAsImage = null!;
+    private FAMenuFlyoutItem _sendFrameToAgent = null!;
+
     private void ConfigureFrameContextMenu(Control control)
     {
         _saveElementAsImage = new FAMenuFlyoutItem
@@ -38,11 +42,17 @@ public partial class PlayerView
             },
         };
         saveFrameAsImage.Click += OnSaveFrameAsImageClick;
-        var resetZoom = new FAMenuFlyoutItem
+        _sendFrameToAgent = new FAMenuFlyoutItem
         {
-            Text = Strings.ResetZoom
+            Text = AgentStrings.SendFrameToAgent,
+            IconSource = new FluentIconSource { Icon = Icon.Bot }
         };
-        resetZoom.Click += OnResetZoomClick;
+        _sendFrameToAgent.Click += OnSendFrameToAgentClick;
+        var fitPreview = new FAMenuFlyoutItem
+        {
+            Text = Strings.PreviewZoomFit
+        };
+        fitPreview.Click += OnFitPreviewClick;
 
         var menu = new FAMenuFlyout()
         {
@@ -50,33 +60,39 @@ public partial class PlayerView
             {
                 saveFrameAsImage,
                 _saveElementAsImage,
-                resetZoom
+                _sendFrameToAgent,
+                fitPreview
             }
         };
-        menu.Opening += FrameContextMenuOpening;
+        menu.Opening += (sender, e) =>
+        {
+            if (DataContext is PlayerViewModel viewModel && viewModel.IsCameraMode.Value)
+            {
+                ((System.ComponentModel.CancelEventArgs)e).Cancel = true;
+                return;
+            }
+
+            _saveElementAsImage.IsEnabled = _lastSelected.TryGetTarget(out _);
+            _sendFrameToAgent.IsEnabled = AgentComposerLauncher.IsAvailable((DataContext as PlayerViewModel)?.EditViewModel);
+            fitPreview.InputGesture = GetPreviewCommandGesture(SceneEditorExtension.PreviewZoomFitCommandId);
+        };
         control.ContextFlyout = menu;
     }
 
-    private void OnResetZoomClick(object? sender, RoutedEventArgs e)
+    private void OnFitPreviewClick(object? sender, RoutedEventArgs e)
     {
         if (DataContext is PlayerViewModel viewModel)
         {
-            viewModel.FrameMatrix.Value = Matrix.Identity;
+            viewModel.RequestPreviewZoom(PreviewZoomAction.Fit);
             _logger.LogInformation("Zoom reset to default.");
         }
     }
 
-    private void FrameContextMenuOpening(object? sender, EventArgs e)
+    private async void OnSendFrameToAgentClick(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is PlayerViewModel viewModel && viewModel.IsCameraMode.Value)
-        {
-            ((System.ComponentModel.CancelEventArgs)e).Cancel = true;
-            return;
-        }
-
-        _saveElementAsImage.IsEnabled = _lastSelected.TryGetTarget(out _);
+        if (DataContext is PlayerViewModel viewModel)
+            await AgentComposerLauncher.SendFrameAsync(viewModel.EditViewModel);
     }
-
     internal static async Task<IStorageFile?> SaveImageFilePicker(string name, IStorageProvider storage)
     {
         FilePickerSaveOptions options = SharedFilePickerOptions.SaveImage();

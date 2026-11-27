@@ -48,8 +48,9 @@ public class NumberSliderEditor<TValue> : NumberEditor<TValue>
             this,
             began: BeginSlide,
             scrub: ApplyScrub,
-            ended: EndSlide,
+            ended: () => ConfirmValue(_slideStart),
             clicked: _ => EditText(),
+            stopped: StopSlide,
             // Text that does not parse is not scrubbed, as by the header; the release edits it, as a click does.
             canBegin: () => InnerTextBox is not { } box || !DataValidationErrors.GetHasErrors(box));
     }
@@ -136,7 +137,7 @@ public class NumberSliderEditor<TValue> : NumberEditor<TValue>
 
     private void OnSliderPointerPressed(object? sender, PointerPressedEventArgs e)
     {
-        if (_slider == null || IsReadOnly)
+        if (_slider == null || IsReadOnly || ValueDragOwner != null)
             return;
 
         PointerPoint point = e.GetCurrentPoint(_slider);
@@ -153,8 +154,9 @@ public class NumberSliderEditor<TValue> : NumberEditor<TValue>
             return;
         }
 
+        EndTextEditing();
         e.Pointer.Capture(_slider);
-        GrabThumb(_slider, point.Position.X);
+        GrabThumb(_slider, e.Pointer, point.Position.X);
     }
 
     private void BeginSlide()
@@ -164,9 +166,10 @@ public class NumberSliderEditor<TValue> : NumberEditor<TValue>
         _slideStart = Value;
     }
 
-    private void GrabThumb(ValueSlider slider, double x)
+    private void GrabThumb(ValueSlider slider, IPointer pointer, double x)
     {
         BeginSlide();
+        BeginValueDrag(slider, pointer, StopSlide);
         double thumbX = slider.XOf(double.CreateTruncating(Value));
         bool onThumb = Math.Abs(x - thumbX) <= ValueSlider.ThumbRadius + 2;
         _lastX = x;
@@ -246,9 +249,15 @@ public class NumberSliderEditor<TValue> : NumberEditor<TValue>
         if (!_sliding)
             return;
 
+        StopSlide();
+        ConfirmValue(_slideStart);
+        CompleteValueDrag();
+    }
+
+    private void StopSlide()
+    {
         _sliding = false;
         PseudoClasses.Set(":sliding", false);
-        ConfirmValue(_slideStart);
     }
 
     private void Slide(double value)

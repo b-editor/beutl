@@ -1,4 +1,5 @@
 ﻿using Beutl.AgentHost;
+using Beutl.Editor.Components.AiWorkspaceTab.Services;
 using Beutl.Editor.Services.AI;
 using Beutl.NodeGraph.Generative;
 using Beutl.ProjectSystem;
@@ -9,6 +10,8 @@ namespace Beutl.HeadlessUITests;
 internal sealed class UnavailableAgentAiBackend : IAgentAiBackend
 {
     public static UnavailableAgentAiBackend Instance { get; } = new();
+
+    public AiRequestRecoveryContext? RecoveryContext => null;
 
     public Task<string?> GetUnavailableReasonAsync(CancellationToken cancellationToken)
         => Task.FromResult<string?>("AI generation is not available in this host.");
@@ -24,11 +27,12 @@ internal sealed class UnavailableAgentAiBackend : IAgentAiBackend
     public Task<bool> RequiresPromptAsync(string imageEditTask, CancellationToken cancellationToken)
         => Task.FromResult(AiRequestRules.RequiresPrompt(null, imageEditTask));
 
-    public Task<AgentTranscript> TranscribeAsync(
+    public Task<AgentTranscriptionResult> TranscribeAsync(
         string path,
         string? language,
         string? modelId,
         IProgress<string> progress,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        AgentTranscriptionRetry? retry = null)
         => throw new InvalidOperationException("AI generation is not available in this host.");
 }

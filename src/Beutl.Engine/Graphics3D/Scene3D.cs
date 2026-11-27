@@ -7,6 +7,7 @@ using Beutl.Graphics.Rendering;
 using Beutl.Graphics3D.Camera;
 using Beutl.Graphics3D.Gizmo;
 using Beutl.Graphics3D.Lighting;
+using Beutl.Graphics3D.Skyboxes;
 using Beutl.Language;
 using Beutl.Media;
 
@@ -16,7 +17,7 @@ namespace Beutl.Graphics3D;
 /// A Drawable that renders a 3D scene.
 /// </summary>
 [Display(Name = nameof(GraphicsStrings.Scene3D), ResourceType = typeof(GraphicsStrings))]
-public partial class Scene3D : Drawable, IFlowOperator
+public partial class Scene3D : Drawable, IFlowInputOperator
 {
     public Scene3D()
     {
@@ -46,6 +47,14 @@ public partial class Scene3D : Drawable, IFlowOperator
     [SuppressResourceClassGeneration]
     public IListProperty<Light3D> Lights { get; } = Property.CreateList<Light3D>();
 
+    FlowInputKind IFlowInputOperator.RequiredInput => FlowInputKind.Object3D;
+
+    FlowInputKind IFlowInputOperator.ConsumedInputs => FlowInputKind.Object3D | FlowInputKind.Light3D;
+
+    bool IFlowInputOperator.HasNestedInput => Objects.Count > 0 || Skybox.Value is { IsEnabled.Value: true };
+
+    string IFlowInputOperator.MissingInputMessage => MessageStrings.FlowInputMissingObject3D;
+
     /// <summary>
     /// Gets the ambient color of the scene.
     /// </summary>
@@ -74,11 +83,20 @@ public partial class Scene3D : Drawable, IFlowOperator
     [Range(1f, 8192f)]
     public IExpressionProperty<float> RenderHeight { get; } = Property.CreateAnimatable(1080f);
 
+    /// <summary>Gets the anti-aliasing requested for this scene.</summary>
+    [Display(Name = nameof(GraphicsStrings.Scene3D_AntiAliasing),
+        Description = nameof(GraphicsStrings.Scene3D_AntiAliasing_Description), ResourceType = typeof(GraphicsStrings))]
+    public IExpressionProperty<AntiAliasingMode> AntiAliasing { get; } = Property.CreateExpression(AntiAliasingMode.Msaa4x);
+
     /// <summary>
     /// Gets the background color of the 3D scene.
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.Scene3D_BackgroundColor), ResourceType = typeof(GraphicsStrings))]
     public IExpressionProperty<Color> BackgroundColor { get; } = Property.CreateAnimatable(Colors.Transparent);
+
+    /// <summary>Gets the optional skybox composited over the background color.</summary>
+    [Display(Name = nameof(GraphicsStrings.Scene3D_Skybox), ResourceType = typeof(GraphicsStrings))]
+    public IExpressionProperty<Skybox3D?> Skybox { get; } = Property.CreateExpression<Skybox3D?>();
 
     /// <summary>
     /// Gets the target object ID for gizmo visualization.

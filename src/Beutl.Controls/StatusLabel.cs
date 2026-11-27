@@ -21,30 +21,18 @@ public enum StatusLabelKind
 
 /// <summary>A small label that shows the state of an item in a list or a row.</summary>
 [PseudoClasses(AccentClass, SuccessClass, CautionClass, CriticalClass)]
-public class StatusLabel : TemplatedControl
+public partial class StatusLabel : TemplatedControl
 {
     private const string AccentClass = ":accent";
     private const string SuccessClass = ":success";
     private const string CautionClass = ":caution";
     private const string CriticalClass = ":critical";
 
-    public static readonly StyledProperty<string?> TextProperty =
-        AvaloniaProperty.Register<StatusLabel, string?>(nameof(Text));
+    [GeneratedStyledProperty]
+    public partial string? Text { get; set; }
 
-    public static readonly StyledProperty<StatusLabelKind> KindProperty =
-        AvaloniaProperty.Register<StatusLabel, StatusLabelKind>(nameof(Kind));
-
-    public string? Text
-    {
-        get => GetValue(TextProperty);
-        set => SetValue(TextProperty, value);
-    }
-
-    public StatusLabelKind Kind
-    {
-        get => GetValue(KindProperty);
-        set => SetValue(KindProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial StatusLabelKind Kind { get; set; }
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {

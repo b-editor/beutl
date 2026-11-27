@@ -7,12 +7,11 @@ namespace Beutl.Editor.Services;
 
 // The notice shown once when a project opens with data this build keeps but cannot show: members that a type
 // does not read, or objects whose type could not be loaded. Usually a newer version of Beutl or an extension
-// that is not installed wrote them. Saving writes them back unchanged, and nothing else tells the user they are
-// there.
+// that is not installed wrote them. Saving writes them back unchanged.
 internal static class KeptUnknownDataNotice
 {
     // Null when reading the project kept no such data.
-    public static Notification? Create(Project project)
+    public static Notification? Create(Project project, Action? showDetails = null)
     {
         ArgumentNullException.ThrowIfNull(project);
         if (!RootFileVersions.HasKeptUnknownData(project)) return null;
@@ -27,6 +26,7 @@ internal static class KeptUnknownDataNotice
             MessageStrings.KeptUnknownDataTitle,
             message,
             NotificationType.Warning,
-            Expiration: Timeout.InfiniteTimeSpan);
+            Expiration: Timeout.InfiniteTimeSpan,
+            Actions: showDetails is null ? null : [new(UndisplayableDataStrings.ShowDetails, showDetails)]);
     }
 }

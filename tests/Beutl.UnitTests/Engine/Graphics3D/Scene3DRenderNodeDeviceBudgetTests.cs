@@ -3,7 +3,9 @@ using Beutl.Graphics.Backend;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics3D;
 using Beutl.Graphics3D.Nodes;
+using Beutl.Language;
 using Beutl.Media;
+using Beutl.UnitTests.Engine.Graphics.Rendering;
 using Moq;
 using static Beutl.UnitTests.Engine.Graphics3D.Scene3DRenderNodeTestScenes;
 
@@ -102,6 +104,61 @@ public sealed class Scene3DRenderNodeDeviceBudgetTests
             "delivery reports a refused allocation instead of dropping it, so the value stays described");
     }
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public void PreviewFrame_ReportsWhyThe3DValueWasDropped(bool supports3D)
+    {
+        using Scene3D.Resource scene = CreateScene(s_sceneBounds);
+        using var node = new Scene3DRenderNode(scene);
+        RenderNodeRenderRequest request = CreateRequest(Budget(SceneWidth), s_sceneBounds) with
+        {
+            Purpose = RenderRequestPurpose.Frame,
+            Supports3DRendering = supports3D,
+            OutputScale = 2f,
+            MaxWorkingScale = 2f,
+        };
+        using var renderer = new RenderNodeRenderer(node, request);
+        using var target = new CpuRenderTarget(new PixelSize(128, 96));
+        using var canvas = new ImmediateCanvas(target, RenderIntent.Preview, 2f, 2f);
+
+        string expected = supports3D
+            ? string.Format(MessageStrings.Scene3DExtentLimitExceeded, SceneWidth * 2, SceneHeight * 2, SceneWidth)
+            : MessageStrings.Scene3DBackendUnavailable;
+
+        Assert.That(renderer.RenderWithWarning(canvas, null, default), Is.EqualTo(expected));
+        Assert.That(renderer.RenderWithWarning(canvas, request with { Purpose = RenderRequestPurpose.Auxiliary }, default),
+            Is.Null);
+        Assert.That(renderer.HitTest(s_sceneCenter), Is.False);
+    }
+
+    [TestCase(false, false)]
+    [TestCase(false, true)]
+    [TestCase(true, false)]
+    [TestCase(true, true)]
+    public void PreviewFrame_DoesNotWarnWhenThe3DSceneIsCulled(bool supports3D, bool useParentClip)
+    {
+        Rect viewport = new(0, 0, 64, 48);
+        using Scene3D.Resource scene = CreateScene(s_sceneBounds);
+        using ContainerRenderNode root = useParentClip
+            ? new RectClipRenderNode(new Rect(0, 0, 16, 48), ClipOperation.Intersect)
+            : new ContainerRenderNode();
+        var transform = new TransformRenderNode(
+            Matrix.CreateTranslation(useParentClip ? 32 : 80, 0), TransformOperator.Prepend);
+        transform.AddChild(new Scene3DRenderNode(scene));
+        root.AddChild(transform);
+
+        RenderNodeRenderRequest request = CreateRequest(Budget(SceneWidth / 2), viewport) with
+        {
+            Purpose = RenderRequestPurpose.Frame,
+            Supports3DRendering = supports3D,
+        };
+        using var renderer = new RenderNodeRenderer(root, request);
+        using var target = new CpuRenderTarget(new PixelSize(64, 48));
+        using var canvas = new ImmediateCanvas(target, RenderIntent.Preview);
+
+        Assert.That(renderer.RenderWithWarning(canvas, null, default), Is.Null);
+    }
+
     // The fixed shadow extents refuse every scene on a device too small for them, however small the scene is,
     // so a footprint check alone would leave exactly the same stale hit answer behind.
     [Test]
@@ -169,8 +226,8 @@ public sealed class Scene3DRenderNodeDeviceBudgetTests
         Assert.Multiple(() =>
         {
             Assert.That(
-                Renderer3D.CanInitialize(new Device3DExtentBudget(budget, CubeFaceBudget), width, height),
-                Is.True,
+                Renderer3D.FindExceededExtentLimit(new Device3DExtentBudget(budget, CubeFaceBudget), width, height),
+                Is.Null,
                 "the 3D surface fits exactly, so the scene records");
             Assert.That(
                 BufferDimensionBudget.Named(budget).Fits(integralPhase.Size),

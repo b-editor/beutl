@@ -7,7 +7,7 @@ using Beutl.ProjectSystem;
 
 namespace Beutl.Editor.Components.Views;
 
-public sealed class BpmGridOverlay : Control
+public sealed partial class BpmGridOverlay : Control
 {
     public static readonly DirectProperty<BpmGridOverlay, Vector> OffsetProperty
         = AvaloniaProperty.RegisterDirect<BpmGridOverlay, Vector>(
@@ -24,12 +24,6 @@ public sealed class BpmGridOverlay : Control
     public static readonly DirectProperty<BpmGridOverlay, BpmGridOptions> BpmOptionsProperty
         = AvaloniaProperty.RegisterDirect<BpmGridOverlay, BpmGridOptions>(
             nameof(BpmOptions), o => o.BpmOptions, (o, v) => o.BpmOptions = v);
-
-    public static readonly StyledProperty<IBrush?> BeatBrushProperty
-        = AvaloniaProperty.Register<BpmGridOverlay, IBrush?>(nameof(BeatBrush));
-
-    public static readonly StyledProperty<IBrush?> SubdivisionBrushProperty
-        = AvaloniaProperty.Register<BpmGridOverlay, IBrush?>(nameof(SubdivisionBrush));
 
     private Vector _offset;
     private Size _viewport;
@@ -79,17 +73,11 @@ public sealed class BpmGridOverlay : Control
         set => SetAndRaise(BpmOptionsProperty, ref _bpmOptions, value);
     }
 
-    public IBrush? BeatBrush
-    {
-        get => GetValue(BeatBrushProperty);
-        set => SetValue(BeatBrushProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial IBrush? BeatBrush { get; set; }
 
-    public IBrush? SubdivisionBrush
-    {
-        get => GetValue(SubdivisionBrushProperty);
-        set => SetValue(SubdivisionBrushProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial IBrush? SubdivisionBrush { get; set; }
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
@@ -118,22 +106,14 @@ public sealed class BpmGridOverlay : Control
     {
         base.Render(context);
 
-        if (!_bpmOptions.IsEnabled || _bpmOptions.Bpm <= 0 || _scale <= 0)
-            return;
-
-        if (_beatPen == null)
+        if (_beatPen == null || BpmGridLines.GetShownSpacing(_bpmOptions, _scale) is not { } spacing)
             return;
 
         double secondWidth = FrameNumberHelper.SecondWidth;
-        double beatIntervalSeconds = 60.0 / _bpmOptions.Bpm;
-        double beatIntervalPixels = beatIntervalSeconds * secondWidth * _scale;
-
-        if (beatIntervalPixels < 1)
-            return;
-
-        int subdivisions = Math.Max(1, _bpmOptions.Subdivisions);
+        double beatIntervalPixels = spacing.BeatPixels;
+        int subdivisions = spacing.Parts;
         double subdivisionIntervalPixels = beatIntervalPixels / subdivisions;
-        bool drawSubdivisions = subdivisions > 1 && subdivisionIntervalPixels >= 3 && _subdivisionPen != null;
+        bool drawSubdivisions = subdivisions > 1 && _subdivisionPen != null;
 
         double offsetSeconds = _bpmOptions.Offset.ToSeconds();
         double offsetPixels = offsetSeconds * secondWidth * _scale;

@@ -29,7 +29,7 @@
                   Background="Transparent"
                   ColumnDefinitions="Auto,Auto,*">
                 <Grid.ContextFlyout>
-                    <ui:FAMenuFlyout>
+                    <ui:FAMenuFlyout Opening="ObjectMenu_Opening">
                         <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="ElementProperty.Remove"
                                              Click="Remove_Click"
                                              Text="{x:Static lang:Strings.Remove}"
@@ -40,9 +40,16 @@
                         </ui:FAMenuFlyoutItem>
                         <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="ElementProperty.SaveAsTemplate"
                                              Click="SaveAsTemplate_Click"
-                                             Text="{x:Static lang:Strings.SaveAsTemplate}">
+                                             Text="{x:Static lang:Strings.SaveAsTemplateMenu}">
                             <ui:FAMenuFlyoutItem.IconSource>
                                 <icons:FluentIconSource Icon="DocumentCopy" />
+                            </ui:FAMenuFlyoutItem.IconSource>
+                        </ui:FAMenuFlyoutItem>
+                        <ui:FAMenuFlyoutItem x:Name="sendToAgent"
+                                             Click="SendToAgent_Click"
+                                             Text="{x:Static lang:AgentStrings.SendToAgent}">
+                            <ui:FAMenuFlyoutItem.IconSource>
+                                <icons:FluentIconSource Icon="Bot" />
                             </ui:FAMenuFlyoutItem.IconSource>
                         </ui:FAMenuFlyoutItem>
                     </ui:FAMenuFlyout>

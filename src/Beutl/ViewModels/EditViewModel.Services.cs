@@ -1,7 +1,9 @@
 ﻿using Beutl.Configuration;
 using Beutl.Editor;
 using Beutl.Editor.Components.FileBrowserTab.Services;
+using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.PathEditorTab.ViewModels;
+using Beutl.Editor.Components.PropertyEditors;
 using Beutl.Editor.Services.AI;
 using Beutl.Editor.VersionControl;
 using Beutl.Media.Decoding;
@@ -38,11 +40,13 @@ public partial class EditViewModel
         .Add<ObjectTemplateService>(() => EditorService.AppServices.GetRequiredService<ObjectTemplateService>())
         .Add<Beutl.Services.Tutorials.ITutorialService>(() => EditorService.AppServices.GetRequiredService<Beutl.Services.Tutorials.ITutorialService>())
         .Add<Beutl.Controls.PropertyEditors.ColorPaletteService>(() => EditorService.AppServices.GetRequiredService<Beutl.Controls.PropertyEditors.ColorPaletteService>())
-        .Add<Beutl.Api.BeutlApiApplication>(() => MainViewModel.TryGetCurrent(out MainViewModel? main) ? main._beutlClients : null)
+        .Add<Beutl.Api.BeutlApiApplication>(() => EditorService.ApiApplication)
         .Add<IEditorFileUsage>(() => EditorService)
         .Add<Beutl.Editor.Components.WebBrowserTab.IBrowserSettingsHost>(() => EditorService.BrowserSettingsHost)
         .Add<Beutl.Editor.Components.FileBrowserTab.FileBrowserStorageProviderRegistry>(() => EditorService.StorageProviders)
+        .Add<Beutl.Editor.Components.FileBrowserTab.IProjectAssetHost>(() => EditorService.ProjectAssets)
         .Add<Beutl.Editor.Components.AiWorkspaceTab.IAiWorkspaceHost>(() => EditorService.AiWorkspaceHost)
+        .Add<Beutl.Editor.Components.AgentTab.IAgentWorkspaceHost>(() => EditorService.AgentWorkspaceHost)
         .Add<Scene>(() => Scene)
         .Add<EditViewModel>(() => this)
         .Add<IEditorContext>(() => this)
@@ -62,15 +66,18 @@ public partial class EditViewModel
         .Add<ITimelineOptionsProvider>(() => _timelineOptionsProvider)
         .Add<IEditorClock>(() => _editorClock)
         .Add<IEditorSelection>(() => _editorSelection)
+        .Add<IEffectComparisonSelection>(() => Player)
         .Add<IElementAdder>(() => _elementAdder)
         .Add<IClipboardGateway>(() => _clipboardGateway)
         .Add<IPreviewPlayer>(() => Player)
         .Add<Beutl.Editor.Components.Helpers.IFullScaleFrameRenderer>(() => Player)
         .Add<Beutl.Editor.Components.Helpers.IPreviewEyedropper>(() => Player)
+        .Add<Beutl.Editor.Components.Helpers.IPreviewPuppetPinEditor>(() => Player)
         .Add<Beutl.Editor.Components.Helpers.IToolDockHost>(() => DockHost)
         .Add<Beutl.Editor.Components.OutputTab.IOutputRunHost>(() => EditorService)
         .Add<Beutl.Editor.Components.OutputTab.IOutputPresetStore>(() => OutputPresetService.Instance)
         .Add<Beutl.Editor.Components.MissingMediaTab.IMediaRepairHost>(() => this)
+        .Add<Beutl.Editor.Components.UndisplayableDataTab.IUndisplayableDataNavigator>(() => this)
         .Add<PathEditorViewModel>(() => Player?.PathEditor)
         .Add<FrameCacheManager>(() => FrameCacheManager.Value)
         .Add<IBufferStatus>(() => BufferStatus)
@@ -97,6 +104,9 @@ public partial class EditViewModel
         .AddOwned<IElementMoveService>(() => new ElementMoveService(
             HistoryManager, this.GetRequiredService<GlobalConfiguration>().EditorConfig, (IElementDuplicateService)GetService(typeof(IElementDuplicateService))!))
         .AddOwned<IElementGapService>(() => new ElementGapService(HistoryManager, this.GetRequiredService<GlobalConfiguration>().EditorConfig))
+        .AddOwned<SceneFileImporter>(() => new SceneFileImporter(
+            _elementAdder, this.GetRequiredService<DecoderRegistry>(), this.GetRequiredService<ObjectTemplateService>(),
+            this.GetRequiredService<INotificationService>(), _elementAdder.HasFileSourceOverride, editor: this))
         .AddOwned<IElementClipboardService>(() => new ProjectFileWriteClipboardService(
             EditorService,
             new ElementClipboardService(
@@ -104,7 +114,8 @@ public partial class EditViewModel
                 _clipboardGateway,
                 (IElementDuplicateService)GetService(typeof(IElementDuplicateService))!,
                 static () => ElementAccentColorGenerator.GenerateColor(typeof(Beutl.Graphics.SourceImage).FullName!),
-                _elementAdder), _autoSaveCancellation.Token))
+                this.GetRequiredService<SceneFileImporter>(),
+                new CaptionTemplateChooser().ChooseForPasteAsync), _autoSaveCancellation.Token))
         .AddOwned<IElementStructureService>(() => new ElementStructureService(HistoryManager, this.GetRequiredService<GlobalConfiguration>().EditorConfig, this.GetRequiredService<DecoderRegistry>()))
         .AddOwned<IElementAttributeService>(() => new ElementAttributeService(HistoryManager))
         .AddOwned<ITransitionEditorService>(() => new Beutl.Editor.Components.TransitionTab.TransitionEditorService(this))

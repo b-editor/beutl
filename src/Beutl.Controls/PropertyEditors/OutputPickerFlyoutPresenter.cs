@@ -10,29 +10,8 @@ using Reactive.Bindings;
 
 namespace Beutl.Controls.PropertyEditors;
 
-public class OutputPickerFlyoutPresenter : DraggablePickerFlyoutPresenter
+public partial class OutputPickerFlyoutPresenter : DraggablePickerFlyoutPresenter
 {
-    public static readonly StyledProperty<ReactiveCollection<PinnableLibraryItem>?> ProfileItemsProperty =
-        AvaloniaProperty.Register<OutputPickerFlyoutPresenter, ReactiveCollection<PinnableLibraryItem>?>(nameof(ProfileItems));
-
-    public static readonly StyledProperty<ReactiveCollection<PinnableLibraryItem>?> PresetItemsProperty =
-        AvaloniaProperty.Register<OutputPickerFlyoutPresenter, ReactiveCollection<PinnableLibraryItem>?>(nameof(PresetItems));
-
-    public static readonly StyledProperty<PinnableLibraryItem?> SelectedProfileProperty =
-        AvaloniaProperty.Register<OutputPickerFlyoutPresenter, PinnableLibraryItem?>(nameof(SelectedProfile));
-
-    public static readonly StyledProperty<PinnableLibraryItem?> SelectedPresetProperty =
-        AvaloniaProperty.Register<OutputPickerFlyoutPresenter, PinnableLibraryItem?>(nameof(SelectedPreset));
-
-    public static readonly StyledProperty<bool> ShowPresetsProperty =
-        AvaloniaProperty.Register<OutputPickerFlyoutPresenter, bool>(nameof(ShowPresets));
-
-    public static readonly StyledProperty<bool> ShowSearchBoxProperty =
-        AvaloniaProperty.Register<OutputPickerFlyoutPresenter, bool>(nameof(ShowSearchBox));
-
-    public static readonly StyledProperty<string?> SearchTextProperty =
-        AvaloniaProperty.Register<OutputPickerFlyoutPresenter, string?>(nameof(SearchText));
-
     private const string SearchBoxPseudoClass = ":search-box";
     private const string ShowPresetsPseudoClass = ":show-presets";
 
@@ -55,47 +34,26 @@ public class OutputPickerFlyoutPresenter : DraggablePickerFlyoutPresenter
 
     public event Action<PinnableLibraryItem, Control>? MoreMenuRequested;
 
-    public ReactiveCollection<PinnableLibraryItem>? ProfileItems
-    {
-        get => GetValue(ProfileItemsProperty);
-        set => SetValue(ProfileItemsProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial ReactiveCollection<PinnableLibraryItem>? ProfileItems { get; set; }
 
-    public ReactiveCollection<PinnableLibraryItem>? PresetItems
-    {
-        get => GetValue(PresetItemsProperty);
-        set => SetValue(PresetItemsProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial ReactiveCollection<PinnableLibraryItem>? PresetItems { get; set; }
 
-    public PinnableLibraryItem? SelectedProfile
-    {
-        get => GetValue(SelectedProfileProperty);
-        set => SetValue(SelectedProfileProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial PinnableLibraryItem? SelectedProfile { get; set; }
 
-    public PinnableLibraryItem? SelectedPreset
-    {
-        get => GetValue(SelectedPresetProperty);
-        set => SetValue(SelectedPresetProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial PinnableLibraryItem? SelectedPreset { get; set; }
 
-    public bool ShowPresets
-    {
-        get => GetValue(ShowPresetsProperty);
-        set => SetValue(ShowPresetsProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial bool ShowPresets { get; set; }
 
-    public bool ShowSearchBox
-    {
-        get => GetValue(ShowSearchBoxProperty);
-        set => SetValue(ShowSearchBoxProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial bool ShowSearchBox { get; set; }
 
-    public string? SearchText
-    {
-        get => GetValue(SearchTextProperty);
-        set => SetValue(SearchTextProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial string? SearchText { get; set; }
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {

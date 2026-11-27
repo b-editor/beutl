@@ -35,6 +35,10 @@ public class EffectScaleParityTests
             e.BlueOffset.Value = new PixelPoint(-18, -6);
             return e;
         }));
+        yield return new TestCaseData("LensChromaticAberration",
+            (Func<FilterEffect>)(() => MakeLensChromaticAberration(repeatEdgePixels: false)));
+        yield return new TestCaseData("LensChromaticAberration-RepeatEdgePixels",
+            (Func<FilterEffect>)(() => MakeLensChromaticAberration(repeatEdgePixels: true)));
         yield return new TestCaseData("SplitEffect", (Func<FilterEffect>)(() =>
         {
             var e = new SplitEffect();
@@ -76,6 +80,15 @@ public class EffectScaleParityTests
             yield return new TestCaseData($"DiagonalClipping-Width{width}",
                 (Func<FilterEffect>)(() => MakeDiagonalClipping(width)));
         }
+        foreach (PolarCoordinatesDirection direction in Enum.GetValues<PolarCoordinatesDirection>())
+        {
+            yield return new TestCaseData($"PolarCoordinates-{direction}",
+                (Func<FilterEffect>)(() => MakePolarCoordinates(direction)));
+            yield return new TestCaseData($"PolarCoordinates-{direction}-AbsoluteCenter",
+                (Func<FilterEffect>)(() => MakePolarCoordinatesAbsoluteCenter(direction)));
+        }
+        yield return new TestCaseData("Vignette-Darken", (Func<FilterEffect>)(() => MakeVignette(100f, -70f)));
+        yield return new TestCaseData("Vignette-Lighten", (Func<FilterEffect>)(() => MakeVignette(-100f, 100f)));
         yield return new TestCaseData("StrokeEffect", (Func<FilterEffect>)(() =>
         {
             var pen = new Pen();
@@ -505,10 +518,147 @@ public class EffectScaleParityTests
         Width = { Value = width },
     };
 
+    [TestCase(PolarCoordinatesDirection.RectangularToPolar, false)]
+    [TestCase(PolarCoordinatesDirection.PolarToRectangular, false)]
+    [TestCase(PolarCoordinatesDirection.RectangularToPolar, true)]
+    [TestCase(PolarCoordinatesDirection.PolarToRectangular, true)]
+    public void PolarCoordinates_PartialRequestPreservesTheMapping(PolarCoordinatesDirection direction, bool useAbsoluteCenter)
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var region = new Rect(50, 70, 80, 70);
+            Func<FilterEffect> makeEffect = useAbsoluteCenter
+                ? () => MakePolarCoordinatesAbsoluteCenter(direction)
+                : () => MakePolarCoordinates(direction);
+            using Drawable.Resource resource = RotatedRect(makeEffect, MakePolarCoordinatesGradient());
+            using Bitmap full = RenderAtScale(resource, Frame, 2, clearColor: Colors.Transparent);
+            using Bitmap partial = RenderAtScale(resource, Frame, 2, requestedRegion: region, clearColor: Colors.Transparent);
+            using Bitmap expected = full.ExtractSubset(PixelRect.FromRect(region, 2));
+            using Bitmap actual = partial.ExtractSubset(PixelRect.FromRect(region, 2));
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(ImageMetrics.HasFiniteVisibleContent(expected), Is.True);
+                Assert.That(ImageMetrics.MaximumAbsoluteErrorPerChannel(expected, actual).Maximum, Is.LessThanOrEqualTo(0.005));
+            });
+        });
+    }
+
+    private static PolarCoordinates MakePolarCoordinates(PolarCoordinatesDirection direction) => new()
+    {
+        Direction = { Value = direction },
+    };
+
+    private static PolarCoordinates MakePolarCoordinatesAbsoluteCenter(PolarCoordinatesDirection direction) => new()
+    {
+        Direction = { Value = direction },
+        InnerRadius = { Value = 18f },
+        Scale = { Value = 90f },
+        Angle = { Value = 55f },
+        Swirl = { Value = 120f },
+        SweepAngle = { Value = 270f },
+        Center = { Value = new RelativePoint(62f, 44f, RelativeUnit.Absolute) },
+        InvertRadius = { Value = true },
+        ReverseAngle = { Value = true },
+        Repeat = { Value = 2f },
+        Mirror = { Value = true },
+        EdgeMode = { Value = PolarCoordinatesEdgeMode.Mirror },
+    };
+
+    private static LinearGradientBrush MakePolarCoordinatesGradient()
+    {
+        var brush = new LinearGradientBrush
+        {
+            StartPoint = { Value = RelativePoint.TopLeft },
+            EndPoint = { Value = RelativePoint.BottomRight },
+        };
+        brush.GradientStops.Add(new GradientStop(Colors.Blue, 0f));
+        brush.GradientStops.Add(new GradientStop(Colors.Orange, 1f));
+        return brush;
+    }
+
+    [TestCase(1.5f)]
+    [TestCase(2f)]
+    public void Vignette_PartialRequestPreservesThePattern(float scale)
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var region = new Rect(50, 70, 80, 70);
+            PixelRect deviceRegion = PixelRect.FromRect(region, scale);
+            using Drawable.Resource resource = RotatedRect(() => MakeVignette(100f, -70f), Brushes.DarkGray);
+            using Drawable.Resource controlResource = RotatedRect(() => new FilterEffectGroup(), Brushes.DarkGray);
+            using Bitmap full = RenderAtScale(resource, Frame, scale, clearColor: Colors.Transparent);
+            using Bitmap partial = RenderAtScale(resource, Frame, scale, requestedRegion: region, clearColor: Colors.Transparent);
+            using Bitmap control = RenderAtScale(controlResource, Frame, scale, clearColor: Colors.Transparent);
+            using Bitmap expected = full.ExtractSubset(deviceRegion);
+            using Bitmap actual = partial.ExtractSubset(deviceRegion);
+            using Bitmap unfiltered = control.ExtractSubset(deviceRegion);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(ImageMetrics.MaximumAbsoluteErrorPerChannel(expected, actual).Maximum, Is.LessThanOrEqualTo(0.005));
+                Assert.That(ImageMetrics.MeanAbsoluteError(expected, unfiltered), Is.GreaterThan(0.02),
+                    "the cropped region must contain visible darkening");
+            });
+        });
+    }
+
+    private static Vignette MakeVignette(float amount, float roundness) => new()
+    {
+        Amount = { Value = amount },
+        Midpoint = { Value = 43f },
+        Roundness = { Value = roundness },
+        Feather = { Value = 65f },
+        Center = { Value = new RelativePoint(0.38f, 0.62f, RelativeUnit.Relative) },
+    };
+
+    [TestCase(1.5f)]
+    [TestCase(2f)]
+    public void LensChromaticAberration_PartialRequestPreservesTheFringe(float scale)
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var region = new Rect(179, 94, 10, 14);
+            PixelRect deviceRegion = PixelRect.FromRect(region, scale);
+            using Drawable.Resource resource = RotatedRect(() => MakeLensChromaticAberration(repeatEdgePixels: false));
+            using Drawable.Resource controlResource = RotatedRect(() => new FilterEffectGroup());
+            using Bitmap full = RenderAtScale(resource, Frame, scale, clearColor: Colors.Transparent);
+            using Bitmap partial = RenderAtScale(resource, Frame, scale, requestedRegion: region, clearColor: Colors.Transparent);
+            using Bitmap control = RenderAtScale(controlResource, Frame, scale, clearColor: Colors.Transparent);
+            using Bitmap expected = full.ExtractSubset(deviceRegion);
+            using Bitmap actual = partial.ExtractSubset(deviceRegion);
+            using Bitmap unfiltered = control.ExtractSubset(deviceRegion);
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(ImageMetrics.MaximumAbsoluteErrorPerChannel(expected, actual).Maximum, Is.LessThanOrEqualTo(0.005));
+                Assert.That(ImageMetrics.MeanAbsoluteError(expected, unfiltered), Is.GreaterThan(0.02),
+                    "the requested region must contain a visible fringe");
+            }
+        });
+    }
+
+    private static LensChromaticAberration MakeLensChromaticAberration(bool repeatEdgePixels) => new()
+    {
+        Amount = { Value = 10f },
+        Center = { Value = new RelativePoint(0.38f, 0.62f, RelativeUnit.Relative) },
+        RepeatEdgePixels = { Value = repeatEdgePixels },
+    };
+
     private static Drawable.Resource MakeForCase(string name, Func<FilterEffect> makeEffect)
     {
         if (name.StartsWith("InnerShadow", StringComparison.Ordinal))
             return MakeInnerShadowFixture(makeEffect);
+        // Repeated edge pixels matter where a picture fills its bounds.
+        if (name.StartsWith("LensChromaticAberration-RepeatEdgePixels", StringComparison.Ordinal))
+            return MakeFullFrameFixture(makeEffect, MakeStripes(20));
+        if (name.StartsWith("PolarCoordinates", StringComparison.Ordinal))
+            return RotatedRect(makeEffect, MakePolarCoordinatesGradient());
+        if (name.StartsWith("Vignette", StringComparison.Ordinal))
+            return RotatedRect(makeEffect, Brushes.DarkGray);
 
         Brush fill = name.StartsWith("PartsSplit", StringComparison.Ordinal)
             ? MakeAlphaStripes(60)
@@ -517,6 +667,18 @@ public class EffectScaleParityTests
                 ? MakeStripes(20)
                 : Brushes.White;
         return RotatedRect(makeEffect, fill);
+    }
+
+    private static Drawable.Resource MakeFullFrameFixture(Func<FilterEffect> makeEffect, Brush fill)
+    {
+        var shape = new RectShape();
+        shape.AlignmentX.Value = AlignmentX.Center;
+        shape.AlignmentY.Value = AlignmentY.Center;
+        shape.Width.Value = Frame.Width;
+        shape.Height.Value = Frame.Height;
+        shape.Fill.Value = fill;
+        shape.FilterEffect.Value = makeEffect();
+        return shape.ToResource(CompositionContext.Default);
     }
 
     private static Drawable.Resource MakeInnerShadowFixture(Func<FilterEffect> makeEffect)
@@ -542,7 +704,8 @@ public class EffectScaleParityTests
     public static IEnumerable<TestCaseData> RepresentativeEffectsWithScales()
     {
         float[] scales = [1.5f, 3f];
-        string[] names = ["InnerShadow", "StrokeEffect-Offset", "Mosaic-AbsoluteOrigin", "FlatShadow"];
+        string[] names = ["InnerShadow", "StrokeEffect-Offset", "Mosaic-AbsoluteOrigin", "FlatShadow", "Vignette-Darken", "LensChromaticAberration",
+            "LensChromaticAberration-RepeatEdgePixels"];
         Dictionary<string, Func<FilterEffect>> effects = Effects().ToDictionary(
             static testCase => (string)testCase.Arguments[0]!,
             static testCase => (Func<FilterEffect>)testCase.Arguments[1]!);

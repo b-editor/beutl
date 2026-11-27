@@ -3,12 +3,15 @@ using System.Net;
 using System.Net.Sockets;
 using System.Reactive.Linq;
 using System.Reactive.Threading.Tasks;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.Marshalling;
 using System.Text.Json;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Input;
+using Avalonia.Input.Raw;
 using Avalonia.Interactivity;
 using Avalonia.Platform;
 using Avalonia.Threading;
@@ -22,8 +25,8 @@ using Beutl.Testing.Headless;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Moq;
-
 using static Beutl.Controls.ObjCRuntime;
+using Pointer = Avalonia.Input.Pointer;
 
 namespace Beutl.HeadlessUITests;
 
@@ -45,7 +48,8 @@ internal static partial class NativeBrowserFrameTestHost
 
     private static async void CheckNavigation(string scenario)
     {
-        var lifetime = (IClassicDesktopStyleApplicationLifetime)Application.Current!.ApplicationLifetime!;
+        if (Application.Current?.ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime lifetime)
+            return;
         Window? window = null;
         int exitCode = 1;
         try
@@ -54,7 +58,7 @@ internal static partial class NativeBrowserFrameTestHost
             {
                 window = new Window { Width = 480, Height = 320, Opacity = 0, ShowActivated = false, ShowInTaskbar = false };
                 window.Show();
-                using var downloadTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(45));
+                using var downloadTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(75));
                 await CheckDownloadMethodsAsync(window, downloadTimeout.Token);
                 exitCode = 0;
                 return;
@@ -83,6 +87,23 @@ internal static partial class NativeBrowserFrameTestHost
                 window.Show();
                 using var cookieTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
                 exitCode = await CheckLinuxCookieClearAsync(window, cookieTimeout.Token) ? 0 : SkippedExitCode;
+                return;
+            }
+            if (scenario == "--native-browser-linux-focus")
+            {
+                window = new Window { Width = 480, Height = 320, Opacity = 0, ShowActivated = false, ShowInTaskbar = false };
+                window.Show();
+                using var focusTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+                exitCode = await CheckLinuxFocusAsync(window, focusTimeout.Token) ? 0 : SkippedExitCode;
+                return;
+            }
+            if (scenario == "--native-browser-direct-navigation")
+            {
+                window = new Window { Width = 480, Height = 320, Opacity = 0, ShowActivated = false, ShowInTaskbar = false };
+                window.Show();
+                using var navigationTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+                await CheckDirectStartupNavigationAsync(window, navigationTimeout.Token);
+                exitCode = 0;
                 return;
             }
             if (scenario == "--native-browser-adblock-reference")
@@ -125,7 +146,7 @@ internal static partial class NativeBrowserFrameTestHost
             }
             var loaded = new TaskCompletionSource();
             webView.NavigationCompleted += (_, _) => loaded.TrySetResult();
-            webView.NavigateToString("""
+            view.NavigateToString("""
                 <script>
                     window.loadedFrames = [];
                     addEventListener('message', e => loadedFrames.push(e.data));
@@ -173,6 +194,7 @@ internal static partial class NativeBrowserFrameTestHost
 
     // Tells NativeNavigation that the scenario cannot run on this system, as Assert.Ignore would in-process.
     internal const int SkippedExitCode = 77;
+    internal const string InsecureHost = "insecure.test";
 
     private static async Task<bool> CheckLinuxCookieClearAsync(Window window, CancellationToken token)
     {
@@ -231,6 +253,275 @@ internal static partial class NativeBrowserFrameTestHost
         });
         return true;
     }
+
+    private static async Task<bool> CheckLinuxFocusAsync(Window window, CancellationToken token)
+    {
+        if (!OperatingSystem.IsLinux()) return false;
+
+        var page = new Uri("https://page.example/");
+        var browser = new NativeWebView();
+        var loaded = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        browser.NavigationCompleted += (_, e) =>
+        {
+            if (e.IsSuccess && e.Request == page) loaded.TrySetResult();
+        };
+
+        using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(), page);
+        using var view = new WebBrowserTabView(_ => browser, () => (true, null, false)) { DataContext = vm };
+        int leakedToWindow = 0;
+        window.AddHandler(InputElement.KeyDownEvent, (_, _) => leakedToWindow++, RoutingStrategies.Bubble);
+        window.Content = view;
+
+        view.NavigateToString("<html><body><input id='box' type='text'></body></html>", page);
+        await loaded.Task.WaitAsync(token);
+
+        IPlatformHandle? handle = browser.TryGetPlatformHandle();
+        if (handle is not IGtkWebViewPlatformHandle gtk || handle.HandleDescriptor != "XID" || handle.Handle == 0 || gtk.WebKitWebView == 0)
+        {
+            Console.WriteLine("Linux X11 focus test requires the GTK X11 WebKit adapter.");
+            return false;
+        }
+
+        const nint keyPressAndReleaseMask = 0x3;
+        nint? mask = null;
+        while (mask is null || (mask.Value & keyPressAndReleaseMask) != keyPressAndReleaseMask)
+        {
+            mask = await LinuxWebKitFocus.ReadDoNotPropagateMaskAsync(handle.Handle).WaitAsync(token);
+            if (mask is not null && (mask.Value & keyPressAndReleaseMask) == keyPressAndReleaseMask) break;
+            await Task.Delay(20, token);
+        }
+
+        Assert.That(mask!.Value & keyPressAndReleaseMask, Is.EqualTo(keyPressAndReleaseMask),
+            "WebKitGTK's embedded X11 window must block core KeyPress/KeyRelease propagation to Avalonia.");
+
+        // 1. Send a real core X11 KeyPress with propagate=True to WebKitGTK's X11 window.
+        // Without do_not_propagate_mask, X11 propagates this event up to Avalonia's host window.
+        nint hostXid = window.TryGetPlatformHandle()?.Handle ?? 0;
+        Assert.That(hostXid, Is.Not.EqualTo(nint.Zero));
+        await SendX11KeyPressAsync(handle.Handle, 0x06d /* XK_m */, state: 0).WaitAsync(token);
+        await Task.Delay(100, token);
+        Assert.That(leakedToWindow, Is.Zero,
+            "Core X11 KeyPress on the embedded WebKitGTK window must not propagate to Avalonia's host window.");
+
+        // 2. Focus the page input and send a native GTK key-press-event for 'm'; it must enter the input without triggering Avalonia shortcuts.
+        await browser.InvokeScript("document.getElementById('box').focus()").WaitAsync(token);
+        await SendGtkKeyPressAsync(gtk.WebKitWebView, 0x06d /* GDK_KEY_m */, state: 0, text: "m").WaitAsync(token);
+        string? typedValue = null;
+        for (int attempt = 0; attempt < 25; attempt++)
+        {
+            typedValue = WebBrowserTabView.NormalizePageTitle(await browser.InvokeScript("document.getElementById('box').value").WaitAsync(token));
+            if (typedValue == "m") break;
+            await Task.Delay(20, token);
+        }
+        Assert.Multiple(() =>
+        {
+            Assert.That(typedValue, Is.EqualTo("m"), "Native GTK key input must type into the focused page input.");
+            Assert.That(leakedToWindow, Is.Zero, "Typing into the page input must not trigger Avalonia shortcuts.");
+        });
+
+        // 3. Browser-local shortcuts (Ctrl+F, Ctrl++) must still work from GTK key-press-event while the page has focus.
+        const uint gdkControlMask = 1u << 2;
+        const uint gdkShiftMask = 1u << 0;
+        await SendGtkKeyPressAsync(gtk.WebKitWebView, 0x02b /* GDK_KEY_plus */, gdkControlMask | gdkShiftMask).WaitAsync(token);
+        var zoomReset = view.FindControl<FluentAvalonia.UI.Controls.FAMenuFlyoutItem>("ZoomResetMenuItem")!;
+        for (int attempt = 0; attempt < 25; attempt++)
+        {
+            if (zoomReset.Text?.Contains("110%", StringComparison.Ordinal) == true) break;
+            await Task.Delay(20, token);
+        }
+        Assert.That(zoomReset.Text, Does.Contain("110%"), "Ctrl++ inside the page must invoke browser zoom.");
+
+        await SendGtkKeyPressAsync(gtk.WebKitWebView, 0x066 /* GDK_KEY_f */, gdkControlMask).WaitAsync(token);
+        Grid findPanel = view.FindControl<Grid>("FindPanel")!;
+        for (int attempt = 0; attempt < 25; attempt++)
+        {
+            if (findPanel.IsVisible) break;
+            await Task.Delay(20, token);
+        }
+        Assert.That(findPanel.IsVisible, Is.True, "Ctrl+F inside the page must open the browser find panel.");
+
+        // 4. Once focus leaves NativeWebView (Ctrl+F moved focus to FindTextBox -> move to Window), X11 KeyPress on the host window reaches Avalonia normally.
+        window.Focusable = true;
+        window.Focus();
+        await SendX11KeyPressAsync(hostXid, 0x06d /* XK_m */, state: 0).WaitAsync(token);
+        for (int attempt = 0; attempt < 25; attempt++)
+        {
+            if (leakedToWindow > 0) break;
+            await Task.Delay(20, token);
+        }
+        Assert.That(leakedToWindow, Is.GreaterThan(0),
+            "After focus leaves the browser, X11 KeyPress on the host window must reach Avalonia normally.");
+
+        return true;
+    }
+
+    private static async Task CheckDirectStartupNavigationAsync(Window window, CancellationToken token)
+    {
+        await using var server = WebApplication.CreateSlimBuilder().Build();
+        server.Urls.Add("http://127.0.0.1:0");
+        int initialRequests = 0;
+        server.MapGet("/initial", () =>
+        {
+            Interlocked.Increment(ref initialRequests);
+            return Results.Content("<title>Initial HTTP page</title>", "text/html");
+        });
+        await server.StartAsync(token);
+        var origin = new Uri(server.Urls.Single());
+        var initialPage = new Uri(origin, "/initial");
+        var htmlPage = new Uri(origin, "/direct");
+        var browser = new NativeWebView();
+        using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(), initialPage);
+        using var view = new WebBrowserTabView(uri =>
+        {
+            browser.Source = uri;
+            return browser;
+        }, () => (true, null, false))
+        { DataContext = vm };
+        var loaded = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        browser.WebMessageReceived += (_, e) =>
+        {
+            if (e.Body == "Direct HTML") loaded.TrySetResult();
+        };
+        browser.NavigationStarted += (_, e) =>
+        {
+            if (e.Cancel) loaded.TrySetException(new AssertionException($"Startup navigation with scheme '{e.Request?.Scheme}' was canceled."));
+        };
+        browser.EnvironmentRequested += (_, e) =>
+        {
+            if (e is AppleWKWebViewEnvironmentRequestedEventArgs apple) apple.NonPersistentDataStore = true;
+            // WebView2 reports about:blank for both loads, so wait for a message from the HTML document.
+            view.NavigateToString("""
+                <title>Direct HTML</title>
+                <script>window.addEventListener('load', () => window.invokeCSharpAction(document.title));</script>
+                """, htmlPage);
+        };
+        window.Content = view;
+        await loaded.Task.WaitAsync(token);
+        Assert.That(Volatile.Read(ref initialRequests), Is.Zero, "The held HTTP address was superseded by the HTML navigation.");
+    }
+
+    private static Task SendX11KeyPressAsync(nint targetWindow, nuint keysym, uint state)
+    {
+        return LinuxWebKit.OnGlibAsync(() =>
+        {
+            nint gdkDisplay = GdkDisplayGetDefault();
+            nint xDisplay = GdkX11DisplayGetXDisplay(gdkDisplay);
+            uint keycode = XKeysymToKeycode(xDisplay, keysym);
+            var ev = new XKeyEventBuffer
+            {
+                Type = 2, // KeyPress
+                Display = xDisplay,
+                Window = targetWindow,
+                Root = XDefaultRootWindow(xDisplay),
+                State = state,
+                Keycode = keycode,
+                SameScreen = 1
+            };
+            XSendEvent(xDisplay, targetWindow, propagate: 1, eventMask: 1 /* KeyPressMask */, ref ev);
+            XSync(xDisplay, 0);
+        });
+    }
+
+    private static unsafe Task SendGtkKeyPressAsync(nint gtkWidget, uint keyval, uint state, string? text = null)
+    {
+        return LinuxWebKit.OnGlibAsync(gtkWidget, () =>
+        {
+            GtkWidgetGrabFocus(gtkWidget);
+            nint gdkDisplay = GdkDisplayGetDefault();
+            nint xDisplay = GdkX11DisplayGetXDisplay(gdkDisplay);
+            ushort keycode = (ushort)XKeysymToKeycode(xDisplay, keyval);
+            nint gdkWindow = GtkWidgetGetWindow(gtkWidget);
+            nint evPtr = GdkEventNew(8 /* GDK_KEY_PRESS */);
+            nint textPtr = text != null ? Marshal.StringToCoTaskMemUTF8(text) : 0;
+            try
+            {
+                var ev = (GdkEventKey*)evPtr;
+                ev->Window = gdkWindow != 0 ? LinuxWebKit.ObjectRef(gdkWindow) : 0;
+                ev->SendEvent = 1;
+                ev->State = state;
+                ev->Keyval = keyval;
+                ev->Length = text?.Length ?? 0;
+                ev->String = textPtr;
+                ev->HardwareKeycode = keycode;
+                GtkWidgetEvent(gtkWidget, evPtr);
+                ev->String = 0;
+            }
+            finally
+            {
+                if (textPtr != 0) Marshal.FreeCoTaskMem(textPtr);
+                GdkEventFree(evPtr);
+            }
+        });
+    }
+
+    [StructLayout(LayoutKind.Explicit, Size = 192)]
+    private struct XKeyEventBuffer
+    {
+        [FieldOffset(0)] public int Type;
+        [FieldOffset(8)] public nuint Serial;
+        [FieldOffset(16)] public int SendEvent;
+        [FieldOffset(24)] public nint Display;
+        [FieldOffset(32)] public nint Window;
+        [FieldOffset(40)] public nint Root;
+        [FieldOffset(48)] public nint Subwindow;
+        [FieldOffset(56)] public nuint Time;
+        [FieldOffset(64)] public int X;
+        [FieldOffset(68)] public int Y;
+        [FieldOffset(72)] public int XRoot;
+        [FieldOffset(76)] public int YRoot;
+        [FieldOffset(80)] public uint State;
+        [FieldOffset(84)] public uint Keycode;
+        [FieldOffset(88)] public int SameScreen;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct GdkEventKey
+    {
+        public int Type;
+        public nint Window;
+        public sbyte SendEvent;
+        public uint Time;
+        public uint State;
+        public uint Keyval;
+        public int Length;
+        public nint String;
+        public ushort HardwareKeycode;
+        public byte Group;
+        public uint IsModifier;
+    }
+
+    [LibraryImport("libgdk-3.so.0", EntryPoint = "gdk_display_get_default")]
+    private static partial nint GdkDisplayGetDefault();
+
+    [LibraryImport("libgdk-3.so.0", EntryPoint = "gdk_x11_display_get_xdisplay")]
+    private static partial nint GdkX11DisplayGetXDisplay(nint display);
+
+    [LibraryImport("libgdk-3.so.0", EntryPoint = "gdk_event_new")]
+    private static partial nint GdkEventNew(int type);
+
+    [LibraryImport("libgdk-3.so.0", EntryPoint = "gdk_event_free")]
+    private static partial void GdkEventFree(nint ev);
+
+    [LibraryImport("libgtk-3.so.0", EntryPoint = "gtk_widget_grab_focus")]
+    private static partial void GtkWidgetGrabFocus(nint widget);
+
+    [LibraryImport("libgtk-3.so.0", EntryPoint = "gtk_widget_get_window")]
+    private static partial nint GtkWidgetGetWindow(nint widget);
+
+    [LibraryImport("libgtk-3.so.0", EntryPoint = "gtk_widget_event")]
+    private static partial int GtkWidgetEvent(nint widget, nint ev);
+
+    [LibraryImport("libX11.so.6")]
+    private static partial nint XDefaultRootWindow(nint display);
+
+    [LibraryImport("libX11.so.6")]
+    private static partial uint XKeysymToKeycode(nint display, nuint keysym);
+
+    [LibraryImport("libX11.so.6")]
+    private static partial int XSendEvent(nint display, nint window, int propagate, nint eventMask, ref XKeyEventBuffer ev);
+
+    [LibraryImport("libX11.so.6")]
+    private static partial int XSync(nint display, int discard);
 
     private static async Task CheckSupersededNavigationAsync(Window window, CancellationToken token)
     {
@@ -488,11 +779,17 @@ internal static partial class NativeBrowserFrameTestHost
         await using var server = WebApplication.CreateSlimBuilder().Build();
         server.Urls.Add("http://127.0.0.1:0");
         var requests = System.Threading.Channels.Channel.CreateUnbounded<string>();
+        var probes = System.Threading.Channels.Channel.CreateUnbounded<string>();
         int sourceRequests = 0;
         server.MapGet("/media.mp3", (HttpContext context) =>
         {
             requests.Writer.TryWrite(context.Request.Headers.Referer.ToString());
             return Results.Bytes("ID3sample"u8.ToArray(), "audio/mpeg");
+        });
+        server.MapGet("/referrer-probe", (HttpContext context) =>
+        {
+            probes.Writer.TryWrite(context.Request.Headers.Referer.ToString());
+            return Results.NoContent();
         });
         server.MapGet("/source", (HttpContext context) =>
         {
@@ -502,25 +799,52 @@ internal static partial class NativeBrowserFrameTestHost
             string meta = query.TryGetValue("meta", out var policy) ? $"<meta name='referrer' content='{policy}'>" : "";
             string linkPolicy = query.TryGetValue("link", out policy) ? $" referrerpolicy='{policy}'" : "";
             string destination = query.ContainsKey("cross") ? $"http://localhost:{context.Connection.LocalPort}/media.mp3" : "/media.mp3";
-            return Results.Content($"{meta}<a href='{destination}'{linkPolicy}>download</a>", "text/html");
+            string mutation = query.ContainsKey("prepend") ? "document.head.prepend(meta); probe();" : """
+                document.head.append(meta);
+                const remove = () => { meta.remove(); probe(); };
+                """;
+            if (!query.ContainsKey("prepend"))
+                mutation += query.ContainsKey("later") ? "setTimeout(remove, 0);" : "remove();";
+            string script = query.TryGetValue("apply", out var applied) ? $$"""
+                <script>
+                    (() => {
+                        const meta = document.createElement('meta');
+                        meta.name = 'referrer';
+                        meta.content = {{JsonSerializer.Serialize(applied.ToString())}};
+                        const probe = () => { void fetch('/referrer-probe', { cache: 'no-store' }); };
+                        {{mutation}}
+                    })();
+                </script>
+                """ : "";
+            return Results.Content($"{meta}{script}<a href='{destination}'{linkPolicy}>download</a>", "text/html");
         });
         server.MapGet("/plain", () => Results.Content("<title>Plain</title>", "text/html"));
+        server.MapGet("/media-referrer", () => Results.Content("""
+            <meta id='earlier' name='referrer' content='no-referrer'>
+            <meta name='referrer' content='strict-origin'>
+            <a href='/media.mp3'>download</a>
+            """, "text/html"));
         await server.StartAsync(token);
         var origin = new Uri(server.Urls.Single());
+        Uri initialPage = new(origin, "/source?header=origin&apply=no-referrer");
         var browser = new NativeWebView();
         var editor = TestShell.CreateEditorContextMock();
         editor.Setup(x => x.GetService(typeof(Beutl.Configuration.GlobalConfiguration))).Returns(TestShell.Configuration);
         editor.Setup(x => x.GetService(typeof(Beutl.Media.FontManager))).Returns(TestShell.FontManager);
         editor.Setup(x => x.GetService(typeof(Beutl.Media.Decoding.DecoderRegistry))).Returns(TestShell.Decoders);
         editor.Setup(x => x.GetService(typeof(Beutl.Services.INotificationService))).Returns(TestShell.Notifications);
-        using var vm = new WebBrowserTabViewModel(editor.Object, WebBrowserTabViewModel.BlankPage);
+        using var vm = new WebBrowserTabViewModel(editor.Object, initialPage);
         using var downloads = new TemporaryDirectory();
-        using var view = new WebBrowserTabView(_ => browser, () => (true, null, false)) { DataContext = vm };
+        using var view = new WebBrowserTabView(uri =>
+        {
+            browser.Source = uri;
+            return browser;
+        }, () => (true, null, false))
+        { DataContext = vm };
         view.DownloadOptionsSelector = (_, _) =>
             Task.FromResult<WebBrowserTabView.BrowserDownloadOptions?>(new(downloads.Path, false));
-        window.Content = view;
 
-        async Task Load(Uri page)
+        async Task Load(Uri page, Action? navigate = null)
         {
             var loaded = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
             void Loaded(object? sender, WebViewNavigationCompletedEventArgs e)
@@ -530,8 +854,12 @@ internal static partial class NativeBrowserFrameTestHost
             browser.NavigationCompleted += Loaded;
             try
             {
-                vm.Address.Value = page.AbsoluteUri;
-                view.NavigateFromAddress();
+                if (navigate != null) navigate();
+                else
+                {
+                    vm.Address.Value = page.AbsoluteUri;
+                    view.NavigateFromAddress();
+                }
                 await loaded.Task.WaitAsync(token);
             }
             finally { browser.NavigationCompleted -= Loaded; }
@@ -539,8 +867,10 @@ internal static partial class NativeBrowserFrameTestHost
                 await Task.Delay(20, token);
         }
 
-        async Task CheckDownload(Uri page, string expected, string description)
+        async Task CheckDownload(Uri page, string expected, string description, bool probe = false)
         {
+            if (probe)
+                Assert.That(await probes.Reader.ReadAsync(token), Is.EqualTo(expected), $"Native fetch on {description}");
             int before = vm.Profile.Downloads.Count;
             await ClickDownloadLinkAsync(browser, token);
             string referrer = await requests.Reader.ReadAsync(token);
@@ -551,34 +881,38 @@ internal static partial class NativeBrowserFrameTestHost
             Assert.That(vm.CurrentUri, Is.EqualTo(page), description);
         }
 
-        async Task Check(string query, string expected, bool removeMeta = false)
+        async Task Check(string query, string expected, bool probe = false)
         {
             Uri page = new(origin, "/source?" + query);
             await Load(page);
-            if (removeMeta)
-            {
-                await browser.InvokeScript("""
-                    const meta = document.createElement('meta');
-                    meta.name = 'referrer';
-                    meta.content = 'origin';
-                    document.head.append(meta);
-                    """);
-                // Deliver the insertion before removing the element whose policy Chromium keeps.
-                await browser.InvokeScript("document.querySelector('meta[name=referrer]').remove()");
-            }
-            await CheckDownload(page, expected, query + (removeMeta ? "; removed meta origin" : ""));
+            await CheckDownload(page, expected, query, probe);
         }
 
-        await Check("header=no-referrer", "");
-        await Check("header=same-origin&cross", "");
-        await Check("header=same-origin", origin.AbsoluteUri);
+        await Load(initialPage, () => window.Content = view);
+        await CheckDownload(initialPage, "", initialPage.Query, probe: true);
+        await Check("header=no-referrer&apply=origin", origin.AbsoluteUri, probe: true);
+        await Check("header=no-referrer&apply=origin&later", origin.AbsoluteUri, probe: true);
+        await Check("header=origin&apply=no-referrer&later", "", probe: true);
+        await Check("meta=origin&apply=no-referrer&prepend", "", probe: true);
+
+        var mediaPage = new Uri(origin, "/media-referrer");
+        await Load(mediaPage);
+        await CheckDownload(mediaPage, origin.AbsoluteUri, "before the media change");
+        await browser.InvokeScript("""
+            document.getElementById('earlier').media = 'not all';
+            void fetch('/referrer-probe', { cache: 'no-store' });
+            """).WaitAsync(token);
+        await CheckDownload(mediaPage, "", "after the media change", probe: true);
+
+        if (!OperatingSystem.IsLinux())
+        {
+            // The Windows and macOS handlers also supply the document's response header.
+            await Check("header=no-referrer", "");
+            await Check("header=same-origin&cross", "");
+            await Check("header=same-origin", origin.AbsoluteUri);
+        }
         await Check("header=no-referrer&link=origin", origin.AbsoluteUri);
         await Check("header=origin&meta=no-referrer", "");
-        if (OperatingSystem.IsWindows())
-        {
-            // The macOS link script reads metas present at the click; tracking removed metas is a follow-up.
-            await Check("header=no-referrer", origin.AbsoluteUri, removeMeta: true);
-        }
         await Check("", origin.AbsoluteUri);
 
         if (OperatingSystem.IsMacOS())
@@ -613,10 +947,10 @@ internal static partial class NativeBrowserFrameTestHost
             while (await browser.InvokeScript("window.downloadLinkReady === true") != "true")
                 await Task.Delay(20, token);
         }
-        using JsonDocument point = JsonDocument.Parse((await browser.InvokeScript("""
+        using JsonDocument point = JsonDocument.Parse(WebBrowserTabView.NormalizePageTitle(await browser.InvokeScript("""
             (() => {
                 const rect = document.querySelector('a').getBoundingClientRect();
-                return {x: rect.x + rect.width / 2, y: rect.y + rect.height / 2};
+                return JSON.stringify({x: rect.x + rect.width / 2, y: rect.y + rect.height / 2});
             })()
             """))!);
         double x = point.RootElement.GetProperty("x").GetDouble();
@@ -651,6 +985,25 @@ internal static partial class NativeBrowserFrameTestHost
             finally { SendVoid(wkWebView, Selector("release")); }
             return;
         }
+        if (OperatingSystem.IsLinux())
+        {
+            if (browser.TryGetPlatformHandle() is IGtkWebViewPlatformHandle gtk)
+            {
+                await ClickGtkDownloadLinkAsync(gtk.WebKitWebView, x, y).WaitAsync(token);
+            }
+            else
+            {
+                Assert.That(browser.TryGetPlatformHandle(), Is.InstanceOf<ILinuxWpePlatformHandle>());
+                using var pointer = new Pointer(Pointer.GetNextFreeId(), PointerType.Mouse, isPrimary: true);
+                var root = TopLevel.GetTopLevel(browser)!;
+                Point position = browser.TranslatePoint(new Point(x, y), root)!.Value;
+                browser.RaiseEvent(new PointerPressedEventArgs(browser, pointer, root, position, 0,
+                    new PointerPointProperties(RawInputModifiers.LeftMouseButton, PointerUpdateKind.LeftButtonPressed), KeyModifiers.None));
+                browser.RaiseEvent(new PointerReleasedEventArgs(browser, pointer, root, position, 0,
+                    new PointerPointProperties(RawInputModifiers.None, PointerUpdateKind.LeftButtonReleased), KeyModifiers.None, MouseButton.Left));
+            }
+            return;
+        }
         var handle = (IWindowsWebView2PlatformHandle)browser.TryGetPlatformHandle()!;
         nint webView = handle.CoreWebView2;
         Assert.That(webView, Is.Not.EqualTo(nint.Zero));
@@ -662,6 +1015,56 @@ internal static partial class NativeBrowserFrameTestHost
         }
         finally { Marshal.Release(webView); }
     }
+
+    private static unsafe Task ClickGtkDownloadLinkAsync(nint webView, double x, double y) =>
+        LinuxWebKit.OnGlibAsync(webView, () =>
+        {
+            nint window = GtkWidgetGetWindow(webView);
+            nint pointer = GdkSeatGetPointer(GdkDisplayGetDefaultSeat(GdkDisplayGetDefault()));
+            SendButton(4 /* GDK_BUTTON_PRESS */, 0);
+            SendButton(7 /* GDK_BUTTON_RELEASE */, 1 << 8 /* GDK_BUTTON1_MASK */);
+
+            void SendButton(int type, uint state)
+            {
+                nint ev = GdkEventNew(type);
+                try
+                {
+                    var button = (GdkEventButton*)ev;
+                    button->Window = LinuxWebKit.ObjectRef(window);
+                    button->SendEvent = 1;
+                    button->X = x;
+                    button->Y = y;
+                    button->State = state;
+                    button->Button = 1;
+                    GdkEventSetDevice(ev, pointer);
+                    GtkWidgetEvent(webView, ev);
+                }
+                finally { GdkEventFree(ev); }
+            }
+        });
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct GdkEventButton
+    {
+        public int Type;
+        public nint Window;
+        public sbyte SendEvent;
+        public uint Time;
+        public double X;
+        public double Y;
+        public nint Axes;
+        public uint State;
+        public uint Button;
+    }
+
+    [LibraryImport("libgdk-3.so.0", EntryPoint = "gdk_display_get_default_seat")]
+    private static partial nint GdkDisplayGetDefaultSeat(nint display);
+
+    [LibraryImport("libgdk-3.so.0", EntryPoint = "gdk_seat_get_pointer")]
+    private static partial nint GdkSeatGetPointer(nint seat);
+
+    [LibraryImport("libgdk-3.so.0", EntryPoint = "gdk_event_set_device")]
+    private static partial void GdkEventSetDevice(nint ev, nint device);
 
     [StructLayout(LayoutKind.Sequential)]
     private readonly record struct CGPoint(double X, double Y);
@@ -1096,8 +1499,13 @@ internal static partial class NativeBrowserFrameTestHost
         server.MapPost("/after-307", () => Results.Bytes("307"u8.ToArray(), "application/octet-stream", "307.txt"));
         server.MapGet("/get", () => Results.Bytes("get"u8.ToArray(), "application/octet-stream", "get.txt"));
         server.MapPost("/frame-post", () => Results.Bytes("frame post"u8.ToArray(), "application/octet-stream", "frame-post.txt"));
+        server.MapGet("/policy", (HttpContext context) =>
+        {
+            context.Response.Headers["Referrer-Policy"] = "no-referrer";
+            return Results.Content("<title>Policy</title>", "text/html");
+        });
         await server.StartAsync(token);
-        var page = new Uri(server.Urls.Single() + "/source");
+        int port = new Uri(server.Urls.Single()).Port;
         var browser = new NativeWebView();
         var editor = TestShell.CreateEditorContextMock();
         editor.Setup(x => x.GetService(typeof(Beutl.Configuration.GlobalConfiguration))).Returns(TestShell.Configuration);
@@ -1110,38 +1518,67 @@ internal static partial class NativeBrowserFrameTestHost
             Task.FromResult<WebBrowserTabView.BrowserDownloadOptions?>(new(downloads.Path, false));
         window.Content = view;
 
-        async Task Check(string id, string path, string? method)
+        // Returns false when the page's navigation fails, rather than waiting for a retry.
+        async Task<bool> TryLoad(Uri page)
         {
-            // Reload so each scripted download is allowed without a multiple-download permission prompt.
-            var loaded = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var loaded = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
             void Loaded(object? sender, WebViewNavigationCompletedEventArgs e)
             {
-                if (e.IsSuccess && e.Request == page) loaded.TrySetResult();
+                if (e.Request == page) loaded.TrySetResult(e.IsSuccess);
             }
             browser.NavigationCompleted += Loaded;
             try
             {
                 vm.Address.Value = page.AbsoluteUri;
                 view.NavigateFromAddress();
-                await loaded.Task.WaitAsync(token);
+                return await loaded.Task.WaitAsync(token);
             }
             finally { browser.NavigationCompleted -= Loaded; }
+        }
+
+        async Task Load(Uri page)
+        {
+            if (!await TryLoad(page)) throw new InvalidOperationException($"{page} failed to load.");
+        }
+
+        async Task Check(string host, string id, string path, string? method)
+        {
+            string label = $"{id} on {host}";
+            // Reload so each scripted download is allowed without a multiple-download permission prompt.
+            await Load(new Uri($"http://{host}:{port}/source"));
             int before = vm.Profile.Downloads.Count;
             await browser.InvokeScript($"document.getElementById('{id}').click()");
             while (vm.Profile.Downloads.Count == before) await Task.Delay(20, token);
             var record = vm.Profile.Downloads[0];
-            Assert.That(new Uri(record.Url).AbsolutePath, Is.EqualTo(path), id);
-            Assert.That(record.Method, Is.EqualTo(method), id);
-            Assert.That(record.CanRequestAgain, Is.EqualTo(method == null), id);
+            Assert.That(new Uri(record.Url).AbsolutePath, Is.EqualTo(path), label);
+            Assert.That(record.Method, Is.EqualTo(method), label);
+            Assert.That(record.CanRequestAgain, Is.EqualTo(method == null), label);
         }
 
         await Assert.MultipleAsync(async () =>
         {
-            await Check("post", "/post", "POST");
-            await Check("redirect-303", "/after-303", null);
-            await Check("redirect-307", "/after-307", "POST");
-            await Check("get", "/get", null);
-            await Check("frame-post", "/frame-post", "POST");
+            foreach (string host in new[] { "127.0.0.1", InsecureHost })
+            {
+                // GitHub's Windows runners ignore the host mapping that the test runner passes to WebView2.
+                if (host == InsecureHost && !await TryLoad(new Uri($"http://{host}:{port}/source")))
+                {
+                    Console.WriteLine($"Skipped the {host} cases: WebView2 did not map the host to the test server.");
+                    continue;
+                }
+                await Check(host, "post", "/post", "POST");
+                await Check(host, "redirect-303", "/after-303", null);
+                await Check(host, "redirect-307", "/after-307", "POST");
+                await Check(host, "get", "/get", null);
+                await Check(host, "frame-post", "/frame-post", "POST");
+
+                // The same document check gates the Referrer-Policy header that page link downloads follow.
+                await Load(new Uri($"http://{host}:{port}/policy"));
+                var handler = (WindowsBrowserDownloadHandler)typeof(WebBrowserTabView)
+                    .GetField("_nativeBrowserHandler", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(view)!;
+                // The response can arrive after ContentLoading, so the policy may follow the completed navigation.
+                for (int i = 0; i < 100 && handler.DocumentReferrerPolicy is null; i++) await Task.Delay(20, token);
+                Assert.That(handler.DocumentReferrerPolicy, Is.EqualTo(BrowserReferrerPolicy.NoReferrer), $"policy on {host}");
+            }
         });
     }
 }
@@ -1155,7 +1592,9 @@ public class NativeBrowserFrameTests
     [TestCase("--native-browser-superseded-navigation", TestName = "ACommittedPageFinishingAfterTheNextNavigationStartsLeavesItLoading", IncludePlatform = "Win,MacOSX")]
     [TestCase("--native-browser-referrers", TestName = "NewTabRequestsHonorLinkAndDocumentReferrerPolicies", IncludePlatform = "Win,Linux")]
     [TestCase("--native-browser-cookie-clear", TestName = "LinuxCookieClearRemovesSessionAndPersistentCookies", IncludePlatform = "Linux")]
-    [TestCase("--native-browser-download-referrers", TestName = "PageLinkDownloadsHonorTheDocumentReferrerPolicy", IncludePlatform = "Win,MacOSX")]
+    [TestCase("--native-browser-linux-focus", TestName = "LinuxWebKitBlocksCoreKeyPropagationFromEmbeddedX11Window", IncludePlatform = "Linux")]
+    [TestCase("--native-browser-direct-navigation", TestName = "DirectHtmlNavigationSupersedesTheAdapterStartupAddress", IncludePlatform = "Win,MacOSX,Linux")]
+    [TestCase("--native-browser-download-referrers", TestName = "PageLinkDownloadsHonorTheDocumentReferrerPolicy", IncludePlatform = "Win,MacOSX,Linux")]
     [TestCase("--native-browser-adblock-reference", TestName = "WindowsAdBlockBackendKeepsTheAdaptersWebViewReference", IncludePlatform = "Win")]
     public async Task NativeNavigation(string scenario)
     {
@@ -1169,12 +1608,20 @@ public class NativeBrowserFrameTests
             start.Environment["XDG_CACHE_HOME"] = Path.Combine(webKitHome.Path, "cache");
             start.Environment["XDG_DATA_HOME"] = Path.Combine(webKitHome.Path, "data");
         }
+        // Chromium omits Sec-Fetch-* for http hosts other than localhost, so this scenario also loads pages from one.
+        // Either rule alone can miss: a proxy resolves names itself, and a runner may resolve before the resolver rule applies.
+        if (OperatingSystem.IsWindows() && scenario == "--native-browser-download-methods")
+        {
+            string map = $"MAP {NativeBrowserFrameTestHost.InsecureHost} 127.0.0.1";
+            start.Environment["WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS"] =
+                $"--no-proxy-server --host-rules=\"{map}\" --host-resolver-rules=\"{map}\"";
+        }
         start.ArgumentList.Add(typeof(NativeBrowserFrameTestHost).Assembly.Location);
         start.ArgumentList.Add(scenario);
         using Process process = Process.Start(start)!;
         Task<string> output = process.StandardOutput.ReadToEndAsync();
         Task<string> error = process.StandardError.ReadToEndAsync();
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(scenario is "--native-browser-referrers" or "--native-browser-download-referrers" ? 90 : 60));
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(scenario is "--native-browser-referrers" or "--native-browser-download-referrers" or "--native-browser-download-methods" ? 90 : 60));
         try { await process.WaitForExitAsync(timeout.Token); }
         catch
         {

@@ -2,7 +2,10 @@
 using Beutl.AgentToolkit.Rendering;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Workspace;
+using Beutl.Editor;
+using Beutl.Editor.VersionControl;
 using Beutl.Graphics.Rendering;
+using Beutl.Language;
 using Beutl.Logging;
 using Beutl.Media.Decoding;
 using Beutl.Serialization;
@@ -57,8 +60,19 @@ internal static class ToolErrorMapper
                 ex.Message,
                 ex.Path,
                 "Reload the project or save to a different path."),
+            ProjectAssetPlanChangedException => new ToolError(ErrorCode.StaleHandle, ProjectAssetsStrings.PlanChanged),
+            ProjectAssetValidationException ex => new ToolError(ErrorCode.ValidationRejected,
+                string.Format(ProjectAssetsStrings.ValidationFailed, Path.GetFileName(ex.Path)), ex.Path),
             SessionUnavailableException ex => ex.ToError(),
             UserEditingException ex => ex.ToError(),
+            GitIdentityRequiredException ex => new ToolError(ErrorCode.ValidationRejected, ex.Message, "project",
+                "Configure the Git identity from the Version Control tab and retry."),
+            GitInteractiveSigningException ex => new ToolError(ErrorCode.ValidationRejected, ex.Message, "project"),
+            VersionControlConflictedException ex => new ToolError(ErrorCode.ValidationRejected, ex.Message, "project"),
+            DetachedHeadNotSupportedException ex => new ToolError(ErrorCode.ValidationRejected, ex.Message, "project"),
+            GitOperationException { IsRepositoryLockFailure: true } => new ToolError(
+                ErrorCode.WorkspaceBusy, "Git could not acquire a repository lock.", "project",
+                "Wait for the active Git operation, or use the Version Control tab for lock recovery."),
             OutputOperationBusyException ex => new ToolError(
                 ex.Code,
                 ex.Message,

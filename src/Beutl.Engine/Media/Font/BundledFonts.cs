@@ -12,35 +12,16 @@ namespace Beutl.Media;
 // keeps the fallback it has.
 internal static class BundledFonts
 {
-    internal const string AssemblyName = "Beutl.BundledFonts";
+    internal const string AssemblyName = BundledFontCatalog.AssemblyName;
     internal const string EmojiFamilyName = "Noto Color Emoji";
-
-    // In the order of UiFonts in Beutl.Controls; the UI language's family goes first.
-    private static readonly string[] s_uiFamilyNames =
-    [
-        "Noto Sans",
-        "Noto Sans JP",
-        "Noto Sans SC",
-        "Noto Sans KR",
-    ];
 
     private static readonly Lock s_gate = new();
     private static Assembly? s_assembly;
     private static bool s_loadAttempted;
     private static readonly ConditionalWeakTable<FontManager, object> s_registered = new();
 
-    internal static string[] GetUiFamilyNames(CultureInfo culture)
-    {
-        string primaryFamily = culture.TwoLetterISOLanguageName switch
-        {
-            "ja" => "Noto Sans JP",
-            "zh" => "Noto Sans SC",
-            "ko" => "Noto Sans KR",
-            _ => "Noto Sans",
-        };
-
-        return [.. s_uiFamilyNames.Prepend(primaryFamily).Distinct()];
-    }
+    internal static string[] GetUiFamilyNames(CultureInfo culture) =>
+        [.. BundledFontCatalog.GetOrderedUiFamilyNames(culture)];
 
     // Registers the bundled faces with the manager once, opening none until text needs it, and makes them the
     // fallback in the culture's order. Fonts the project or the system registers under the same family keep the
@@ -71,9 +52,9 @@ internal static class BundledFonts
     private static void Register(FontManager manager, Assembly assembly)
     {
         string[] resources = assembly.GetManifestResourceNames();
-        foreach (string familyName in s_uiFamilyNames.Append(EmojiFamilyName))
+        foreach (string familyName in BundledFontCatalog.UiFamilyNames.Append(EmojiFamilyName))
         {
-            string prefix = $"Fonts/{familyName.Replace(" ", "")}/";
+            string prefix = BundledFontCatalog.GetResourcePrefix(familyName);
             foreach (string resource in resources
                 .Where(name => name.StartsWith(prefix, StringComparison.Ordinal))
                 .Order(StringComparer.Ordinal))

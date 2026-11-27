@@ -4,11 +4,12 @@ using Beutl.Api.Services;
 using Beutl.Configuration;
 using Beutl.Editor;
 using Beutl.Editor.VersionControl;
-using Beutl.IO;
 using Beutl.Logging;
+using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Beutl.Services;
 using Beutl.ViewModels;
+using Beutl.ViewModels.Dock;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
@@ -49,10 +50,7 @@ public sealed partial class EditorService
         var filesFree = new HashSet<string>(StringComparer.Ordinal);
         // An open scene is also a project item.
         return roots.Distinct<CoreObject>(ReferenceEqualityComparer.Instance)
-            .Any(root => Beutl.Serialization.CoreSerializer.Visit(root, visit =>
-                visit.Value is CoreObject { Uri: { IsFile: true } uri } && Matches(uri.LocalPath)
-                // Media and model sources keep their file in IFileSource.Uri, which hides CoreObject.Uri.
-                || visit.Value is IFileSource source && FileSourceFiles.EnumerateLocalPaths(source).Any(Matches)));
+            .Any(root => CoreSerializer.Visit(root, visit => FileSourceFiles.EnumerateReferencedPaths(visit.Value).Any(Matches)));
 
         bool Matches(string file)
         {
@@ -66,7 +64,11 @@ public sealed partial class EditorService
 
     internal Beutl.Editor.Components.WebBrowserTab.IBrowserSettingsHost? BrowserSettingsHost { get; set; }
     internal Beutl.Editor.Components.FileBrowserTab.FileBrowserStorageProviderRegistry? StorageProviders { get; set; }
+    internal ProjectAssetCoordinator? ProjectAssets { get; set; }
     internal Beutl.Editor.Components.AiWorkspaceTab.IAiWorkspaceHost? AiWorkspaceHost { get; set; }
+    internal Beutl.Editor.Components.AgentTab.IAgentWorkspaceHost? AgentWorkspaceHost { get; set; }
+    internal Beutl.Api.BeutlApiApplication? ApiApplication { get; set; }
+    internal Task<bool> ExtensionStartupRestrictedMode { get; set; } = Task.FromResult(false);
     private readonly CoreList<EditorTabItem> _tabItems;
     private readonly ILogger _logger = Log.CreateLogger<EditorService>();
     private readonly ExtensionProvider _extensionProvider;
@@ -164,6 +166,10 @@ public sealed partial class EditorService
         _projectVersionControlService.Value = service;
     }
 
+    internal static ValueTask<bool> SaveEditorInReservedWorkspaceAsync(ISavableEditorContext editor)
+        => editor is EditViewModel sceneEditor ? sceneEditor.SaveInReservedWorkspaceAsync() : editor.SaveAsync();
+
+    // Lifecycle callers reserve the workspace before saving the project and its editors.
     internal async Task<bool> SaveProjectFilesAsync(
         Project project,
         CancellationToken cancellationToken)
@@ -197,7 +203,7 @@ public sealed partial class EditorService
             cancellationToken.ThrowIfCancellationRequested();
             if (item.Context.Value is EditViewModel sceneEditor)
                 await sceneEditor.FlushMediaFingerprintsAsync();
-            if (item.Context.Value is ISavableEditorContext editor && !await editor.SaveAsync())
+            if (item.Context.Value is ISavableEditorContext editor && !await SaveEditorInReservedWorkspaceAsync(editor))
             {
                 return false;
             }
@@ -213,7 +219,26 @@ public sealed partial class EditorService
         return result != null;
     }
 
-    public void ActivateTabItem(CoreObject obj)
+    internal async ValueTask<SceneRemovalResult> RemoveSceneFromProjectAsync(
+        ProjectService projects, Project project, Scene scene, CancellationToken cancellationToken)
+    {
+        Dispatcher.UIThread.VerifyAccess();
+        using var write = await BeginProjectFileWriteAsync(cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (projects.CurrentTransition is not null || !ReferenceEquals(projects.CurrentProject.Value, project))
+            return SceneRemovalResult.SceneNotFound;
+
+        bool dirty = TryGetTabItem(scene, out var tab)
+                     && tab.Context.Value is EditViewModel editor
+                     && (editor.IsDisposingOrDisposed || editor.HasUnsavedSceneChanges);
+        return ProjectPersistence.RemoveScene(project, scene, dirty, persist: true);
+    }
+
+    public void ActivateTabItem(CoreObject obj) => ActivateTabItem(obj, inheritDockLayout: false);
+
+    internal void ActivateNewScene(Scene scene) => ActivateTabItem(scene, inheritDockLayout: true);
+
+    private void ActivateTabItem(CoreObject obj, bool inheritDockLayout)
     {
         ViewConfig viewConfig = AppServices.GetRequiredService<GlobalConfiguration>().ViewConfig;
         string path = obj.Uri!.LocalPath;
@@ -226,7 +251,7 @@ public sealed partial class EditorService
         }
         else
         {
-            if (CreateTabItem(obj, isSelected: true) is { } tabItem2)
+            if (CreateTabItem(obj, isSelected: true, inheritDockLayout) is { } tabItem2)
             {
                 SelectedTabItem.Value = tabItem2;
             }
@@ -235,7 +260,7 @@ public sealed partial class EditorService
 
     // Background editing shares the normal context, history, save admission and tab lifecycle,
     // without changing either the selected tab or the recent-file navigation state.
-    internal EditorTabItem? GetOrCreateBackgroundTabItem(CoreObject obj)
+    internal EditorTabItem? GetOrCreateBackgroundTabItem(CoreObject obj, bool inheritDockLayout = false)
     {
         Dispatcher.UIThread.VerifyAccess();
         using IDisposable? open = TryBeginEditorFileOpen();
@@ -244,10 +269,10 @@ public sealed partial class EditorService
 
         return TryGetTabItem(obj, out EditorTabItem? existing)
             ? existing
-            : CreateTabItem(obj, isSelected: false);
+            : CreateTabItem(obj, isSelected: false, inheritDockLayout);
     }
 
-    private EditorTabItem? CreateTabItem(CoreObject obj, bool isSelected)
+    private EditorTabItem? CreateTabItem(CoreObject obj, bool isSelected, bool inheritDockLayout)
     {
         EditorExtension? ext = _extensionProvider.MatchEditorExtension(obj.Uri!.LocalPath);
         if (ext is null
@@ -255,6 +280,13 @@ public sealed partial class EditorService
                 () => ext.TryCreateContext(obj, new EditorContextServices(this, _extensionProvider), out IEditorContext? created) ? created : null)
             is not { } context)
             return null;
+
+        if (inheritDockLayout && context is EditViewModel editor
+            && SelectedTabItem.Value?.Context.Value is EditViewModel { IsDisposingOrDisposed: false } currentEditor
+            && BeutlDockFactory.IsPortraitScene(currentEditor.Scene) == BeutlDockFactory.IsPortraitScene(editor.Scene))
+        {
+            editor.DockHost.InheritLayout(currentEditor.DockHost);
+        }
 
         var item = new EditorTabItem(context) { IsSelected = { Value = isSelected } };
         TabItems.Add(item);
@@ -311,7 +343,7 @@ public sealed partial class EditorService
                 editor.HistoryManager.FlushPendingMutations();
                 editor.HistoryManager.Commit();
                 await editor.FlushMediaFingerprintsAsync();
-                if (!await editor.SaveAsync())
+                if (!await editor.SaveInReservedWorkspaceAsync())
                     throw new IOException(MessageStrings.FileSaveException);
             }
 

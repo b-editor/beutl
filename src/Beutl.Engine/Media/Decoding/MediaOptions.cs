@@ -12,5 +12,10 @@ public record MediaOptions(
 
     public bool IsBackground { get; init; }
 
+    /// <summary>Requests a dedicated video reader with reduced-size output, when supported.</summary>
+    public int VideoThumbnailHeight { get; init; }
+
     public ProxyPreset PreferredProxyPreset { get; init; } = ProxyPreset.Quarter;
+
+    public VideoDeinterlaceOptions Deinterlace { get; init; }
 }

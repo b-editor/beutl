@@ -52,7 +52,7 @@
                                                      Click="OnRenameClick"
                                                      CommandParameter="{Binding SelectedItem.Value}"
                                                      IsEnabled="{Binding !!SelectedItem.Value}"
-                                                     Text="{x:Static lang:Strings.Rename}" />
+                                                     Text="{x:Static lang:Strings.RenameMenu}" />
                                 <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="Output.ConvertPreset"
                                                      Click="OnConvertPresetClick"
                                                      CommandParameter="{Binding SelectedItem.Value}"

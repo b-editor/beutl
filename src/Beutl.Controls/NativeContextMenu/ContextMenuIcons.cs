@@ -41,7 +41,7 @@ internal static class ContextMenuIcons
         bitmap.Render(icon);
 
         using var stream = new MemoryStream();
-        bitmap.Save(stream);
+        bitmap.Save(stream, PngBitmapEncoderOptions.Default);
         return stream.ToArray();
     }
 

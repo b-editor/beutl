@@ -47,22 +47,15 @@ public partial class PlayerView
     // A translucent gray, which shows against the panel in the dark and the light theme alike.
     private static readonly Color s_frameOutlineColor = Color.FromArgb(0x60, 0x80, 0x80, 0x80);
 
-    public static readonly DirectProperty<PlayerView, string> ZoomLabelProperty =
-        AvaloniaProperty.RegisterDirect<PlayerView, string>(nameof(ZoomLabel), view => view.ZoomLabel);
-
     // The name that fits the footer. The box's list and the settings tab spell the automatic scale out.
     public static readonly FuncValueConverter<RenderScale, string> ResolutionLabelConverter = new(GetResolutionLabel);
 
     private PlayerViewportTransform? _viewportTransform;
-    private string _zoomLabel = "-";
     private bool _isSyncingZoomOption;
     private RenderScale? _requestedPreviewScale;
 
-    public string ZoomLabel
-    {
-        get => _zoomLabel;
-        private set => SetAndRaise(ZoomLabelProperty, ref _zoomLabel, value);
-    }
+    [GeneratedDirectProperty]
+    public partial string ZoomLabel { get; private set; } = "-";
 
     internal PlayerViewportTransform? ViewportTransform
     {
@@ -159,6 +152,8 @@ public partial class PlayerView
             view.FrameRect = GetFrameRectIn(view) ?? default;
 
         checkerboardBackground.FrameRect = GetFrameRectIn(previewViewport);
+        if (effectComparisonOverlay.IsVisible)
+            ArrangeEffectComparisonOverlay();
     }
 
     private Rect? GetFrameRectIn(Visual target)

@@ -73,9 +73,13 @@ public partial class BeutlApiApplication : IAsyncDisposable
 
     public BeutlApiApplication(HttpClient httpClient, ExtensionProvider extensionProvider,
         ViewConfig viewConfig, UpdateConfig updateConfig, IServiceProvider? services = null)
-        : this(httpClient, extensionProvider, viewConfig, updateConfig, static () => new HttpClient(), services: services)
+        : this(httpClient, extensionProvider, viewConfig, updateConfig, CreatePackageInstallerHttpClient, services: services)
     {
     }
+
+    // Redirects are followed by PackageInstaller.Download so that every hop can be validated.
+    private static HttpClient CreatePackageInstallerHttpClient()
+        => new(new HttpClientHandler { AllowAutoRedirect = false });
 
     internal BeutlApiApplication(
         HttpClient httpClient,
@@ -111,6 +115,7 @@ public partial class BeutlApiApplication : IAsyncDisposable
         Releases = RestService.For<IReleasesClient>(_httpClient);
         Files = RestService.For<IFilesClient>(_httpClient);
         Storage = RestService.For<IStorageClient>(_httpClient);
+        GitRepositories = RestService.For<IGitRepositoriesClient>(_httpClient);
         Users = RestService.For<IUsersClient>(_httpClient);
         Account = RestService.For<IAccountClient>(_httpClient);
         Discover = RestService.For<IDiscoverClient>(_httpClient);
@@ -140,6 +145,8 @@ public partial class BeutlApiApplication : IAsyncDisposable
     public IFilesClient Files { get; }
 
     internal IStorageClient Storage { get; }
+
+    internal IGitRepositoriesClient GitRepositories { get; }
 
     public IDiscoverClient Discover { get; }
 
@@ -384,6 +391,7 @@ public partial class BeutlApiApplication : IAsyncDisposable
         Register(() => new AcceptedLicenseManager());
         Register(() => new PackageChangesQueue());
         Register(() => new LibraryService(this));
+        Register(() => new HostedGitRepositoryService(this));
         Register(() => new AiEntitlementStore(this));
         Register(() => new AiJobChangeNotifier());
         Register(() => new AiEntitlementService(

@@ -80,6 +80,12 @@ public sealed partial class GraphEditorTabViewModel : IToolContext
             if (!_synchronizingTree) SelectTreeItem(item);
         }).DisposeWith(_disposables);
         Element.Subscribe(_ => Refresh()).DisposeWith(_disposables);
+        Element.Select(element => (element?.FindHierarchicalParent<Scene>() ?? _editorContext.GetService<Scene>())
+                ?.FrameRate.GetObservable().Skip(1)
+                ?? Observable.Empty<Rational>())
+            .Switch()
+            .Subscribe(_ => UpdateKeyFrameStates())
+            .DisposeWith(_disposables);
         _clock.CurrentTime.Subscribe(_ => UpdateKeyFrameStates()).DisposeWith(_disposables);
     }
 

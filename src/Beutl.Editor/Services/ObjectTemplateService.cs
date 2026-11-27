@@ -1,10 +1,8 @@
 ﻿using System.Text.Json;
 using System.Text.Json.Nodes;
 using Beutl.Collections;
-using Beutl.Configuration;
 using Beutl.Logging;
 using Beutl.Media;
-using Beutl.Media.Decoding;
 using Beutl.Serialization;
 using Microsoft.Extensions.Logging;
 
@@ -15,10 +13,7 @@ public sealed partial class ObjectTemplateService : IDisposable
     private readonly CoreList<ObjectTemplateItem> _items = [];
 
     private readonly string _directoryPath;
-    private readonly FontManager _fonts;
-    private readonly DecoderRegistry? _decoders;
-    private readonly EditorConfig? _editorConfig;
-    private readonly ProxyStoreConfig? _proxyConfig;
+    private readonly SceneRenderServices _renderServices;
 
     private static readonly TimeSpan s_debounceInterval = TimeSpan.FromMilliseconds(300);
 
@@ -28,17 +23,16 @@ public sealed partial class ObjectTemplateService : IDisposable
     private CancellationTokenSource? _debounceCts;
     private bool _disposed;
 
-    public ObjectTemplateService(FontManager fonts, EditorConfig? editorConfig = null, ProxyStoreConfig? proxyConfig = null, DecoderRegistry? decoders = null)
-        : this(fonts, BeutlEnvironment.GetTemplatesDirectoryPath(), editorConfig, proxyConfig, decoders)
+    public ObjectTemplateService(SceneRenderServices renderServices)
+        : this(renderServices, BeutlEnvironment.GetTemplatesDirectoryPath())
     {
     }
 
-    public ObjectTemplateService(FontManager fonts, string directoryPath, EditorConfig? editorConfig = null, ProxyStoreConfig? proxyConfig = null, DecoderRegistry? decoders = null)
+    public ObjectTemplateService(SceneRenderServices renderServices, string directoryPath)
     {
-        _fonts = fonts;
-        _decoders = decoders;
-        _editorConfig = editorConfig;
-        _proxyConfig = proxyConfig;
+        ArgumentNullException.ThrowIfNull(renderServices);
+
+        _renderServices = renderServices;
         _directoryPath = directoryPath;
         RestoreItems();
         StartWatching();
@@ -96,15 +90,15 @@ public sealed partial class ObjectTemplateService : IDisposable
             _logger.LogError(ex, "Unable to serialize template {Name}.", name);
             return null;
         }
-        item.Preview = await ObjectTemplatePreviewRenderer.RenderPngAsync(fonts ?? _fonts, instance, cancellationToken, _editorConfig, _proxyConfig, _decoders);
+        SceneRenderServices services = fonts is null ? _renderServices : _renderServices with { Fonts = fonts };
+        item.Preview = await ObjectTemplatePreviewRenderer.RenderPngAsync(services, instance, cancellationToken);
 
         return await Task.Run(
             () =>
             {
                 lock (_lock)
                 {
-                    item.Name.Value = GetUniqueNameLocked(name);
-                    if (!SaveItemToFile(item))
+                    if (!SaveItemToFile(item, name))
                     {
                         return null;
                     }
@@ -170,6 +164,14 @@ public sealed partial class ObjectTemplateService : IDisposable
     }
 
     public IEnumerable<ObjectTemplateItem> FindByBaseType(Type baseType) => FindByBaseTypes(baseType);
+
+    internal ObjectTemplateItem[] GetTemplates()
+    {
+        lock (_lock)
+        {
+            return _items.ToArray();
+        }
+    }
 
     // The templates of any of the base types, in the order the service holds them rather than grouped by type.
     internal IEnumerable<ObjectTemplateItem> FindByBaseTypes(params Type[] baseTypes)
@@ -264,18 +266,51 @@ public sealed partial class ObjectTemplateService : IDisposable
         }
     }
 
-    private bool SaveItemToFile(ObjectTemplateItem item)
+    private bool SaveItemToFile(ObjectTemplateItem item, string name)
     {
+        string temporaryPath = Path.Combine(_directoryPath, $"{Guid.NewGuid():N}.tmp");
         try
         {
             Directory.CreateDirectory(_directoryPath);
-            string filePath = Path.Combine(_directoryPath, item.Name.Value + ".json");
             JsonNode json = ObjectTemplateItem.ToJson(item);
 
-            using (FileStream stream = File.Create(filePath))
+            using (var stream = new FileStream(temporaryPath, FileMode.CreateNew))
             using (var writer = new Utf8JsonWriter(stream, new JsonWriterOptions { Indented = true }))
             {
                 json.WriteTo(writer);
+            }
+
+            // The stdio server and app share the profile. Another process may claim this name
+            // after our in-process check, so publish the complete file without overwriting it.
+            string filePath;
+            while (true)
+            {
+                item.Name.Value = GetUniqueNameLocked(name);
+                filePath = Path.Combine(_directoryPath, item.Name.Value + ".json");
+                try
+                {
+                    if (OperatingSystem.IsWindows())
+                    {
+                        File.Move(temporaryPath, filePath, overwrite: false);
+                    }
+                    else
+                    {
+                        // Unix File.Move can replace a file created between its existence check and rename.
+                        File.CreateHardLink(filePath, temporaryPath);
+                    }
+                    break;
+                }
+                catch (IOException) when (File.Exists(filePath))
+                {
+                    // Try the next available name.
+                }
+                catch (Exception ex) when (!OperatingSystem.IsWindows()
+                    && ex is IOException or UnauthorizedAccessException)
+                {
+                    // The file system has no hard links (such as exFAT), so fall back to a move.
+                    File.Move(temporaryPath, filePath, overwrite: false);
+                    break;
+                }
             }
 
             item.FilePath = filePath;
@@ -288,6 +323,17 @@ public sealed partial class ObjectTemplateService : IDisposable
         {
             _logger.LogError(ex, "Failed to save ObjectTemplateItem: {Name}", item.Name.Value);
             return false;
+        }
+        finally
+        {
+            try
+            {
+                File.Delete(temporaryPath);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                _logger.LogWarning(ex, "Failed to remove temporary template file {FilePath}.", temporaryPath);
+            }
         }
     }
 
@@ -445,17 +491,14 @@ public sealed partial class ObjectTemplateService : IDisposable
         {
             if (!Directory.Exists(_directoryPath)) return;
 
-            string[] diskFiles = Directory
-                .EnumerateFiles(_directoryPath, "*.json", SearchOption.AllDirectories)
-                .ToArray();
-            CanonicalPathSet diskPaths = CanonicalPathSet.FromEnumeratedFiles(diskFiles);
-            IEnumerable<string> preferredDiskFiles = diskPaths.GetPreferredPaths(diskFiles);
-
             lock (_lock)
             {
+                // A disk snapshot taken before a local save would remove the newly cached template.
+                string[] diskFiles = Directory.GetFiles(_directoryPath, "*.json", SearchOption.AllDirectories);
+                CanonicalPathSet diskPaths = CanonicalPathSet.FromEnumeratedFiles(diskFiles);
                 RemoveItemsWithoutFileLocked(diskPaths);
                 CanonicalPathSet loadedPaths = ReloadChangedItemsLocked(diskPaths);
-                AddNewFilesLocked(preferredDiskFiles, diskPaths, loadedPaths);
+                AddNewFilesLocked(diskPaths.GetPreferredPaths(diskFiles), diskPaths, loadedPaths);
             }
         }
         catch (Exception ex)

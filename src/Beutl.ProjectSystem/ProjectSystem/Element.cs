@@ -68,6 +68,9 @@ public partial class Element : Hierarchical, INotifyEdited
 
     public IProperty<MatteMode> MatteMode { get; } = Property.CreateValue(Graphics.MatteMode.None);
 
+    internal bool HasTrackMatte => MatteMode.Value != Graphics.MatteMode.None
+        && (MatteSourceKind.Value != ProjectSystem.MatteSourceKind.Layer || MatteSourceZIndex.Value.HasValue);
+
     /// <summary>Whether to draw this element in the scene. Hidden elements can still supply a matte.</summary>
     public IProperty<bool> IsVisibleInOutput { get; } = Property.CreateValue(true);
 
@@ -150,18 +153,18 @@ public partial class Element : Hierarchical, INotifyEdited
 
     public void AddObject(EngineObject obj)
     {
-        if (obj is IFlowOperator)
+        if (CreatePairedPortal(obj) is { } portal)
         {
-            Objects.Add(new PortalObject());
+            Objects.Add(portal);
         }
         Objects.Add(obj);
     }
 
     public void InsertObject(int index, EngineObject obj)
     {
-        if (obj is IFlowOperator)
+        if (CreatePairedPortal(obj) is { } portal)
         {
-            Objects.Insert(index, new PortalObject());
+            Objects.Insert(index, portal);
             Objects.Insert(index + 1, obj);
         }
         else
@@ -169,6 +172,8 @@ public partial class Element : Hierarchical, INotifyEdited
             Objects.Insert(index, obj);
         }
     }
+
+    internal static PortalObject? CreatePairedPortal(EngineObject obj) => obj is IFlowOperator ? new PortalObject() : null;
 
     public void RemoveObject(EngineObject obj)
     {
@@ -387,54 +392,5 @@ public partial class Element : Hierarchical, INotifyEdited
         }
 
         return null;
-    }
-
-    internal (Element? Before, Element? After, Element? Cover) GetBeforeAndAfterAndCover(int zindex, MediaTime start, MediaTime end)
-    {
-        if (HierarchicalParent is Scene scene)
-        {
-            Element? beforeTmp = null;
-            Element? afterTmp = null;
-            Element? coverTmp = null;
-            var range = TimeRange.FromRange(start, end);
-
-            foreach (Element? item in scene.Children.AsSpan())
-            {
-                if (item != this && item.ZIndex.Value == zindex)
-                {
-                    AccumulateNeighbor(item, range, ref beforeTmp, ref afterTmp, ref coverTmp);
-                }
-            }
-            return (beforeTmp, afterTmp, coverTmp);
-        }
-
-        return (null, null, null);
-    }
-
-    // Folds one element of the same layer into the nearest neighbors before and after range and the
-    // element range covers.
-    internal static void AccumulateNeighbor(
-        Element item,
-        TimeRange range,
-        ref Element? before,
-        ref Element? after,
-        ref Element? cover)
-    {
-        if (item.Start.Value < range.Start
-            && (before == null || before.Start.Value <= item.Start.Value))
-        {
-            before = item;
-        }
-
-        if (item.Range.End > range.End
-            && (after == null || after.Range.End >= item.Range.End))
-        {
-            after = item;
-        }
-
-        if (range.Contains(item.Range) || range == item.Range)
-        {
-            cover = item;
-        }
     }
 }

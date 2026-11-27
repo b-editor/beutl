@@ -4,4 +4,11 @@
 public class EvaluationContext(MediaTime time)
 {
     public MediaTime Time { get; set; } = time;
+
+    internal (CoreObject Owner, MediaTime Start, MediaTime Duration)? PreviewTimeRange { get; init; }
+
+    internal (MediaTime Start, MediaTime Duration)? GetPreviewTimeRange(CoreObject? owner)
+        => PreviewTimeRange is { } range && ReferenceEquals(range.Owner, owner)
+            ? (range.Start, range.Duration)
+            : null;
 }

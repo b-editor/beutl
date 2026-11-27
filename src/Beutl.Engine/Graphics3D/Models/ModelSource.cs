@@ -55,6 +55,7 @@ public class ModelSource : EngineObject, IFileSource
     private readonly HashSet<string> _missingTextures = new(StringComparer.Ordinal);
 
     internal IReadOnlyCollection<string> Dependencies => _dependencies;
+    internal IReadOnlyCollection<string> MissingTextures => _missingTextures;
 
     public new Uri Uri
     {
@@ -121,6 +122,8 @@ public class ModelSource : EngineObject, IFileSource
         _materialDataList.AddRange(loaded._materialDataList);
         _dependencies.Clear();
         _dependencies.UnionWith(loaded._dependencies);
+        _missingTextures.Clear();
+        _missingTextures.UnionWith(loaded._missingTextures);
         _embeddedTextures.Clear();
         foreach (var pair in loaded._embeddedTextures) _embeddedTextures.Add(pair.Key, pair.Value);
         RaiseEdited();

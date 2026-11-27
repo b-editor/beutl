@@ -60,7 +60,8 @@ internal static partial class NativeContextMenuTestHost
 
     private static async void RunAll()
     {
-        var lifetime = (IClassicDesktopStyleApplicationLifetime)Application.Current!.ApplicationLifetime!;
+        if (Application.Current?.ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime lifetime)
+            return;
         int exitCode = 1;
         try
         {

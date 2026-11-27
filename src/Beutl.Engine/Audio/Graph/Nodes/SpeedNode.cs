@@ -26,11 +26,19 @@ public sealed partial class SpeedNode : AudioNode, IAudioTimeMappingNode
     public override int GetTotalLatencySamples(int sampleRate)
         => _mapping.GetTotalLatencySamples(sampleRate, GetMaxInputLatency(sampleRate, drain: false));
 
+    internal override bool HasFixedLatency(int sampleRate)
+        => base.HasFixedLatency(sampleRate)
+            && (!_mapping.ChangesOverTime || GetMaxInputLatency(sampleRate, drain: false) == 0);
+
     public override int GetDrainLatencySamples(int sampleRate)
         => _mapping.GetDrainLatencySamples(sampleRate, GetMaxInputLatency(sampleRate, drain: true));
 
+    bool IAudioTimeMappingNode.RemapsTime => _mapping.RemapsTime;
+
     bool IAudioTimeMappingNode.TryGetDrainSpeedFactor(int sampleRate, out double speed)
         => _mapping.TryGetDrainSpeedFactor(sampleRate, out speed);
+
+    void IAudioTimeMappingNode.SetPreviewStartDelta(MediaTime delta) => _mapping.PreviewStartDelta = delta;
 
     public override AudioBuffer Process(AudioProcessContext context)
         => RecordProcessedOutput(_processing.Process(context, ChannelCount, draining: false));

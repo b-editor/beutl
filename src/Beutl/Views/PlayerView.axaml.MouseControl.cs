@@ -28,7 +28,7 @@ public partial class PlayerView
     private static KeyFrameState<T>? FindKeyFramePair<T>(
         IProperty<T> property, IEditorClock clock, Scene scene)
     {
-        Rational rate = scene.FindHierarchicalParent<Project>().GetFrameRate();
+        Rational rate = scene.GetFrameRate();
         MediaTime globalKeyTime = clock.CurrentTime.Value;
 
         if (property.GetPropertyAnimation() is IComponentAnimation<T> components)
@@ -102,7 +102,11 @@ public partial class PlayerView
             }
         }
 
-        public void OnReleased(PointerReleasedEventArgs e)
+        public void OnReleased(PointerReleasedEventArgs e) => EndPan();
+
+        public void OnPointerCaptureLost(PointerCaptureLostEventArgs e) => EndPan();
+
+        public void EndPan()
         {
             if (_pressed)
             {
@@ -127,7 +131,7 @@ public partial class PlayerView
 
     private readonly WeakReference<Drawable?> _lastSelected = new(null);
     private IMouseControlHandler? _mouseState;
-    private int _lastMouseMode = -1;
+    private PlayerViewModel? _temporaryHandPlayer;
 
     private void FinishEditingInteraction()
     {
@@ -137,47 +141,14 @@ public partial class PlayerView
         handler.EndInteraction();
     }
 
-    private int GetMouseModeIndex(PlayerViewModel viewModel)
+    private void EndTemporaryHand()
     {
-        if (viewModel.IsMoveMode.Value)
-        {
-            return 0;
-        }
-        else if (viewModel.IsHandMode.Value)
-        {
-            return 1;
-        }
-        else if (viewModel.IsCropMode.Value)
-        {
-            return 2;
-        }
-        else if (viewModel.IsCameraMode.Value)
-        {
-            return 3;
-        }
-        else
-        {
-            return -1;
-        }
-    }
+        if (_temporaryHandPlayer is not { } player) return;
 
-    private void SetMouseMode(PlayerViewModel viewModel, int index, bool value)
-    {
-        switch (index)
-        {
-            case 0:
-                viewModel.IsMoveMode.Value = value;
-                break;
-            case 1:
-                viewModel.IsHandMode.Value = value;
-                break;
-            case 2:
-                viewModel.IsCropMode.Value = value;
-                break;
-            case 3:
-                viewModel.IsCameraMode.Value = value;
-                break;
-        }
+        _temporaryHandPlayer = null;
+        if (_mouseState is MouseControlHand pan) pan.EndPan();
+        _mouseState = null;
+        player.EndTemporaryHand();
     }
 
     private void ZoomFrameAtPointer(PointerWheelEventArgs e, PlayerViewModel viewModel)
@@ -229,9 +200,7 @@ public partial class PlayerView
 
     private void OnFrameMagnify(object? sender, PointerDeltaEventArgs e)
     {
-        // Native magnification is a relative scale change, not a mouse-wheel delta.
-        double factor = 1 + e.Delta.X;
-        if (DataContext is PlayerViewModel viewModel && double.IsFinite(factor) && factor > 0)
+        if (DataContext is PlayerViewModel viewModel && NativeScrollInput.TryGetMagnifyFactor(e, out double factor))
         {
             ZoomFrameAt(viewModel, (float)factor, e.GetPosition(framePanel));
             e.Handled = true;
@@ -257,9 +226,9 @@ public partial class PlayerView
     {
         // OnFramePointerReleased nulls _mouseState on the normal path; this only fires when capture
         // was taken away externally before Release reached us.
-        if (_mouseState == null) return;
-        _mouseState.OnPointerCaptureLost(e);
+        _mouseState?.OnPointerCaptureLost(e);
         _mouseState = null;
+        EndTemporaryHand();
     }
 
     private void OnFramePointerReleased(object? sender, PointerReleasedEventArgs e)
@@ -267,12 +236,9 @@ public partial class PlayerView
         _mouseState?.OnReleased(e);
         _mouseState = null;
 
-        if (DataContext is PlayerViewModel viewModel
-            && e.InitialPressMouseButton == MouseButton.Middle)
+        if (_temporaryHandPlayer is not null && !e.GetCurrentPoint(null).Properties.IsMiddleButtonPressed)
         {
-            SetMouseMode(viewModel, _lastMouseMode, true);
-
-            _lastMouseMode = -1;
+            EndTemporaryHand();
         }
     }
 
@@ -321,6 +287,12 @@ public partial class PlayerView
         var point = e.GetCurrentPoint(null);
         if (DataContext is PlayerViewModel viewModel)
         {
+            if (point.Properties.IsLeftButtonPressed || point.Properties.IsMiddleButtonPressed
+                || (viewModel.IsCameraMode.Value && point.Properties.IsRightButtonPressed))
+            {
+                framePanel.Focus(NavigationMethod.Pointer, e.KeyModifiers);
+            }
+
             if (viewModel.IsCameraMode.Value)
             {
                 if (viewModel.IsPlaybackActive)
@@ -334,7 +306,6 @@ public partial class PlayerView
                 {
                     _mouseState = CreateMouseHandler(viewModel);
                     _mouseState.OnPressed(e);
-                    framePanel.Focus();
                 }
 
                 return;
@@ -344,8 +315,8 @@ public partial class PlayerView
             {
                 if (point.Properties.IsMiddleButtonPressed)
                 {
-                    _lastMouseMode = GetMouseModeIndex(viewModel);
-                    viewModel.IsHandMode.Value = true;
+                    _temporaryHandPlayer = viewModel;
+                    viewModel.BeginTemporaryHand();
                 }
 
                 // In Move mode, left button funnels through MouseControlTransformHandles whether or not
@@ -365,7 +336,6 @@ public partial class PlayerView
                     {
                         _mouseState = new MouseControlEditingHandle(this, viewModel, editingHandle.Provider, editingHandle.Handle);
                         _mouseState.OnPressed(e);
-                        framePanel.Focus();
                         return;
                     }
                     TransformHandlesOverlay.HandleKind kind = transformHandlesOverlay.HitTest(imagePoint);
@@ -375,7 +345,6 @@ public partial class PlayerView
                     // A press with no hit-test answer keeps the drawable the handles follow.
                     if (!handler.TimedOut)
                         _lastSelected.SetTarget(handler.Drawable);
-                    framePanel.Focus();
                     return;
                 }
 

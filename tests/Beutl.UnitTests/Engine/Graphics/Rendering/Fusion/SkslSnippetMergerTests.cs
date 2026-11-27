@@ -197,7 +197,7 @@ public sealed class SkslSnippetMergerTests
                 Is.EqualTo(new[] { 0, 2, 4 }));
             Assert.That(second.Select(static program => program.Source),
                 Is.EqualTo(first.Select(static program => program.Source)));
-            Assert.That(first, Has.All.Matches<SkslMergedProgram>(static program => !program.RequiresStandaloneExecution));
+            Assert.That(first, Has.All.Matches<SkslMergedProgram>(static program => program is { RequiresStandaloneExecution: false }));
         });
     }
 
@@ -219,7 +219,7 @@ public sealed class SkslSnippetMergerTests
         {
             Assert.That(programs, Has.Count.EqualTo(2));
             Assert.That(programs.Select(static program => program.UniformVectorCount), Is.EqualTo(new[] { 2, 2 }));
-            Assert.That(programs, Has.All.Matches<SkslMergedProgram>(static program => !program.RequiresStandaloneExecution));
+            Assert.That(programs, Has.All.Matches<SkslMergedProgram>(static program => program is { RequiresStandaloneExecution: false }));
         });
     }
 
@@ -241,7 +241,7 @@ public sealed class SkslSnippetMergerTests
         {
             Assert.That(programs, Has.Count.EqualTo(2));
             Assert.That(programs.Select(static program => program.SamplerCount), Is.EqualTo(new[] { 2, 2 }));
-            Assert.That(programs, Has.All.Matches<SkslMergedProgram>(static program => !program.RequiresStandaloneExecution));
+            Assert.That(programs, Has.All.Matches<SkslMergedProgram>(static program => program is { RequiresStandaloneExecution: false }));
         });
     }
 
@@ -269,7 +269,7 @@ public sealed class SkslSnippetMergerTests
             Assert.That(programs.Select(static program => program.SamplerCount),
                 Is.EqualTo(new[] { budget.MaxSamplers, 2 }));
             Assert.That(programs, Has.All.Matches<SkslMergedProgram>(
-                static program => !program.RequiresStandaloneExecution));
+                static program => program is { RequiresStandaloneExecution: false }));
         });
     }
 

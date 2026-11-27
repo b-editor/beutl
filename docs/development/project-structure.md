@@ -8,13 +8,17 @@
 | `Beutl.Language` | Localized string resources; see `src/Beutl.Language/README.md` for which file to use. |
 | `Beutl.Engine` | Core rendering, animation, audio, composition, and media abstractions. It must not depend on UI projects. |
 | `Beutl.Engine.SourceGenerators` | Roslyn source generators and analyzers consumed by the engine and downstream projects. |
+| `Beutl.Analyzers` | Standalone Roslyn analyzers that share repository-wide rules with the engine source generators. |
 | `Beutl.ProjectSystem` | Project, scene, and element model, its persistence and recovery, and scene rendering. |
 | `Beutl.Editor` | Non-UI editor logic, including undo/redo, packaging, and editing-pipeline services. |
 | `Beutl.Editor.Components`, `Beutl.Controls`, `Beutl` | Avalonia views, controls, view models, and the application shell. |
+| `Beutl.BundledFonts` | Embedded Noto fonts shared by the application UI and the rendering engine's text fallback. |
 | `Beutl.Extensibility` | Plugin-facing abstractions. |
 | `Beutl.NodeGraph` | Node editor model and evaluation. |
 | `Beutl.Api` | Server API and AI service clients, package installation, and extension loading (`ExtensionProvider`). |
 | `Beutl.AgentToolkit`, `Beutl.AgentToolkit.Mcp` | Agent-editing product functionality and its MCP host. Bundled skills and subagents are product assets under the toolkit project, not repository-wide development configuration. |
+| `Beutl.Agents` | Managed external agent models, thread storage, permission routing, and worker IPC. |
+| `Beutl.Agents.Worker`, `Beutl.Agents.NodeBridge` | Separate libnode process and TypeScript provider adapters for ACP, Codex App Server, and Claude Code. |
 | `Beutl.Extensions.FFmpeg`, `Beutl.Extensions.FFmpeg.Core` | MIT FFmpeg decoding and encoding that runs the worker through IPC; `.Core` is the headless encoding part. |
 | `Beutl.Extensions.MediaFoundation`, `Beutl.Extensions.AVFoundation` | Platform media backends for Windows and macOS. |
 | `Beutl.FFmpegIpc` | MIT IPC transport and adapters used to communicate with the FFmpeg worker. |

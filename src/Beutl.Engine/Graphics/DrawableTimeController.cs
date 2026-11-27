@@ -8,7 +8,7 @@ using Beutl.Language;
 namespace Beutl.Graphics;
 
 [Display(Name = nameof(GraphicsStrings.DrawableTimeController), ResourceType = typeof(GraphicsStrings))]
-public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawable>, IFlowOperator
+public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawable>, IFlowInputOperator
 {
     public DrawableTimeController()
     {
@@ -18,6 +18,10 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
     [Display(Name = nameof(GraphicsStrings.Target), ResourceType = typeof(GraphicsStrings))]
     [SuppressResourceClassGeneration]
     public IExpressionProperty<Drawable?> Target { get; } = Property.CreateReference<Drawable?>();
+
+    FlowInputKind IFlowInputOperator.RequiredInput => FlowInputKind.Drawable;
+
+    string IFlowInputOperator.MissingInputMessage => MessageStrings.FlowInputMissingDrawable;
 
     [Display(Name = nameof(GraphicsStrings.DrawableTimeController_OffsetPosition), ResourceType = typeof(GraphicsStrings))]
     public IExpressionProperty<MediaTime> OffsetPosition { get; } = Property.CreateExpression<MediaTime>();
@@ -45,9 +49,6 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
     [Display(Name = nameof(GraphicsStrings.DrawableTimeController_HoldLastFrame), ResourceType = typeof(GraphicsStrings))]
     public IExpressionProperty<bool> HoldLastFrame { get; } = Property.CreateExpression<bool>();
 
-    private MediaTime CalculateTimeWithSpeed(MediaTime timeSpan, Resource resource)
-        => SpeedAdjustedTime.Map(Speed, resource.Speed, resource.SpeedIntegrator, timeSpan);
-
     private MediaTime CalculateTargetTime(MediaTime currentTime, Resource resource, Drawable? targetDrawable)
     {
         if (targetDrawable == null)
@@ -71,21 +72,11 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
         baseTime += resource.OffsetPosition;
 
         // 3. Speed: reflect speed changes via integration
-        // SpeedIntegrator.Integrate(t) は「時刻 0 から t までの累積積分」を返すため、
-        // UseGlobalClock=true でグローバル時刻を渡す場合は要素開始 (TimeRange.Start) 時点の
-        // 積分を差し引いて要素ローカルから見た累積に揃える。
         var anm = Speed.GetKeyFrameAnimation();
         if (anm is KeyFrameAnimation<float> keyFrameAnimation && keyFrameAnimation.KeyFrames.Count > 0)
         {
-            if (keyFrameAnimation.UseGlobalClock.Value)
-            {
-                baseTime = CalculateTimeWithSpeed(baseTime + TimeRange.Value.Start, resource)
-                         - CalculateTimeWithSpeed(TimeRange.Value.Start, resource);
-            }
-            else
-            {
-                baseTime = CalculateTimeWithSpeed(baseTime, resource);
-            }
+            MediaTime start = keyFrameAnimation.UseGlobalClock.Value ? TimeRange.Value.Start : MediaTime.Zero;
+            baseTime = SpeedAdjustedTime.Map(Speed, resource.Speed, resource.SpeedIntegrator, start, start + baseTime);
         }
         else
         {
@@ -128,7 +119,7 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
 
     public partial class Resource
     {
-        internal readonly Media.SpeedIntegrator SpeedIntegrator = new(60);
+        internal readonly Media.SpeedIntegrator SpeedIntegrator = new();
         private Drawable.Resource? _target;
         private FlowNode? _flowTarget;
         private EngineObject? _flowOwner;
@@ -189,9 +180,11 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
             }
 
             var originalContextTime = context.Time;
+            MediaTime? previousDisplayTime = context.DisplayTime;
             Drawable? previousRemappedTarget = context.TimeRemappedTarget;
             try
             {
+                context.DisplayTime ??= originalContextTime;
                 context.Time = obj.CalculateTargetTime(context.Time, this, targetDrawable);
                 context.TimeRemappedTarget = targetDrawable;
                 bool changed = false;
@@ -209,6 +202,7 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
             finally
             {
                 context.Time = originalContextTime;
+                context.DisplayTime = previousDisplayTime;
                 context.TimeRemappedTarget = previousRemappedTarget;
             }
         }

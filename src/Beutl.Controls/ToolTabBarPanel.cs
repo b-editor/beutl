@@ -7,30 +7,18 @@ namespace Beutl.Controls;
 /// Keeps the first child at the leading edge and right-aligns the remaining controls,
 /// wrapping them onto additional rows when the bar is narrow.
 /// </summary>
-public sealed class ToolTabBarPanel : Panel
+public sealed partial class ToolTabBarPanel : Panel
 {
-    public static readonly StyledProperty<double> ItemSpacingProperty =
-        AvaloniaProperty.Register<ToolTabBarPanel, double>(nameof(ItemSpacing), 4);
-
-    public static readonly StyledProperty<double> LineSpacingProperty =
-        AvaloniaProperty.Register<ToolTabBarPanel, double>(nameof(LineSpacing), 4);
-
     static ToolTabBarPanel()
     {
         AffectsMeasure<ToolTabBarPanel>(ItemSpacingProperty, LineSpacingProperty);
     }
 
-    public double ItemSpacing
-    {
-        get => GetValue(ItemSpacingProperty);
-        set => SetValue(ItemSpacingProperty, value);
-    }
+    [GeneratedStyledProperty(DefaultValue = 4)]
+    public partial double ItemSpacing { get; set; }
 
-    public double LineSpacing
-    {
-        get => GetValue(LineSpacingProperty);
-        set => SetValue(LineSpacingProperty, value);
-    }
+    [GeneratedStyledProperty(DefaultValue = 4)]
+    public partial double LineSpacing { get; set; }
 
     protected override Size MeasureOverride(Size availableSize)
     {

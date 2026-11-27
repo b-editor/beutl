@@ -18,7 +18,7 @@ public static class TemplateMenuHelper
         var dataContext = control.GetObservable(StyledElement.DataContextProperty)
             .Select(obj => obj as IObjectEditorCommands);
 
-        var saveMenu = new FAMenuFlyoutItem { Text = Strings.SaveAsTemplate };
+        var saveMenu = new FAMenuFlyoutItem { Text = Strings.SaveAsTemplateMenu };
         saveMenu.Bind(
             InputElement.IsEnabledProperty,
             dataContext.Select(d => d?.CanSaveAsTemplate ?? Observable.ReturnThenNever(false)).Switch());

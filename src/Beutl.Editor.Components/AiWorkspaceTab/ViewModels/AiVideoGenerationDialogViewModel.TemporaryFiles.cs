@@ -8,8 +8,7 @@ internal sealed partial class AiVideoGenerationDialogViewModel
     private readonly HashSet<string> _temporaryFiles = new(StringComparer.Ordinal);
     private readonly Dictionary<string, int> _temporaryFileLeases = new(StringComparer.Ordinal);
     // Temporary frame files retained for each unsettled request name.
-    private readonly Dictionary<string, IDisposable> _framesHeldByName =
-        new(StringComparer.Ordinal);
+    private readonly Dictionary<(string? AccountId, string Key), IDisposable> _framesHeldByName = [];
 
     private readonly HashSet<string> _temporaryFilesPendingDeletion = new(StringComparer.Ordinal);
 
@@ -25,9 +24,9 @@ internal sealed partial class AiVideoGenerationDialogViewModel
             AcquireTemporaryFileLease(lastFrame));
         lock (_lifetimeGate)
         {
-            if (_framesHeldByName.Remove(name.Key, out IDisposable? previous))
+            if (_framesHeldByName.Remove(name.AccountAndKey, out IDisposable? previous))
                 previous.Dispose();
-            _framesHeldByName.Add(name.Key, held);
+            _framesHeldByName.Add(name.AccountAndKey, held);
         }
     }
 
@@ -39,7 +38,7 @@ internal sealed partial class AiVideoGenerationDialogViewModel
         IDisposable? held;
         lock (_lifetimeGate)
         {
-            if (!_framesHeldByName.Remove(name.Key, out held))
+            if (!_framesHeldByName.Remove(name.AccountAndKey, out held))
                 return;
         }
 

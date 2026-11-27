@@ -10,21 +10,21 @@ using Avalonia.LogicalTree;
 using Avalonia.Platform.Storage;
 using Avalonia.VisualTree;
 using Beutl.Controls;
+using Beutl.Editor.Components.AgentTab;
 using Beutl.Editor.Components.FileBrowserTab.Services;
 using Beutl.Editor.Components.FileBrowserTab.ViewModels;
 using Beutl.Services;
 using FluentAvalonia.UI.Controls;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Editor.Components.FileBrowserTab.Views;
 
 public partial class FileBrowserTabView : UserControl
 {
-    private INotificationService Notifications => (DataContext as IServiceProvider)?.GetService<INotificationService>()
-        ?? Beutl.Controls.ControlNotifications.GetOrDefault(this);
+    private INotificationService Notifications => ControlNotifications.FromDataContextOrDefault(this);
 
     private static readonly CrossFade s_transition = new(TimeSpan.FromMilliseconds(250));
     private readonly Dictionary<Control, CancellationTokenSource> _sectionTransitionCts = [];
+    private IDisposable? _projectAssetsMenuBinding;
 
     public FileBrowserTabView()
     {
@@ -81,17 +81,31 @@ public partial class FileBrowserTabView : UserControl
         if (this.FindControl<Button>("StorageLocationsButton") is not { } button) return;
         button.Flyout?.Hide();
         button.Flyout = null;
+        _projectAssetsMenuBinding?.Dispose();
+        _projectAssetsMenuBinding = null;
         if (ViewModel is not { } vm) return;
 
-        var menu = new MenuFlyout();
-        var local = new MenuItem { Header = Strings.LocalFiles };
-        local.Click += (_, _) => vm.ShowLocalFiles();
-        menu.Items.Add(local);
-        menu.Items.Add(new Separator());
-        foreach (var provider in vm.StorageProviders)
+        var menu = new FAMenuFlyout();
+        if (vm.HasStorageProviders)
         {
-            var item = new MenuItem { Header = provider.DisplayName, DataContext = provider };
-            item.Click += OnStorageProviderClick;
+            var local = new FAMenuFlyoutItem { Text = Strings.LocalFiles };
+            local.Click += (_, _) => vm.ShowLocalFiles();
+            menu.Items.Add(local);
+            menu.Items.Add(new FAMenuFlyoutSeparator());
+            foreach (var provider in vm.StorageProviders)
+            {
+                var item = new FAMenuFlyoutItem { Text = provider.DisplayName, DataContext = provider };
+                item.Click += OnStorageProviderClick;
+                menu.Items.Add(item);
+            }
+        }
+
+        if (vm.ProjectAssets != null)
+        {
+            if (menu.Items.Count > 0) menu.Items.Add(new FAMenuFlyoutSeparator());
+            var item = new FAMenuFlyoutItem { Text = ProjectAssetsStrings.MenuLabel };
+            _projectAssetsMenuBinding = item.Bind(IsEnabledProperty, vm.CanManageProjectAssets);
+            item.Click += (_, _) => vm.OpenProjectAssets();
             menu.Items.Add(item);
         }
         button.Flyout = menu;
@@ -163,6 +177,12 @@ public partial class FileBrowserTabView : UserControl
             await vm.OpenInFileManagerAsync(item);
     }
 
+    private async void OnSendToAgentClick(object? sender, RoutedEventArgs e)
+    {
+        if (GetItemFromMenuItem(sender) is { IsDirectory: false } item && ViewModel is { } viewModel)
+            await AgentComposerLauncher.SendFileAsync(viewModel.EditorContext, item.FullPath);
+    }
+
     private async void OnDeleteClick(object? sender, RoutedEventArgs e)
     {
         if (ViewModel == null)
@@ -202,6 +222,10 @@ public partial class FileBrowserTabView : UserControl
                 else if (menuItem.Tag is "OpenInFileManager")
                 {
                     menuItem.Text = FileManagerLauncher.MenuHeader;
+                }
+                else if (menuItem.Tag is "SendToAgent")
+                {
+                    menuItem.IsVisible = !item.IsDirectory && AgentComposerLauncher.IsAvailable(ViewModel.EditorContext);
                 }
             }
         }
@@ -246,7 +270,7 @@ public partial class FileBrowserTabView : UserControl
 
     private void OnDragOver(object? sender, DragEventArgs e)
     {
-        if (IsStaleStorageDrag(e))
+        if (ViewModel?.IsProjectAssetsView.Value == true || IsStaleStorageDrag(e))
         { e.DragEffects = DragDropEffects.None; return; }
         if (ViewModel?.IsStorageView.Value == true)
         {
@@ -275,7 +299,7 @@ public partial class FileBrowserTabView : UserControl
 
     private async void OnDrop(object? sender, DragEventArgs e)
     {
-        if (IsStaleStorageDrag(e))
+        if (ViewModel?.IsProjectAssetsView.Value == true || IsStaleStorageDrag(e))
         { e.DragEffects = DragDropEffects.None; return; }
         if (ViewModel?.IsStorageView.Value == true)
         {
@@ -303,6 +327,13 @@ public partial class FileBrowserTabView : UserControl
         {
             await HandleBrowseViewDrop(e);
         }
+    }
+
+    private void OnCloseProjectAssets(object? sender, RoutedEventArgs e) => ViewModel?.CloseProjectAssets();
+
+    private async void OnRefreshProjectAssets(object? sender, RoutedEventArgs e)
+    {
+        if (ViewModel?.ActiveProjectAssets.Value is { } assets) await assets.RefreshAsync();
     }
 
     private Task HandleHomeViewDrop(DragEventArgs e)

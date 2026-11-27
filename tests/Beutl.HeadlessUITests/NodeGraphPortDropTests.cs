@@ -74,13 +74,20 @@ public class NodeGraphPortDropTests
             Assert.That(menu.IsOpen, Is.True);
             Assert.That(graph.Nodes, Has.Count.EqualTo(1));
             Assert.That(feedback.Pulses, Is.Empty);
+            FAMenuFlyoutSubItem brushes = menu.Items.OfType<FAMenuFlyoutSubItem>()
+                .Single(item => Equals(item.Text, GraphicsStrings.Brush));
+            Assert.That(brushes.Items.OfType<FAMenuFlyoutItem>().Select(item => item.Text),
+                Does.Contain(GraphicsStrings.DrawableBrushNode));
             FAMenuFlyoutSubItem utilities = menu.Items.OfType<FAMenuFlyoutSubItem>()
                 .Single(item => Equals(item.Text, NodeGraphStrings.ToolsAndValues));
-            FAMenuFlyoutSubItem selector = utilities.Items.OfType<FAMenuFlyoutSubItem>()
+            FAMenuFlyoutSubItem math = utilities.Items.OfType<FAMenuFlyoutSubItem>()
+                .Single(item => Equals(item.Text, NodeGraphStrings.Math));
+            FAMenuFlyoutSubItem selector = math.Items.OfType<FAMenuFlyoutSubItem>()
                 .Single(item => Equals(item.Text, NodeGraphStrings.ConditionalSwitch));
             Assert.That(selector.Items.Cast<FAMenuFlyoutItem>().Select(item => item.Text),
                 Is.EquivalentTo(new[] { NodeGraphStrings.Port_True, NodeGraphStrings.Port_False }));
-            FAMenuFlyoutItem outputItem = menu.Items.OfType<FAMenuFlyoutItem>()
+            FAMenuFlyoutSubItem inputAndOutput = OpenInputAndOutput(menu);
+            FAMenuFlyoutItem outputItem = inputAndOutput.Items.OfType<FAMenuFlyoutItem>()
                 .Single(item => Equals(item.Text, GraphNodeRegistry.FindItem(typeof(OutputNode))!.DisplayName));
             HeadlessTestHelpers.Click(outputItem, move: true, ticks: 3);
             Assert.That(feedback.Pulses, Is.Empty, "Adding a suggested node is not a port hover.");
@@ -189,7 +196,8 @@ public class NodeGraphPortDropTests
             FAMenuFlyout menu = view.PortDropMenu!;
             Assert.That(menu, Is.Not.Null);
             Assert.That(menu.IsOpen, Is.True);
-            FAMenuFlyoutItem outputItem = menu.Items.OfType<FAMenuFlyoutItem>()
+            FAMenuFlyoutSubItem inputAndOutput = OpenInputAndOutput(menu);
+            FAMenuFlyoutItem outputItem = inputAndOutput.Items.OfType<FAMenuFlyoutItem>()
                 .Single(item => Equals(item.Text, GraphNodeRegistry.FindItem(typeof(OutputNode))!.DisplayName));
             HeadlessTestHelpers.Click(outputItem, move: true, ticks: 3);
 
@@ -240,9 +248,10 @@ public class NodeGraphPortDropTests
             FAMenuFlyout menu = view.PortDropMenu!;
             Assert.That(menu, Is.Not.Null);
             Assert.That(menu.IsOpen, Is.True);
-            Assert.That(menu.Items.OfType<FAMenuFlyoutItem>().Any(item =>
+            FAMenuFlyoutSubItem inputAndOutput = OpenInputAndOutput(menu);
+            Assert.That(inputAndOutput.Items.OfType<FAMenuFlyoutItem>().Any(item =>
                 Equals(item.Text, GraphNodeRegistry.FindItem(typeof(OutputNode))!.DisplayName)), Is.False);
-            FAMenuFlyoutItem inputItem = menu.Items.OfType<FAMenuFlyoutItem>()
+            FAMenuFlyoutItem inputItem = inputAndOutput.Items.OfType<FAMenuFlyoutItem>()
                 .Single(item => Equals(item.Text, GraphNodeRegistry.FindItem(typeof(LayerInputNode))!.DisplayName));
             HeadlessTestHelpers.Click(inputItem, move: true, ticks: 3);
 
@@ -332,6 +341,18 @@ public class NodeGraphPortDropTests
         });
         mutation.Verify(s => s.AddNodeAndConnect(graph, It.IsAny<GraphNode>(), 120 - 215 / 2d, 80,
             source.Value, It.IsAny<INodePort>()), Times.Once);
+    }
+
+    private static FAMenuFlyoutSubItem OpenInputAndOutput(FAMenuFlyout menu)
+    {
+        var submenu = menu.Items.OfType<FAMenuFlyoutSubItem>()
+            .Single(item => Equals(item.Text, NodeGraphStrings.InputAndOutput));
+        Assert.That(submenu.Focus(), Is.True);
+        TopLevel topLevel = TopLevel.GetTopLevel(submenu)!;
+        topLevel.KeyPress(Key.Right, RawInputModifiers.None, PhysicalKey.ArrowRight, null);
+        topLevel.KeyRelease(Key.Right, RawInputModifiers.None, PhysicalKey.ArrowRight, null);
+        HeadlessTestHelpers.Render(3);
+        return submenu;
     }
 
     private static NodeGraphViewModel CreateViewModel(GraphModel graph, INodeGraphMutationService mutation)

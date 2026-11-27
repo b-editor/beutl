@@ -1,9 +1,6 @@
-﻿using Beutl.Editor.Operations;
-using Beutl.Language;
+﻿using Beutl.Language;
 using Beutl.Media;
 using Beutl.ProjectSystem;
-using Beutl.Serialization;
-using Beutl.Services;
 
 namespace Beutl.Editor.Services;
 
@@ -17,80 +14,41 @@ public sealed class SceneSettingsService : ISceneSettingsService
     }
 
     public bool Apply(Scene scene, PixelSize frameSize, MediaTime start, MediaTime duration)
-        => Apply(scene, frameSize, start, duration, scene.FindHierarchicalParent<Project>().GetSpeakerLayout());
+        => Apply(scene, frameSize, start, duration, scene.GetSpeakerLayout());
 
     public bool Apply(Scene scene, PixelSize frameSize, MediaTime start, MediaTime duration, SpeakerLayout channelLayout)
         => Apply(scene, frameSize, start, duration, channelLayout, scene.MasterVolume.Value);
 
     public bool Apply(
         Scene scene, PixelSize frameSize, MediaTime start, MediaTime duration, SpeakerLayout channelLayout, float masterVolume)
+        => Apply(scene, frameSize, start, duration, scene.FrameRate.Value, scene.SampleRate.Value, channelLayout, masterVolume);
+
+    public bool Apply(
+        Scene scene, PixelSize frameSize, MediaTime start, MediaTime duration,
+        Rational frameRate, int sampleRate, SpeakerLayout channelLayout, float masterVolume)
     {
         ArgumentNullException.ThrowIfNull(scene);
-        Project? project = scene.FindHierarchicalParent<Project>();
-        bool layoutChanged = project != null && project.ChannelLayout.Value != channelLayout;
 
         if (scene.FrameSize.Value == frameSize
             && scene.Start.Value == start
             && scene.Duration.Value == duration
-            && scene.MasterVolume.Value == masterVolume
-            && !layoutChanged)
+            && scene.FrameRate.Value == frameRate
+            && scene.SampleRate.Value == sampleRate
+            && scene.ChannelLayout.Value == channelLayout
+            && scene.MasterVolume.Value == masterVolume)
         {
             return false;
-        }
-
-        if (layoutChanged)
-        {
-            // The project is outside the observed scene; record its edit in the same transaction.
-            SpeakerLayout previous = project!.ChannelLayout.Value;
-            SetChannelLayout(project, channelLayout, out _);
-            _historyManager.Record(new ChannelLayoutChangeOperation(project, previous, channelLayout)
-            {
-                SequenceNumber = _historyManager.GetNextSequenceNumber()
-            });
         }
 
         // These writes batch into one transaction, collapsing to a single history entry on Commit.
         scene.FrameSize.Value = frameSize;
         scene.Start.Value = start;
         scene.Duration.Value = duration;
+        scene.FrameRate.Value = frameRate;
+        scene.SampleRate.Value = sampleRate;
+        scene.ChannelLayout.Value = channelLayout;
         scene.MasterVolume.Value = masterVolume;
         _historyManager.Commit(CommandNames.ChangeSceneSettings);
         return true;
-    }
-
-    private static void SetChannelLayout(Project project, SpeakerLayout layout,
-        out ChangeOperationFailureState failureState)
-    {
-        failureState = ChangeOperationFailureState.Unknown;
-        SpeakerLayout previous = project.ChannelLayout.Value;
-        project.ChannelLayout.Value = layout;
-        if (project.Uri is { } uri)
-        {
-            try
-            {
-                // The layout is the project's own, so the scenes it references, and their unsaved edits, are not written.
-                ProjectPersistence.PersistOrRollback(
-                    () => CoreSerializer.StoreToUri(project, uri, CoreSerializationMode.Write),
-                    () => project.ChannelLayout.Value = previous);
-            }
-            catch (Exception ex) when (ex is not ProjectStateDivergedException)
-            {
-                // Only a persistence failure with a successful rollback is safe to retry.
-                failureState = ChangeOperationFailureState.Unchanged;
-                throw;
-            }
-        }
-    }
-
-    private sealed class ChannelLayoutChangeOperation(Project project, SpeakerLayout previous, SpeakerLayout next)
-        : ChangeOperation
-    {
-        private ChangeOperationFailureState _failureState;
-
-        public override ChangeOperationFailureState FailureState => _failureState;
-
-        public override void Apply() => SetChannelLayout(project, next, out _failureState);
-
-        public override void Revert() => SetChannelLayout(project, previous, out _failureState);
     }
 }

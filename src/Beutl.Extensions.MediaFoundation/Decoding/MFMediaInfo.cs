@@ -1,5 +1,6 @@
 ﻿using System.Text;
 using Beutl.Media;
+using Beutl.Media.Decoding;
 using Windows.Win32.Media.MediaFoundation;
 
 #if MF_BUILD_IN
@@ -23,6 +24,7 @@ internal struct MFMediaInfo
     // The stream's color tags; untagged streams keep the BT.601 limited-range sRGB reading.
     public VideoColorTags Color;
 
+    public VideoFieldOrder DetectedFieldOrder;
 
     public readonly string GetMediaInfoText()
     {

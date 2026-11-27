@@ -21,12 +21,13 @@ public sealed class CombinedEditorViewModel<T, TTuple> : VectorEditorViewModel<T
     where T : struct, INumber<T>
     where TTuple : struct
 {
-    protected override bool CanEditUnderExpression => true;
-
     protected override TTuple OffsetValue(TTuple value, TTuple from, TTuple to) => _adapter.OffsetValue(value, from, to);
 
     protected override TTuple ReplaceUnderExpression(TTuple underlying, TTuple shown, TTuple input)
         => _adapter.ReplaceEditedComponents(underlying, shown, input);
+
+    protected override TTuple ReplaceUnderExpression(TTuple underlying, TTuple shown, TTuple input, int editedComponents)
+        => _adapter.ReplaceEditedComponents(underlying, input, editedComponents);
 
     private const string KeepsSeparatedKey = "KeepsSeparated";
 
@@ -331,6 +332,18 @@ internal sealed class CombinedPropertyAdapter<T, TTuple>
         for (int i = 0; i < values.Length; i++)
         {
             if (typed[i] != displayed[i])
+                values[i] = typed[i];
+        }
+        return _compose(values);
+    }
+
+    public TTuple ReplaceEditedComponents(TTuple value, TTuple input, int editedComponents)
+    {
+        T[] values = _split(value);
+        T[] typed = _split(input);
+        for (int i = 0; i < values.Length; i++)
+        {
+            if ((editedComponents & (1 << i)) != 0)
                 values[i] = typed[i];
         }
         return _compose(values);

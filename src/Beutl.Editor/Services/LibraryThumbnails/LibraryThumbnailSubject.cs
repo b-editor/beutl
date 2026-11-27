@@ -1,12 +1,12 @@
 ﻿using System.Text.Json.Nodes;
 using Beutl.Composition;
-using Beutl.Configuration;
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
+using Beutl.Graphics.Rendering.Cache;
 using Beutl.Logging;
 using Beutl.Media;
-using Beutl.Media.Decoding;
 using Beutl.Media.Source;
+using Beutl.Models;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Beutl.Threading;
@@ -33,6 +33,9 @@ internal sealed class LibraryThumbnailSubject : IDisposable
 
     // The longer side the first look at an object is drawn at, to find where it is.
     private const int ProbeSize = 640;
+
+    // Allow room for effect inputs and conservative output bounds before falling back to the probe.
+    private static readonly BufferDimensionBudget s_objectRasterBudget = BufferDimensionBudget.Named(MaxPictureSize * 2);
 
     // The room a thumbnail leaves around an object, as a share of its larger side, so a shadow or an outline an
     // effect adds shows.
@@ -106,11 +109,12 @@ internal sealed class LibraryThumbnailSubject : IDisposable
     /// It reads its media through the readers the preview has open, so nothing is opened again for it.
     /// </remarks>
     public static async Task<LibraryThumbnailSubject?> CaptureElementAsync(
-        FontManager fonts, Element element, MediaTime time, CancellationToken cancellationToken = default,
-        EditorConfig? editorConfig = null, ProxyStoreConfig? proxyConfig = null, DecoderRegistry? decoders = null)
+        SceneRenderServices services, Element element, MediaTime time, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(services);
+
         // The live element is read here, on the thread that edits it; the copy is drawn on the render thread.
-        if (CopyAlone(fonts, element, time, editorConfig, proxyConfig, decoders) is not { } copy)
+        if (CopyAlone(services, element, time) is not { } copy)
             return null;
 
         return await RenderThread.Dispatcher.InvokeAsync(
@@ -128,14 +132,15 @@ internal sealed class LibraryThumbnailSubject : IDisposable
     /// what a picker for the transition there shows transitions between. A side with no element is empty.
     /// </summary>
     public static async Task<LibraryThumbnailSubject?> CaptureEdgeAsync(
-        FontManager fonts, Element element, ElementEdge edge, CancellationToken cancellationToken = default,
-        EditorConfig? editorConfig = null, ProxyStoreConfig? proxyConfig = null, DecoderRegistry? decoders = null)
+        SceneRenderServices services, Element element, ElementEdge edge, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(services);
+
         Element? outgoing = edge == ElementEdge.Start ? ElementTransitions.FindPrevious(element) : element;
         Element? incoming = edge == ElementEdge.Start ? element : ElementTransitions.FindNext(element);
         // The outgoing side shows its last moment and the incoming side its first.
-        Copy? from = outgoing == null ? null : CopyAlone(fonts, outgoing, outgoing.Range.End - EdgeInset, editorConfig, proxyConfig, decoders);
-        Copy? to = incoming == null ? null : CopyAlone(fonts, incoming, incoming.Start.Value, editorConfig, proxyConfig, decoders);
+        Copy? from = outgoing == null ? null : CopyAlone(services, outgoing, outgoing.Range.End - EdgeInset);
+        Copy? to = incoming == null ? null : CopyAlone(services, incoming, incoming.Start.Value);
 
         (Picture? From, Picture? To) sides = await RenderThread.Dispatcher.InvokeAsync(
             () => (CaptureFrame(from), CaptureFrame(to)),
@@ -187,11 +192,11 @@ internal sealed class LibraryThumbnailSubject : IDisposable
         float scale = Math.Clamp(MaxPictureSize / Math.Max(content.Width, content.Height), probeScale, 1f);
         Bitmap? bitmap = probe;
         PixelRect? area = covered;
-        if (scale > probeScale * 1.25f)
+        if (scale > probeScale * 1.25f && TryRenderObjectRegion(copy, scale, out Bitmap? detail))
         {
             probe.Dispose();
-            bitmap = TryRenderScene(copy, scale);
-            // Found again at the scale drawn, so the crop follows the pixels rather than a rounded probe.
+            bitmap = detail;
+            // Find the exact coverage at the density used for the detail render.
             area = bitmap == null ? null : FindCovered(bitmap);
         }
         else
@@ -214,7 +219,7 @@ internal sealed class LibraryThumbnailSubject : IDisposable
     // copy keeps the live element out of a second scene. It drops the element's transitions, which would fade it in or
     // out at the edge it is drawn at, and keeps its times, so an animation on the scene's clock reads the time the
     // project shows.
-    private static Copy? CopyAlone(FontManager fonts, Element element, MediaTime time, EditorConfig? editorConfig, ProxyStoreConfig? proxyConfig, DecoderRegistry? decoders)
+    private static Copy? CopyAlone(SceneRenderServices services, Element element, MediaTime time)
     {
         try
         {
@@ -237,7 +242,7 @@ internal sealed class LibraryThumbnailSubject : IDisposable
 
             Scene scene = LibraryThumbnailRenderer.CreateScene(
                 frameSize, end > MediaTime.Zero ? end : MediaTime.FromSeconds(1), copy);
-            return new Copy(fonts, scene, at, editorConfig, proxyConfig, decoders);
+            return new Copy(services, scene, at);
         }
         catch (Exception ex)
         {
@@ -252,7 +257,7 @@ internal sealed class LibraryThumbnailSubject : IDisposable
     {
         try
         {
-            using SceneRenderer renderer = LibraryThumbnailRenderer.CreateRenderer(copy.Scene, copy.Fonts, scale, copy.EditorConfig, copy.ProxyConfig, copy.Decoders);
+            using SceneRenderer renderer = LibraryThumbnailRenderer.CreateRenderer(copy.Scene, copy.Services, scale);
             renderer.Render(renderer.Compositor.EvaluateGraphics(copy.Time));
             using Bitmap snapshot = renderer.Snapshot();
             return snapshot.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Premul, BitmapColorSpace.Srgb);
@@ -262,6 +267,54 @@ internal sealed class LibraryThumbnailSubject : IDisposable
             s_logger.LogDebug(ex, "Could not draw the content for the library thumbnails.");
             return null;
         }
+    }
+
+    private static bool TryRenderObjectRegion(Copy copy, float scale, out Bitmap? bitmap)
+    {
+        bitmap = null;
+        try
+        {
+            using var compositor = new SceneCompositor(copy.Scene, copy.Services);
+            using RenderNodeRasterization rasterization = RasterizeObject(compositor.EvaluateGraphics(copy.Time), scale);
+            bitmap = rasterization.Bitmap?.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Premul, BitmapColorSpace.Srgb);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            bitmap?.Dispose();
+            bitmap = null;
+            s_logger.LogDebug(ex, "Could not draw the detail for the object thumbnail.");
+            return false;
+        }
+    }
+
+    internal static RenderNodeRasterization RasterizeObject(
+        CompositionFrame frame, float scale, IRenderTargetFactory? targetFactory = null)
+    {
+        Size sceneSize = frame.Size.ToSize(1);
+        using var root = new ContainerRenderNode();
+        foreach (var obj in frame.Objects)
+        {
+            if (obj is not Drawable.Resource resource)
+                continue;
+
+            var node = new DrawableRenderNode(resource);
+            root.AddChild(node);
+            using var context = new GraphicsContext2D(node, sceneSize, scale);
+            resource.Render(context);
+        }
+
+        // Rasterize selects the graph's output bounds and starts with a transparent target.
+        using var renderer = new RenderNodeRenderer(root, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            TargetDomain = new Rect(default, sceneSize),
+            OutputScale = scale,
+            MaxWorkingScale = WorkingScaleCeiling.Preview(scale),
+            CacheOptions = RenderCacheOptions.Disabled,
+            Purpose = RenderRequestPurpose.Frame,
+        }, targetFactory);
+        return renderer.Rasterize(requestOptions: null, executionTargetBudget: s_objectRasterBudget);
     }
 
     // An 8-bit sRGB copy of a frame the preview drew, at most MaxPictureSize on its longer side.
@@ -415,5 +468,5 @@ internal sealed class LibraryThumbnailSubject : IDisposable
         }
     }
 
-    private sealed record Copy(FontManager Fonts, Scene Scene, MediaTime Time, EditorConfig? EditorConfig, ProxyStoreConfig? ProxyConfig, DecoderRegistry? Decoders);
+    private sealed record Copy(SceneRenderServices Services, Scene Scene, MediaTime Time);
 }

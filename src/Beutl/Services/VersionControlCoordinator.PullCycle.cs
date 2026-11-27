@@ -9,7 +9,9 @@ internal partial class VersionControlCoordinator
     private const string PullProjectChangedMessage =
         "The open project changed while the pull was being prepared.";
 
-    private async Task<RemoteOpResult> RunPullCycleAsync(CancellationToken cancellationToken)
+    private async Task<RemoteOpResult> RunPullCycleAsync(
+        IProgress<string>? progress,
+        CancellationToken cancellationToken)
     {
         CancellationTokenSource? confirmationCancellation = null;
         try
@@ -17,7 +19,7 @@ internal partial class VersionControlCoordinator
             confirmationCancellation =
                 CreateProjectServiceEpochCancellation(cancellationToken);
             RemoteOpResult? preliminaryResult =
-                await RunPullPreflightCycleAsync(confirmationCancellation.Token);
+                await RunPullPreflightCycleAsync(progress, confirmationCancellation.Token);
             if (preliminaryResult is not null)
             {
                 return preliminaryResult;
@@ -61,7 +63,8 @@ internal partial class VersionControlCoordinator
 
         try
         {
-            return await RunPullMutationCycleAsync(cancellationToken);
+            progress?.Report(Strings.VersionControl_Pulling);
+            return await RunPullMutationCycleAsync(progress, cancellationToken);
         }
         catch (ObjectDisposedException ex)
         {
@@ -90,6 +93,7 @@ internal partial class VersionControlCoordinator
     // The token follows the project/service epoch, so a close stops the preflight while it holds the
     // operation gate.
     private async Task<RemoteOpResult?> RunPullPreflightCycleAsync(
+        IProgress<string>? progress,
         CancellationToken cancellationToken)
     {
         using OperationLease operation = await BeginOperationAsync(
@@ -111,7 +115,8 @@ internal partial class VersionControlCoordinator
                     await service.GetCheckedOutBranchTipAsync(cancellationToken);
                 PullPreflightResult preflight = await service.PreflightPullAsync(
                     originalHead,
-                    cancellationToken);
+                    cancellationToken,
+                    progress);
                 return preflight.Result is RemoteOpResult.Success
                        && preflight.RequiresTransition
                     ? null
@@ -123,6 +128,7 @@ internal partial class VersionControlCoordinator
     // Like the restore and the branch switch, the pull takes its project transition before the operation
     // gate.
     private async Task<RemoteOpResult> RunPullMutationCycleAsync(
+        IProgress<string>? progress,
         CancellationToken cancellationToken)
     {
         ThrowIfOperationUnavailable(lifecycle: true);
@@ -158,6 +164,7 @@ internal partial class VersionControlCoordinator
                     project,
                     projectFile,
                     transition,
+                    progress,
                     cancellationToken),
                 cancellationToken);
         }
@@ -172,6 +179,7 @@ internal partial class VersionControlCoordinator
         Project project,
         string projectFile,
         ProjectService.ProjectTransitionScope transition,
+        IProgress<string>? progress,
         CancellationToken cancellationToken)
     {
         // Held until the project is closed further down, so an edit made while the preflight and
@@ -193,7 +201,8 @@ internal partial class VersionControlCoordinator
             await service.GetCheckedOutBranchTipAsync(cancellationToken);
         PullPreflightResult preflight = await service.PreflightPullAsync(
             originalHead,
-            cancellationToken);
+            cancellationToken,
+            progress);
         if (preflight.Result is not RemoteOpResult.Success
             || !preflight.RequiresTransition
             || preflight.UpstreamCommit is not { } upstreamCommit)
@@ -206,7 +215,9 @@ internal partial class VersionControlCoordinator
         await service.PrefetchCommitLfsObjectsAsync(
             upstreamCommit,
             LfsPrefetchScope.RepositoryWide,
-            cancellationToken);
+            cancellationToken,
+            progress);
+        using IDisposable presentation = _editorService.BeginLifecycleActivity(ProjectLifecycleActivity.ApplyingPull);
         try
         {
             await CloseProjectForOperationAsync(transition, CancellationToken.None);

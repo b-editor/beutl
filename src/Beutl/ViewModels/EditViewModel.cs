@@ -104,15 +104,14 @@ public sealed partial class EditViewModel
             .DisposePreviousValue()
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables)!;
-        Project? project = Scene.FindHierarchicalParent<Project>();
-        var channelLayout = new ReactivePropertySlim<AudioChannelLayout>(project.GetChannelLayout())
+        var audioFormat = new ReactivePropertySlim<(int SampleRate, AudioChannelLayout ChannelLayout)>(
+                (Scene.GetSampleRate(), Scene.GetChannelLayout()))
             .DisposeWith(_disposables);
-        Composer = scene.FrameSize.GetObservable().CombineLatest(channelLayout)
-            .Select(t => new SceneComposer(Scene, this.GetRequiredService<Beutl.Media.FontManager>(), editorConfig: this.GetRequiredService<GlobalConfiguration>().EditorConfig,
-                proxyConfig: this.GetRequiredService<GlobalConfiguration>().ProxyStoreConfig, decoders: this.GetRequiredService<DecoderRegistry>())
+        Composer = scene.FrameSize.GetObservable().CombineLatest(audioFormat)
+            .Select(t => new SceneComposer(Scene, CreateRenderServices())
             {
-                SampleRate = project.GetSampleRate(),
-                ChannelLayout = t.Second
+                SampleRate = t.Second.SampleRate,
+                ChannelLayout = t.Second.ChannelLayout
             })
             .DisposePreviousValue()
             .ToReadOnlyReactivePropertySlim()
@@ -131,16 +130,33 @@ public sealed partial class EditViewModel
             .DisposeWith(_disposables)!;
 
         Player = new PlayerViewModel(this);
-        project?.ChannelLayout.GetObservable().Skip(1)
-            .Select(layout => Observable.FromAsync(async () =>
+        Scene.SampleRate.GetObservable()
+            .CombineLatest(Scene.ChannelLayout.GetObservable(), (_, _) => (Scene.GetSampleRate(), Scene.GetChannelLayout()))
+            .DistinctUntilChanged()
+            .Skip(1)
+            .Select(format => Observable.FromAsync(async () =>
             {
                 // Retire the device queue before disposing the composer it is reading.
                 await Player.Pause();
-                return layout.ToAudioChannelLayout();
+                return format;
             }))
             .Switch()
             .ObserveOnUIDispatcher()
-            .Subscribe(layout => channelLayout.Value = layout, ex => _logger.LogError(ex, "Could not change audio layout."))
+            .Subscribe(format => audioFormat.Value = format, ex => _logger.LogError(ex, "Could not change audio format."))
+            .DisposeWith(_disposables);
+        Scene.FrameRate.GetObservable()
+            .Select(_ => Scene.GetFrameRate())
+            .DistinctUntilChanged()
+            .Skip(1)
+            .Select(_ => Observable.FromAsync(async () => await Player.Pause()))
+            .Switch()
+            .ObserveOnUIDispatcher()
+            .Subscribe(_ =>
+            {
+                if (_disposed || FrameCacheManager.Value.IsDisposed) return;
+                FrameCacheManager.Value.Clear();
+                Player.QueuePreviewRender();
+            }, ex => _logger.LogError(ex, "Could not change frame rate."))
             .DisposeWith(_disposables);
         this.GetRequiredService<GlobalConfiguration>().EditorConfig.PreviewSourceMode.GetObservable()
             .Skip(1)
@@ -226,22 +242,30 @@ public sealed partial class EditViewModel
     // the notice stays until it is closed or this editor closes.
     private void NotifyRecoveryProtectedElements()
     {
-        if (Beutl.Editor.Services.RecoveryProtectionNotice.Create(Scene, _autoSaveCancellation.Token) is { } notice)
+        if (Beutl.Editor.Services.RecoveryProtectionNotice.Create(
+                Scene, _autoSaveCancellation.Token, ActivateAndOpenUndisplayableData) is { } notice)
         {
             this.GetRequiredService<INotificationService>().Show(notice);
         }
     }
 
+    private SceneRenderServices CreateRenderServices()
+    {
+        GlobalConfiguration configuration = this.GetRequiredService<GlobalConfiguration>();
+        return new SceneRenderServices(
+            this.GetRequiredService<Beutl.Media.FontManager>(),
+            this.GetRequiredService<DecoderRegistry>(),
+            configuration.EditorConfig,
+            configuration.ProxyStoreConfig);
+    }
+
     // A renderer that draws as the preview does: the same fonts, working-scale ceiling and media, original or proxy.
     internal SceneRenderer CreatePreviewRenderer(Scene scene, float scale, bool disableResourceShare = false)
     {
-        GlobalConfiguration configuration = this.GetRequiredService<GlobalConfiguration>();
         return new SceneRenderer(
-            scene, this.GetRequiredService<Beutl.Media.FontManager>(), RenderIntent.Preview, scale,
+            scene, CreateRenderServices(), RenderIntent.Preview, scale,
             disableResourceShare: disableResourceShare,
-            maxWorkingScale: WorkingScaleCeiling.Preview(scale),
-            editorConfig: configuration.EditorConfig,
-            proxyConfig: configuration.ProxyStoreConfig, decoders: this.GetRequiredService<DecoderRegistry>());
+            maxWorkingScale: WorkingScaleCeiling.Preview(scale));
     }
 
     private IObservable<long> CreateFrameCacheMaxSize()
@@ -442,6 +466,8 @@ public sealed partial class EditViewModel
 
     public ValueTask<bool> UndoAsync()
     {
+        if (_disposed || !IsEnabled.Value) return ValueTask.FromResult(false);
+
         // During a drag, Undo cancels only the drag, as Escape does.
         if (HistoryManager.TryCancelGesture())
             return ValueTask.FromResult(true);
@@ -512,9 +538,9 @@ public sealed partial class EditViewModel
             Player,
             () =>
             {
-                // Closing may have started while Pause awaited the compose/render barriers.
+                // Closing or suspension can start while the playback guard waits.
                 ObjectDisposedException.ThrowIf(_disposed, this);
-                HistoryManager.FlushPendingMutations();
+                if (IsEnabled.Value) HistoryManager.FlushPendingMutations();
             },
             shouldPause,
             mutate,
@@ -528,6 +554,8 @@ public sealed partial class EditViewModel
         Func<bool> shouldPause,
         Func<bool> mutate)
     {
+        if (_disposed || !IsEnabled.Value) return false;
+
         UsageTelemetry? usage = UsageTelemetry.Current;
         long epoch = 0;
         bool collect = usage?.TryGetCollectionEpoch(out epoch) == true;
@@ -539,7 +567,9 @@ public sealed partial class EditViewModel
                 _logger.LogInformation("{Message}", startMessage);
             }
 
-            bool changed = await ExecuteGuardedHistoryMutationAsync(shouldPause, mutate);
+            bool changed = await ExecuteGuardedHistoryMutationAsync(
+                () => IsEnabled.Value && shouldPause(),
+                () => IsEnabled.Value && mutate());
             if (changed && collect)
                 usage!.Record("editor.history", tool,
                     operationName is "Undo" or "Redo" ? operationName : "JumpTo", epoch: epoch);
@@ -585,7 +615,7 @@ public sealed partial class EditViewModel
     // Workers write the elements while the user can go on editing, which can also stop one from being read. What that
     // touched is written again in one go on the thread that edits, so the files hold the elements as they are at that
     // moment. Edits after it belong to the next save.
-    private void StoreElements(Scene scene, Element[] elements)
+    private long StoreElements(Scene scene, Element[] elements)
     {
         var unread = new ConcurrentBag<Element>();
         // These block on the disk, and what the user does meanwhile can need a pool thread.
@@ -602,7 +632,7 @@ public sealed partial class EditViewModel
             }
         });
 
-        Dispatcher.UIThread.Invoke(() =>
+        return Dispatcher.UIThread.Invoke(() =>
         {
             HashSet<Element> again = [.. unread];
             foreach (Element element in scene.Children)
@@ -612,26 +642,21 @@ public sealed partial class EditViewModel
             }
 
             _unsavedElements.Clear();
+            return _sceneChangeRevision;
         });
     }
 
     public async ValueTask<bool> SaveAsync()
     {
-        // A direct explicit save (including media repair) must not race an older auto-save's
-        // background replacements. Lifecycle callers may already hold the project write lease.
-        // A queued auto-save can replace the task while this waits, so wait until it settles.
-        Task pending;
-        do
-        {
-            pending = _autoSaveTask;
-            try { await pending; }
-            catch (Exception ex) when (!_disposed)
-            {
-                // The auto-save reported its own failure; the explicit save still runs.
-                _logger.LogDebug(ex, "An earlier auto-save did not complete.");
-            }
-        }
-        while (!ReferenceEquals(pending, _autoSaveTask));
+        using IDisposable fileWrite = await EditorService.BeginProjectFileWriteAsync(CancellationToken.None);
+        return await SaveInReservedWorkspaceAsync();
+    }
+
+    // The caller holds either the project-file write lease or a worktree reservation.
+    internal async ValueTask<bool> SaveInReservedWorkspaceAsync()
+    {
+        if (_disposed) return false;
+
         using UsageTelemetry.Operation? usage = UsageTelemetry.Current?.Begin("scene.save");
         Scene scene = Scene;
         _logger.LogInformation("Saving scene ({SceneId}).", scene.Id.Value);
@@ -639,6 +664,7 @@ public sealed partial class EditViewModel
             ?? throw new InvalidOperationException("An unsaved scene needs a destination before it can be saved.");
         UnsavedSceneStorage.SaveRelocation relocation = new(scene, sceneUri);
         bool savedAll;
+        long savedRevision;
         // A failure at any step restores the project, scene, element and resource files this
         // save replaced, instead of leaving the files written before it on disk.
         using (StorageWriteTransaction transaction = StorageWriteTransaction.Begin())
@@ -649,7 +675,8 @@ public sealed partial class EditViewModel
                 Element[] elements = GetElementsToSave(scene, relocation);
                 savedAll = elements.Length == scene.Children.Count;
                 _unsavedElements.Clear();
-                await Task.Run(() => transaction.WriteInBatch(() => StoreElements(scene, elements)));
+                long revision = 0;
+                await Task.Run(() => transaction.WriteInBatch(() => revision = StoreElements(scene, elements)));
                 // The scene is stored without SaveReferencedObjects, which would store the children
                 // again, so its fingerprint file is saved, or removed, here too.
                 scene.SaveMediaFingerprintFile();
@@ -657,6 +684,7 @@ public sealed partial class EditViewModel
                 // after every referenced file is durable at its new location.
                 CoreSerializer.StoreToUri(scene, sceneUri, CoreSerializationMode.Write);
                 transaction.Commit();
+                savedRevision = revision;
             }
             catch
             {
@@ -668,11 +696,11 @@ public sealed partial class EditViewModel
         }
 
         relocation.Commit();
+        _savedSceneChangeRevision = savedRevision;
         // This walk also grows with the scene, and closing the project reports what the saves in between did not.
         if (savedAll && scene.FindHierarchicalParent<Project>() is { } project)
             await Task.Run(() => DuplicateIds.Report(project, "save"));
 
-        // A version-control cycle saves without the write lease, so its tab can have closed by now.
         if (_disposed) return true;
 
         SaveState(isExplicitUserSave: true);

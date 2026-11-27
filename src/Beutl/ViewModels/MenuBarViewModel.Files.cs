@@ -21,6 +21,7 @@ public partial class MenuBarViewModel
         nameof(SaveAll),
         nameof(EnableVersionControl),
         nameof(CommitVersion),
+        nameof(OrganizeProjectAssets),
         nameof(ExportProject))]
     private void InitializeFilesCommands()
     {
@@ -53,6 +54,8 @@ public partial class MenuBarViewModel
         CommitVersion = new AsyncReactiveCommand(canCommitVersion);
 
         ExportProject = new AsyncReactiveCommand(IsProjectOpened);
+        OrganizeProjectAssets = new ReactiveCommandSlim(IsProjectOpened)
+            .WithSubscribe(() => _editorService.ProjectAssets?.OpenInFileTab());
 
         ViewConfig viewConfig = _editorService.AppServices.GetRequiredService<GlobalConfiguration>().ViewConfig;
         viewConfig.RecentFiles.ForEachItem(
@@ -81,6 +84,8 @@ public partial class MenuBarViewModel
 
     public AsyncReactiveCommand OpenFile { get; } = new();
 
+    public AsyncReactiveCommand CloneRepository { get; } = new();
+
     public ReactiveCommandSlim CloseFile { get; private set; }
 
     public AsyncReactiveCommand CloseProject { get; private set; }
@@ -104,6 +109,8 @@ public partial class MenuBarViewModel
     public ReactiveCommandSlim Exit { get; } = new();
 
     public AsyncReactiveCommand ExportProject { get; private set; } = null!;
+
+    public ReactiveCommandSlim OrganizeProjectAssets { get; private set; } = null!;
 
     public AsyncReactiveCommand ImportProject { get; } = new();
 
@@ -164,7 +171,7 @@ public partial class MenuBarViewModel
             {
                 if (item.Context.Value is ISavableEditorContext editor)
                 {
-                    if (await editor.SaveAsync())
+                    if (await EditorService.SaveEditorInReservedWorkspaceAsync(editor))
                     {
                         itemsCount++;
                         if (editor is EditViewModel sceneEditor) savedSceneEditors.Add(sceneEditor);
@@ -226,7 +233,8 @@ public partial class MenuBarViewModel
             }
 
             EditViewModel? savedSceneEditor = item.Context.Value as EditViewModel;
-            bool result = item.Context.Value is ISavableEditorContext editor && await editor.SaveAsync();
+            bool result = item.Context.Value is ISavableEditorContext editor
+                && await EditorService.SaveEditorInReservedWorkspaceAsync(editor);
             if (result)
             {
                 Notifications.ShowSuccess(string.Empty, string.Format(MessageStrings.ItemSaved, item.FileName.Value));
@@ -286,11 +294,7 @@ public partial class MenuBarViewModel
                 projItem = project.Items.FirstOrDefault(i => i.Uri is { IsFile: true } current
                     && FilePathComparison.AreSameCanonicalPath(current.LocalPath, uri.LocalPath));
 
-            // An item added to the open project is read on its frame grid.
-            using (project is null ? null : MediaTimeJsonConverter.ReadOnFrameGrid(project.GetFrameRate()))
-            {
-                projItem ??= CoreSerializer.RestoreFromUri<ProjectItem>(uri);
-            }
+            projItem ??= CoreSerializer.RestoreFromUri<ProjectItem>(uri);
 
             if (project != null)
             {

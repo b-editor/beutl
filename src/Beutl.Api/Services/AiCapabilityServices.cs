@@ -25,7 +25,8 @@ internal sealed class AiEntitlementService(
             "AiEntitlementService.Refresh",
             ActivityKind.Client);
 
-        AuthenticatedUser? authenticatedUser = application.AuthenticatedUser.Value;
+        AuthenticatedUser? authenticatedUser = AiAuthenticatedRequestScope.RequireExpectedUser(
+            application.AuthenticatedUser.Value);
         if (authenticatedUser is null)
             return null;
 
@@ -215,18 +216,18 @@ internal sealed class AiTranscriptionService(
             if (document.RootElement.ValueKind != JsonValueKind.Object
                 || !document.RootElement.TryGetProperty("segments", out JsonElement segments)
                 || segments.ValueKind != JsonValueKind.Array || segments.GetArrayLength() > 10000)
-                throw new AiProviderErrorException(new InvalidDataException("The transcription result has an invalid or excessive segment count."));
+                throw new AiResultUnavailableException(new InvalidDataException("The transcription result has an invalid or excessive segment count."));
             if (document.RootElement.TryGetProperty("words", out JsonElement words)
                 && words.ValueKind != JsonValueKind.Null
                 && (words.ValueKind != JsonValueKind.Array || words.GetArrayLength() > 100000))
-                throw new AiProviderErrorException(new InvalidDataException("The transcription result has an invalid or excessive word count."));
+                throw new AiResultUnavailableException(new InvalidDataException("The transcription result has an invalid or excessive word count."));
             return AiModelMapper.ToModel(
                 JsonSerializer.Deserialize<AiTranscriptionResponseDto>(body, AiStreamJson.Options)
-                ?? throw new AiProviderErrorException(new InvalidDataException("The transcription result was empty.")));
+                ?? throw new AiResultUnavailableException(new InvalidDataException("The transcription result was empty.")));
         }
         catch (JsonException ex)
         {
-            throw new AiProviderErrorException(ex);
+            throw new AiResultUnavailableException(ex);
         }
     }
 }

@@ -12,6 +12,8 @@ public class ShiftNode : AudioNode
     // A sound's offset, read for each window in place of Shift so that an expression on it takes effect.
     internal IExpressionProperty<MediaTime>? Offset { get; init; }
 
+    internal bool ShiftsTime => Offset is { HasExpression: true } || GetStaticShift() != MediaTime.Zero;
+
     // An offset under an expression is known for one window only, which bounds no end.
     internal override double? GetFiniteSourceEndSample(int sampleRate)
         => Offset is { HasExpression: true }
@@ -40,9 +42,9 @@ public class ShiftNode : AudioNode
         // An expression runs a script, so it is evaluated once for each read rather than each sample. Behind the
         // speed this node sees the source's time, so it is evaluated at the start of the window the composer asked
         // for, or of the sound if that starts later.
-        MediaTime ownerStart = AnimationSampler.GetOwnerStart(offset);
+        MediaTime ownerStart = context.AnimationSampler.GetAbsoluteOwnerStart(offset);
         MediaTime windowStart = context.OriginalTimeRange.Start;
-        MediaTime shift = offset.Evaluate(new EvaluationContext(windowStart > ownerStart ? windowStart : ownerStart));
+        MediaTime shift = context.AnimationSampler.EvaluateExpression(offset, windowStart > ownerStart ? windowStart : ownerStart);
         if (!draining)
             _liveOffset = shift;
         return shift;

@@ -48,6 +48,24 @@ internal static class BuiltInLibraryThumbnailRecipes
             context.Subject?.Transform.Value = move;
         });
 
+        LibraryThumbnailRecipes.Register<Echo>(LibraryThumbnailSample.Object, (effect, context) =>
+        {
+            effect.Interval.Value = -0.15f;
+            effect.Count.Value = 4;
+            effect.Decay.Value = 75;
+            var move = new TranslateTransform();
+            context.Animate(move.X, p => context.Scale(420) * MathF.Sin(p * MathF.Tau));
+            context.Subject?.Transform.Value = move;
+        });
+
+        LibraryThumbnailRecipes.Register<SteppedMotion>(LibraryThumbnailSample.Object, (effect, context) =>
+        {
+            effect.FrameRate.Value = 4;
+            var move = new TranslateTransform();
+            context.Animate(move.X, p => context.Scale(420) * MathF.Sin(p * MathF.Tau));
+            context.Subject?.Transform.Value = move;
+        });
+
         LibraryThumbnailRecipes.Register<Bokeh>(LibraryThumbnailSample.NightLights, (effect, context) =>
         {
             effect.Highlight.Value = 1;
@@ -108,6 +126,27 @@ internal static class BuiltInLibraryThumbnailRecipes
 
     private static void RegisterShapes()
     {
+        LibraryThumbnailRecipes.Register<RangeAnimatorEffect>(LibraryThumbnailSample.Text, (effect, context) =>
+        {
+            if (context.Subject is { } subject)
+            {
+                var group = new FilterEffectGroup();
+                subject.FilterEffect.Value = group;
+                group.Children.Add(new PartsSplitEffect());
+                group.Children.Add(effect);
+            }
+
+            effect.Order.Value = DelayAnimationOrder.LeftToRight;
+            effect.RangeStart.Value = 20;
+            effect.RangeEnd.Value = 65;
+            effect.Position.Value = new Point(0, -context.Scale(96));
+            effect.Scale.Value = 110;
+            effect.Rotation.Value = -12;
+            effect.Color.Value = Color.FromRgb(0xFC, 0xB2, 0x4C);
+            effect.ColorAmount.Value = 70;
+            context.Animate(effect.RangeOffset, p => -70 * (1 - Wave(p)));
+        });
+
         LibraryThumbnailRecipes.Register<Clipping>((effect, context) =>
         {
             context.Animate(effect.Left, p => context.Scale(300) * Wave(p));
@@ -167,6 +206,9 @@ internal static class BuiltInLibraryThumbnailRecipes
         LibraryThumbnailRecipes.Register<Brightness>((effect, context) =>
             context.Animate(effect.Amount, p => 100 + (120 * Wave(p))));
 
+        LibraryThumbnailRecipes.Register<OpacityEffect>((effect, context) =>
+            context.Animate(effect.Opacity, p => 100 - (80 * Wave(p))));
+
         LibraryThumbnailRecipes.Register<Gamma>((effect, context) =>
             context.Animate(effect.Amount, p => 100 + (150 * Wave(p))));
 
@@ -214,11 +256,24 @@ internal static class BuiltInLibraryThumbnailRecipes
                 ]);
             }));
 
+        // The grain cells need to span a thumbnail pixel to show up at the thumbnail's density.
+        LibraryThumbnailRecipes.Register<FilmGrain>((effect, context) =>
+        {
+            effect.Size.Value = context.Scale(8);
+            context.Animate(effect.Amount, p => 70 * Wave(p));
+        });
+
+        LibraryThumbnailRecipes.Register<Vignette>((effect, context) =>
+            context.Animate(effect.Amount, p => 100 * Wave(p)));
+
         LibraryThumbnailRecipes.Register<ColorShift>(LibraryThumbnailSample.Shapes, (effect, context) =>
         {
             context.Animate(effect.RedOffset, p => new PixelPoint((int)MathF.Round(context.Scale(36) * Wave(p)), 0));
             context.Animate(effect.BlueOffset, p => new PixelPoint(-(int)MathF.Round(context.Scale(36) * Wave(p)), 0));
         });
+
+        LibraryThumbnailRecipes.Register<LensChromaticAberration>(LibraryThumbnailSample.Shapes, (effect, context) =>
+            context.Animate(effect.Amount, p => 10 * Wave(p)));
 
         LibraryThumbnailRecipes.Register<BlendEffect>((effect, context) =>
         {
@@ -274,6 +329,9 @@ internal static class BuiltInLibraryThumbnailRecipes
             context.Animate(effect.Phase, p => 360 * p);
         });
 
+        LibraryThumbnailRecipes.Register<PolarCoordinates>(LibraryThumbnailSample.Shapes, (effect, context) =>
+            context.Animate(effect.Amount, p => 100 * Wave(p)));
+
         LibraryThumbnailRecipes.Register<PixelSortEffect>((effect, context) =>
         {
             effect.ThresholdMin.Value = 10;
@@ -295,6 +353,20 @@ internal static class BuiltInLibraryThumbnailRecipes
             var translate = new DisplacementMapTranslateTransform();
             context.Animate(translate.X, p => context.Scale(160) * Wave(p));
             effect.Transform.Value = translate;
+        });
+
+        LibraryThumbnailRecipes.Register<MeshWarp>(LibraryThumbnailSample.Shapes, (effect, context) =>
+        {
+            context.Animate(effect.Mesh, p => MeshWarpGrid.Default
+                .WithPoint(0, 2, new Point(0.5f, 0.22f * Wave(p)))
+                .WithPoint(2, 2, new Point(0.5f + 0.22f * Wave(p), 0.5f))
+                .WithPoint(4, 2, new Point(0.5f, 1 - 0.22f * Wave(p))));
+        });
+
+        LibraryThumbnailRecipes.Register<CornerPin>(LibraryThumbnailSample.Shapes, (effect, context) =>
+        {
+            context.Animate(effect.TopLeft, p => new RelativePoint(0.28f * Wave(p), 0.24f * Wave(p), RelativeUnit.Relative));
+            context.Animate(effect.TopRight, p => new RelativePoint(1 - 0.16f * Wave(p), 0.12f * Wave(p), RelativeUnit.Relative));
         });
 
         // The picture travels once around an ellipse.

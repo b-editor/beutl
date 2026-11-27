@@ -32,9 +32,13 @@ public sealed class OpacityRenderNode(float opacity) : ContainerRenderNode
     public override void Process(RenderNodeContext context)
     {
         float opacity = Opacity;
+        // Full opacity can pass through a stream of parts without compositing it into one value.
         context.PublishMappedInputs(
             opacity,
-            static (context, input, value) => context.Opacity(input, value));
+            static (context, input, value) =>
+                value == 1f && input.CanBeUsedAsValueInput && !input.ValueCardinality.Equals(RenderValueCardinality.Single)
+                    ? input
+                    : context.Opacity(input, value));
     }
 
     /// <summary>Returns the shared immutable fusion description for one normalized opacity.</summary>

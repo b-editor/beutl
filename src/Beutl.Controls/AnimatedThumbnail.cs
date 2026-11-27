@@ -15,14 +15,8 @@ namespace Beutl.Controls;
 /// It asks for the still only while some of it is on screen, and for the frames only while it plays, so a long
 /// list loads what is seen.
 /// </remarks>
-public sealed class AnimatedThumbnail : Control
+public sealed partial class AnimatedThumbnail : Control
 {
-    public static readonly StyledProperty<IAnimatedThumbnailSource?> SourceProperty =
-        AvaloniaProperty.Register<AnimatedThumbnail, IAnimatedThumbnailSource?>(nameof(Source));
-
-    public static readonly StyledProperty<bool> IsPlayingProperty =
-        AvaloniaProperty.Register<AnimatedThumbnail, bool>(nameof(IsPlaying));
-
     private readonly DispatcherTimer _timer;
     private IAnimatedThumbnailSource? _subscribed;
     private IDisposable? _stillRequest;
@@ -42,17 +36,11 @@ public sealed class AnimatedThumbnail : Control
         RenderOptions.SetBitmapInterpolationMode(this, BitmapInterpolationMode.HighQuality);
     }
 
-    public IAnimatedThumbnailSource? Source
-    {
-        get => GetValue(SourceProperty);
-        set => SetValue(SourceProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial IAnimatedThumbnailSource? Source { get; set; }
 
-    public bool IsPlaying
-    {
-        get => GetValue(IsPlayingProperty);
-        set => SetValue(IsPlayingProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial bool IsPlaying { get; set; }
 
     // The frame being shown while playing, for tests.
     internal int FrameIndex => _frameIndex;

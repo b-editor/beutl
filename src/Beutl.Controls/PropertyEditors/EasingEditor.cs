@@ -40,33 +40,21 @@ public sealed class EasingItem
     public Easing CreateInstance() => (Easing)Activator.CreateInstance(Type)!;
 }
 
-public class EasingEditor : PropertyEditor, IValueEditorControl<Easing?>
+public partial class EasingEditor : PropertyEditor, IValueEditorControl<Easing?>
 {
-    public static readonly StyledProperty<Easing?> ValueProperty =
-        AvaloniaProperty.Register<EasingEditor, Easing?>(nameof(Value), defaultBindingMode: BindingMode.TwoWay);
-
-    public static readonly StyledProperty<IReadOnlyList<EasingItem>?> ItemsProperty =
-        AvaloniaProperty.Register<EasingEditor, IReadOnlyList<EasingItem>?>(nameof(Items));
-
     private readonly CompositeDisposable _templateDisposables = [];
     private ComboBox? _comboBox;
     private bool _syncingSelection;
 
-    public Easing? Value
-    {
-        get => GetValue(ValueProperty);
-        set => SetValue(ValueProperty, value);
-    }
+    [GeneratedStyledProperty(DefaultBindingMode = BindingMode.TwoWay)]
+    public partial Easing? Value { get; set; }
 
-    public IReadOnlyList<EasingItem>? Items
-    {
-        get => GetValue(ItemsProperty);
-        set => SetValue(ItemsProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial IReadOnlyList<EasingItem>? Items { get; set; }
 
     public void Connect(IValueEditorContext<Easing?> context)
     {
-        CompositeDisposable connection = ConnectRefreshedValue(context, ValueProperty);
+        CompositeDisposable connection = ConnectConfirmedValue(context, ValueProperty);
         this.AddDisposableHandler(ValueChangedEvent, (_, e) =>
             {
                 if (e is PropertyEditorValueChangedEventArgs<Easing?> args)

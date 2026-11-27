@@ -21,11 +21,8 @@ namespace Beutl.Controls.PropertyEditors;
 // The palette tab of the color pickers: a button that makes a new palette, then the recent colors, the open
 // project's palettes, the user's palettes and the default palette, each under its name. A click on a color raises ColorSelected. The palettes of the project
 // and the user take the current color with their + button, and their menus name, order, move and delete them.
-public sealed class ColorPaletteView : TemplatedControl
+public sealed partial class ColorPaletteView : TemplatedControl
 {
-    public static readonly StyledProperty<Color> CurrentColorProperty =
-        AvaloniaProperty.Register<ColorPaletteView, Color>(nameof(CurrentColor));
-
     private readonly List<ColorPaletteItem> _items = [];
     private ColorPaletteService? _subscribedService;
     private StackPanel? _sections;
@@ -39,11 +36,8 @@ public sealed class ColorPaletteView : TemplatedControl
     public event TypedEventHandler<ColorPaletteView, Color>? ColorSelected;
 
     // The color being edited: the colors equal to it are ringed, and + adds it.
-    public Color CurrentColor
-    {
-        get => GetValue(CurrentColorProperty);
-        set => SetValue(CurrentColorProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial Color CurrentColor { get; set; }
 
     internal ColorPaletteService? Service
     {
@@ -328,7 +322,7 @@ public sealed class ColorPaletteView : TemplatedControl
 
         (PaletteScope scope, int index) = (header.Scope, header.Palette);
         ImmutableArray<ColorPalette> palettes = service.GetPalettes(scope);
-        menu.Items.Add(CreateItem(Strings.Rename, Icon.Rename, () =>
+        menu.Items.Add(CreateItem(Strings.RenameMenu, Icon.Rename, () =>
             AskName((Control?)FindHeader(header) ?? this, Strings.Rename, palettes[index].Name,
                 name => service.EditPalette(scope, index, p => p.WithName(name)))));
         menu.Items.Add(CreateItem(Strings.ColorPalette_MoveUp, Icon.ArrowUp,
@@ -359,7 +353,7 @@ public sealed class ColorPaletteView : TemplatedControl
         if (swatch.Kind == SwatchKind.Editable)
         {
             (PaletteScope scope, int palette, int index) = (swatch.Scope, swatch.Palette, swatch.Index);
-            menu.Items.Add(CreateItem(Strings.Rename, Icon.Rename, () =>
+            menu.Items.Add(CreateItem(Strings.RenameMenu, Icon.Rename, () =>
                 AskName(target, Strings.Rename, swatch.Color.Name ?? string.Empty,
                     name => service.EditPalette(scope, palette,
                         p => p.SetColor(index, swatch.Color with { Name = name.Length > 0 ? name : null })),
@@ -411,7 +405,7 @@ public sealed class ColorPaletteView : TemplatedControl
             }
 
             addTo.Items.Add(new FAMenuFlyoutSeparator());
-            addTo.Items.Add(CreateItem(Strings.ColorPalette_NewPalette, Icon.Add, AddToNewPalette));
+            addTo.Items.Add(CreateItem(Strings.ColorPalette_NewPaletteMenu, Icon.Add, AddToNewPalette));
             menu.Items.Add(addTo);
         }
 

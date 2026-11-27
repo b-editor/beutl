@@ -40,11 +40,15 @@ internal sealed partial class RenderRequestExecutor
                 fragment.Inputs[0].EffectiveScale.IsUnbounded
                     ? ResolveInputCallerScale(description.InputDemand, 0, inputRequestScale)
                     : null);
-            var results = new List<MaterializedRenderValue>(inputs.Count);
+            var results = new EffectRenderValues(inputs.Count);
+            IReadOnlyList<ClippedTextOccurrence> clipped = EffectRenderValues.GetClippedText(inputs);
+            int nextClipped = 0;
             try
             {
-                foreach (MaterializedRenderValue input in inputs)
+                for (int i = 0; i < inputs.Count; i++)
                 {
+                    results.CopyClippedTextAt(clipped, i, ref nextClipped);
+                    MaterializedRenderValue input = inputs[i];
                     Rect outputBounds = description.Bounds.TransformBounds(input.CompleteBounds);
                     if (outputBounds.Width == 0 || outputBounds.Height == 0)
                         continue;
@@ -65,6 +69,7 @@ internal sealed partial class RenderRequestExecutor
                         outputScale,
                         outputBounds,
                         allowPreviewDrop: true);
+                    output.TextPart = input.TextPart;
                     bool succeeded = false;
                     try
                     {
@@ -94,6 +99,7 @@ internal sealed partial class RenderRequestExecutor
                     }
                 }
 
+                results.CopyClippedTextAt(clipped, inputs.Count, ref nextClipped);
                 return results;
             }
             catch
@@ -120,7 +126,8 @@ internal sealed partial class RenderRequestExecutor
                 input.EffectiveScale,
                 input.DeviceGridOffset,
                 input.CompleteBounds,
-                addRasterApron: false);
+                addRasterApron: false,
+                textPart: input.TextPart);
             if (CanUseAsSemanticShaderInput(normalized))
                 return normalized;
 
@@ -135,7 +142,8 @@ internal sealed partial class RenderRequestExecutor
                 input.EffectiveScale,
                 input.DeviceGridOffset,
                 input.CompleteBounds,
-                addRasterApron: true);
+                addRasterApron: true,
+                textPart: input.TextPart);
         }
 
         // Redraws a source onto a canonical device grid at a density that fits its physical footprint.
@@ -146,7 +154,8 @@ internal sealed partial class RenderRequestExecutor
             EffectiveScale scale,
             Vector deviceGridOffset,
             Rect completeBounds,
-            bool addRasterApron)
+            bool addRasterApron,
+            TextPartTag? textPart = null)
         {
             Rect physicalBounds = rasterBounds.Union(bounds);
             Rect alignedPhysicalBounds = physicalBounds.Translate(deviceGridOffset);
@@ -168,6 +177,7 @@ internal sealed partial class RenderRequestExecutor
                 physicalDeviceBounds: normalizedDeviceBounds,
                 deviceGridOffset: deviceGridOffset,
                 allowPreviewDrop: true);
+            normalized.TextPart = textPart;
             bool succeeded = false;
             try
             {

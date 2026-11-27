@@ -122,12 +122,13 @@ internal sealed unsafe class VulkanDescriptorSet : IDescriptorSet, IVulkanContex
     internal void UpdateTexture(int binding, ITexture2D texture, ISampler sampler, ImageLayout layout)
         => UpdateCombinedImageSampler(
             binding,
-            _context.RequireOwned<VulkanTexture2D>(texture, nameof(texture)).ImageViewHandle,
+            _context.RequireOwned<VulkanTexture2D>(texture, nameof(texture)).SampledImageViewHandle,
             sampler, layout);
 
     internal void UpdateStorageImage(int binding, ITexture2D texture)
     {
         VulkanTexture2D image = _context.RequireOwned<VulkanTexture2D>(texture, nameof(texture));
+        image.ThrowIfMultisampled("Storage image binding");
         if ((image.Usage & ImageUsageFlags.StorageBit) == 0)
             throw new ArgumentException("The image was not created for storage access.", nameof(texture));
         UpdateImage(binding, image.ImageViewHandle, default, ImageLayout.General, Silk.NET.Vulkan.DescriptorType.StorageImage);

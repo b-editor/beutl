@@ -1,6 +1,7 @@
 ﻿<UserControl x:Class="Beutl.Views.MainView"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:Beutl.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:icons="using:FluentIcons.Avalonia.Fluent"
              xmlns:lang="using:Beutl.Language"
@@ -100,6 +101,7 @@
                                       Margin="0,4,4,0"
                                       HorizontalAlignment="Right"
                                       VerticalAlignment="Top"
+                                      controls:RevealMotion.Mode="Pop"
                                       IsVisible="{Binding !!#HiddenNotificationPanel.Children.Count}" />
                     </Panel>
                 </Button>
@@ -119,11 +121,11 @@
                                   IsEnabled="{Binding !#ProjectLifecycleOverlay.IsVisible}"
                                   IsVisible="{Binding EditorHost.SelectedTabItem.Value.Context.Value, Converter={x:Static ObjectConverters.IsNull}}" />
 
-        <!-- Covers the editor area while a project is created or closed with Git, or starts being tracked
-             with Git, so an editor that is waiting on Git never looks usable. -->
+        <!-- Covers the editor area while it waits for project and version-control operations. -->
         <Border x:Name="ProjectLifecycleOverlay"
                 Grid.Row="2"
                 Background="{DynamicResource MainWindowBackground}"
+                controls:RevealMotion.Mode="Fade"
                 IsVisible="{Binding EditorHost.LifecycleProgress.Value, Converter={x:Static ObjectConverters.IsNotNull}}">
             <StackPanel MaxWidth="560"
                         Margin="32"

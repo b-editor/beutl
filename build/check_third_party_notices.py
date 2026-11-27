@@ -6,7 +6,8 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-PROJECTS = ("Beutl", "Beutl.FFmpegWorker", "Beutl.PackageTools.UI", "Beutl.ExceptionHandler", "Beutl.AgentToolkit.Mcp")
+PROJECTS = ("Beutl", "Beutl.FFmpegWorker", "Beutl.PackageTools.UI", "Beutl.ExceptionHandler",
+            "Beutl.AgentToolkit.Mcp", "Beutl.Agents.Worker")
 
 
 def runtime_packages(assets):

@@ -337,7 +337,8 @@ public sealed class DeclarativeAnimationTests
         {
             Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
             Assert.That(animation.KeyFrames, Has.Count.EqualTo(3));
-            Assert.That(animation.KeyFrames, Has.Exactly(1).Matches<KeyFrame<float>>(frame => frame.Id.Value != first.Id.Value && frame.KeyTime.Value == MediaTime.FromSeconds(2)));
+            Assert.That(animation.KeyFrames, Has.Exactly(1).Matches<KeyFrame<float>>(frame =>
+                frame is not null && frame.Id.Value != first.Id.Value && frame.KeyTime.Value == MediaTime.FromSeconds(2)));
         });
     }
 

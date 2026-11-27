@@ -24,16 +24,23 @@ public sealed partial class AiSubtitleDialogViewModel
         if (captionRevision != Interlocked.Read(ref _captionDocumentRevision))
             return;
 
-        Error.Value = null;
-        IsTranslating.Value = true;
-        TranslationPreview.Value = null;
         using CancellationTokenSource requestCts =
             CancellationTokenSource.CreateLinkedTokenSource(
                 operationLifetime.CancellationToken,
                 _lifetimeCts.Token);
         _requestCts = requestCts;
+        AiAccountJobScope? account = null;
         try
         {
+            using var job = account = new AiAccountJobScope(_requestRecoveryContext);
+            using CancellationTokenSource cancellation = job.Link(requestCts.Token);
+            CancellationToken requestToken = cancellation.Token;
+            if (!IsCurrentCaptionDraftScope(draftScopeRevision))
+                return;
+
+            Error.Value = null;
+            IsTranslating.Value = true;
+            TranslationPreview.Value = null;
             string targetLanguage = SelectedTargetLanguage.Value.Code!;
             string? selectedSourceLanguage = SelectedSourceLanguage.Value.Code;
             string? sourceLanguage = selectedSourceLanguage ?? _lastCaptionLanguage;
@@ -59,6 +66,7 @@ public sealed partial class AiSubtitleDialogViewModel
 
             for (int index = operation.CompletedBatchCount; index < operation.Batches.Count; index++)
             {
+                job.ThrowIfInvalid(requestToken);
                 TranslationBatch batch = operation.Batches[index];
                 AiRequestName name = operation.RequestNameFor(index, runModel);
                 AiCaptionTranslationLimits requestLimits = operation.Limits;
@@ -71,7 +79,7 @@ public sealed partial class AiSubtitleDialogViewModel
                             runModel,
                             requestLimits),
                         PublishTranslationPartial,
-                        WithdrawTranslationName))
+                        WithdrawTranslationName, job, requestToken))
                 {
                     return;
                 }
@@ -80,7 +88,7 @@ public sealed partial class AiSubtitleDialogViewModel
                     await SendRunPieceAsync(
                         operation,
                         name,
-                        async () =>
+                        async token =>
                         {
                             AiCaptionTranslationResponse translation = await _translation.TranslateAsync(
                                 new AiCaptionTranslationRequest(
@@ -100,12 +108,15 @@ public sealed partial class AiSubtitleDialogViewModel
                                     idempotencyKey: name.Key,
                                     limits: requestLimits),
                                 new Progress<AiCaptionTranslationSegment>(segment =>
-                                    operationLifetime.TryPublish(() => ShowTranslatedLine(segment))),
-                                RequestToken);
+                                {
+                                    if (!job.AccountChanged && IsCurrentCaptionDraftScope(draftScopeRevision))
+                                        operationLifetime.TryPublish(() => ShowTranslatedLine(segment));
+                                }),
+                                token);
                             return (translation, ValidateTranslatedBatch(batch, translation));
                         },
                         PublishTranslationPartial,
-                        WithdrawTranslationName);
+                        WithdrawTranslationName, job, requestToken);
                 if (!settled)
                     return;
                 AddTranslatedBatch(operation, translatedBatch);
@@ -129,12 +140,17 @@ public sealed partial class AiSubtitleDialogViewModel
                 ClearPartialResult();
             });
         }
+        catch (Exception) when (account?.AccountChanged == true)
+        {
+            operationLifetime.TryPublish(() => SetCaptionErrorIfCurrent(draftScopeRevision, Strings.AiAuthenticationRequired));
+        }
         catch (Exception ex) when (KnownRunFailureMessage(ex) is { } message)
         {
             operationLifetime.TryPublish(() => SetCaptionErrorIfCurrent(draftScopeRevision, message));
         }
         // This run's name belongs to another request, or the job it made is gone.
-        catch (Exception ex) when (ex is AiRequestChangedException or AiRequestWasDeletedException)
+        catch (Exception ex) when ((ex is AiRequestChangedException or AiRequestWasDeletedException)
+            && IsCurrentCaptionDraftScope(draftScopeRevision))
         {
             RetireTranslationRunName();
             operationLifetime.TryPublish(() => SetCaptionErrorIfCurrent(
@@ -145,7 +161,7 @@ public sealed partial class AiSubtitleDialogViewModel
         {
             operationLifetime.TryPublish(() => SetCaptionErrorIfCurrent(draftScopeRevision, ex.Message));
         }
-        catch (OperationCanceledException) when (IsRequestCanceled)
+        catch (OperationCanceledException) when (requestCts.IsCancellationRequested)
         {
         }
         catch (Exception ex)
@@ -155,7 +171,8 @@ public sealed partial class AiSubtitleDialogViewModel
         }
         finally
         {
-            _requestCts = null;
+            if (ReferenceEquals(_requestCts, requestCts))
+                _requestCts = null;
             operationLifetime.TryPublish(() =>
             {
                 if (IsCurrentCaptionDraftScope(draftScopeRevision))

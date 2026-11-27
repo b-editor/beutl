@@ -4,6 +4,7 @@ using Beutl.Editor;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Services;
 using Beutl.Logging;
+using Beutl.Media;
 using Beutl.ProjectSystem;
 using Beutl.Services;
 using Microsoft.Extensions.DependencyInjection;
@@ -32,8 +33,8 @@ internal sealed partial class ElementAdderImpl : IElementAdder, IAsyncDisposable
         _context = context;
         _sourceHandlers = new ElementSourceHandlerRegistry(
         [
-            new ElementSourceHandlerRegistration(new EngineObjectSourceHandler(this)),
-            new ElementSourceHandlerRegistration(new ElementTemplateSourceHandler(this)),
+            new ElementSourceHandlerRegistration(new EngineObjectSourceHandler()),
+            new ElementSourceHandlerRegistration(new ElementTemplateSourceHandler()),
             new ElementSourceHandlerRegistration(new ElementSetTemplateSourceHandler()),
             new ElementSourceHandlerRegistration(new FileSourceHandler(this)),
         ],
@@ -44,15 +45,33 @@ internal sealed partial class ElementAdderImpl : IElementAdder, IAsyncDisposable
             failure.ExtensionType));
     }
 
+    internal bool HasFileSourceOverride()
+    {
+        if (!_sourceHandlers.TryAcquire(typeof(ElementSource.File), out var lease))
+            return false;
+
+        using (lease)
+        {
+            return lease.Handler is not FileSourceHandler;
+        }
+    }
+
     public async ValueTask DisposeAsync()
     {
         await _operations.DisposeAsync();
         await _sourceHandlers.DisposeAsync();
     }
 
-    public async ValueTask<ElementAddResult> AddAsync(
+    public ValueTask<ElementAddResult> AddAsync(
         IReadOnlyList<ElementDescription> descriptions,
         CancellationToken cancellationToken)
+        => AddAsync(descriptions, cancellationToken, runCommit: null, captureValidation: null);
+
+    internal async ValueTask<ElementAddResult> AddAsync(
+        IReadOnlyList<ElementDescription> descriptions,
+        CancellationToken cancellationToken,
+        Func<Func<ElementAddResult>, CancellationToken, ValueTask<ElementAddResult>>? runCommit,
+        Func<Scene, Action?>? captureValidation)
     {
         using AsyncOperationLifetime.Operation operation = _operations.TryEnter()
             ?? throw new ObjectDisposedException(nameof(ElementAdderImpl));
@@ -71,6 +90,8 @@ internal sealed partial class ElementAdderImpl : IElementAdder, IAsyncDisposable
                 handlerLeases,
                 preflightLeases,
                 materializationResources,
+                runCommit,
+                captureValidation,
                 operationToken);
             return result;
         }
@@ -92,6 +113,8 @@ internal sealed partial class ElementAdderImpl : IElementAdder, IAsyncDisposable
         ICollection<IElementSourceHandlerLease> handlerLeases,
         ICollection<IElementSourcePreflight> preflightLeases,
         ICollection<ElementMaterializationResource> materializationResources,
+        Func<Func<ElementAddResult>, CancellationToken, ValueTask<ElementAddResult>>? runCommit,
+        Func<Scene, Action?>? captureValidation,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(descriptions);
@@ -122,12 +145,15 @@ internal sealed partial class ElementAdderImpl : IElementAdder, IAsyncDisposable
         if (materializationFailure is not null)
             return materializationFailure;
 
+        ElementAddResult Commit() => CommitBatch(
+            scene, sceneId, plans, itemResults, groups, arrangements, captureValidation, cancellationToken);
+
+        if (runCommit is not null)
+            return await runCommit(Commit, cancellationToken);
+
         // A batch prepared while an edit session is open, such as an AI result, is added after the session ends.
         ElementAddResult? result = null;
-        await _context.HistoryManager.RunAfterEditAsync(
-            () => result = CommitBatch(
-                scene, sceneId, plans, itemResults, groups, arrangements, cancellationToken),
-            cancellationToken);
+        await _context.HistoryManager.RunAfterEditAsync(() => result = Commit(), cancellationToken);
 
         return result!;
     }
@@ -318,6 +344,7 @@ internal sealed partial class ElementAdderImpl : IElementAdder, IAsyncDisposable
         List<ElementAddItemResult> itemResults,
         List<ImmutableHashSet<Guid>> groups,
         List<bool> arrangements,
+        Func<Scene, Action?>? captureValidation,
         CancellationToken cancellationToken)
     {
         CommitValidationFailure? commitValidation = RevalidateBeforeCommit(
@@ -345,56 +372,59 @@ internal sealed partial class ElementAdderImpl : IElementAdder, IAsyncDisposable
                 if (gatedCommitValidation is not null)
                     return;
 
-                var layerEnds = new Dictionary<int, MediaTime>();
+                Action? validate = captureValidation?.Invoke(scene);
+                var layerEnds = new Dictionary<(int Layer, bool StacksAboveScene), MediaTime>();
                 int? firstFreeLayer = null;
+                int? audioLayerDelta = null;
                 for (int index = 0; index < itemResults.Count; index++)
                 {
                     IReadOnlyList<Element> elements = itemResults[index].Elements;
                     ElementDescription description = plans[index].Description;
-                    if (description.FollowsPrevious && layerEnds.TryGetValue(description.Layer, out MediaTime end))
+                    var row = (description.Layer, description.StacksAboveScene);
+                    if (description.FollowsPrevious && layerEnds.TryGetValue(row, out MediaTime end))
                     {
+                        MediaTime firstStart = elements.Min(element => element.Start.Value);
                         foreach (Element element in elements)
                         {
-                            element.Start.Value += end - description.Start;
+                            element.Start.Value += end - firstStart;
                         }
                     }
 
                     if (description.StacksAboveScene)
                     {
                         firstFreeLayer ??= scene.GetFirstFreeLayer();
-                        foreach (Element element in elements)
-                        {
-                            element.ZIndex.Value = scene.CountUnlockedLayers(firstFreeLayer.Value, element.ZIndex.Value);
-                            // A matte in a set names a layer of the set, which has just moved.
-                            if (arrangements[index]
-                                && element.MatteSourceKind.Value == MatteSourceKind.Layer
-                                && element.MatteSourceZIndex.Value is { } source)
-                            {
-                                element.MatteSourceZIndex.Value = scene.CountUnlockedLayers(firstFreeLayer.Value, source);
-                            }
-                        }
+                        ElementPlacementHelper.StackAboveScene(scene, firstFreeLayer.Value, elements, arrangements[index]);
                     }
 
-                    if (arrangements[index])
+                    if (description.PlaceOnSeparateAudioTrack)
                     {
-                        PlaceTogether(scene, elements);
+                        audioLayerDelta ??= FindFileImportAudioLayerDelta(scene, itemResults, index);
+                        ElementPlacementHelper.MoveTogether(elements, MediaTime.Zero, audioLayerDelta.Value);
+                    }
+                    else if (arrangements[index])
+                    {
+                        ElementPlacementHelper.PlaceTogether(scene, elements);
                     }
 
                     foreach (Element element in elements)
                     {
                         scene.AddChild(
                             element,
-                            arrangements[index] ? ElementOverlapHandling.Allow : ElementOverlapHandling.Auto,
+                            arrangements[index] || description.PlaceOnSeparateAudioTrack
+                                ? ElementOverlapHandling.Allow
+                                : ElementOverlapHandling.Auto,
                             _context.GetRequiredService<GlobalConfiguration>().EditorConfig.AutoAdjustSceneDuration.Value);
                     }
 
-                    layerEnds[description.Layer] = elements.Max(element => element.Range.End);
+                    layerEnds[row] = elements.Max(element => element.Range.End);
                 }
 
                 if (groups.Count > 0)
                 {
                     scene.Groups.AddRange(groups);
                 }
+
+                validate?.Invoke();
             }, CommandNames.AddElement, cancellationToken: cancellationToken);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -416,20 +446,40 @@ internal sealed partial class ElementAdderImpl : IElementAdder, IAsyncDisposable
         return result;
     }
 
-    // Moves elements that keep their arrangement to the free place nearest where they are, clear of the scene as it
-    // is now, earlier items of the batch included, so they can be added as they are. Throwing rolls the batch back.
-    private static void PlaceTogether(Scene scene, IReadOnlyList<Element> elements)
+    private static int FindFileImportAudioLayerDelta(Scene scene, IReadOnlyList<ElementAddItemResult> items, int firstAudio)
     {
-        GroupPlacement placement = ElementPlacementHelper.FindFreePlacement(scene, elements)
-            ?? throw new InvalidOperationException("No free place was found for elements that keep their arrangement.");
-        ElementPlacementHelper.MoveTogether(elements, placement.StartDelta, placement.LayerDelta);
+        int requestedLayer = items[firstAudio].Description.Layer;
+        int lastClipLayer = items.Take(firstAudio).SelectMany(item => item.Elements).Max(element => element.ZIndex.Value);
+        MediaTime start = items[firstAudio].Elements.Min(element => element.Start.Value);
+        MediaTime duration = MediaTime.Zero;
+        var offsets = new HashSet<int>();
+        foreach (ElementAddItemResult item in items.Skip(firstAudio).TakeWhile(item => item.Description.PlaceOnSeparateAudioTrack))
+        {
+            (TimeRange itemRange, _, _) = DuplicateHelper.ComputePlacementRange(item.Elements);
+            duration += itemRange.Duration;
+            foreach (Element element in item.Elements)
+            {
+                offsets.Add(element.ZIndex.Value - requestedLayer);
+            }
+        }
+
+        // Check the full sequence at the chosen start so later sound clips stay on the same track.
+        var range = new TimeRange(start, duration);
+        int layer = Math.Max(requestedLayer, checked(lastClipLayer + 1 - offsets.Min()));
+        while (offsets.Any(offset => scene.IsLayerLocked(checked(layer + offset))
+                                     || scene.ElementIndex.Overlaps(checked(layer + offset), range)))
+        {
+            layer = checked(layer + 1);
+        }
+
+        return layer - requestedLayer;
     }
 
-    // The first locked layer among a request's layers, which refuses it. A request that stacks above the scene counts
-    // past locked layers itself, so none refuses it.
+    // The first locked layer among a request's layers, which refuses it. Requests placed on free layers at commit
+    // time already avoid any locked destination.
     private static int? FindLockedTargetLayer(Scene scene, ElementDescription description, IEnumerable<int> layers)
     {
-        if (description.StacksAboveScene) return null;
+        if (description.StacksAboveScene || description.PlaceOnSeparateAudioTrack) return null;
 
         foreach (int layer in layers)
         {

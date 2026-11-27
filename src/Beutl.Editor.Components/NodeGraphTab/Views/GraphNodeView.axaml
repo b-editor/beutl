@@ -18,6 +18,7 @@
              Background="{DynamicResource SolidBackgroundFillColorSecondaryBrush}"
              BorderBrush="{DynamicResource ControlElevationBorderBrush}"
              BorderThickness="1"
+             Classes.expanded="{Binding IsExpanded.Value}"
              Classes.selected="{Binding IsSelected.Value}"
              ClipToBounds="False"
              controls:UiMotion.Slides="False"
@@ -38,6 +39,10 @@
         <Style Selector="views|GraphNodeView.custom-width TextBlock.node-label, views|GraphNodeView.custom-width :is(pe|PropertyEditor) /template/ TextBlock#PART_HeaderTextBlock">
             <Setter Property="TextWrapping" Value="Wrap" />
         </Style>
+        <!-- Consume wheel input at the text box's scroll limits so the graph keeps its current zoom. -->
+        <Style Selector=":is(TextBox)">
+            <Setter Property="ScrollViewer.IsScrollChainingEnabled" Value="False" />
+        </Style>
         <!-- A long script scrolls inside its field rather than stretching the node past the view. -->
         <Style Selector="pe|StringEditor.multiline /template/ TextBox#PART_InnerTextBox">
             <Setter Property="MaxHeight" Value="360" />
@@ -49,6 +54,13 @@
         <Style Selector="views|GraphNodeView.selected /template/ ContentPresenter#PART_ContentPresenter">
             <Setter Property="BorderBrush" Value="{DynamicResource FocusStrokeColorOuterBrush}" />
         </Style>
+        <!-- One pixel tighter than ControlCornerRadius, so the header and body sit flush inside the 1px node border. -->
+        <Style Selector="Border#handle">
+            <Setter Property="CornerRadius" Value="7" />
+        </Style>
+        <Style Selector="views|GraphNodeView.expanded Border#handle">
+            <Setter Property="CornerRadius" Value="7,7,0,0" />
+        </Style>
     </UserControl.Styles>
     <Grid RowDefinitions="Auto,Auto">
         <Border x:Name="handle"
@@ -56,14 +68,13 @@
                 AutomationProperties.HelpText="{Binding FallbackMessage}"
                 Padding="4"
                 Background="{Binding Color}"
-                CornerRadius="{DynamicResource ControlCornerRadius}"
                 Focusable="True"
                 ToolTip.Tip="{Binding NodeName.Value}">
             <Border.ContextFlyout>
                 <ui:FAMenuFlyout Opening="NodeMenuOpening">
-                    <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="NodeGraph.Delete"
+                    <ui:FAMenuFlyoutItem x:Name="DeleteItem"
+                                         usage:UsageTracking.Feature="NodeGraph.Delete"
                                          Command="{Binding Delete}"
-                                         InputGesture="Delete"
                                          Text="{x:Static lang:Strings.Delete}">
                         <ui:FAMenuFlyoutItem.IconSource>
                             <icons:FluentIconSource Icon="Delete" />
@@ -125,7 +136,7 @@
                     <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="NodeGraph.Rename"
                                          Click="RenameClick"
                                          IsEnabled="{Binding CanEdit.Value}"
-                                         Text="{x:Static lang:Strings.Rename}">
+                                         Text="{x:Static lang:Strings.RenameMenu}">
                         <ui:FAMenuFlyoutItem.IconSource>
                             <icons:FluentIconSource Icon="Rename" />
                         </ui:FAMenuFlyoutItem.IconSource>
@@ -134,10 +145,7 @@
                                          Text="{x:Static lang:CommandNames.ResetNodeSize}" />
                 </ui:FAMenuFlyout>
             </Border.ContextFlyout>
-            <Border.KeyBindings>
-                <KeyBinding Command="{Binding Delete}" Gesture="Delete" />
-            </Border.KeyBindings>
-            <Grid ColumnDefinitions="Auto,Auto,*,Auto">
+            <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto">
                 <ToggleButton x:Name="expandToggle"
                               Width="30"
                               Padding="5"
@@ -160,7 +168,21 @@
                            Text="{Binding NodeName.Value}"
                            TextTrimming="CharacterEllipsis" />
 
-                <Button Grid.Column="3"
+                <Button x:Name="editInFrameButton"
+                        Grid.Column="3"
+                        Padding="0"
+                        AutomationProperties.Name="{x:Static lang:Strings.EditInFrame}"
+                        Classes="size-24x24"
+                        Click="EditInFrameClick"
+                        IsEnabled="{Binding CanEdit.Value}"
+                        IsVisible="{Binding HasEditingStage}"
+                        Theme="{StaticResource TransparentButton}"
+                        ToolTip.Tip="{x:Static lang:Strings.EditInFrame}">
+                    <icons:FluentIcon Icon="MyLocation" />
+                </Button>
+
+                <Button x:Name="openGroupButton"
+                        Grid.Column="4"
                         usage:UsageTracking.Feature="NodeGraph.OpenNode"
                         Click="OpenNodeClick"
                         IsVisible="{Binding IsGroup}"
@@ -169,11 +191,13 @@
                 </Button>
             </Grid>
         </Border>
+        <!-- One pixel tighter than ControlCornerRadius, so the body sits flush inside the 1px node border. -->
         <Border x:Name="nodeContent"
                 Grid.Row="1"
                 Padding="0,0,0,8"
                 Background="{DynamicResource SolidBackgroundFillColorBaseBrush}"
-                ClipToBounds="False">
+                ClipToBounds="False"
+                CornerRadius="0,0,7,7">
             <StackPanel x:Name="stackPanel">
                 <StackPanel x:Name="fallbackMessage" Margin="8" IsVisible="{Binding IsFallback}" Spacing="8">
                     <TextBlock Text="{Binding FallbackMessage}" TextWrapping="Wrap" />

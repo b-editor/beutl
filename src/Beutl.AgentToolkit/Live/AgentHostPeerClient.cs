@@ -13,9 +13,12 @@ namespace Beutl.AgentToolkit.Live;
 // Talks to the Beutl processes of one profile: proves a process's identity with the shared live
 // MCP token before any credential is sent to its port, then forwards MCP calls over its loopback
 // endpoint. Shared by the in-process instance router and by the stdio live MCP broker.
-public sealed class AgentHostPeerClient(AgentHostInstanceRegistry registry, AgentHostInstanceAuthentication authentication)
+public sealed class AgentHostPeerClient(
+    AgentHostInstanceRegistry registry, AgentHostInstanceAuthentication authentication, Guid? agentThreadId = null)
 {
     public const string InstanceHeader = "X-Beutl-Instance-Id";
+    public const string AgentThreadHeader = "X-Beutl-Agent-Thread-Id";
+    public const string AgentThreadEnvironmentVariable = "BEUTL_AGENT_THREAD_ID";
     private static readonly TimeSpan s_connectionTimeout = TimeSpan.FromSeconds(2);
 
     public AgentHostInstanceRegistration? Find(string instanceId)
@@ -93,6 +96,8 @@ public sealed class AgentHostPeerClient(AgentHostInstanceRegistry registry, Agen
             timeout.CancelAfter(s_connectionTimeout);
             if (!await AuthenticateAsync(registration, http, timeout.Token).ConfigureAwait(false))
                 return LiveToolResults.InstanceUnavailable(instanceId);
+            if (agentThreadId is { } threadId)
+                http.DefaultRequestHeaders.Add(AgentThreadHeader, threadId.ToString("D"));
             await using McpClient client = await McpClient.CreateAsync(
                 transport, cancellationToken: timeout.Token).ConfigureAwait(false);
             await using IAsyncDisposable progress = client.RegisterNotificationHandler(

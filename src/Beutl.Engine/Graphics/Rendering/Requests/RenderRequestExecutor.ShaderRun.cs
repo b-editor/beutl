@@ -72,6 +72,7 @@ internal sealed partial class RenderRequestExecutor
                 outputBounds,
                 allowPreviewDrop: true,
                 initializeTarget: !ShouldMaterializeForSpirv(run));
+            output.TextPart = input.TextPart;
             bool succeeded = false;
             try
             {

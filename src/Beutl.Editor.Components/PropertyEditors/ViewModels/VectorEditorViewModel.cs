@@ -2,6 +2,7 @@
 using System.Runtime.CompilerServices;
 using Avalonia;
 using Beutl.Controls.PropertyEditors;
+using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.PropertyEditors;
 using Reactive.Bindings;
 
@@ -23,6 +24,9 @@ public class VectorEditorViewModel<TValue, TElement, TEdit>(
     protected override TValue ReplaceUnderExpression(TValue underlying, TValue shown, TValue input)
         => Beutl.Animation.ComponentAnimations.ReplaceEditedComponents(underlying, shown, input);
 
+    protected override TValue ReplaceUnderExpression(TValue underlying, TValue shown, TValue input, int editedComponents)
+        => Beutl.Animation.ComponentAnimations.ReplaceEditedComponents(underlying, input, editedComponents);
+
     public ReactivePropertySlim<bool> IsUniformEditorEnabled { get; } = new();
 
     protected override TEdit ToEdit(TValue value) => toEdit(value);
@@ -35,7 +39,10 @@ public class VectorEditorViewModel<TValue, TElement, TEdit>(
         if (Disposables.IsDisposed) return;
 
         if (visitor is VectorEditorBase vector)
+        {
             vector.HapticReferenceValues = GetDefaultValue() is TValue value && ToEdit(value) is ITuple tuple ? tuple : null;
+            DragSession.Connect(vector, this, EndValuePreview, CompleteElementRepair);
+        }
 
         switch (visitor)
         {

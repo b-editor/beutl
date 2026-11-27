@@ -50,6 +50,12 @@ internal static partial class FormatManifest
     // The projects under src/ that it leaves out, and why.
     public static readonly IReadOnlyDictionary<string, string> SkippedProjects = new Dictionary<string, string>
     {
+        ["Beutl.Agents"] =
+            "the external agent runtime, which stores JSONL threads and drafts in its own store rather than project files",
+        ["Beutl.Agents.NodeBridge"] =
+            "the Node.js bridge bundle for Beutl.Agents.Worker, with no C# serializable types",
+        ["Beutl.Agents.Worker"] =
+            "the out-of-process Node.js worker host for Beutl.Agents; it declares no serializable types",
         ["Beutl.AgentToolkit.Mcp"] =
             "the stdio MCP host of Beutl.AgentToolkit, which is read; it declares no serializable types and no store",
         ["Beutl.Analyzers"] = "a Roslyn analyzer, which runs in the compiler rather than in the app",
@@ -315,14 +321,12 @@ internal static partial class FormatManifest
         text.Section(
             "Keymap",
             "keymap.json: the id of every context command of every ViewExtension.");
-        var keymap = new List<string>();
-        foreach (ViewExtension extension in extensions.Values.OfType<ViewExtension>())
+        var keymap = extensions.Values.SelectMany(extension => extension switch
         {
-            foreach (ContextCommandDefinition definition in extension.ContextCommands)
-            {
-                keymap.Add(definition.Id);
-            }
-        }
+            ViewExtension view => view.ContextCommands,
+            ToolWindowExtension toolWindow => toolWindow.ContextCommands,
+            _ => [],
+        }).Select(definition => definition.Id);
 
         WriteLines(text, keymap);
 

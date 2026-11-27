@@ -5,11 +5,14 @@ using Avalonia.Platform.Storage;
 using Avalonia.VisualTree;
 using Beutl.Api.Services;
 using Beutl.Editor;
+using Beutl.Editor.Components;
 using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Components.VersionControl.Views;
 using Beutl.Editor.Services;
 using Beutl.Editor.VersionControl;
 using Beutl.Models;
+using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
@@ -25,6 +28,8 @@ namespace Beutl.Views;
 
 public partial class MainView
 {
+    private readonly CaptionTemplateChooser _captionTemplateChooser = new();
+
     private void InitializeCommands(MainViewModel viewModel)
     {
         viewModel.VersionControlCoordinator.RequestIdentityAsync = RequestGitIdentityAsync;
@@ -38,7 +43,22 @@ public partial class MainView
         }).AddTo(_disposables);
 
         viewModel.MenuBar.OpenProject.Subscribe(OnOpenProject).AddTo(_disposables);
+        viewModel.MenuBar.CloneRepository.Subscribe(async () =>
+        {
+            if (TopLevel.GetTopLevel(this) is not Window owner)
+                return;
+            try
+            {
+                await viewModel.RepositoryClone.OpenAsync(owner);
+            }
+            catch (Exception ex)
+            {
+                await ex.Handle(Notifications);
+            }
+        }).AddTo(_disposables);
         viewModel.MenuBar.OpenFile.Subscribe(OnOpenFile).AddTo(_disposables);
+        viewModel.MenuBar.ImportMedia.Subscribe(OnImportMedia).AddTo(_disposables);
+        viewModel.MenuBar.ExportSubtitles.Subscribe(OnExportSubtitles).AddTo(_disposables);
         viewModel.MenuBar.EnableVersionControl.Subscribe(
             () => EnableVersionControlAsync(viewModel)).AddTo(_disposables);
         viewModel.MenuBar.CommitVersion.Subscribe(
@@ -78,13 +98,6 @@ public partial class MainView
         viewModel.MenuBar.MinimizeWindow.Subscribe(MinimizeWindow).AddTo(_disposables);
         viewModel.MenuBar.ZoomWindow.Subscribe(ToggleZoom).AddTo(_disposables);
         viewModel.MenuBar.ToggleFullScreen.Subscribe(ToggleFullScreen).AddTo(_disposables);
-
-        viewModel.MenuBar.ShowAiJobs.Subscribe(viewModel.OpenAiJobCenter).AddTo(_disposables);
-        viewModel.MenuBar.GenerateImage.Subscribe(viewModel.OpenAiImageGeneration).AddTo(_disposables);
-        viewModel.MenuBar.GenerateSubtitles.Subscribe(() => viewModel.OpenAiSubtitle()).AddTo(_disposables);
-        viewModel.MenuBar.EditImage.Subscribe(viewModel.OpenAiImageEdit).AddTo(_disposables);
-        viewModel.MenuBar.GenerateVideo.Subscribe(viewModel.OpenAiVideoGeneration).AddTo(_disposables);
-        viewModel.MenuBar.EditVideo.Subscribe(viewModel.OpenAiVideoEditing).AddTo(_disposables);
     }
 
     private async Task EnableVersionControlAsync(MainViewModel viewModel)
@@ -189,7 +202,21 @@ public partial class MainView
             {
                 try
                 {
-                    ProjectPersistence.RemoveItemAndPersist(project, projItem);
+                    if (projItem is Scene scene)
+                    {
+                        SceneRemovalResult result = await mv.EditorService.RemoveSceneFromProjectAsync(
+                            mv.ProjectService, project, scene, CancellationToken.None);
+                        if (result is SceneRemovalResult.LastScene or SceneRemovalResult.UnsavedChanges)
+                        {
+                            Notifications.ShowWarning(Strings.RemoveFromProjectMenu, result == SceneRemovalResult.LastScene
+                                ? MessageStrings.CannotRemoveLastScene
+                                : MessageStrings.SaveSceneBeforeRemoving);
+                        }
+                    }
+                    else
+                    {
+                        ProjectPersistence.RemoveItemAndPersist(project, projItem);
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -222,6 +249,39 @@ public partial class MainView
             {
                 viewModel.MenuBar.OpenFileCore(path);
             }
+        }
+    }
+
+    private async Task OnImportMedia()
+    {
+        if (TopLevel.GetTopLevel(this) is not Window window
+            || DataContext is not MainViewModel viewModel
+            || viewModel.EditorService.SelectedTabItem.Value?.Context.Value is not EditViewModel { IsEnabled.Value: true } editor) // Suspended editors take no edits, as with drag and drop.
+        {
+            return;
+        }
+
+        try
+        {
+            IReadOnlyList<IStorageFile> files = await window.StorageProvider.OpenFilePickerAsync(
+                new FilePickerOpenOptions { AllowMultiple = true });
+            using IDisposable fileOwnership = SharedFilePickerOptions.OwnStorageFiles(files);
+            // A scene can be closed or switched, or its editor suspended by a pull, while the picker is open.
+            if (DataContext != viewModel || TopLevel.GetTopLevel(this) != window
+                || viewModel.EditorService.SelectedTabItem.Value?.Context.Value != editor || !editor.IsEnabled.Value
+                || SceneFileDrop.GetLocalPaths(files) is not { Length: > 0 } paths)
+            {
+                return;
+            }
+
+            Scene scene = editor.Scene;
+            (MediaTime start, int layer) = PlayheadPlacement.Find(editor, scene);
+            await SceneFileDrop.AddAsync(editor, scene, paths, start, layer, this, _captionTemplateChooser,
+                editor.FindToolTab<TimelineTabViewModel>());
+        }
+        catch (Exception ex)
+        {
+            await ex.Handle(Notifications);
         }
     }
 

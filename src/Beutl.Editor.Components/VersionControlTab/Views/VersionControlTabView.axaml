@@ -224,36 +224,53 @@
                                          Command="{Binding InvokePrimaryActionCommand}"
                                          Content="{Binding PrimaryAction.Value.Label}">
                                 <SplitButton.Flyout>
-                                    <MenuFlyout Placement="Pointer">
-                                        <MenuItem x:Name="CommitMenuItem"
-                                                  usage:UsageTracking.Feature="VersionControl.CommitCommand"
-                                                  Command="{Binding CommitCommand}"
-                                                  Header="{x:Static lang:Strings.VersionControl_CommitNow}" />
-                                        <MenuItem x:Name="PushMenuItem"
-                                                  usage:UsageTracking.Feature="VersionControl.PushCommand"
-                                                  Command="{Binding PushCommand}"
-                                                  Header="{x:Static lang:Strings.VersionControl_Push}" />
-                                        <MenuItem x:Name="PullMenuItem"
-                                                  usage:UsageTracking.Feature="VersionControl.PullCommand"
-                                                  Command="{Binding PullCommand}"
-                                                  Header="{x:Static lang:Strings.VersionControl_Pull}" />
-                                        <MenuItem x:Name="SetRemoteMenuItem"
-                                                  usage:UsageTracking.Feature="VersionControl.SetRemoteCommand"
-                                                  Command="{Binding SetRemoteCommand}"
-                                                  Header="{x:Static lang:Strings.VersionControl_SetRemote}" />
-                                        <MenuItem x:Name="CancelRemoteOperationMenuItem"
-                                                  usage:UsageTracking.Feature="VersionControl.CancelRemoteOperationCommand"
-                                                  Command="{Binding CancelRemoteOperationCommand}"
-                                                  Header="{x:Static lang:Strings.Cancel}"
-                                                  IsVisible="{Binding IsRemoteOperationRunning.Value}" />
-                                    </MenuFlyout>
+                                    <ui:FAMenuFlyout Placement="Pointer">
+                                        <ui:FAMenuFlyoutItem x:Name="CommitMenuItem"
+                                                             usage:UsageTracking.Feature="VersionControl.CommitCommand"
+                                                             Command="{Binding CommitCommand}"
+                                                             Text="{x:Static lang:Strings.VersionControl_CommitNow}" />
+                                        <ui:FAMenuFlyoutItem x:Name="PushMenuItem"
+                                                             usage:UsageTracking.Feature="VersionControl.PushCommand"
+                                                             Command="{Binding PushCommand}"
+                                                             Text="{x:Static lang:Strings.VersionControl_Push}" />
+                                        <ui:FAMenuFlyoutItem x:Name="PullMenuItem"
+                                                             usage:UsageTracking.Feature="VersionControl.PullCommand"
+                                                             Command="{Binding PullCommand}"
+                                                             Text="{x:Static lang:Strings.VersionControl_Pull}" />
+                                        <ui:FAMenuFlyoutItem x:Name="SetRemoteMenuItem"
+                                                             usage:UsageTracking.Feature="VersionControl.SetRemoteCommand"
+                                                             Command="{Binding SetRemoteCommand}"
+                                                             Text="{x:Static lang:Strings.VersionControl_SetRemote}" />
+                                        <ui:FAMenuFlyoutItem Command="{Binding OpenOnWebCommand}"
+                                                             IsVisible="{Binding IsHostedGitRemote.Value}"
+                                                             Text="{x:Static lang:Strings.HostedGit_OpenOnWeb}" />
+                                        <ui:FAMenuFlyoutItem x:Name="CancelRemoteOperationMenuItem"
+                                                             usage:UsageTracking.Feature="VersionControl.CancelRemoteOperationCommand"
+                                                             Command="{Binding CancelRemoteOperationCommand}"
+                                                             IsVisible="{Binding IsRemoteOperationRunning.Value}"
+                                                             Text="{x:Static lang:Strings.Cancel}" />
+                                    </ui:FAMenuFlyout>
                                 </SplitButton.Flyout>
                             </SplitButton>
-                            <TextBlock Grid.Row="2"
-                                       Classes="secondary"
-                                       IsVisible="{Binding IsRemoteOperationRunning.Value}"
-                                       Text="{Binding RemoteProgress.Value}"
-                                       TextTrimming="CharacterEllipsis" />
+                            <StackPanel Grid.Row="2"
+                                        IsVisible="{Binding IsRemoteOperationRunning.Value}"
+                                        Spacing="4">
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                    <TextBlock x:Name="RemoteProgressText"
+                                               Classes="secondary"
+                                               Text="{Binding RemoteProgress.Value.Text}" />
+                                    <TextBlock Grid.Column="1"
+                                               Classes="secondary"
+                                               IsVisible="{Binding !RemoteProgress.Value.IsIndeterminate}"
+                                               Text="{Binding RemoteProgress.Value.Percentage, StringFormat='{}{0}%'}" />
+                                </Grid>
+                                <ProgressBar x:Name="RemoteProgressBar"
+                                             Height="4"
+                                             AutomationProperties.Name="{Binding RemoteProgress.Value.Text}"
+                                             IsIndeterminate="{Binding RemoteProgress.Value.IsIndeterminate}"
+                                             Maximum="100"
+                                             Value="{Binding RemoteProgress.Value.ProgressBarValue}" />
+                            </StackPanel>
                         </Grid>
 
                         <GridSplitter Grid.Column="1"

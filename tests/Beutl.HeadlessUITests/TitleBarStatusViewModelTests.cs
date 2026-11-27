@@ -74,7 +74,6 @@ public sealed class TitleBarStatusViewModelTests
 
         update.Value = new AppUpdateStatus("Downloading", IsBusy: true);
         Dispatcher.UIThread.RunJobs();
-        Assert.That(status.IsBusy.Value, Is.True);
         Assert.That(status.Activities.Value, Is.EqualTo(TitleBarActivities.Update));
         Assert.That(status.AppUpdate.Value.Text, Is.EqualTo("Downloading"));
         Assert.That(status.UpdateProgress.Value, Is.Null);
@@ -92,7 +91,6 @@ public sealed class TitleBarStatusViewModelTests
 
         update.Value = new AppUpdateStatus("Ready", IsBusy: false, Progress: 1);
         Dispatcher.UIThread.RunJobs();
-        Assert.That(status.IsBusy.Value, Is.False);
         Assert.That(status.Activities.Value, Is.EqualTo(TitleBarActivities.None));
         Assert.That(status.UpdateProgress.Value, Is.Null);
         Assert.That(status.IsUpdateInstalling.Value, Is.False);
@@ -121,7 +119,7 @@ public sealed class TitleBarStatusViewModelTests
         Dispatcher.UIThread.RunJobs();
         Assert.Multiple(() =>
         {
-            Assert.That(status.IsBusy.Value, Is.False);
+            Assert.That(status.Activities.Value, Is.EqualTo(TitleBarActivities.None));
             Assert.That(status.ToolTip.Value, Is.EqualTo(StatusStrings.Title));
             Assert.That(status.AccountText.Value, Is.EqualTo(StatusStrings.NotSignedIn));
         });
@@ -130,7 +128,6 @@ public sealed class TitleBarStatusViewModelTests
         Dispatcher.UIThread.RunJobs();
         Assert.Multiple(() =>
         {
-            Assert.That(status.IsBusy.Value, Is.True);
             Assert.That(status.Activities.Value, Is.EqualTo(TitleBarActivities.Startup));
             Assert.That(status.StartupText.Value, Is.EqualTo(StatusStrings.Running));
             Assert.That(status.ToolTip.Value, Does.Contain(Strings.RunningStartupTasks));
@@ -143,7 +140,6 @@ public sealed class TitleBarStatusViewModelTests
             Dispatcher.UIThread.RunJobs();
             Assert.Multiple(() =>
             {
-                Assert.That(status.IsBusy.Value, Is.True);
                 Assert.That(status.Activities.Value, Is.EqualTo(TitleBarActivities.Output));
                 Assert.That(status.StartupText.Value, Is.EqualTo(StatusStrings.Done));
                 Assert.That(status.RunningOutputs.Value, Is.EqualTo(new[] { "intro.scene - Default" }));
@@ -153,7 +149,7 @@ public sealed class TitleBarStatusViewModelTests
         Dispatcher.UIThread.RunJobs();
         Assert.Multiple(() =>
         {
-            Assert.That(status.IsBusy.Value, Is.False);
+            Assert.That(status.Activities.Value, Is.EqualTo(TitleBarActivities.None));
             Assert.That(status.HasRunningOutputs.Value, Is.False);
         });
 
@@ -163,9 +159,51 @@ public sealed class TitleBarStatusViewModelTests
         Assert.Multiple(() =>
         {
             Assert.That(status.RunningAiJobCount.Value, Is.EqualTo(1));
-            Assert.That(status.IsBusy.Value, Is.True);
             Assert.That(status.Activities.Value, Is.EqualTo(TitleBarActivities.AiJob));
             Assert.That(status.AiJobsText.Value, Is.EqualTo(string.Format(StatusStrings.RunningCount, 1)));
+        });
+    }
+
+    [AvaloniaTest]
+    public async Task Busy_uses_ai_activity_indicator_while_agents_are_running()
+    {
+        var runningAgents = new ReactivePropertySlim<int>(0);
+        var editorService = new EditorService(new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), (_, _) => { }, TestShell.CreateEditorServices().Add<Beutl.Configuration.GlobalConfiguration>(() => TestShell.Configuration));
+        await using var endpoint = new AgentHostEndpoint(
+            new ProjectService(new Beutl.Configuration.ViewConfig(), TestShell.FontManager, TestShell.Notifications), editorService, UnavailableAgentAiBackend.Instance, AgentHostEndpoint.DefaultPort, "test-token");
+        using var status = new TitleBarStatusViewModel(
+            Observable.Return(false),
+            editorService,
+            endpoint,
+            Observable.Return<AuthenticatedUser?>(null),
+            Observable.Return(AiJobMonitorSnapshot.Empty),
+            CreateJobKinds(),
+            () => { },
+            runningAgentCount: runningAgents);
+        Dispatcher.UIThread.RunJobs();
+        Assert.Multiple(() =>
+        {
+            Assert.That(status.Activities.Value, Is.EqualTo(TitleBarActivities.None));
+            Assert.That(status.AgentsText.Value, Is.EqualTo(StatusStrings.None));
+        });
+
+        runningAgents.Value = 2;
+        Dispatcher.UIThread.RunJobs();
+        Assert.Multiple(() =>
+        {
+            Assert.That(status.RunningAgentCount.Value, Is.EqualTo(2));
+            Assert.That(status.Activities.Value, Is.EqualTo(TitleBarActivities.AiJob));
+            Assert.That(status.AgentsText.Value, Is.EqualTo(string.Format(StatusStrings.RunningCount, 2)));
+            Assert.That(status.ToolTip.Value, Does.Contain(AgentStrings.Title));
+        });
+
+        runningAgents.Value = 0;
+        Dispatcher.UIThread.RunJobs();
+        Assert.Multiple(() =>
+        {
+            Assert.That(status.Activities.Value, Is.EqualTo(TitleBarActivities.None));
+            Assert.That(status.AgentsText.Value, Is.EqualTo(StatusStrings.None));
+            Assert.That(status.ToolTip.Value, Is.EqualTo(StatusStrings.Title));
         });
     }
 

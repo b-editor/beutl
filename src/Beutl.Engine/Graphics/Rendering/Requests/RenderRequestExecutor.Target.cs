@@ -18,7 +18,7 @@ internal sealed partial class RenderRequestExecutor
         {
             var payload = (TargetCommandRenderFragmentPayload)fragment.Payload!;
             TargetCommandDescription description = payload.Description;
-            var values = new List<MaterializedRenderValue>();
+            var values = new EffectRenderValues();
             var inputReadbacks = new List<bool>();
             var inputRanges = new List<RenderExecutionInputRange>(fragment.Inputs.Length);
             for (int inputIndex = 0; inputIndex < fragment.Inputs.Length; inputIndex++)
@@ -31,11 +31,9 @@ internal sealed partial class RenderRequestExecutor
                     fragment.Inputs[inputIndex].ValueCardinality,
                     inputValues.Count);
                 inputRanges.Add(new RenderExecutionInputRange(values.Count, inputValues.Count));
+                values.Append(inputValues);
                 for (int valueIndex = 0; valueIndex < inputValues.Count; valueIndex++)
-                {
-                    values.Add(inputValues[valueIndex]);
                     inputReadbacks.Add(readback.RequiresValue(valueIndex));
-                }
             }
 
             var images = new List<SurfaceSnapshot.Lease>(values.Count);
@@ -86,7 +84,8 @@ internal sealed partial class RenderRequestExecutor
                             description.Access == TargetAccess.Readback
                                 ? () => TakeTargetSnapshot(ref targetSnapshot)
                                 : null,
-                            (program, policy) => ExecuteTargetFilterEffects(program, policy, values, destination, requiredRegion));
+                            (program, policy) => ExecuteTargetFilterEffects(
+                                fragment, program, policy, values, inputRanges, destination, requiredRegion));
                         if (description.Access == TargetAccess.Readback)
                         {
                             RecordSynchronization();
@@ -134,7 +133,8 @@ internal sealed partial class RenderRequestExecutor
         private void ExecuteTargetScope(
             RenderFragmentReference fragment,
             ImmediateCanvas destination,
-            EffectiveScale callerScale)
+            EffectiveScale callerScale,
+            MaterializedRenderValue? part = null)
         {
             TargetScopeDescription description =
                 ((TargetScopeRenderFragmentPayload)fragment.Payload!).Description;
@@ -168,7 +168,13 @@ internal sealed partial class RenderRequestExecutor
                         _options.Purpose,
                         callbackCanvas,
                         description.Resources,
-                        canvas => Replay(input, canvas, inputCallerScale));
+                        canvas =>
+                        {
+                            if (part is null)
+                                Replay(input, canvas, inputCallerScale);
+                            else
+                                DrawValue(part, canvas);
+                        });
                     description.Execute(session);
                     session.ValidateCompletion();
                 });
@@ -179,12 +185,8 @@ internal sealed partial class RenderRequestExecutor
             ImmediateCanvas currentTarget,
             EffectiveScale? requestedScale)
         {
-            if (fragment.Inputs.Length != 1
-                || !fragment.ValueCardinality.Equals(RenderValueCardinality.Single))
-            {
-                throw new InvalidOperationException(
-                    "A value replay map requires exactly one single-value input stream.");
-            }
+            if (fragment.Inputs.Length != 1)
+                throw new InvalidOperationException("A value replay map requires one input stream.");
 
             Rect requiredRegion = ResolveFragmentRequirement(fragment, fragment.Bounds);
             if (requiredRegion.Width == 0 || requiredRegion.Height == 0)
@@ -206,6 +208,9 @@ internal sealed partial class RenderRequestExecutor
                     requiresRasterApron: true)
                 .Value;
             EffectiveScale scale = EffectiveScale.At(density);
+            if (!fragment.ValueCardinality.Equals(RenderValueCardinality.Single))
+                return MaterializeValueReplayParts(fragment, currentTarget, scale, requestedScale ?? scale, requiredRegion);
+
             PixelRect deviceBounds = RenderScaleUtilities.AddRasterApron(
                 PixelRect.FromRect(requiredRegion, density));
             MaterializedRenderValue output = CreateOwnedValue(
@@ -214,6 +219,7 @@ internal sealed partial class RenderRequestExecutor
                 fragment.Bounds,
                 deviceBounds,
                 allowPreviewDrop: _previewDropEligibleMaterializations.Contains(fragment));
+            output.TextPart = GetReplayTextPart(fragment.Inputs[0]);
             bool succeeded = false;
             try
             {
@@ -231,6 +237,57 @@ internal sealed partial class RenderRequestExecutor
             {
                 if (!succeeded)
                     ReleaseUnpublished(output);
+            }
+        }
+
+        private IReadOnlyList<MaterializedRenderValue> MaterializeValueReplayParts(
+            RenderFragmentReference fragment, ImmediateCanvas currentTarget, EffectiveScale scale,
+            EffectiveScale callerScale, Rect requiredRegion)
+        {
+            // A drawable transform wraps the stream from its child's filter. Replay each part
+            // into its own value so the parent's effects still see that stream in paint order.
+            var description = ((TargetScopeRenderFragmentPayload)fragment.Payload!).Description;
+            RenderFragmentReference source = fragment.Inputs[0];
+            EffectiveScale inputDemand = ResolveScopeInputCallerScale(description.Scale, callerScale);
+            IReadOnlyList<MaterializedRenderValue> inputs = Materialize(
+                source, currentTarget, source.EffectiveScale.IsUnbounded ? inputDemand : null);
+            IReadOnlyList<ClippedTextOccurrence> clipped = EffectRenderValues.GetClippedText(inputs);
+            var results = new EffectRenderValues(inputs.Count);
+            try
+            {
+                int nextClipped = 0;
+                for (int i = 0; i < inputs.Count; i++)
+                {
+                    results.CopyClippedTextAt(clipped, i, ref nextClipped);
+                    MaterializedRenderValue input = inputs[i];
+                    Rect bounds = description.Bounds.TransformBounds(input.CompleteBounds);
+                    Rect selected = bounds.Intersect(requiredRegion);
+                    if (selected.IsEmpty)
+                        continue;
+
+                    PixelRect deviceBounds = RenderScaleUtilities.AddRasterApron(PixelRect.FromRect(selected, scale.Value));
+                    MaterializedRenderValue output = CreateOwnedValue(
+                        selected, scale, bounds, deviceBounds,
+                        allowPreviewDrop: _previewDropEligibleMaterializations.Contains(fragment));
+                    output.TextPart = input.TextPart;
+                    results.Add(output);
+                    using var canvas = CreateValueCanvas(output);
+                    using (canvas.PushTransform(output.RasterAlignmentTransform))
+                        ExecuteTargetScope(fragment, canvas, callerScale, input);
+                }
+
+                results.CopyClippedTextAt(clipped, inputs.Count, ref nextClipped);
+                return results;
+            }
+            catch
+            {
+                foreach (MaterializedRenderValue value in results)
+                    ReleaseUnpublished(value);
+                throw;
+            }
+            finally
+            {
+                CompleteFragmentUse(source);
             }
         }
 
@@ -505,6 +562,7 @@ internal sealed partial class RenderRequestExecutor
                 scale,
                 deviceGridOffset,
                 allowPreviewDrop: _previewDropEligibleMaterializations.Contains(fragment));
+            value.TextPart = GetReplayTextPart(fragment);
             bool succeeded = false;
             try
             {

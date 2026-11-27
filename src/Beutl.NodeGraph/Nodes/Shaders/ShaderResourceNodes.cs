@@ -248,7 +248,7 @@ internal static class ShaderImageContents
 internal static class ShaderPictureWires
 {
     /// <summary>Takes a picture as an image the recording reads it into.</summary>
-    public static void AcceptPicture(this ItemValue<ShaderGraphValue<ShaderImage>> itemValue)
+    public static void AcceptPicture(this ItemValue<ShaderGraphValue<ShaderImage>?> itemValue)
     {
         itemValue.RegisterReceiver((source, out value) =>
         {

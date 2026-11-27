@@ -21,7 +21,10 @@ public sealed record SceneCreateOptions(
     int Height,
     TimeSpan Start,
     TimeSpan Duration,
-    string? Name = null);
+    string? Name = null,
+    Rational? FrameRate = null,
+    int? SampleRate = null,
+    SpeakerLayout? ChannelLayout = null);
 
 public sealed record ProjectUriState(
     Uri? ProjectUri,
@@ -46,15 +49,15 @@ public static class ProjectOperations
         var scene = new Scene(options.Width, options.Height, projectName)
         {
             Uri = CreateFileUri(scenePath),
-            Duration = { Value = MediaTime.FromTimeSpan(options.Duration) }
+            Duration = { Value = MediaTime.FromTimeSpan(options.Duration) },
+            FrameRate = { Value = options.FrameRate },
+            SampleRate = { Value = options.SampleRate },
         };
 
         var project = new Project
         {
             Uri = CreateFileUri(projectPath),
             Items = { scene },
-            FrameRate = { Value = options.FrameRate },
-            SampleRate = { Value = options.SampleRate },
         };
 
         return project;
@@ -78,11 +81,30 @@ public static class ProjectOperations
         {
             Uri = DeriveUniqueSceneUri(project, projectDirectory, sceneName, exclude: null),
             Start = { Value = MediaTime.FromTimeSpan(options.Start) },
-            Duration = { Value = MediaTime.FromTimeSpan(options.Duration) }
+            Duration = { Value = MediaTime.FromTimeSpan(options.Duration) },
         };
+        if (options.FrameRate is { } frameRate)
+            scene.FrameRate.Value = frameRate;
+        if (options.SampleRate is { } sampleRate)
+            scene.SampleRate.Value = sampleRate;
+        if (options.ChannelLayout is { } channelLayout)
+            scene.ChannelLayout.Value = channelLayout;
 
         project.Items.Add(scene);
         return scene;
+    }
+
+    internal static Scene FindScene(Project project, Guid id)
+    {
+        Scene[] matches = project.Items.OfType<Scene>().Where(scene => scene.Id.Value == id).Take(2).ToArray();
+        return matches.Length switch
+        {
+            1 => matches[0],
+            0 => throw new ReconcileException(new ToolError(
+                ErrorCode.StaleHandle, "The scene is not in the project.", id.ToString())),
+            _ => throw new ReconcileException(new ToolError(
+                ErrorCode.ValidationRejected, "More than one scene in the project has this ID.", id.ToString()))
+        };
     }
 
     // Save mutates the open graph BEFORE the fallible project write (rehoming out-of-project

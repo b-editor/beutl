@@ -6,6 +6,18 @@ using Beutl.ProjectSystem;
 
 namespace Beutl.Editor.Services;
 
+internal enum NodeConnectionRejection
+{
+    None,
+    SameDirection,
+    InputOccupied,
+    InputLocked,
+    WouldCloseCycle,
+    NotDynamicPortNode,
+    WrongSide,
+    NoPortType
+}
+
 public sealed class NodeGraphMutationService : INodeGraphMutationService
 {
     private readonly HistoryManager _historyManager;
@@ -40,7 +52,7 @@ public sealed class NodeGraphMutationService : INodeGraphMutationService
             || existingPort.FindHierarchicalParent<GraphNode>() is not { } existingNode
             || existingNode.FindHierarchicalParent<GraphModel>() != graph
             || newPort != null && newPort.FindHierarchicalParent<GraphNode>() != node
-            || existingPort is IInputPort { Connection.Value.IsNull: false } and not IListInputPort)
+            || existingPort is IInputPort input && IsOccupied(input))
             return false;
 
         try
@@ -81,10 +93,28 @@ public sealed class NodeGraphMutationService : INodeGraphMutationService
         Element? element = graph.FindHierarchicalParent<Element>();
         if (!ElementEditability.CanRepair(element, node)) return;
 
-        RemoveNodeCore(graph, node);
-        if (element != null) ElementRecoveryService.TryCompleteRepair(element, _historyManager);
+        RemoveNodesCore(graph, [node], element);
 
         _historyManager.Commit(CommandNames.RemoveNode);
+    }
+
+    public void RemoveNode(GraphModel graph, IReadOnlyList<GraphNode> nodes)
+    {
+        ArgumentNullException.ThrowIfNull(graph);
+        ArgumentNullException.ThrowIfNull(nodes);
+        Element? element = graph.FindHierarchicalParent<Element>();
+        GraphNode[] removable = [.. nodes.Distinct()
+            .Where(node => graph.Nodes.Contains(node) && ElementEditability.CanRepair(element, node))];
+        if (removable.Length == 0) return;
+
+        _historyManager.ExecuteInTransaction(() => RemoveNodesCore(graph, removable, element), CommandNames.RemoveNode);
+    }
+
+    private void RemoveNodesCore(GraphModel graph, IReadOnlyList<GraphNode> nodes, Element? element)
+    {
+        foreach (GraphNode node in nodes)
+            RemoveNodeCore(graph, node);
+        if (element != null) ElementRecoveryService.TryCompleteRepair(element, _historyManager);
     }
 
     // Severs every connection of the node, then removes it, without committing.
@@ -92,25 +122,15 @@ public sealed class NodeGraphMutationService : INodeGraphMutationService
     {
         // Snapshot touching connections first so disconnect calls don't
         // invalidate the iteration.
-        Connection[] touching = node.EnumerateMembers()
-            .SelectMany<INodeMember, Reference<Connection>>(i => i switch
-            {
-                IOutputPort output => output.Connections,
-                IListPort list => list.Connections,
-                IInputPort { Connection.Value: var connection } => [connection],
-                _ => [],
-            })
-            .Select(conn => graph.AllConnections.FirstOrDefault(a => a.Id.Value == conn.Id))
-            .Where(a => a is not null)
-            // A connection a node makes to itself is listed by both of its ports.
-            .Distinct()
-            .ToArray()!;
-        // A missing plugin's node has no ports; its connections name the ports it was saved with.
-        if (node is FallbackGraphNode fallback)
-        {
-            HashSet<Guid> ports = [.. fallback.SavedPortIds()];
-            touching = [.. graph.AllConnections.Where(c => ports.Contains(c.Input.Value.Id) || ports.Contains(c.Output.Value.Id))];
-        }
+        Connection[] touching = node is FallbackGraphNode fallback
+            ? [.. graph.AllConnections.Where(c => graph.FindSavedFallbackPort(c, input: true)?.Node == fallback
+                || graph.FindSavedFallbackPort(c, input: false)?.Node == fallback)]
+            : [.. node.EnumerateMembers()
+                .SelectMany(GraphModel.GetPortConnections)
+                .Select(conn => graph.AllConnections.FirstOrDefault(a => a.Id.Value == conn.Id))
+                .OfType<Connection>()
+                // A connection a node makes to itself is listed by both of its ports.
+                .Distinct()];
 
         foreach (Connection connection in touching)
         {
@@ -240,14 +260,31 @@ public sealed class NodeGraphMutationService : INodeGraphMutationService
 
     // A dynamic-port node adds a port on the side it offers, for a mate on the opposite side.
     private static bool CanAddPort(GraphModel graph, GraphNode node, INodePort mate)
-        => node is IDynamicPortNode dynamicNode && mate.AssociatedType != null
-            && !WouldNewPortCloseCycle(graph, node, mate)
-            && mate switch
-            {
-                IInputPort input => dynamicNode.PossibleLocation.HasFlag(NodePortLocation.Right) && CanAcceptConnection(input),
-                IOutputPort => dynamicNode.PossibleLocation.HasFlag(NodePortLocation.Left),
-                _ => false,
-            };
+        => CheckAddPort(graph, node, mate, grownOnOutputSide: mate is IInputPort) == NodeConnectionRejection.None;
+
+    internal static NodeConnectionRejection CheckAddPort(GraphModel graph, GraphNode node, INodePort mate, bool grownOnOutputSide)
+    {
+        if (node is not IDynamicPortNode dynamicNode)
+            return NodeConnectionRejection.NotDynamicPortNode;
+        if (grownOnOutputSide ? mate is not IInputPort : mate is not IOutputPort)
+            return NodeConnectionRejection.SameDirection;
+
+        NodePortLocation side = grownOnOutputSide ? NodePortLocation.Right : NodePortLocation.Left;
+        if (!dynamicNode.PossibleLocation.HasFlag(side))
+            return NodeConnectionRejection.WrongSide;
+        if (mate.AssociatedType is null)
+            return NodeConnectionRejection.NoPortType;
+
+        if (mate is IInputPort input)
+        {
+            NodeConnectionRejection rejection = CheckInput(input);
+            if (rejection != NodeConnectionRejection.None) return rejection;
+        }
+
+        return WouldNewPortCloseCycle(graph, node, mate)
+            ? NodeConnectionRejection.WouldCloseCycle
+            : NodeConnectionRejection.None;
+    }
 
     public NodeConnectOutcome TryConnect(GraphModel graph,
         GraphNode node1, INodePort? port1,
@@ -268,41 +305,17 @@ public sealed class NodeGraphMutationService : INodeGraphMutationService
         GraphNode node1, INodePort? port1,
         GraphNode node2, INodePort? port2)
     {
-        // Case 1: one side unset, the other a dynamic-port node — materialize
-        // a new port on that node.
-        if (port1 is null ^ port2 is null)
+        if (port1 is null || port2 is null)
         {
-            IDynamicPortNode? dynamicNode = null;
-            INodePort? mate = null;
-            if (port1 is null && node1 is IDynamicPortNode d1)
-            {
-                dynamicNode = d1;
-                mate = port2;
-            }
-            else if (port2 is null && node2 is IDynamicPortNode d2)
-            {
-                dynamicNode = d2;
-                mate = port1;
-            }
-
-            if (mate is IInputPort nestedInput && !CanAcceptConnection(nestedInput))
-            {
-                return NodeConnectOutcome.None;
-            }
-
-            if (dynamicNode is not null && mate is not null
-                && !WouldNewPortCloseCycle(graph, port1 is null ? node1 : node2, mate)
-                && dynamicNode.AddNodePort(mate, out _))
-            {
-                return NodeConnectOutcome.PortAdded;
-            }
-
-            return NodeConnectOutcome.None;
+            GraphNode node = port1 is null ? node1 : node2;
+            INodePort? mate = port1 ?? port2;
+            return mate is not null && CanAddPort(graph, node, mate)
+                && ((IDynamicPortNode)node).AddNodePort(mate, out _)
+                ? NodeConnectOutcome.PortAdded
+                : NodeConnectOutcome.None;
         }
 
-        // Case 2: both ports are present — connect if direction-compatible.
-        if (port1 is not null && port2 is not null
-            && TryGetConnectablePorts(graph, port1, port2, out IInputPort? input, out IOutputPort? output))
+        if (TryGetConnectablePorts(graph, port1, port2, out IInputPort? input, out IOutputPort? output))
         {
             graph.Connect(input, output);
             return NodeConnectOutcome.Connected;
@@ -313,19 +326,35 @@ public sealed class NodeGraphMutationService : INodeGraphMutationService
 
     private static bool TryGetConnectablePorts(GraphModel graph, INodePort a, INodePort b,
         [NotNullWhen(true)] out IInputPort? input, [NotNullWhen(true)] out IOutputPort? output)
-        => SortPortDirection(a, b, out input, out output)
-           && CanAcceptConnection(input)
-           && !WouldCloseCycle(graph, input, output);
+        => CheckConnect(graph, a, b, out input, out output) == NodeConnectionRejection.None
+           && input is not null && output is not null;
 
-    internal static bool CanAcceptConnection(IInputPort input)
+    internal static NodeConnectionRejection CheckConnect(GraphModel graph, INodePort a, INodePort b,
+        out IInputPort? input, out IOutputPort? output)
     {
-        if (input is not IListInputPort && !input.Connection.Value.IsNull)
-            return false;
-        return input.FindHierarchicalParent<GraphNode>() is not { } owner || owner.CanConnectInput(input);
+        if (!SortPortDirection(a, b, out input, out output))
+            return NodeConnectionRejection.SameDirection;
+
+        NodeConnectionRejection rejection = CheckInput(input);
+        if (rejection != NodeConnectionRejection.None) return rejection;
+
+        return WouldCloseCycle(graph, input, output)
+            ? NodeConnectionRejection.WouldCloseCycle
+            : NodeConnectionRejection.None;
+    }
+
+    private static bool IsOccupied(IInputPort input) => input is not IListInputPort && !input.Connection.Value.IsNull;
+
+    private static NodeConnectionRejection CheckInput(IInputPort input)
+    {
+        if (IsOccupied(input)) return NodeConnectionRejection.InputOccupied;
+        return input.FindHierarchicalParent<GraphNode>() is { } owner && !owner.CanConnectInput(input)
+            ? NodeConnectionRejection.InputLocked
+            : NodeConnectionRejection.None;
     }
 
     // A graph evaluates its nodes in dependency order, so it skips every node on a cycle.
-    internal static bool WouldCloseCycle(GraphModel graph, IInputPort input, IOutputPort output)
+    private static bool WouldCloseCycle(GraphModel graph, IInputPort input, IOutputPort output)
     {
         if (input.FindHierarchicalParent<GraphNode>() is not { } consumer
             || output.FindHierarchicalParent<GraphNode>() is not { } producer)
@@ -337,7 +366,7 @@ public sealed class NodeGraphMutationService : INodeGraphMutationService
     }
 
     // The new port makes the node the producer of an input mate, or the consumer of an output mate.
-    internal static bool WouldNewPortCloseCycle(GraphModel graph, GraphNode node, INodePort mate)
+    private static bool WouldNewPortCloseCycle(GraphModel graph, GraphNode node, INodePort mate)
         => mate.FindHierarchicalParent<GraphNode>() is { } mateNode
             && (mate is IInputPort
                 ? WouldCloseCycle(graph, mateNode, node)
@@ -380,11 +409,7 @@ public sealed class NodeGraphMutationService : INodeGraphMutationService
                 c => c.Input.Value.Id == input.Id.Value && c.Output.Value.Id == output.Id.Value);
         }
 
-        if (connection is null) return false;
-
-        graph.Disconnect(connection);
-        _historyManager.Commit(CommandNames.DisconnectPort);
-        return true;
+        return connection != null && DisconnectConnectionCore(graph, connection);
     }
 
     public bool DisconnectAll(GraphModel graph, INodePort port)
@@ -401,13 +426,18 @@ public sealed class NodeGraphMutationService : INodeGraphMutationService
     {
         ArgumentNullException.ThrowIfNull(graph);
         ArgumentNullException.ThrowIfNull(connection);
-        if (!IsEditable(graph)) return;
-
-        graph.Disconnect(connection);
-        _historyManager.Commit(CommandNames.DisconnectPort);
+        if (IsEditable(graph)) DisconnectConnectionCore(graph, connection);
     }
 
-    internal static bool SortPortDirection(INodePort a, INodePort b,
+    private bool DisconnectConnectionCore(GraphModel graph, Connection connection)
+    {
+        if (!graph.AllConnections.Contains(connection)) return false;
+        graph.Disconnect(connection);
+        _historyManager.Commit(CommandNames.DisconnectPort);
+        return true;
+    }
+
+    private static bool SortPortDirection(INodePort a, INodePort b,
         [NotNullWhen(true)] out IInputPort? input, [NotNullWhen(true)] out IOutputPort? output)
     {
         if (a is IInputPort ai && b is IOutputPort bo)

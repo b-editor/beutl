@@ -2,6 +2,7 @@
 using Beutl.Animation;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Engine;
+using Beutl.Graphics.Effects;
 using Beutl.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
 using BtlPoint = Beutl.Graphics.Point;
@@ -19,6 +20,7 @@ public partial class PlayerView
         private PlayerViewportTransform? _viewport;
         private MediaTime _time;
         private DragSession? _drag;
+        private Action<BtlPoint>? _moveUnbound;
         private KeyFrameState<BtlPoint>? _keyFrames;
         private (BtlPoint Previous, BtlPoint Next) _keyFrameStart;
         private BtlPoint _valueStart;
@@ -34,17 +36,24 @@ public partial class PlayerView
         {
             if (model.IsPlaybackActive || !e.GetCurrentPoint(view.image).Properties.IsLeftButtonPressed
                 || view.transformHandlesOverlay.Viewport is not { } viewport
-                || !view.transformHandlesOverlay.UserMatrix.TryInvert(out _inverse)) return;
+                || !view.transformHandlesOverlay.EditingHandleMatrix.TryInvert(out _inverse)) return;
             _viewport = viewport;
             IEditorClock clock = model.EditViewModel.GetRequiredService<IEditorClock>();
             _time = clock.CurrentTime.Value;
             _start = Local(e);
             _appliedDelta = default;
+            if (provider is Puppet puppet && puppet.FindPin(handle.Id) is { } pin)
+                model.SelectPuppetPin(puppet, pin);
+
             if (handle.Property is { } property)
             {
                 _keyFrames = FindKeyFramePair(property, clock, model.EditViewModel.Scene);
                 _valueStart = property.Value;
                 _keyFrameStart = KeyFrameDeltaHelper.CaptureStartValues(_keyFrames?.Previous, _keyFrames?.Next, _valueStart);
+            }
+            else
+            {
+                _moveUnbound = provider.BeginEditingHandleDrag(handle.Id, _time, view.transformHandlesOverlay.EditingHandleBounds);
             }
             _pointer = e.Pointer;
             _pointer.Capture(view.framePanel);
@@ -80,7 +89,7 @@ public partial class PlayerView
         {
             if (handle.Property is not { } property)
             {
-                provider.MoveEditingHandle(handle.Id, position, _time);
+                _moveUnbound?.Invoke(position);
                 return;
             }
 
@@ -115,6 +124,7 @@ public partial class PlayerView
             IPointer? pointer = _pointer;
             _pointer = null;
             _drag = null;
+            _moveUnbound = null;
             if (pointer is not null && ReferenceEquals(pointer.Captured, view.framePanel))
                 pointer.Capture(null);
         }

@@ -1,6 +1,8 @@
 ﻿using System.Globalization;
 using System.Reactive.Disposables;
+using Beutl.AgentToolkit.NodeGraphs;
 using Beutl.Collections;
+using Beutl.Engine;
 using Beutl.Extensibility;
 using Beutl.Extensions.AVFoundation.Encoding;
 using Beutl.Extensions.FFmpeg;
@@ -12,6 +14,7 @@ using Beutl.Media;
 using Beutl.Media.Decoding;
 using Beutl.Media.Encoding;
 using Beutl.Models;
+using Beutl.NodeGraph;
 using Beutl.ProjectSystem;
 
 namespace Beutl.AgentToolkit.Rendering;
@@ -77,6 +80,11 @@ public sealed class VideoExporter(EncoderRegistration encoders, FontManager font
 
             await ThrowIfExportSourcesMissingAsync(scene, frameRate, videoEnabled, audioEnabled, cancellationToken).ConfigureAwait(false);
 
+            var graphWarnings = new List<string>();
+            var seenGraphWarnings = new HashSet<string>(StringComparer.Ordinal);
+            var graphWarningsLock = new object();
+            // The snapshot is not edited while it exports, so it is walked for its graphs once.
+            IReadOnlyList<(EngineObject Owner, GraphModel Root)>? graphRoots = null;
             using var providers = ExportMediaProviders.Create(
                 scene, renderFonts,
                 videoEnabled,
@@ -84,7 +92,23 @@ public sealed class VideoExporter(EncoderRegistration encoders, FontManager font
                 normalizedScale,
                 frameRate,
                 normalizedSampleRate,
-                controller.AudioSettings.GetChannelLayout(), decoders: decoders);
+                controller.AudioSettings.GetChannelLayout(),
+                decoders: decoders,
+                onFrameRendered: renderedScene =>
+                {
+                    graphRoots ??= NodeGraphDiagnostics.ListGraphRoots(renderedScene);
+                    IReadOnlyList<string> failures = NodeGraphDiagnostics.CollectRenderFailures(graphRoots);
+                    lock (graphWarningsLock)
+                    {
+                        foreach (string failure in failures)
+                        {
+                            if (seenGraphWarnings.Add(failure))
+                            {
+                                graphWarnings.Add(failure);
+                            }
+                        }
+                    }
+                });
             IFrameProvider frameProvider = providers.FrameProvider;
             ISampleProvider sampleProvider = providers.SampleProvider;
             using IDisposable frameProgressSubscription = onFrameProgress is null
@@ -110,6 +134,11 @@ public sealed class VideoExporter(EncoderRegistration encoders, FontManager font
                         : null) is { } bitrateWarning)
             {
                 warnings.Add(bitrateWarning);
+            }
+
+            lock (graphWarningsLock)
+            {
+                warnings.AddRange(graphWarnings);
             }
 
             output.Commit(controller.OutputFiles, cancellationToken);
@@ -166,7 +195,7 @@ public sealed class VideoExporter(EncoderRegistration encoders, FontManager font
         controller.VideoSettings.DestinationSize.Value = scene.FrameSize.Value;
         controller.VideoSettings.FrameRate.Value = frameRate;
         controller.AudioSettings.SampleRate.Value = sampleRate;
-        controller.AudioSettings.SetChannels(scene.FindHierarchicalParent<Project>().GetChannelLayout().ChannelCount);
+        controller.AudioSettings.SetChannels(scene.GetChannelLayout().ChannelCount);
         return new List<string>(
             ApplyQualitySettings(controller.VideoSettings, crf, bitrate));
     }

@@ -9,10 +9,12 @@ using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Services;
 using Beutl.JsonConverters;
 using Beutl.Logging;
+using Beutl.Media.Decoding;
 using Beutl.ProjectSystem;
 using Beutl.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using ExtensionGuard = Beutl.Api.Services.ExtensionGuard;
 
 namespace Beutl.Editor.Components.TimelineTab.Views;
 
@@ -20,10 +22,15 @@ public sealed partial class ElementView
 {
     private sealed class _MoveBehavior : Behavior<ElementView>
     {
+        private readonly record struct SlipPreviewEntry(ElementViewModel ViewModel, SlippableMedia.Target? ResampleTarget);
+
         private bool _pressed;
         private bool _duplicateMode;
         private bool _isSlipDrag;
         private Element[] _slipTargets = [];
+        private SlipPreviewEntry[] _slipPreviewElements = [];
+        private List<SlippableMedia.Target> _slipMediaTargets = [];
+        private SlippableMedia.Target? _slipReadoutTarget;
         private readonly List<Control> _ghosts = [];
         private IReadOnlyList<ElementViewModel> _relatedElements = [];
         private Point _start;
@@ -64,7 +71,7 @@ public sealed partial class ElementView
                 CancelDrag();
         }
 
-        // Escape, Undo and a press that never moved restore the clips. Slip has no geometry preview to restore.
+        // Escape, Undo and a press that never moved restore the clips and any slip thumbnail previews.
         private void CancelDrag()
         {
             _drag = null;
@@ -72,26 +79,40 @@ public sealed partial class ElementView
             _isSlipDrag = false;
             _duplicateMode = false;
             _slipTargets = [];
+            SlipPreviewEntry[] slipPreviewElements = _slipPreviewElements;
+            _slipPreviewElements = [];
+            _slipMediaTargets = [];
+            _slipReadoutTarget = null;
+            foreach (SlipPreviewEntry entry in slipPreviewElements)
+            {
+                entry.ViewModel.EndMediaPreview(committed: false);
+            }
             IReadOnlyList<ElementViewModel> relatedElements = _relatedElements;
             _relatedElements = [];
             if (AssociatedObject?._timeline is { } timeline) RemoveGhosts(timeline);
             ForceRestoreVisualToModel(relatedElements);
-            if (AssociatedObject is { ViewModel: { } viewModel } view)
+            if (AssociatedObject is { ViewModel: { } viewModel })
             {
                 // Selection modifiers can leave the pressed clip out of the participant list.
                 if (!relatedElements.Contains(viewModel))
                     ForceRestoreVisualToModel([viewModel]);
-                view.ClearSnapFeedback();
             }
+            AssociatedObject?.ClearDragFeedback();
         }
 
         // The first move opens the DragSession; null means another gesture holds history.
         private bool EnsureDrag(ElementView view, ElementViewModel viewModel)
         {
-            _drag ??= DragSession.Begin(
+            if (_drag != null) return true;
+
+            _drag = DragSession.Begin(
                 viewModel.Timeline.EditorContext, view.border, CommandNames.MoveElement, ConfirmDrag, CancelDrag);
             if (_drag is not null)
+            {
+                if (_isSlipDrag)
+                    PrepareSlipPreview(viewModel, _slipTargets);
                 return true;
+            }
 
             CancelDrag();
             return false;
@@ -113,10 +134,23 @@ public sealed partial class ElementView
                 if (_isSlipDrag)
                 {
                     SnapResult slipSnap = view.SnapTime(pointerFrame, scale, _lastAlt);
-                    viewModel.Timeline.SnapBarPosition.Value = slipSnap.DidSnap ? slipSnap.Time.TimeToPixel(scale) : null;
-                    // Slip shifts the media window, not element geometry — there is no
-                    // per-frame geometry preview to apply here. The Player overlay shows
-                    // the media window shift; the service runs once on release.
+                    MediaTime requestedDelta = GetSlipDelta(view, scale, viewModel.Timeline.FrameRate.Value, slipSnap.Time);
+                    var slipPlan = ElementSlipService.PlanSlip(_slipMediaTargets, requestedDelta);
+                    MediaTime previewDelta = slipPlan?.Delta ?? MediaTime.Zero;
+                    double offsetX = -previewDelta.TimeToPixel(scale);
+                    foreach (SlipPreviewEntry entry in _slipPreviewElements)
+                    {
+                        ElementViewModel.MediaPreviewMapping? mapping = entry.ResampleTarget is { } target
+                            ? new(slipPlan?.Changes.GetValueOrDefault(target.Offset) ?? MediaTime.Zero)
+                            : null;
+                        entry.ViewModel.UpdateMediaPreview(offsetX, mapping);
+                    }
+
+                    view.UpdateSnapFeedback(slipSnap.DidSnap && previewDelta == requestedDelta ? slipSnap.Time : null, scale, e.Timestamp);
+                    string offset = _slipReadoutTarget is { } source
+                        ? view.FormatDragTime(source.InitialOffset + (slipPlan?.Changes.GetValueOrDefault(source.Offset) ?? MediaTime.Zero))
+                        : "—";
+                    view.ShowDragReadout(e, previewDelta, string.Format(Strings.TimelineDrag_MediaOffset, offset));
                     e.Handled = true;
                     return;
                 }
@@ -147,6 +181,10 @@ public sealed partial class ElementView
                 }
 
                 view.UpdateSnapFeedback(snap.DidSnap ? snap.Time : null, scale, e.Timestamp);
+                if (!_duplicateMode && _relatedElements.Count > 0)
+                {
+                    ShowMoveReadout(view, viewModel, e, scale, rate);
+                }
 
                 if (_duplicateMode && _ghosts.Count == 0)
                 {
@@ -164,6 +202,35 @@ public sealed partial class ElementView
 
                 e.Handled = true;
             }
+        }
+
+        private void ShowMoveReadout(ElementView view, ElementViewModel viewModel, PointerEventArgs e, float scale, Rational rate)
+        {
+            Element anchor = _relatedElements.Contains(viewModel) ? viewModel.Model : _relatedElements[0].Model;
+            ElementResizeRequest request = viewModel.GetResizeRequest(ripple: false, leftEdge: false, scale, rate, addHeaders: false);
+            int deltaLayer = request.ZIndex - viewModel.Model.ZIndex.Value;
+            MediaTime resultStart = anchor.Start.Value;
+            int resultLayer = anchor.ZIndex.Value;
+            if (_relatedElements.Count == 1 && anchor == viewModel.Model)
+            {
+                if (!viewModel.Scene.IsLayerLocked(request.ZIndex)
+                    && viewModel.Timeline.EditorContext.GetService<IElementResizeService>() is ElementResizeService resize)
+                {
+                    var placement = resize.PreviewResize(viewModel.Scene, [request], ripple: false, anchor);
+                    resultStart = placement.Range.Start;
+                    resultLayer = placement.Layer;
+                }
+            }
+            else
+            {
+                (resultStart, resultLayer) = ElementMoveService.PreviewMove(viewModel.Scene,
+                    _relatedElements.Select(item => item.Model).ToArray(), anchor,
+                    request.NewStart - viewModel.Model.Start.Value, deltaLayer);
+            }
+
+            string? layerName = viewModel.Timeline.LayerHeaders.ElementAtOrDefault(resultLayer)?.Name.Value;
+            view.ShowDragReadout(e, resultStart - anchor.Start.Value, string.Format(Strings.TimelineDrag_StartLayer,
+                view.FormatDragTime(resultStart), string.IsNullOrWhiteSpace(layerName) ? resultLayer.ToString() : layerName));
         }
 
         private void OnBorderPointerPressed(object? sender, PointerPressedEventArgs e)
@@ -229,25 +296,72 @@ public sealed partial class ElementView
             }
         }
 
+        private void PrepareSlipPreview(ElementViewModel viewModel, Element[] targets)
+        {
+            Scene scene = viewModel.Scene;
+            DecoderRegistry? decoders = ExtensionGuard.FindService<DecoderRegistry>(viewModel.Timeline.EditorContext);
+            var seen = new HashSet<Element>();
+            var mediaTargets = new List<SlippableMedia.Target>();
+            var previewElements = new List<SlipPreviewEntry>();
+            foreach (Element element in targets)
+            {
+                if (!seen.Add(element)) continue;
+                if (!scene.Children.Contains(element)) continue;
+                if (scene.IsElementLocked(element)) continue;
+
+                List<SlippableMedia.Target> collected = SlippableMedia.Collect(element, decoders: decoders);
+                if (collected.Count == 0) continue;
+
+                mediaTargets.AddRange(collected);
+                if (element == viewModel.Model) _slipReadoutTarget = collected[0];
+                if (viewModel.Timeline.GetViewModelFor(element) is { } vm)
+                {
+                    previewElements.Add(new SlipPreviewEntry(vm, vm.FindResampledThumbnailTarget(collected, trim: false)));
+                }
+            }
+
+            _slipMediaTargets = mediaTargets;
+            _slipReadoutTarget ??= mediaTargets.FirstOrDefault();
+            _slipPreviewElements = [.. previewElements];
+        }
+
         private void CommitSlipDrag(ElementView view, ElementViewModel viewModel)
         {
             Element[] targets = _slipTargets;
+            SlipPreviewEntry[] previewElements = _slipPreviewElements;
+            List<SlippableMedia.Target> mediaTargets = _slipMediaTargets;
             _slipTargets = [];
+            _slipPreviewElements = [];
+            _slipMediaTargets = [];
+            _slipReadoutTarget = null;
 
             float scale = viewModel.Timeline.Options.Value.Scale;
             Rational rate = SceneTimeRangeService.GetFrameRate(viewModel.Scene);
-            bool alt = _lastAlt;
-            MediaTime delta = TrimDeltaCalculator.SnappedDelta(
-                    _start.X.PixelToTime(scale),
-                    _lastPosition.X.PixelToTime(scale),
-                    t => view.SnapTime(t, scale, alt).Time)
-                .RoundToFrame(rate, MidpointRounding.AwayFromZero);
+            MediaTime snapTime = view.SnapTime(_lastPosition.X.PixelToTime(scale), scale, _lastAlt).Time;
+            MediaTime delta = GetSlipDelta(view, scale, rate, snapTime);
+            MediaTime effectiveDelta = ElementSlipService.PlanSlip(mediaTargets, delta)?.Delta ?? MediaTime.Zero;
+            bool applied = false;
             if (delta != MediaTime.Zero && targets.Length > 0)
             {
-                viewModel.Timeline.EditorContext
+                applied = viewModel.Timeline.EditorContext
                     .GetRequiredService<IElementSlipService>()
                     .Slip(viewModel.Scene, targets, delta);
             }
+
+            double? translatedOffsetX = applied ? -effectiveDelta.TimeToPixel(scale) : null;
+            foreach (SlipPreviewEntry entry in previewElements)
+            {
+                ElementViewModel.MediaPreviewMapping? mapping = entry.ResampleTarget is { } target
+                    ? new(target.Offset.Value - target.InitialOffset)
+                    : null;
+                entry.ViewModel.EndMediaPreview(applied, translatedOffsetX, mapping);
+            }
+        }
+
+        private MediaTime GetSlipDelta(ElementView view, float scale, Rational rate, MediaTime snapTime)
+        {
+            MediaTime pressTime = view.SnapTime(_start.X.PixelToTime(scale), scale, _lastAlt).Time;
+            return (snapTime - pressTime).RoundToFrame(rate, MidpointRounding.AwayFromZero);
         }
 
         private void OnBorderPointerReleased(object? sender, PointerReleasedEventArgs e)
@@ -270,6 +384,7 @@ public sealed partial class ElementView
         // Release, capture loss, playback start and detach all keep the drag where it reached.
         private async void ConfirmDrag()
         {
+            AssociatedObject?.ClearDragFeedback();
             _drag = null;
             _pressed = false;
             bool duplicate = _duplicateMode;
@@ -281,8 +396,6 @@ public sealed partial class ElementView
             if (AssociatedObject is not { ViewModel: { } viewModel, _timeline: { } timeline } view) return;
 
             RemoveGhosts(timeline);
-
-            view.ClearSnapFeedback();
 
             if (_isSlipDrag)
             {
@@ -397,7 +510,7 @@ public sealed partial class ElementView
                     Background = new ImmutableSolidColorBrush(vm.Color.Value),
                     Opacity = 0.4,
                     Width = width,
-                    Height = FrameNumberHelper.LayerHeight,
+                    Height = vm.Timeline.LayerRowHeight.Value,
                     HorizontalAlignment = HorizontalAlignment.Left,
                     VerticalAlignment = VerticalAlignment.Top,
                     Margin = new Thickness(left, top, 0, 0),

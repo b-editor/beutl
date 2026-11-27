@@ -53,14 +53,15 @@ public sealed class RenderNodeRenderer : IDisposable
         RenderNode root,
         RenderNodeRenderRequest defaultRequest,
         IRenderTargetFactory? targetFactory,
-        RenderProgramCaches? programCaches)
+        RenderProgramCaches? programCaches,
+        RenderTargetPoolOptions? targetPoolOptions = null)
     {
         ArgumentNullException.ThrowIfNull(root);
         ArgumentNullException.ThrowIfNull(defaultRequest);
 
         Root = root;
         DefaultRequest = CopyAndSanitizeRequest(defaultRequest);
-        _targetPool = new RenderTargetPool(targetFactory);
+        _targetPool = new RenderTargetPool(targetFactory, targetPoolOptions);
         _structuralPlanCache = new StructuralPlanCache();
         _programCaches = programCaches ?? RenderProgramCaches.CreateWithSharedPrograms();
     }
@@ -119,6 +120,18 @@ public sealed class RenderNodeRenderer : IDisposable
 
     /// <summary>Renders a request, allowing cancellation between render fragments.</summary>
     public void Render(
+        ImmediateCanvas destination,
+        RenderNodeRenderRequest? requestOptions,
+        CancellationToken cancellationToken)
+        => RenderWithDiagnostics(destination, requestOptions, cancellationToken);
+
+    internal string? RenderWithWarning(
+        ImmediateCanvas destination,
+        RenderNodeRenderRequest? requestOptions,
+        CancellationToken cancellationToken)
+        => RenderWithDiagnostics(destination, requestOptions, cancellationToken).Warning;
+
+    internal PreviewRenderDiagnostics RenderWithDiagnostics(
         ImmediateCanvas destination,
         RenderNodeRenderRequest? requestOptions,
         CancellationToken cancellationToken)
@@ -213,6 +226,7 @@ public sealed class RenderNodeRenderer : IDisposable
         targets.ThrowIfCleanupFailed();
         cacheLifecycle?.CompleteSuccessfully(
             effectiveRequest.Purpose is RenderRequestPurpose.Frame or RenderRequestPurpose.CacheWarmup);
+        return owner?.PreviewDiagnostics ?? default;
     }
 
     private static void ExecuteWithExpandedTarget(
@@ -341,6 +355,10 @@ public sealed class RenderNodeRenderer : IDisposable
     /// The request purpose is reserved for metadata-only measurement or hit testing.
     /// </exception>
     public RenderNodeRasterization Rasterize(RenderNodeRenderRequest? requestOptions = null)
+        => Rasterize(requestOptions, executionTargetBudget: null);
+
+    internal RenderNodeRasterization Rasterize(
+        RenderNodeRenderRequest? requestOptions, BufferDimensionBudget? executionTargetBudget)
     {
         RenderExecutionCallbackGuard.ThrowIfRendererLaunchForbidden();
         ThrowIfDisposed();
@@ -372,6 +390,9 @@ public sealed class RenderNodeRenderer : IDisposable
                 PixelRect deviceBounds = PixelRect.FromRect(
                     request.ExecutionTargetBounds,
                     effectiveRequest.OutputScale);
+                if (executionTargetBudget is { } budget && !budget.Fits(deviceBounds.Size))
+                    throw RenderTargetPool.CreateAllocationFailure(deviceBounds.Size, budget.MaxDimension);
+
                 PixelRect selectedDeviceBounds = PixelRect.FromRect(selectedBounds, effectiveRequest.OutputScale);
                 selectedBounds = selectedDeviceBounds.ToRect(effectiveRequest.OutputScale);
                 Rect rasterBounds = deviceBounds.ToRect(effectiveRequest.OutputScale);

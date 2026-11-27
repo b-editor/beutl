@@ -51,6 +51,37 @@ public sealed class FFmpegReaderVideoSeekTests
         AssertSeeksMatch(_path, threads);
     }
 
+    [Test]
+    public void ThumbnailReaderDownscalesAndCanSwitchFromKeyframeToExact()
+    {
+        var options = new MediaOptions(MediaMode.Video) { VideoThumbnailHeight = 16 };
+        var settings = new FFmpegDecodingSettings();
+        settings.ThreadCount.Value = 1;
+        using var exact = new FFmpegReader(_path, options, settings);
+        using var thumbnail = new FFmpegReader(_path, options, settings);
+        Assert.That(thumbnail.VideoInfo.FrameSize, Is.EqualTo(new PixelSize(96, 64)), "slot layout uses source dimensions");
+        byte[] keyframe = Read(exact, 50, false);
+        byte[] target = Read(exact, 60, false);
+        Assert.That(target, Is.Not.EqualTo(keyframe), "the fixture distinguishes keyframe and exact reads");
+        Assert.That(Read(thumbnail, 60, true), Is.EqualTo(keyframe));
+        Assert.That(Read(thumbnail, 60, false), Is.EqualTo(target));
+        Assert.That(Read(thumbnail, 85, true), Is.EqualTo(Read(exact, 85, false)),
+            "a distant keyframe falls back to the accurate frame");
+
+        static byte[] Read(FFmpegReader reader, int frame, bool allowKeyframe)
+        {
+            var pixels = new byte[24 * 16 * 4];
+            Assert.That(reader.ReadVideo(frame, pixels, out var info, allowKeyframe), Is.True);
+            Assert.Multiple(() =>
+            {
+                Assert.That((info.Width, info.Height), Is.EqualTo((24, 16)));
+                Assert.That(info.DataLength, Is.EqualTo(pixels.Length));
+                Assert.That(info.BytesPerPixel, Is.EqualTo(4));
+            });
+            return pixels;
+        }
+    }
+
     [TestCase("late-video.mp4")]
     [TestCase("marker-bframes-no-edit.mp4")]
     [TestCase("marker-bframes.mp4")]
@@ -59,12 +90,20 @@ public sealed class FFmpegReaderVideoSeekTests
         AssertSeeksMatch(Path.Combine(AppContext.BaseDirectory, "Fixtures", name), 8);
     }
 
-    [Test]
-    public unsafe void PrefetchFollowsPlaybackAndKeepsTheServedFrameIntact()
+    [TestCase(false)]
+    [TestCase(true)]
+    public unsafe void PrefetchFollowsPlaybackAndKeepsTheServedFrameIntact(bool deinterlace)
     {
         var settings = new FFmpegDecodingSettings();
-        List<byte[]> expected = ReadSequentialFrames(_path, settings);
-        using var reader = new FFmpegReader(_path, new MediaOptions(MediaMode.Video), settings);
+        string path = deinterlace ? Path.Combine(AppContext.BaseDirectory, "Fixtures", "deinterlace-tff.mp4") : _path;
+        var options = new MediaOptions(MediaMode.Video)
+        {
+            Deinterlace = deinterlace
+                ? new(DeinterlaceMode.On, DeinterlaceFieldOrder.Auto, DeinterlaceMethod.Bwdif, DeinterlaceFrameRateMode.Field)
+                : default,
+        };
+        List<byte[]> expected = ReadSequentialFrames(path, settings, options);
+        using var reader = new FFmpegReader(path, options, settings);
         using var gate = new SemaphoreSlim(1, 1);
         int slotSize = expected[0].Length;
         var memory = SharedMemoryBuffer.Create($"beutl-video-prefetch-{Guid.NewGuid():N}", slotSize * 4);
@@ -121,12 +160,13 @@ public sealed class FFmpegReaderVideoSeekTests
         Read(3); // a different rate fills the missing frames and resumes contiguous prefetch
         WaitForPrefetch(4, 5, 6);
         Read(5);
-        Read(149);
-        Assert.That(ring.ReadFrame(150).Success, Is.False);
-        Read(147);
-        Read(148);
-        WaitForPrefetch(149);
-        Read(149);
+        int last = expected.Count - 1;
+        Read(last);
+        Assert.That(ring.ReadFrame(last + 1).Success, Is.False);
+        Read(last - 2);
+        Read(last - 1);
+        WaitForPrefetch(last);
+        Read(last);
         Read(0);
     }
 
@@ -155,10 +195,10 @@ public sealed class FFmpegReaderVideoSeekTests
         }
     }
 
-    private static List<byte[]> ReadSequentialFrames(string path, FFmpegDecodingSettings settings)
+    private static List<byte[]> ReadSequentialFrames(string path, FFmpegDecodingSettings settings, MediaOptions? options = null)
     {
         var expected = new List<byte[]>();
-        using (var sequential = new FFmpegReader(path, new MediaOptions(MediaMode.Video), settings))
+        using (var sequential = new FFmpegReader(path, options ?? new MediaOptions(MediaMode.Video), settings))
         {
             for (int frame = 0; frame < sequential.VideoInfo.NumFrames; frame++)
             {

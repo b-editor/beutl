@@ -3,8 +3,11 @@ using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.NodeGraphs;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Tools;
+using Beutl.Language;
 using Beutl.NodeGraph;
+using Beutl.NodeGraph.Nodes;
 using Beutl.NodeGraph.Nodes.Shaders;
+using Beutl.NodeGraph.Nodes.Utilities;
 
 namespace Beutl.AgentToolkit.Tests.NodeGraphs;
 
@@ -34,9 +37,39 @@ public sealed class NodeGraphCatalogTests
         Assert.Multiple(() =>
         {
             Assert.That(result.Value!.NodeTypes.Select(type => type.Type), Does.Contain(nameof(ShaderFullscreenPassNode)).And.Contain("FilterEffectNode<Blur>"));
+            Assert.That(result.Value.NodeTypes.Single(type => type.Type == nameof(GeometryShapeNode)).DisplayName,
+                Is.EqualTo(GraphicsStrings.GeometryShapeNode));
+            Assert.That(result.Value.NodeTypes.Single(type => type.Type == "FactoryNode<DrawableBrush>").DisplayName,
+                Is.EqualTo(GraphicsStrings.DrawableBrushNode));
             Assert.That(result.Value.NodeTypes.All(type => type.Members is null && type.Discriminator is null), Is.True);
-            Assert.That(JsonSerializer.Serialize(result, JsonSerializerOptions.Web).Length, Is.LessThan(25_000));
+            Assert.That(JsonSerializer.Serialize(result, JsonSerializerOptions.Web).Length, Is.LessThan(28_000));
         });
+    }
+
+    [Test]
+    public void Categories_follow_the_add_node_menu_and_can_filter_effect_sections()
+    {
+        var result = s_tools.ListNodeTypes().Value!;
+        var categories = result.NodeTypes.ToDictionary(node => node.Type, node => node.Category);
+        string blur = $"{GraphicsStrings.FilterEffect}/{GraphicsStrings.FilterEffectCategory_BlurAndSharpen}";
+        string scripts = $"{GraphicsStrings.FilterEffect}/{GraphicsStrings.FilterEffectCategory_ScriptAndNodes}";
+        string matrices = $"{NodeGraphStrings.ToolsAndValues}/{NodeGraphStrings.TransformMatrices}";
+        var effects = s_tools.ListNodeTypes(category: blur, includeMembers: false).Value!;
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(categories[nameof(OutputNode)], Is.EqualTo(NodeGraphStrings.InputAndOutput));
+            Assert.That(categories[nameof(GeometryShapeNode)], Is.EqualTo(NodeGraphStrings.Geometry));
+            Assert.That(categories[nameof(TextNode)], Is.EqualTo(NodeGraphStrings.Drawing));
+            Assert.That(categories[nameof(TransformNode)], Is.EqualTo(matrices));
+            Assert.That(categories[nameof(PreviewNode)], Is.EqualTo($"{NodeGraphStrings.ToolsAndValues}/{NodeGraphStrings.Debugging}"));
+            Assert.That(categories["FilterEffectNode<Blur>"], Is.EqualTo(blur));
+            Assert.That(categories["FilterEffectNode<CSharpScriptEffect>"], Is.EqualTo(scripts));
+            Assert.That(effects.NodeTypes.Select(node => node.Type), Is.EquivalentTo(new[]
+            {
+                "FilterEffectNode<Blur>", "FilterEffectNode<Sharpen>", "FilterEffectNode<RadialBlur>", "FilterEffectNode<Bokeh>"
+            }));
+        }
     }
 
     [Test]

@@ -523,7 +523,7 @@ public class DirectoryWatcherServiceTests
     {
         string directory = BeutlEnvironment.GetTemplatesDirectoryPath();
         Directory.CreateDirectory(directory);
-        using var templates = new Beutl.Editor.Services.ObjectTemplateService(TestFonts.Manager);
+        using var templates = new Beutl.Editor.Services.ObjectTemplateService(TestFonts.RenderServices);
         using FileThumbnailService service = new(new DecoderRegistry(new()), templates);
         service.ClearCache();
         try
@@ -547,7 +547,7 @@ public class DirectoryWatcherServiceTests
     {
         string clip = Path.Combine(_projectRoot, "clip.mp4");
         File.WriteAllBytes(clip, [0]);
-        using var templates = new Beutl.Editor.Services.ObjectTemplateService(TestFonts.Manager);
+        using var templates = new Beutl.Editor.Services.ObjectTemplateService(TestFonts.RenderServices);
         using FileThumbnailService service = new(new DecoderRegistry(new()), templates);
         service.ClearCache();
         try
@@ -573,7 +573,7 @@ public class DirectoryWatcherServiceTests
     public void Template_thumbnail_scope_resolves_a_bare_relative_file_path()
     {
         string previousDirectory = Environment.CurrentDirectory;
-        using var templates = new Beutl.Editor.Services.ObjectTemplateService(TestFonts.Manager);
+        using var templates = new Beutl.Editor.Services.ObjectTemplateService(TestFonts.RenderServices);
         using FileThumbnailService service = new(new DecoderRegistry(new()), templates);
         service.ClearCache();
         try
@@ -598,7 +598,7 @@ public class DirectoryWatcherServiceTests
         string templateAlias = Path.Combine(_projectRoot, "template-root-alias");
         Directory.CreateDirectory(firstTarget);
         Directory.CreateDirectory(secondTarget);
-        using var templates = new Beutl.Editor.Services.ObjectTemplateService(TestFonts.Manager);
+        using var templates = new Beutl.Editor.Services.ObjectTemplateService(TestFonts.RenderServices);
         using FileThumbnailService service = new(new DecoderRegistry(new()), templates);
         service.ClearCache();
         try
@@ -696,7 +696,7 @@ public class DirectoryWatcherServiceTests
         Directory.CreateDirectory(templateTarget);
         Directory.CreateDirectory(outsideTarget);
         SymbolicLinks.CreateOrIgnore(alias, templateTarget, directory: true);
-        using var templates = new Beutl.Editor.Services.ObjectTemplateService(TestFonts.Manager);
+        using var templates = new Beutl.Editor.Services.ObjectTemplateService(TestFonts.RenderServices);
         using FileThumbnailService thumbnails = new(new DecoderRegistry(new()), templates);
         thumbnails.ClearCache();
         using var watcher = new DirectoryWatcherService();

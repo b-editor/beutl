@@ -16,10 +16,12 @@ namespace Beutl.Services.PrimitiveImpls;
 // palette on the editor's selected element, whether or not the timeline is open.
 public sealed partial class TimelineTabExtension : IContextCommandEditorStateNotifier
 {
+    internal const string ToggleGroupCommandId = "timeline.toggleGroup";
+
     public override IEnumerable<ContextCommandDefinition> ContextCommands =>
     [
         Command("timeline.paste", Strings.Paste, Strings.Paste_Description,
-            [new("Ctrl+V"), new("Cmd+V", OSPlatform.OSX)], timeline => timeline.Paste.ExecuteAsync()),
+            [new("Ctrl+V"), new("Cmd+V", OSPlatform.OSX)], timeline => timeline.Paste.ExecuteAsync(), opensToolTab: true),
         // From their gestures, Rename and Split also run on the focused clip.
         new ContextCommandDefinition<ElementViewModel>("timeline.rename", Strings.Rename, Strings.Rename_Description,
             [new("F2"), new("Enter", OSPlatform.OSX)])
@@ -76,22 +78,27 @@ public sealed partial class TimelineTabExtension : IContextCommandEditorStateNot
         Command("timeline.duplicate", Strings.Duplicate, Strings.Duplicate_Description,
             [new("Ctrl+D"), new("Cmd+D", OSPlatform.OSX)], timeline => timeline.Duplicate.Execute(), HasSelection),
         Command("timeline.selectAll", Strings.SelectAll, "",
-            [new("Ctrl+A"), new("Cmd+A", OSPlatform.OSX)], timeline => timeline.SelectAll()),
+            [new("Ctrl+A"), new("Cmd+A", OSPlatform.OSX)], timeline => timeline.SelectAll(), opensToolTab: true),
         Command("timeline.deselectAll", Strings.DeselectAll, "",
-            [new("Ctrl+Shift+A"), new("Cmd+Shift+A", OSPlatform.OSX)], timeline => timeline.ClearSelected(), HasSelection),
+            [new("Ctrl+Shift+A"), new("Cmd+Shift+A", OSPlatform.OSX)], timeline => timeline.ClearSelected(),
+            timeline => timeline.FrameSelection.Value is not null || HasSelection(timeline)),
         // Both Cmd+= and Cmd++ zoom in. Each reports OemPlus for its character, with Shift for + on a US or JIS layout.
         Command("timeline.zoomIn", Strings.TimelineZoomIn, "",
             [new("Ctrl+OemPlus"), new("Ctrl+Shift+OemPlus"), new("Cmd+OemPlus", OSPlatform.OSX), new("Cmd+Shift+OemPlus", OSPlatform.OSX)],
-            timeline => timeline.ZoomAroundPlayhead(TimelineTabViewModel.ZoomStep)),
+            timeline => timeline.ZoomAroundPlayhead(TimelineTabViewModel.ZoomStep), opensToolTab: true),
         Command("timeline.zoomOut", Strings.TimelineZoomOut, "",
             [new("Ctrl+OemMinus"), new("Cmd+OemMinus", OSPlatform.OSX)],
-            timeline => timeline.ZoomAroundPlayhead(1 / TimelineTabViewModel.ZoomStep)),
+            timeline => timeline.ZoomAroundPlayhead(1 / TimelineTabViewModel.ZoomStep), opensToolTab: true),
         Command("timeline.resetZoom", Strings.ResetZoom, "",
-            [new("Ctrl+D0"), new("Cmd+D0", OSPlatform.OSX)], timeline => timeline.ResetZoom()),
+            [new("Ctrl+D0"), new("Cmd+D0", OSPlatform.OSX)], timeline => timeline.ResetZoom(), opensToolTab: true),
+        // The graph editor's names and keys, which it takes in its own tab.
+        Shortcut("timeline.fitAll", Strings.GraphFitAll, [new("F")], timeline => timeline.FitAll.Execute(), opensToolTab: true),
+        Shortcut("timeline.fitSelection", Strings.GraphFitSelection, [new("Shift+F")],
+            timeline => timeline.FitSelection.Execute(), HasSelection),
         Shortcut("timeline.setStartTime", Strings.SetStartTime, [new("OemOpenBrackets")],
-            timeline => timeline.SetStartTimeToCurrentTime.Execute()),
+            timeline => timeline.SetStartTimeToCurrentTime.Execute(), opensToolTab: true),
         Shortcut("timeline.setEndTime", Strings.SetEndTime, [new("OemCloseBrackets")],
-            timeline => timeline.SetEndTimeToCurrentTime.Execute()),
+            timeline => timeline.SetEndTimeToCurrentTime.Execute(), opensToolTab: true),
         // Nudge uses , and . so that it does not collide with the existing shortcuts on the arrow keys.
         Nudge("timeline.nudgeLeftFrame", Strings.NudgeLeftFrame, [new("OemComma")],
             -1, TimelineTabViewModel.NudgeUnit.Frame),
@@ -105,16 +112,16 @@ public sealed partial class TimelineTabExtension : IContextCommandEditorStateNot
             -1, TimelineTabViewModel.NudgeUnit.Second),
         Nudge("timeline.nudgeRightSecond", Strings.NudgeRightSecond, [new("Alt+OemPeriod")],
             +1, TimelineTabViewModel.NudgeUnit.Second),
-        Command("timeline.toggleGroup", Strings.Group, "",
-            [new("Ctrl+G"), new("Cmd+G", OSPlatform.OSX)], ToggleGroup,
-            timeline => timeline.SelectedElements.FirstOrDefault() is { } first
-                && (first.CanUngroupSelectedElements() || first.CanGroupSelectedElements())),
+        Command(ToggleGroupCommandId, Strings.Group, "",
+            [new("Ctrl+G"), new("Cmd+G", OSPlatform.OSX)],
+            timeline => GetGroupToggleAction(timeline)?.Command.Execute(),
+            timeline => GetGroupToggleAction(timeline) is not null),
         ToolMode("timeline.toggleRazorMode", Strings.RazorTool, Strings.RazorTool_Description,
             [new("C")], timeline => timeline.IsRazorMode),
         ExitToolMode("timeline.exitRazorMode", Strings.ExitRazorTool, Strings.ExitRazorTool_Description,
             timeline => timeline.IsRazorMode),
-        Shortcut("timeline.toggleRippleMode", Strings.RippleEdit, [new("B")],
-            timeline => timeline.IsRippleEnabled.Value = !timeline.IsRippleEnabled.Value),
+        Shortcut("timeline.toggleRippleMode", Strings.RippleEdit, Strings.RippleEdit_Description, [new("B")],
+            timeline => timeline.IsRippleEnabled.Value = !timeline.IsRippleEnabled.Value, null, opensToolTab: true),
         ToolMode("timeline.toggleSlipMode", Strings.SlipTool, Strings.SlipTool_Description,
             [new("S")], timeline => timeline.IsSlipMode),
         ExitToolMode("timeline.exitSlipMode", Strings.ExitSlipTool, Strings.ExitSlipTool_Description,
@@ -130,11 +137,11 @@ public sealed partial class TimelineTabExtension : IContextCommandEditorStateNot
         Shortcut("timeline.closeGap", Strings.CloseGap, [new("OemSemicolon")],
             timeline => timeline.CloseGap.Execute(), HasSelection),
         Shortcut("timeline.closeAllGaps", Strings.CloseAllGaps, [new("Shift+Alt+OemSemicolon")],
-            timeline => timeline.CloseAllGaps.Execute()),
+            timeline => timeline.CloseAllGaps.Execute(), opensToolTab: true),
         Shortcut("timeline.goToNextGap", Strings.GoToNextGap, [new("Shift+OemSemicolon")],
-            timeline => timeline.GoToNextGap.Execute()),
+            timeline => timeline.GoToNextGap.Execute(), opensToolTab: true),
         Shortcut("timeline.goToPreviousGap", Strings.GoToPreviousGap, [new("Alt+OemSemicolon")],
-            timeline => timeline.GoToPreviousGap.Execute()),
+            timeline => timeline.GoToPreviousGap.Execute(), opensToolTab: true),
     ];
 
     private static bool HasSelection(TimelineTabViewModel timeline) => timeline.SelectedElements.Count > 0;
@@ -142,9 +149,11 @@ public sealed partial class TimelineTabExtension : IContextCommandEditorStateNot
     // A timeline command first commits a pending nudge, so the two do not end up in one undo step.
     private static ContextCommandDefinition<TimelineTabViewModel> Command(
         string id, string displayName, string description, ContextCommandKeyGesture[] keyGestures,
-        Func<TimelineTabViewModel, Task> execute, Func<TimelineTabViewModel, bool>? canExecute = null)
+        Func<TimelineTabViewModel, Task> execute, Func<TimelineTabViewModel, bool>? canExecute = null,
+        bool opensToolTab = false)
         => new(id, displayName, description, keyGestures)
         {
+            CanOpenToolTab = opensToolTab,
             CanExecuteOn = canExecute is null ? null : (timeline, _) => canExecute(timeline),
             ExecuteOnAsync = (timeline, _) =>
             {
@@ -155,20 +164,26 @@ public sealed partial class TimelineTabExtension : IContextCommandEditorStateNot
 
     private static ContextCommandDefinition<TimelineTabViewModel> Command(
         string id, string displayName, string description, ContextCommandKeyGesture[] keyGestures,
-        Action<TimelineTabViewModel> execute, Func<TimelineTabViewModel, bool>? canExecute = null)
-        => Command(id, displayName, description, keyGestures, timeline => { execute(timeline); return Task.CompletedTask; }, canExecute);
+        Action<TimelineTabViewModel> execute, Func<TimelineTabViewModel, bool>? canExecute = null,
+        bool opensToolTab = false)
+        => Command(id, displayName, description, keyGestures, timeline => { execute(timeline); return Task.CompletedTask; },
+            canExecute, opensToolTab);
 
     // A shortcut on a printable key, which does not fire while a text box has the key.
     private static ContextCommandDefinition<TimelineTabViewModel> Shortcut(
         string id, string displayName, ContextCommandKeyGesture[] keyGestures,
-        Action<TimelineTabViewModel> execute, Func<TimelineTabViewModel, bool>? canExecute = null)
-        => Shortcut(id, displayName, "", keyGestures, execute, canExecute);
+        Action<TimelineTabViewModel> execute, Func<TimelineTabViewModel, bool>? canExecute = null,
+        bool opensToolTab = false)
+        => Shortcut(id, displayName, "", keyGestures, execute, canExecute, opensToolTab: opensToolTab);
 
     private static ContextCommandDefinition<TimelineTabViewModel> Shortcut(
         string id, string displayName, string description, ContextCommandKeyGesture[] keyGestures,
-        Action<TimelineTabViewModel> execute, Func<TimelineTabViewModel, bool>? canExecute, bool flushNudge = true)
+        Action<TimelineTabViewModel> execute, Func<TimelineTabViewModel, bool>? canExecute,
+        bool flushNudge = true, string? exclusiveKeyboardGroup = null, bool opensToolTab = false)
         => new(id, displayName, description, keyGestures)
         {
+            CanOpenToolTab = opensToolTab,
+            ExclusiveKeyboardGroup = exclusiveKeyboardGroup,
             CanExecuteOn = (timeline, execution) =>
                 !TimelineTabViewModel.IsTextInputSource(execution.KeyEventArgs?.Source)
                 && (canExecute?.Invoke(timeline) ?? true),
@@ -192,26 +207,25 @@ public sealed partial class TimelineTabExtension : IContextCommandEditorStateNot
         string id, string displayName, string description, ContextCommandKeyGesture[] keyGestures,
         Func<TimelineTabViewModel, ReactivePropertySlim<bool>> mode)
         => Shortcut(id, displayName, description, keyGestures,
-            timeline => mode(timeline).Value = !mode(timeline).Value, null);
+            timeline => mode(timeline).Value = !mode(timeline).Value, null, opensToolTab: true);
 
     // An exit key is taken only while its mode is on.
     private static ContextCommandDefinition<TimelineTabViewModel> ExitToolMode(
         string id, string displayName, string description,
         Func<TimelineTabViewModel, ReactivePropertySlim<bool>> mode)
         => Shortcut(id, displayName, description, [new("V"), new("Escape")],
-            timeline => mode(timeline).Value = false, timeline => mode(timeline).Value);
+            timeline => mode(timeline).Value = false, timeline => mode(timeline).Value,
+            exclusiveKeyboardGroup: "timeline.editModeExit");
 
-    private static void ToggleGroup(TimelineTabViewModel timeline)
+    internal static (ReactiveCommand Command, bool IsUngroup)? GetGroupToggleAction(TimelineTabViewModel timeline)
     {
         ElementViewModel? first = timeline.SelectedElements.FirstOrDefault();
         if (first?.CanUngroupSelectedElements() == true)
         {
-            first.UngroupSelectedElements.Execute();
+            return (first.UngroupSelectedElements, true);
         }
-        else if (first?.CanGroupSelectedElements() == true)
-        {
-            first.GroupSelectedElements.Execute();
-        }
+
+        return first?.CanGroupSelectedElements() == true ? (first.GroupSelectedElements, false) : null;
     }
 
     private static Task OnSelectedElement(

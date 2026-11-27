@@ -30,4 +30,12 @@ internal sealed record SuppressedReferencedStorageSource(
 internal sealed record SuppressedRecoveryIncident(
     string Reason,
     string? TypeName,
-    string? Message);
+    string? Message)
+{
+    // Weak so replacing the content also releases its object graph.
+    public WeakReference<CoreObject>? Owner { get; init; }
+    public string? Member { get; init; }
+    public System.Text.Json.Nodes.JsonObject? Json { get; init; }
+    public bool IsDroppedValue { get; init; }
+    public bool CoveredByFallback { get; init; }
+}

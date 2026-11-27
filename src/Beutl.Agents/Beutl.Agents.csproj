@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Beutl.Core\Beutl.Core.csproj" />
+    <PackageReference Include="Microsoft.Extensions.Logging" />
+    <InternalsVisibleTo Include="Beutl.Agents.Worker" />
+    <InternalsVisibleTo Include="Beutl.Agents.Tests" />
+  </ItemGroup>
+</Project>

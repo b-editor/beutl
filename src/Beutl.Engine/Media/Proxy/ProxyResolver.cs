@@ -1,4 +1,5 @@
 ﻿using System.Collections.Concurrent;
+using Beutl.Media.Decoding;
 
 namespace Beutl.Media.Proxy;
 
@@ -45,7 +46,11 @@ public sealed class ProxyResolver : IProxyResolver
     public long StoreVersion => _versionBaseOffset + Interlocked.Read(ref _storeVersion);
 
     public ProxyResolution? Resolve(Uri sourceUri, ProxyPreset preferredPreset)
+        => Resolve(sourceUri, preferredPreset, VideoDeinterlaceOptions.Default);
+
+    public ProxyResolution? Resolve(Uri sourceUri, ProxyPreset preferredPreset, VideoDeinterlaceOptions deinterlace)
     {
+        deinterlace = deinterlace.Normalize();
         ArgumentNullException.ThrowIfNull(sourceUri);
         if (!sourceUri.IsFile)
             return null;
@@ -53,7 +58,7 @@ public sealed class ProxyResolver : IProxyResolver
         if (!ProxyFingerprint.TryFromFile(sourceUri.LocalPath, out ProxyFingerprint fingerprint))
         {
             // Offline originals can use a Ready proxy indexed by the same normalized path.
-            return ResolveByPath(ProxyFingerprint.ResolveComparableKey(sourceUri.LocalPath), preferredPreset);
+            return ResolveByPath(ProxyFingerprint.ResolveComparableKey(sourceUri.LocalPath), preferredPreset, deinterlace);
         }
 
         // A mid-session source edit leaves a same-path, different-(size,mtime) entry Ready in the
@@ -63,14 +68,14 @@ public sealed class ProxyResolver : IProxyResolver
         var candidates = new List<ProxyResolution>();
         foreach (ProxyPreset preset in ProxyPresetDefinitions.All.Keys)
         {
-            if (Evaluate(fingerprint, preset) is { } resolution)
+            if (Evaluate(fingerprint, preset, deinterlace) is { } resolution)
                 candidates.Add(resolution);
         }
 
         return SelectBest(candidates, preferredPreset);
     }
 
-    private ProxyResolution? ResolveByPath(string absolutePath, ProxyPreset preferredPreset)
+    private ProxyResolution? ResolveByPath(string absolutePath, ProxyPreset preferredPreset, VideoDeinterlaceOptions deinterlace)
     {
         if (string.IsNullOrEmpty(absolutePath))
             return null;
@@ -83,7 +88,7 @@ public sealed class ProxyResolver : IProxyResolver
             if (!string.Equals(entry.Source.AbsolutePath, absolutePath, StringComparison.Ordinal))
                 continue;
 
-            ProxyResolution? resolution = entry.State == ProxyState.Ready ? EvaluateEntry(entry) : null;
+            ProxyResolution? resolution = entry.State == ProxyState.Ready && entry.Deinterlace == deinterlace ? EvaluateEntry(entry) : null;
             matches.Add((entry, resolution));
         }
 
@@ -118,7 +123,7 @@ public sealed class ProxyResolver : IProxyResolver
             return null;
 
         // Touch only the proxy we actually hand out (contract: exactly once per successful Resolve).
-        _store.Touch(chosen.Source, chosen.Preset, DateTime.UtcNow);
+        _store.Touch(chosen.Source, chosen.Preset, DateTime.UtcNow, chosen.Deinterlace);
         return chosen;
     }
 
@@ -185,9 +190,9 @@ public sealed class ProxyResolver : IProxyResolver
         return _pins.TryGetValue(Path.GetFullPath(absoluteProxyFilePath), out int count) && count > 0;
     }
 
-    private ProxyResolution? Evaluate(ProxyFingerprint fingerprint, ProxyPreset preset)
+    private ProxyResolution? Evaluate(ProxyFingerprint fingerprint, ProxyPreset preset, VideoDeinterlaceOptions deinterlace)
     {
-        ProxyEntry? entry = _store.TryGet(fingerprint, preset);
+        ProxyEntry? entry = _store.TryGet(fingerprint, preset, deinterlace);
         if (entry is not { State: ProxyState.Ready })
             return null;
 
@@ -207,7 +212,15 @@ public sealed class ProxyResolver : IProxyResolver
             entry.Source,
             entry.Preset,
             entry.OriginalLogicalFrameSize,
-            entry.ProxyDecodedFrameSize);
+            entry.ProxyDecodedFrameSize)
+        {
+            OriginalColorTags = entry.OriginalColorTags,
+            OriginalColorSpace = entry.OriginalColorSpace,
+            Deinterlace = entry.Deinterlace,
+            DetectedFieldOrder = entry.DetectedFieldOrder,
+            DeinterlaceStatus = entry.DeinterlaceStatus,
+            OriginalDuration = entry.OriginalDuration,
+        };
     }
 
     private void MaybeMarkStaleEntries(ProxyFingerprint current)
@@ -244,7 +257,7 @@ public sealed class ProxyResolver : IProxyResolver
             // was generated. Transition the old entry to Stale so the UI badge refreshes and the user
             // is prompted to regenerate. TryTransition is a no-op if another caller raced us to it.
             if (entry.Source != current)
-                _store.TryTransition(entry.Source, entry.Preset, ProxyState.Stale);
+                _store.TryTransition(entry.Source, entry.Preset, ProxyState.Stale, deinterlace: entry.Deinterlace);
         }
     }
 

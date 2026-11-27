@@ -21,7 +21,7 @@ internal static class TestStore
         IconUrl = null,
     };
 
-    public static PackageResponse CreatePackageResponse(string name, string description = "") => new()
+    public static PackageResponse CreatePackageResponse(string name, string description = "", bool paid = false, bool owned = true) => new()
     {
         Id = "package",
         Owner = CreateOwner(),
@@ -36,8 +36,8 @@ internal static class TestStore
         Screenshots = [],
         Currency = null,
         Price = null,
-        Paid = false,
-        Owned = true,
+        Paid = paid,
+        Owned = owned,
     };
 
     public static ReleaseResponse CreateReleaseResponse(string version, string description = "", string? fileId = null, string? targetVersion = null) => new()

@@ -48,7 +48,8 @@ internal static partial class NativeTimelineTestHost
         int exitCode = 1;
         try
         {
-            var lifetime = (IClassicDesktopStyleApplicationLifetime)Application.Current!.ApplicationLifetime!;
+            if (Application.Current?.ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime lifetime)
+                return;
             Window window = lifetime.MainWindow!;
             var handle = (IMacOSTopLevelPlatformHandle)window.TryGetPlatformHandle()!;
             SetAlpha(handle.NSWindow, Selector("setAlphaValue:"), 0);
@@ -109,9 +110,9 @@ internal static partial class NativeTimelineTestHost
         {
             foreach ((string title, string key) in new[]
             {
-                (Strings.Settings, "⌘,"), ("Hide Others", "⌥⌘h"), (Strings.CloseTab, "⌘w"), (Strings.CloseProject, "⇧⌘w"),
+                (Strings.OpenSettingsMenu, "⌘,"), ("Hide Others", "⌥⌘h"), (Strings.CloseTab, "⌘w"), (Strings.CloseProject, "⇧⌘w"),
                 (Strings.Undo, "⌘z"), (Strings.Redo, "⇧⌘z"), (Strings.Cut, "⌘x"), (Strings.Copy, "⌘c"), (Strings.Paste, "⌘v"),
-                (Strings.SelectAll, "⌘a"), (Strings.ToggleFullScreen, "⌃⌘f"), (Strings.MinimizeWindow, "⌘m"), (Strings.Tutorials, "⇧⌘/"),
+                (Strings.SelectAll, "⌘a"), (Strings.ToggleFullScreen, "⌃⌘f"), (Strings.MinimizeWindow, "⌘m"), (Strings.TutorialsMenu, "⇧⌘/"),
             })
             {
                 Assert.That(keys.GetValueOrDefault(title), Is.EqualTo(key), title);

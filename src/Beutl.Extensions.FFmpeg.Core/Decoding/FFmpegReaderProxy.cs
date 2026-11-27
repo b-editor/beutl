@@ -63,7 +63,11 @@ public sealed class FFmpegReaderProxy : MediaReader, IIdleSuspendableReader
                 new PixelSize(vi.VideoWidth, vi.VideoHeight),
                 new Rational(vi.FrameRateNum, vi.FrameRateDen))
             {
-                Duration = new Rational(vi.DurationNum, vi.DurationDen)
+                Duration = new Rational(vi.DurationNum, vi.DurationDen),
+                ColorTags = vi.VideoColorTags,
+                HasIccProfile = vi.VideoHasIccProfile,
+                DetectedFieldOrder = vi.DetectedFieldOrder,
+                DeinterlaceStatus = vi.DeinterlaceStatus,
             };
 
             // リングバッファ情報
@@ -146,6 +150,9 @@ public sealed class FFmpegReaderProxy : MediaReader, IIdleSuspendableReader
     }
 
     public override bool ReadVideo(int frame, [NotNullWhen(true)] out Ref<Bitmap>? image)
+        => ReadVideoThumbnail(frame, allowKeyframe: false, out image);
+
+    public override bool ReadVideoThumbnail(int frame, bool allowKeyframe, [NotNullWhen(true)] out Ref<Bitmap>? image)
     {
         try
         {
@@ -163,7 +170,7 @@ public sealed class FFmpegReaderProxy : MediaReader, IIdleSuspendableReader
 
                         try
                         {
-                            return ReadVideoCore(frame, out image);
+                            return ReadVideoCore(frame, allowKeyframe, out image);
                         }
                         catch (WorkerLostException lost)
                         {
@@ -183,9 +190,9 @@ public sealed class FFmpegReaderProxy : MediaReader, IIdleSuspendableReader
         }
     }
 
-    private unsafe bool ReadVideoCore(int frame, [NotNullWhen(true)] out Ref<Bitmap>? image)
+    private unsafe bool ReadVideoCore(int frame, bool allowKeyframe, [NotNullWhen(true)] out Ref<Bitmap>? image)
     {
-        var request = new ReadVideoRequest { ReaderId = _readerId, Frame = frame };
+        var request = new ReadVideoRequest { ReaderId = _readerId, Frame = frame, AllowKeyframe = allowKeyframe };
         var response = Request<ReadVideoRequest, ReadVideoResponse>(
             MessageType.ReadVideo, MessageType.ReadVideoResult, request);
 
@@ -521,7 +528,11 @@ public sealed class FFmpegReaderProxy : MediaReader, IIdleSuspendableReader
                 || original.FrameRateNum != reopened.FrameRateNum
                 || original.FrameRateDen != reopened.FrameRateDen
                 || original.DurationNum != reopened.DurationNum
-                || original.DurationDen != reopened.DurationDen))
+                || original.DurationDen != reopened.DurationDen
+                || original.VideoColorTags != reopened.VideoColorTags
+                || original.VideoHasIccProfile != reopened.VideoHasIccProfile
+                || original.DetectedFieldOrder != reopened.DetectedFieldOrder
+                || original.DeinterlaceStatus != reopened.DeinterlaceStatus))
         {
             return false;
         }

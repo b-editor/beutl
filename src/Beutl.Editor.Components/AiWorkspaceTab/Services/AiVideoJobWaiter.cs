@@ -5,7 +5,7 @@ namespace Beutl.Editor.Components.AiWorkspaceTab.Services;
 internal static class AiVideoJobWaiter
 {
     // Unknown statuses return to the caller without settling the paid request.
-    public static async Task<(AiVideoJob Job, AiJobStatusSemantics Status)> WaitAsync(
+    public static Task<(AiVideoJob Job, AiJobStatusSemantics Status)> WaitAsync(
         IAiVideoService videos,
         IAiJobKindRegistry jobKinds,
         AiJobId jobId,
@@ -13,19 +13,32 @@ internal static class AiVideoJobWaiter
         TimeSpan pollInterval,
         TimeSpan maximumRetryDelay,
         Func<TimeSpan, CancellationToken, Task> delay,
+        AiAccountJobScope account,
+        CancellationToken cancellationToken)
+        => WaitAsync(token => videos.GetAsync(jobId, token), job => jobKinds.GetStatus(AiJobKinds.Video, job.Status),
+            processing, pollInterval, maximumRetryDelay, delay, account, cancellationToken);
+
+    public static async Task<(T Job, AiJobStatusSemantics Status)> WaitAsync<T>(
+        Func<CancellationToken, Task<T>> getJob,
+        Func<T, AiJobStatusSemantics> getStatus,
+        Action processing,
+        TimeSpan pollInterval,
+        TimeSpan maximumRetryDelay,
+        Func<TimeSpan, CancellationToken, Task> delay,
+        AiAccountJobScope account,
         CancellationToken cancellationToken)
     {
         int transientFailures = 0;
         while (true)
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            AiVideoJob job;
+            account.ThrowIfInvalid(cancellationToken);
+            T job;
             try
             {
-                job = await videos.GetAsync(jobId, cancellationToken);
+                job = await account.SendAsync(getJob, cancellationToken);
                 transientFailures = 0;
             }
-            catch (Exception ex) when (IsTransientFailure(ex, cancellationToken))
+            catch (Exception ex) when (!account.AccountChanged && IsTransientFailure(ex, cancellationToken))
             {
                 transientFailures++;
                 processing();
@@ -33,21 +46,25 @@ internal static class AiVideoJobWaiter
                 double milliseconds = Math.Min(
                     pollInterval.TotalMilliseconds * multiplier,
                     maximumRetryDelay.TotalMilliseconds);
+                account.ThrowIfInvalid(cancellationToken);
                 await delay(TimeSpan.FromMilliseconds(Math.Max(0, milliseconds)), cancellationToken);
                 continue;
             }
 
-            AiJobStatusSemantics status = jobKinds.GetStatus(AiJobKinds.Video, job.Status);
+            account.ThrowIfInvalid(cancellationToken);
+            AiJobStatusSemantics status = getStatus(job);
             if (status.Outcome == AiJobOutcomes.Succeeded || status.IsTerminal || !status.ShouldPoll)
                 return (job, status);
 
             processing();
+            account.ThrowIfInvalid(cancellationToken);
             await delay(pollInterval, cancellationToken);
         }
     }
 
     private static bool IsTransientFailure(Exception exception, CancellationToken cancellationToken)
         => !cancellationToken.IsCancellationRequested
+            && exception is not AuthenticationRequiredException
             && (exception is OperationCanceledException
                 or TimeoutException
                 or HttpRequestException

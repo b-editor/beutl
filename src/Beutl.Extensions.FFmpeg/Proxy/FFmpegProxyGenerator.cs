@@ -54,10 +54,13 @@ public sealed partial class FFmpegProxyGenerator(IProxyStore store, INotificatio
         if (IsAlwaysStillImage(sourcePath))
             throw new ProxyGenerationSkippedException(StillImageSkipReason);
 
-        using MediaReader reader = OpenSourceReader(sourcePath);
+        using MediaReader reader = OpenSourceReader(sourcePath, job.Deinterlace);
 
         if (!reader.HasVideo)
             throw new ProxyGenerationSkippedException("Source has no video stream.");
+
+        if (reader.VideoInfo.DeinterlaceStatus == DeinterlaceApplicationStatus.UnsupportedByBackend)
+            throw new ProxyGenerationSkippedException("No available decoder supports the requested deinterlacing settings.");
 
         long frameCount = ResolveFrameCount(reader.VideoInfo);
         if (frameCount <= 0)
@@ -74,7 +77,7 @@ public sealed partial class FFmpegProxyGenerator(IProxyStore store, INotificatio
             throw new ProxyGenerationSkippedException("Source video has no frame size.");
 
         PixelSize proxySize = CalculateProxySize(originalSize, job.Preset);
-        string relative = ProxyPathUtilities.BuildRelativePath(job.Source, job.Preset, Guid.NewGuid());
+        string relative = ProxyPathUtilities.BuildRelativePath(job.Source, job.Preset, Guid.NewGuid(), job.Deinterlace);
         string finalPath = Path.Combine(store.StoreRootPath, relative.Replace('/', Path.DirectorySeparatorChar));
         string tempPath = CreateTempPathForOutput(finalPath);
         Directory.CreateDirectory(Path.GetDirectoryName(finalPath)!);
@@ -85,15 +88,15 @@ public sealed partial class FFmpegProxyGenerator(IProxyStore store, INotificatio
                 File.Delete(tempPath);
 
             using var frameProvider = new ReaderFrameProvider(reader, frameCount, job.Progress);
-            using var sampleProvider = new SilentSampleProvider();
             var controller = new FFmpegEncodingControllerProxy(tempPath, new FFmpegEncodingSettings());
             Configure(controller, reader.VideoInfo, proxySize, job.Preset);
 
-            await controller.Encode(frameProvider, sampleProvider, job.CancellationToken);
+            await controller.EncodeVideoOnly(frameProvider, job.CancellationToken);
 
             EnsureSourceUnchanged(store, job, sourcePath);
 
-            await PublishAsync(tempPath, finalPath, job, relative, originalSize, proxySize, job.CancellationToken);
+            await PublishAsync(tempPath, finalPath, job, relative, originalSize, proxySize, job.CancellationToken,
+                sourceVideo: reader.VideoInfo, originalIccColorSpace: frameProvider.OriginalIccColorSpace);
         });
     }
 
@@ -117,7 +120,7 @@ public sealed partial class FFmpegProxyGenerator(IProxyStore store, INotificatio
         foreach (ProxyEntry entry in store.Enumerate())
         {
             if (entry.Source == source && entry.State == ProxyState.Ready)
-                store.TryTransition(entry.Source, entry.Preset, ProxyState.Stale, reason);
+                store.TryTransition(entry.Source, entry.Preset, ProxyState.Stale, reason, entry.Deinterlace);
         }
     }
 
@@ -189,13 +192,13 @@ public sealed partial class FFmpegProxyGenerator(IProxyStore store, INotificatio
         }
     }
 
-    private MediaReader OpenSourceReader(string sourcePath)
+    private MediaReader OpenSourceReader(string sourcePath, VideoDeinterlaceOptions deinterlace)
     {
         try
         {
             return MediaReader.Open(
                 sourcePath,
-                new MediaOptions(MediaMode.Video) { PreferProxy = false, IsBackground = true }, decoders);
+                new MediaOptions(MediaMode.Video) { IsBackground = true, Deinterlace = deinterlace }, decoders);
         }
         catch (FFmpegLibrariesNotFoundException ex)
         {

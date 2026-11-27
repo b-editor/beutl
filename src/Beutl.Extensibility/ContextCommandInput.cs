@@ -10,25 +10,15 @@ namespace Beutl.Extensibility;
 /// (for example <c>Space</c>, <c>J</c>, <c>K</c>, <c>L</c>, <c>M</c>) are not treated as shortcuts while the
 /// user is typing into them.
 /// </summary>
-public static class ContextCommandInput
+public static partial class ContextCommandInput
 {
     /// <summary>
     /// Marks a control and its descendants as a text-entry surface. Context command handlers use
     /// <see cref="IsFromTextInput(KeyEventArgs?)"/> to skip plain-key gestures whose source lies inside it.
     /// <see cref="TextBox"/> is always treated as text input; use this for custom editors such as a terminal.
     /// </summary>
-    public static readonly AttachedProperty<bool> IsTextInputProperty =
-        AvaloniaProperty.RegisterAttached<Visual, bool>("IsTextInput", typeof(ContextCommandInput));
-
-    public static bool GetIsTextInput(Visual element)
-    {
-        return element.GetValue(IsTextInputProperty);
-    }
-
-    public static void SetIsTextInput(Visual element, bool value)
-    {
-        element.SetValue(IsTextInputProperty, value);
-    }
+    [GeneratedAttachedProperty]
+    public static partial bool GetIsTextInput(Visual element);
 
     /// <summary>
     /// Returns <see langword="true"/> when the key event originates from a control that accepts typed text:

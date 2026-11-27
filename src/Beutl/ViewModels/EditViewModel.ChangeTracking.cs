@@ -20,6 +20,11 @@ namespace Beutl.ViewModels;
 public partial class EditViewModel
 {
     private bool _autoSaveFailed;
+    private long _sceneChangeRevision;
+    private long _savedSceneChangeRevision;
+
+    internal bool HasUnsavedSceneChanges
+        => _sceneChangeRevision != _savedSceneChangeRevision || HistoryManager.HasPendingOperations || HasMediaRepairs.Value;
 
     private void OnEditorConfigPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
@@ -238,15 +243,14 @@ public partial class EditViewModel
             });
         }
 
+        long changeRevision = ++_sceneChangeRevision;
         if (!IsAutoSaveSuppressedForTesting)
         {
-            AutoSave(list);
+            AutoSave(list, changeRevision);
         }
     }
 
-    private Task _autoSaveTask = Task.CompletedTask;
-
-    private void AutoSave(IList<ChangeOperation> list)
+    private void AutoSave(IList<ChangeOperation> list, long changeRevision)
     {
         Dispatcher.UIThread.InvokeAsync(async () =>
         {
@@ -263,11 +267,13 @@ public partial class EditViewModel
                 _autoSaveFailed = false;
                 var savedMediaUris = CollectMediaUris();
                 var savedFingerprints = new Dictionary<string, MediaFileFingerprint>(Scene.MediaFingerprints);
-                _autoSaveTask = _autoSaveService.AutoSaveAsync(list, _autoSaveCancellation.Token);
-                await _autoSaveTask;
+                await _autoSaveService.AutoSaveAsync(list, _autoSaveCancellation.Token);
                 if (_disposed) return;
                 if (!_autoSaveFailed)
                 {
+                    // A failed batch can leave older changes on disk until the next full save.
+                    if (_savedSceneChangeRevision == changeRevision - 1)
+                        _savedSceneChangeRevision = changeRevision;
                     CaptureSavedMediaUris(savedMediaUris, savedFingerprints);
                     ScheduleMediaFingerprints();
                 }

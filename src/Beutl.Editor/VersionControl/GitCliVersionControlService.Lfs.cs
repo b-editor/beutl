@@ -1,5 +1,6 @@
 ﻿using System.Security.Cryptography;
 using System.Text;
+using Beutl.Language;
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.Editor.VersionControl;
@@ -35,16 +36,18 @@ internal sealed partial class GitCliVersionControlService
     private Task PrefetchCommitLfsObjectsCoreAsync(
         string sha,
         LfsPrefetchScope scope,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        IProgress<string>? progress)
     {
         GitRevisionValidator.ValidateCommitId(sha, nameof(sha));
-        return PrefetchLfsObjectsCoreAsync(sha, scope, cancellationToken);
+        return PrefetchLfsObjectsCoreAsync(sha, scope, cancellationToken, progress);
     }
 
     private async Task PrefetchLfsObjectsCoreAsync(
         string reference,
         LfsPrefetchScope scope,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        IProgress<string>? progress = null)
     {
         RepositoryInfo repository = GetRepository();
         (GitAvailability availability, IGitCliRunner runner) = await GetInstalledRuntimeCoreAsync(
@@ -97,6 +100,7 @@ internal sealed partial class GitCliVersionControlService
 
         try
         {
+            progress?.Report(Strings.VersionControl_FetchingLfs);
             await runner.RunAsync(
                 repository,
                 [
@@ -109,9 +113,10 @@ internal sealed partial class GitCliVersionControlService
                     remotes[0].Name,
                     target.Reference,
                 ],
-                GitCommandOptions.Network with
+                (progress is null ? GitCommandOptions.Network : s_lfsNetworkProgress) with
                 {
                     MaxStdoutBytes = MaxLfsFetchOutputBytes,
+                    StdoutProgress = progress,
                 },
                 cancellationToken).ConfigureAwait(false);
         }
@@ -140,7 +145,7 @@ internal sealed partial class GitCliVersionControlService
         }
     }
 
-    private static async Task<bool> TargetContainsLfsPointerAsync(
+    internal static async Task<bool> TargetContainsLfsPointerAsync(
         RepositoryInfo repository,
         IGitCliRunner runner,
         string reference,

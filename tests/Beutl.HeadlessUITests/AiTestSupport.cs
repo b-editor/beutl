@@ -186,8 +186,9 @@ internal static class AiTestSupport
         ICaptionDraftStore? draftStore = null,
         IObservable<CaptionDraftScope?>? draftScopes = null,
         IAiOperationAvailabilityService? availabilityService = null,
-        CaptionCatalog? captionCatalog = null)
-        => new(TestShell.Notifications, TestShell.FontManager, TestShell.Decoders,
+        CaptionCatalog? captionCatalog = null,
+        AiRequestRecoveryContext? recoveryContext = null)
+        => new(TestShell.Notifications, new SceneRenderServices(TestShell.FontManager, TestShell.Decoders),
             clients.GetResource<IAiEntitlementService>(),
             availabilityService ?? clients.GetResource<IAiOperationAvailabilityService>(),
             clients.GetResource<IAiModelCatalogService>(),
@@ -197,7 +198,16 @@ internal static class AiTestSupport
             captionCatalog ?? CreateCaptionCatalog(),
             draftStore ?? CaptionDraftStoreProvider.Current,
             draftScopes ?? Observable.Return<CaptionDraftScope?>(null),
-            editor);
+            editor, requestRecoveryContext: recoveryContext);
+
+    public static AiRequestRecoveryContext TrackAccount(BeutlApiApplication clients, FileAiRequestKeyMap store)
+    {
+        static AiAuthenticatedRequestIdentity? Identity(AuthenticatedUser? user)
+            => user is null ? null : new AiAuthenticatedRequestIdentity(user.Profile.Id, user);
+
+        return new AiRequestRecoveryContext(store, () => Identity(clients.AuthenticatedUser.Value),
+            clients.AuthenticatedUser.Select(Identity));
+    }
 
     public static CaptionCatalog CreateCaptionCatalog()
         => CaptionCatalog.ComposeWithDefaultElementFactory(

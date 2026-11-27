@@ -1,7 +1,9 @@
 ﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
@@ -27,6 +29,7 @@ using Beutl.Services;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Beutl.Views;
+using FluentAvalonia.UI.Controls;
 
 namespace Beutl.HeadlessUITests;
 
@@ -701,18 +704,31 @@ public partial class MissingMediaTests
             HeadlessTestHelpers.Render(3);
             var row = vm.Rows.Single();
             var moreButton = view.GetVisualDescendants().OfType<Button>().Single(button => button.Name == "MoreButton");
-            var flyout = (MenuFlyout)moreButton.Flyout!;
+            var flyout = (FAMenuFlyout)moreButton.Flyout!;
             flyout.ShowAt(moreButton);
             HeadlessTestHelpers.Render(3);
-            var menuItems = flyout.Items.OfType<MenuItem>().ToArray();
-            var offlineItem = menuItems.Single(item => item.Name == "KeepOfflineMenuItem");
+            var offlineItem = (FAToggleMenuFlyoutItem)flyout.Items.Cast<object>().Single();
             Assert.That(offlineItem.DataContext, Is.SameAs(row));
-            offlineItem.IsChecked = true;
+            Assert.That(offlineItem.Text, Is.EqualTo(Beutl.Language.MissingMediaStrings.KeepOffline));
+            Assert.That(row.IsOffline.Value, Is.False);
+            Assert.That(flyout.IsOpen, Is.True);
+
+            Assert.That(offlineItem.Focus(NavigationMethod.Directional), Is.True);
+            TopLevel menuRoot = TopLevel.GetTopLevel(offlineItem)!;
+            menuRoot.KeyPress(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, null);
+            menuRoot.KeyRelease(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, null);
+            HeadlessTestHelpers.Render(3);
             Assert.That(row.IsOffline.Value, Is.True);
             Assert.That(row.StateText.Value, Is.EqualTo(Beutl.Language.MissingMediaStrings.Offline));
             Assert.That(row.StateKind.Value, Is.EqualTo(Beutl.Controls.StatusLabelKind.Neutral));
-            offlineItem.IsChecked = false;
-            flyout.Hide();
+            Assert.That(flyout.IsOpen, Is.False);
+
+            flyout.ShowAt(moreButton);
+            HeadlessTestHelpers.Render(3);
+            Assert.That(offlineItem.IsChecked, Is.True);
+            HeadlessTestHelpers.Click(offlineItem, move: true);
+            Assert.That(row.IsOffline.Value, Is.False);
+            Assert.That(flyout.IsOpen, Is.False);
             await vm.SetReplacementAsync(row, replacement);
             await vm.WaitForCandidatesAsync();
             HeadlessTestHelpers.Render(3);
@@ -1319,7 +1335,7 @@ public partial class MissingMediaTests
         var manager = new System.Resources.ResourceManager("Beutl.Language.MissingMediaStrings", typeof(Beutl.Language.MissingMediaStrings).Assembly);
         var resources = manager.GetResourceSet(System.Globalization.CultureInfo.GetCultureInfo(culture), true, false);
         Assert.That(resources, Is.Not.Null);
-        Assert.That(resources!.GetString("Title"), Is.Not.EqualTo("Relink missing media"));
+        Assert.That(resources!.GetString("Title"), Is.Not.EqualTo(manager.GetString("Title", System.Globalization.CultureInfo.InvariantCulture)));
         Assert.That(resources.GetString("Unrecognized"), Is.Not.Null);
     }
 

@@ -1,0 +1,178 @@
+<UserControl x:Class="Beutl.Pages.SettingsPages.PerformanceSettingsPage"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctrls="using:Beutl.Controls"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:conv="using:Beutl.Converters"
+             xmlns:proxy="using:Beutl.Media.Proxy"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:vm="using:Beutl.ViewModels.SettingsPages"
+             x:CompileBindings="True"
+             x:DataType="vm:PerformanceSettingsPageViewModel">
+    <Grid Margin="18" RowDefinitions="Auto,*">
+        <TextBlock Margin="10,8"
+                   Text="{x:Static lang:SettingsStrings.Performance}"
+                   Theme="{StaticResource SimpleLargeBreadcrumbBarTextBlock}" />
+
+        <ScrollViewer Grid.Row="1">
+            <StackPanel Margin="10,16,10,0" Spacing="4">
+                <TextBlock Text="{x:Static lang:SettingsStrings.Graphics}" Theme="{StaticResource BodyStrongTextBlockStyle}" />
+
+                <Border Classes="options-group">
+                    <ctrls:OptionsGroupPanel>
+                        <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsStrings.SelectedGpu_Description}" Header="{x:Static lang:SettingsStrings.SelectedGpu}">
+                            <ctrls:OptionsDisplayItem.ActionButton>
+                                <ComboBox MinWidth="250"
+                                          ItemsSource="{CompiledBinding AvailableGpus}"
+                                          SelectedIndex="{CompiledBinding SelectedGpuIndex.Value}">
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding DisplayName}" />
+                                        </DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>
+                            </ctrls:OptionsDisplayItem.ActionButton>
+                        </ctrls:OptionsDisplayItem>
+                    </ctrls:OptionsGroupPanel>
+                </Border>
+
+                <TextBlock Margin="0,16,0,0"
+                           Text="{x:Static lang:Strings.FrameCache}"
+                           Theme="{StaticResource BodyStrongTextBlockStyle}" />
+
+                <Border Classes="options-group">
+                    <ctrls:OptionsGroupPanel>
+                        <ctrls:OptionsDisplayItem Header="{x:Static lang:SettingsStrings.EnableFrameCache}">
+                            <ctrls:OptionsDisplayItem.ActionButton>
+                                <ToggleSwitch Classes="left"
+                                              IsChecked="{CompiledBinding IsFrameCacheEnabled.Value}"
+                                              Theme="{StaticResource CompactToggleSwitchStyle}" />
+                            </ctrls:OptionsDisplayItem.ActionButton>
+                        </ctrls:OptionsDisplayItem>
+
+                        <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsStrings.FrameCacheMaxSize_Description}"
+                                                  Header="{x:Static lang:SettingsStrings.FrameCacheMaxSize}"
+                                                  IsEnabled="{CompiledBinding IsFrameCacheEnabled.Value}">
+                            <ctrls:OptionsDisplayItem.ActionButton>
+                                <TextBox MinWidth="250" Text="{Binding FrameCacheMaxSize.Value}">
+                                    <TextBox.InnerRightContent>
+                                        <TextBlock Margin="8,0"
+                                                   VerticalAlignment="Center"
+                                                   Text="MB" />
+                                    </TextBox.InnerRightContent>
+                                </TextBox>
+                            </ctrls:OptionsDisplayItem.ActionButton>
+                        </ctrls:OptionsDisplayItem>
+
+                        <ctrls:OptionsDisplayItem Header="{x:Static lang:SettingsStrings.FrameCacheScale}" IsEnabled="{CompiledBinding IsFrameCacheEnabled.Value}">
+                            <ctrls:OptionsDisplayItem.ActionButton>
+                                <ComboBox MinWidth="250" SelectedIndex="{CompiledBinding FrameCacheScale.Value}">
+                                    <ComboBoxItem Content="{x:Static lang:SettingsStrings.FrameCacheScale_Original}" />
+                                    <ComboBoxItem Content="{x:Static lang:SettingsStrings.FrameCacheScale_FitToPreviewer}" />
+                                    <ComboBoxItem Content="{x:Static lang:SettingsStrings.FrameCacheScale_Half}" />
+                                    <ComboBoxItem Content="{x:Static lang:SettingsStrings.FrameCacheScale_Quarter}" />
+                                </ComboBox>
+                            </ctrls:OptionsDisplayItem.ActionButton>
+                        </ctrls:OptionsDisplayItem>
+
+                        <ctrls:OptionsDisplayItem Header="{x:Static lang:SettingsStrings.FrameCacheColorType}" IsEnabled="{CompiledBinding IsFrameCacheEnabled.Value}">
+                            <ctrls:OptionsDisplayItem.ActionButton>
+                                <ComboBox MinWidth="250" SelectedIndex="{CompiledBinding FrameCacheColorType.Value}">
+                                    <ComboBoxItem Content="RGBA" />
+                                    <ComboBoxItem Content="YUV" />
+                                </ComboBox>
+                            </ctrls:OptionsDisplayItem.ActionButton>
+                        </ctrls:OptionsDisplayItem>
+                    </ctrls:OptionsGroupPanel>
+                </Border>
+
+                <TextBlock Margin="0,16,0,0"
+                           Text="{x:Static lang:SettingsStrings.NodeCache}"
+                           Theme="{StaticResource BodyStrongTextBlockStyle}" />
+
+                <Border Classes="options-group">
+                    <ctrls:OptionsGroupPanel>
+                        <ctrls:OptionsDisplayItem Header="{x:Static lang:SettingsStrings.EnableNodeCache}">
+                            <ctrls:OptionsDisplayItem.ActionButton>
+                                <ToggleSwitch Classes="left"
+                                              IsChecked="{CompiledBinding IsNodeCacheEnabled.Value}"
+                                              Theme="{StaticResource CompactToggleSwitchStyle}" />
+                            </ctrls:OptionsDisplayItem.ActionButton>
+                        </ctrls:OptionsDisplayItem>
+
+                        <ui:FAInfoBar IsClosable="False"
+                                    IsOpen="{CompiledBinding IsNodeCacheEnabled.Value}"
+                                    Message="{x:Static lang:SettingsStrings.NodeCacheWarning}"
+                                    Severity="Warning" />
+
+                        <ctrls:OptionsDisplayItem Header="{x:Static lang:SettingsStrings.NodeCacheMaxPixels}" IsEnabled="{CompiledBinding IsNodeCacheEnabled.Value}">
+                            <ctrls:OptionsDisplayItem.ActionButton>
+                                <NumericUpDown MinWidth="250"
+                                               FormatString="F0"
+                                               Minimum="{Binding NodeCacheMinPixels.Value}"
+                                               Value="{Binding NodeCacheMaxPixels.Value}" />
+                            </ctrls:OptionsDisplayItem.ActionButton>
+                        </ctrls:OptionsDisplayItem>
+
+                        <ctrls:OptionsDisplayItem Header="{x:Static lang:SettingsStrings.NodeCacheMinPixels}" IsEnabled="{CompiledBinding IsNodeCacheEnabled.Value}">
+                            <ctrls:OptionsDisplayItem.ActionButton>
+                                <NumericUpDown MinWidth="250"
+                                               FormatString="F0"
+                                               Maximum="{Binding NodeCacheMaxPixels.Value}"
+                                               Minimum="1"
+                                               Value="{Binding NodeCacheMinPixels.Value}" />
+                            </ctrls:OptionsDisplayItem.ActionButton>
+                        </ctrls:OptionsDisplayItem>
+                    </ctrls:OptionsGroupPanel>
+                </Border>
+
+                <TextBlock Margin="0,16,0,0"
+                           Text="{x:Static lang:SettingsStrings.ProxyMedia}"
+                           Theme="{StaticResource BodyStrongTextBlockStyle}" />
+
+                <Border Classes="options-group">
+                    <ctrls:OptionsGroupPanel>
+                        <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsStrings.ProxyStoreRootPath_Description}"
+                                                  Header="{x:Static lang:SettingsStrings.ProxyStoreRootPath}">
+                            <ctrls:OptionsDisplayItem.ActionButton>
+                                <TextBox MinWidth="250"
+                                         VerticalAlignment="Center"
+                                         Text="{Binding ProxyStoreRootPath.Value}" />
+                            </ctrls:OptionsDisplayItem.ActionButton>
+                        </ctrls:OptionsDisplayItem>
+
+                        <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsStrings.ProxyStoreMaxTotalGiB_Description}"
+                                                  Header="{x:Static lang:SettingsStrings.ProxyStoreMaxTotalGiB}">
+                            <ctrls:OptionsDisplayItem.ActionButton>
+                                <TextBox MinWidth="250"
+                                         VerticalAlignment="Center"
+                                         Text="{Binding ProxyStoreMaxTotalGiB.Value}">
+                                    <TextBox.InnerRightContent>
+                                        <TextBlock Margin="8,0"
+                                                   VerticalAlignment="Center"
+                                                   Text="GiB" />
+                                    </TextBox.InnerRightContent>
+                                </TextBox>
+                            </ctrls:OptionsDisplayItem.ActionButton>
+                        </ctrls:OptionsDisplayItem>
+
+                        <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsStrings.ProxyDefaultPreset_Description}"
+                                                  Header="{x:Static lang:SettingsStrings.ProxyDefaultPreset}">
+                            <ctrls:OptionsDisplayItem.ActionButton>
+                                <ComboBox MinWidth="250"
+                                          ItemsSource="{CompiledBinding ProxyPresetOptions}"
+                                          SelectedItem="{CompiledBinding ProxyDefaultPreset.Value}">
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate x:DataType="proxy:ProxyPreset">
+                                            <TextBlock Text="{CompiledBinding Path=., Converter={x:Static conv:ProxyPresetNameConverter.Instance}}" />
+                                        </DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>
+                            </ctrls:OptionsDisplayItem.ActionButton>
+                        </ctrls:OptionsDisplayItem>
+                    </ctrls:OptionsGroupPanel>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</UserControl>

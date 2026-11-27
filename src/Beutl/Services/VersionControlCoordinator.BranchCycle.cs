@@ -75,7 +75,7 @@ internal partial class VersionControlCoordinator
 
         cancellationToken.ThrowIfCancellationRequested();
         // Held until the project is closed, for the reason given in RestoreWithinTransactionAsync.
-        using IDisposable editorSuspension = _editorService.SuspendEditors();
+        using IDisposable editorSuspension = SuspendEditorsBehindActivity(ProjectLifecycleActivity.SwitchingBranch);
         if (!await TrySaveOpenProjectAsync(project, CancellationToken.None))
         {
             PublishNotification(() =>

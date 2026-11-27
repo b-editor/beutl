@@ -71,8 +71,17 @@
   <data name="CreateNewProject" xml:space="preserve">
     <value>创建新项目</value>
   </data>
+  <data name="CreateProjectMenu" xml:space="preserve">
+    <value>项目…</value>
+  </data>
   <data name="CreateNewScene" xml:space="preserve">
     <value>创建新场景</value>
+  </data>
+  <data name="CreateSceneMenu" xml:space="preserve">
+    <value>场景…</value>
+  </data>
+  <data name="CreateNewSceneMenu" xml:space="preserve">
+    <value>新建…</value>
   </data>
   <data name="Project" xml:space="preserve">
     <value>项目</value>
@@ -157,6 +166,9 @@
   </data>
   <data name="Settings" xml:space="preserve">
     <value>设置</value>
+  </data>
+  <data name="OpenSettingsMenu" xml:space="preserve">
+    <value>设置…</value>
   </data>
   <data name="Properties" xml:space="preserve">
     <value>属性</value>
@@ -299,8 +311,14 @@
   <data name="Delete" xml:space="preserve">
     <value>删除</value>
   </data>
+  <data name="DeleteWithConfirmation" xml:space="preserve">
+    <value>删除…</value>
+  </data>
   <data name="Remove" xml:space="preserve">
     <value>移除</value>
+  </data>
+  <data name="RemoveFromProjectMenu" xml:space="preserve">
+    <value>从项目中移除…</value>
   </data>
   <data name="Back" xml:space="preserve">
     <value>返回</value>
@@ -333,6 +351,9 @@
     <value>采样率</value>
   </data>
   <data name="SceneSettings" xml:space="preserve">
+    <value>场景设置</value>
+  </data>
+  <data name="TimelineSceneSettings" xml:space="preserve">
     <value>场景设置</value>
   </data>
   <data name="Apply" xml:space="preserve">
@@ -370,6 +391,9 @@
   </data>
   <data name="NewFolder" xml:space="preserve">
     <value>新建文件夹</value>
+  </data>
+  <data name="CloudStorageNewFolderMenu" xml:space="preserve">
+    <value>新建文件夹…</value>
   </data>
   <data name="Left" xml:space="preserve">
     <value>左</value>
@@ -446,11 +470,20 @@
   <data name="Rename" xml:space="preserve">
     <value>重命名</value>
   </data>
+  <data name="RenameMenu" xml:space="preserve">
+    <value>重命名…</value>
+  </data>
   <data name="FinishEditing" xml:space="preserve">
     <value>完成编辑</value>
   </data>
   <data name="BringToTop" xml:space="preserve">
     <value>置于顶部</value>
+  </data>
+  <data name="ShowAllAnimations" xml:space="preserve">
+    <value>全部显示</value>
+  </data>
+  <data name="NoAnimations" xml:space="preserve">
+    <value>没有动画</value>
   </data>
   <data name="RecentProjectsEmpty" xml:space="preserve">
     <value>打开过的项目会显示在这里。</value>
@@ -609,7 +642,7 @@
     <value>图层数</value>
   </data>
   <data name="ChangeColor" xml:space="preserve">
-    <value>更改颜色</value>
+    <value>更改颜色…</value>
   </data>
   <data name="EditAnimationInInlineView" xml:space="preserve">
     <value>在内联视图中编辑动画</value>
@@ -638,6 +671,12 @@
   <data name="RippleEdit" xml:space="preserve">
     <value>波纹编辑</value>
   </data>
+  <data name="RippleEdit_Description" xml:space="preserve">
+    <value>切换波纹编辑。开启时，删除或剪切剪辑会移动同一图层上其后的剪辑，修剪边缘会移动该侧的剪辑。</value>
+  </data>
+  <data name="TimelineSnap_Description" xml:space="preserve">
+    <value>切换吸附。拖动时按住 Alt / Option 键可忽略吸附。</value>
+  </data>
   <data name="UseGlobalClock" xml:space="preserve">
     <value>使用全局时钟</value>
   </data>
@@ -647,26 +686,44 @@
   <data name="AddNode" xml:space="preserve">
     <value>添加节点</value>
   </data>
-  <data name="Change" xml:space="preserve">
-    <value>更改</value>
+  <data name="ChangeTransformType" xml:space="preserve">
+    <value>更改变换类型</value>
+  </data>
+  <data name="ReplaceEffectMenu" xml:space="preserve">
+    <value>替换效果…</value>
+  </data>
+  <data name="ReplaceObject" xml:space="preserve">
+    <value>替换对象</value>
+  </data>
+  <data name="ReplaceObjectMenu" xml:space="preserve">
+    <value>替换对象…</value>
   </data>
   <data name="Disconnect" xml:space="preserve">
     <value>断开连接</value>
   </data>
-  <data name="Initialize" xml:space="preserve">
-    <value>初始化</value>
+  <data name="CreateEmptyPath" xml:space="preserve">
+    <value>创建空路径</value>
+  </data>
+  <data name="ResetList" xml:space="preserve">
+    <value>重置列表</value>
+  </data>
+  <data name="ResetStroke" xml:space="preserve">
+    <value>重置描边</value>
   </data>
   <data name="ResetZoom" xml:space="preserve">
+    <value>重置缩放</value>
+  </data>
+  <data name="ResetZoomMenu" xml:space="preserve">
     <value>重置缩放</value>
   </data>
   <data name="RemoveAnimation" xml:space="preserve">
     <value>移除动画</value>
   </data>
   <data name="EditExpression" xml:space="preserve">
-    <value>编辑表达式</value>
+    <value>编辑表达式…</value>
   </data>
   <data name="RemoveExpression" xml:space="preserve">
-    <value>移除表达式</value>
+    <value>删除表达式</value>
   </data>
   <data name="Expression_ReturnsBothValues" xml:space="preserve">
     <value>输入一个同时返回所有值的表达式,例如 {0}。</value>
@@ -702,10 +759,10 @@
     <value>显示详细信息</value>
   </data>
   <data name="SaveSelectedElementAsImage" xml:space="preserve">
-    <value>将所选元素保存为图像</value>
+    <value>将所选元素保存为图像…</value>
   </data>
   <data name="SaveFrameAsImage" xml:space="preserve">
-    <value>将帧保存为图像</value>
+    <value>将帧保存为图像…</value>
   </data>
   <data name="SaveImageScale" xml:space="preserve">
     <value>缩放</value>
@@ -715,6 +772,9 @@
   </data>
   <data name="Move" xml:space="preserve">
     <value>移动</value>
+  </data>
+  <data name="CloudStorageMoveMenu" xml:space="preserve">
+    <value>移动…</value>
   </data>
   <data name="Hand" xml:space="preserve">
     <value>抓手</value>
@@ -774,7 +834,7 @@
     <value>正在运行启动任务</value>
   </data>
   <data name="SaveAsImage" xml:space="preserve">
-    <value>另存为图像</value>
+    <value>另存为图像…</value>
   </data>
   <data name="CopyAsImage" xml:space="preserve">
     <value>复制为图像</value>
@@ -791,14 +851,8 @@
   <data name="Unlocked" xml:space="preserve">
     <value>已解锁</value>
   </data>
-  <data name="DeleteAll" xml:space="preserve">
-    <value>全部删除</value>
-  </data>
   <data name="Lock" xml:space="preserve">
     <value>锁定</value>
-  </data>
-  <data name="Unlock" xml:space="preserve">
-    <value>解锁</value>
   </data>
   <data name="Solo" xml:space="preserve">
     <value>独奏</value>
@@ -808,6 +862,18 @@
   </data>
   <data name="FrameCache" xml:space="preserve">
     <value>帧缓存</value>
+  </data>
+  <data name="DeleteAllCachedFrames" xml:space="preserve">
+    <value>删除所有缓存帧</value>
+  </data>
+  <data name="DeleteCachedFrameRange" xml:space="preserve">
+    <value>删除缓存帧范围</value>
+  </data>
+  <data name="LockCachedFrameRange" xml:space="preserve">
+    <value>锁定缓存帧范围</value>
+  </data>
+  <data name="UnlockCachedFrameRange" xml:space="preserve">
+    <value>解锁缓存帧范围</value>
   </data>
   <data name="RightClickToOperateCache" xml:space="preserve">
     <value>右键单击以操作缓存</value>
@@ -857,6 +923,9 @@
   <data name="ColorPalette_NewPalette" xml:space="preserve">
     <value>新建调色板</value>
   </data>
+  <data name="ColorPalette_NewPaletteMenu" xml:space="preserve">
+    <value>新建调色板…</value>
+  </data>
   <data name="ColorPalette_NewPaletteName" xml:space="preserve">
     <value>调色板 {0}</value>
   </data>
@@ -888,7 +957,7 @@
     <value>添加到调色板</value>
   </data>
   <data name="ColorPalette_AddToNewPalette" xml:space="preserve">
-    <value>添加到新调色板</value>
+    <value>添加到新调色板…</value>
   </data>
   <data name="ColorPalette_ReplaceWithCurrentColor" xml:space="preserve">
     <value>替换为当前颜色</value>
@@ -916,6 +985,9 @@
   </data>
   <data name="ImportSvgPath" xml:space="preserve">
     <value>导入 SVG 路径</value>
+  </data>
+  <data name="ImportSvgPathMenu" xml:space="preserve">
+    <value>导入 SVG 路径…</value>
   </data>
   <data name="ImportSvgPath_Description" xml:space="preserve">
     <value>当前形状将被覆盖。</value>
@@ -947,8 +1019,14 @@
   <data name="OpenProject" xml:space="preserve">
     <value>打开项目</value>
   </data>
+  <data name="OpenProjectMenu" xml:space="preserve">
+    <value>项目…</value>
+  </data>
   <data name="OpenFile" xml:space="preserve">
     <value>打开文件</value>
+  </data>
+  <data name="OpenFileMenu" xml:space="preserve">
+    <value>文件…</value>
   </data>
   <data name="Save_Description" xml:space="preserve">
     <value>保存当前文件</value>
@@ -967,6 +1045,9 @@
   </data>
   <data name="Exit_Description" xml:space="preserve">
     <value>退出应用程序</value>
+  </data>
+  <data name="Playback" xml:space="preserve">
+    <value>播放</value>
   </data>
   <data name="PlayPause" xml:space="preserve">
     <value>播放/暂停</value>
@@ -997,6 +1078,9 @@
   </data>
   <data name="MoveToEnd_Description" xml:space="preserve">
     <value>移到场景的结尾。</value>
+  </data>
+  <data name="Markers" xml:space="preserve">
+    <value>标记</value>
   </data>
   <data name="ToggleMarker" xml:space="preserve">
     <value>切换标记</value>
@@ -1112,6 +1196,9 @@
   <data name="Duplicate_ProjectNotSaved" xml:space="preserve">
     <value>复制剪辑之前请先保存项目。</value>
   </data>
+  <data name="Duplicate_InvalidLayer" xml:space="preserve">
+    <value>请选择编号不小于 0 且能容纳所有副本的目标图层。</value>
+  </data>
   <data name="Duplicate_IOFailed" xml:space="preserve">
     <value>无法将复制的元素写入磁盘。</value>
   </data>
@@ -1179,10 +1266,11 @@ PI：数学常数 π (3.14159...)</value>
   </data>
   <data name="Expression_Functions_Utility" xml:space="preserve">
     <value>实用工具：Radians、Degrees、Mod、Frac
-随机：Random(seed)、Random(seed, min, max)、FrameRandom()、FrameRandom(min, max)</value>
+随机：Random(seed)、Random(seed, min, max)、FrameRandom()、FrameRandom(min, max)、Wiggle(frequency, amplitude, octaves = 1, seed = null)、WiggleValue(frequency, amplitude, octaves = 1, seed = null)</value>
   </data>
   <data name="Expression_Functions_Time" xml:space="preserve">
-    <value>其他时间：ValueAtTime(time)、GetProperty&lt;T&gt;(path, time)</value>
+    <value>其他时间：ValueAtTime(time)、GetProperty&lt;T&gt;(path, time)
+循环：LoopOut(mode, keyframes)、LoopIn(mode, keyframes)</value>
   </data>
   <data name="Expression_GetProperty_Description" xml:space="preserve">
     <value>引用其他属性：
@@ -1272,6 +1360,12 @@ GetProperty&lt;T&gt;("path", time) 或 GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="Null" xml:space="preserve">
     <value>空</value>
   </data>
+  <data name="ClearValue" xml:space="preserve">
+    <value>清除值</value>
+  </data>
+  <data name="ClearReference" xml:space="preserve">
+    <value>清除引用</value>
+  </data>
   <data name="OpenInTab" xml:space="preserve">
     <value>在选项卡中打开</value>
   </data>
@@ -1336,10 +1430,43 @@ GetProperty&lt;T&gt;("path", time) 或 GetProperty&lt;T&gt;(guid, "propertyName"
     <value>清除</value>
   </data>
   <data name="ExportProject" xml:space="preserve">
-    <value>导出项目...</value>
+    <value>导出项目…</value>
+  </data>
+  <data name="ExportSubtitlesMenu" xml:space="preserve">
+    <value>导出字幕…</value>
+  </data>
+  <data name="ExportSubtitles" xml:space="preserve">
+    <value>导出字幕</value>
+  </data>
+  <data name="ExportSubtitles_Source" xml:space="preserve">
+    <value>要导出的片段</value>
+  </data>
+  <data name="ExportSubtitles_SelectedElements" xml:space="preserve">
+    <value>选中的元素</value>
+  </data>
+  <data name="ExportSubtitles_Layers" xml:space="preserve">
+    <value>时间轴图层</value>
+  </data>
+  <data name="ExportSubtitles_NoLayers" xml:space="preserve">
+    <value>没有包含片段的图层。</value>
+  </data>
+  <data name="ExportSubtitles_Format" xml:space="preserve">
+    <value>文件格式</value>
+  </data>
+  <data name="ExportSubtitles_SelectSource" xml:space="preserve">
+    <value>请选择要导出的片段或图层。</value>
+  </data>
+  <data name="ExportSubtitles_NoText" xml:space="preserve">
+    <value>未找到文本片段。</value>
+  </data>
+  <data name="ExportSubtitles_SkippedClips" xml:space="preserve">
+    <value>已跳过 {0} 个没有文本的片段。</value>
   </data>
   <data name="ImportProject" xml:space="preserve">
-    <value>导入项目...</value>
+    <value>导入项目…</value>
+  </data>
+  <data name="ImportMedia" xml:space="preserve">
+    <value>导入媒体…</value>
   </data>
   <data name="ExportingProject" xml:space="preserve">
     <value>正在导出项目...</value>
@@ -1354,9 +1481,6 @@ GetProperty&lt;T&gt;("path", time) 或 GetProperty&lt;T&gt;(guid, "propertyName"
     <value>选择目标文件夹</value>
   </data>
   
-  <data name="Experimental" xml:space="preserve">
-    <value>实验性</value>
-  </data>
   <data name="Home" xml:space="preserve">
     <value>主页</value>
   </data>
@@ -1375,8 +1499,11 @@ GetProperty&lt;T&gt;("path", time) 或 GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="Tutorials" xml:space="preserve">
     <value>教程</value>
   </data>
+  <data name="TutorialsMenu" xml:space="preserve">
+    <value>教程…</value>
+  </data>
   <data name="BpmGrid" xml:space="preserve">
-    <value>BPM 网格</value>
+    <value>BPM 网格…</value>
   </data>
   <data name="ShowBpmGrid" xml:space="preserve">
     <value>显示 BPM 网格</value>
@@ -1420,6 +1547,9 @@ GetProperty&lt;T&gt;("path", time) 或 GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="SaveAsTemplate" xml:space="preserve">
     <value>另存为模板</value>
   </data>
+  <data name="SaveAsTemplateMenu" xml:space="preserve">
+    <value>另存为模板…</value>
+  </data>
   <data name="ApplyTemplate" xml:space="preserve">
     <value>应用模板</value>
   </data>
@@ -1437,6 +1567,36 @@ GetProperty&lt;T&gt;("path", time) 或 GetProperty&lt;T&gt;(guid, "propertyName"
   </data>
   <data name="EnterTemplateName" xml:space="preserve">
     <value>输入模板名称</value>
+  </data>
+  <data name="TemplateInvalidName" xml:space="preserve">
+    <value>请为模板指定有效的文件名。</value>
+  </data>
+  <data name="TemplateInvalidId" xml:space="preserve">
+    <value>请指定有效的 ID。</value>
+  </data>
+  <data name="TemplateObjectSaveFailed" xml:space="preserve">
+    <value>Beutl 无法将此对象保存为模板。</value>
+  </data>
+  <data name="TemplateNotFound" xml:space="preserve">
+    <value>找不到模板“{0}”。</value>
+  </data>
+  <data name="TemplateInstantiationFailed" xml:space="preserve">
+    <value>无法从模板“{0}”创建对象。</value>
+  </data>
+  <data name="TemplateObjectAmbiguous" xml:space="preserve">
+    <value>场景文档中有多个对象使用 ID“{0}”。</value>
+  </data>
+  <data name="TemplateObjectNotFound" xml:space="preserve">
+    <value>场景文档中没有 ID 为“{0}”的对象。</value>
+  </data>
+  <data name="TemplateTypeMismatch" xml:space="preserve">
+    <value>模板类型“{0}”与属性“{1}”不兼容。该属性需要类型“{2}”。</value>
+  </data>
+  <data name="TemplateIndexOutOfRange" xml:space="preserve">
+    <value>请为“{1}”指定 0 到 {0} 之间的索引。</value>
+  </data>
+  <data name="TemplateInvalidProperty" xml:space="preserve">
+    <value>要在“{0}”应用模板，请指定要替换的对象属性，或指定对象列表及其插入索引。</value>
   </data>
   <data name="Preset_YouTube_1080p60" xml:space="preserve">
     <value>YouTube 1080p 60fps</value>
@@ -1488,6 +1648,9 @@ GetProperty&lt;T&gt;("path", time) 或 GetProperty&lt;T&gt;(guid, "propertyName"
   </data>
   <data name="CommandPalette_MenuCategory" xml:space="preserve">
     <value>菜单</value>
+  </data>
+  <data name="CommandPalette_OpensToolTab" xml:space="preserve">
+    <value>打开{0}</value>
   </data>
   <data name="OnionSkin" xml:space="preserve">
     <value>洋葱皮</value>
@@ -1604,7 +1767,7 @@ GetProperty&lt;T&gt;("path", time) 或 GetProperty&lt;T&gt;(guid, "propertyName"
     <value>删除所选</value>
   </data>
   <data name="ProxyDeleteProjectProxies" xml:space="preserve">
-    <value>删除项目代理</value>
+    <value>删除项目代理…</value>
   </data>
   <data name="ProxyDeleteProjectProxiesConfirmationFormat" xml:space="preserve">
     <value>代理存储在整个机器的共享缓存中。删除此项目使用的 {0} 个代理文件也会将它们从引用相同源文件的每个其他项目中移除，并且必须重新生成。继续吗？</value>
@@ -1774,6 +1937,12 @@ GetProperty&lt;T&gt;("path", time) 或 GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="AiSubtitle_CaptionsFile" xml:space="preserve">
     <value>字幕文件</value>
   </data>
+  <data name="SubtitleFile_UnsupportedFormat" xml:space="preserve">
+    <value>请选择 SRT、ASS 或 WebVTT 文件。</value>
+  </data>
+  <data name="SubtitleFile_UnsupportedTemplate" xml:space="preserve">
+    <value>模板必须包含文本对象。</value>
+  </data>
   <data name="SubtitleFile_CouldNotRead" xml:space="preserve">
     <value>无法从 {0} 读取字幕。</value>
   </data>
@@ -1798,6 +1967,9 @@ GetProperty&lt;T&gt;("path", time) 或 GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="DeleteFromDisk" xml:space="preserve">
     <value>从磁盘彻底删除</value>
   </data>
+  <data name="DeleteFromDiskMenu" xml:space="preserve">
+    <value>从磁盘彻底删除…</value>
+  </data>
   <data name="PropertyHover_Type" xml:space="preserve">
     <value>类型：{0}</value>
   </data>
@@ -1814,25 +1986,52 @@ GetProperty&lt;T&gt;("path", time) 或 GetProperty&lt;T&gt;(guid, "propertyName"
     <value>在文件管理器中打开</value>
   </data>
   <data name="PathEditor_MoveTool" xml:space="preserve">
-    <value>选择 (V) · Shift：添加到选择</value>
+    <value>选择</value>
+  </data>
+  <data name="PathEditor_MoveTool_Description" xml:space="preserve">
+    <value>按住 Shift 单击以添加到选择</value>
   </data>
   <data name="PathEditor_PenTool" xml:space="preserve">
-    <value>钢笔 (P) · 单击：添加点 · 拖动：曲线</value>
+    <value>钢笔</value>
+  </data>
+  <data name="PathEditor_PenTool_Description" xml:space="preserve">
+    <value>单击以添加点，拖动以绘制曲线。</value>
   </data>
   <data name="PathEditor_BendTool" xml:space="preserve">
-    <value>弯曲 (B) · 单击点以添加或移除手柄</value>
+    <value>弯曲</value>
+  </data>
+  <data name="PathEditor_BendTool_Description" xml:space="preserve">
+    <value>单击点以添加或移除手柄</value>
   </data>
   <data name="PathEditor_HandTool" xml:space="preserve">
-    <value>抓手 (H) · 空格 + 拖动：平移</value>
+    <value>抓手</value>
+  </data>
+  <data name="PathEditor_HandTool_Description" xml:space="preserve">
+    <value>拖动以平移视图</value>
   </data>
   <data name="PathEditor_ZoomIn" xml:space="preserve">
-    <value>放大 (+)</value>
+    <value>放大</value>
   </data>
   <data name="PathEditor_ZoomOut" xml:space="preserve">
-    <value>缩小 (-)</value>
+    <value>缩小</value>
   </data>
   <data name="PathEditor_Fit" xml:space="preserve">
-    <value>适合路径 (Shift+1)</value>
+    <value>适合路径</value>
+  </data>
+  <data name="PanView" xml:space="preserve">
+    <value>平移视图</value>
+  </data>
+  <data name="PathEditor_NudgeLeft" xml:space="preserve">
+    <value>向左微移（{0} 像素）</value>
+  </data>
+  <data name="PathEditor_NudgeRight" xml:space="preserve">
+    <value>向右微移（{0} 像素）</value>
+  </data>
+  <data name="PathEditor_NudgeUp" xml:space="preserve">
+    <value>向上微移（{0} 像素）</value>
+  </data>
+  <data name="PathEditor_NudgeDown" xml:space="preserve">
+    <value>向下微移（{0} 像素）</value>
   </data>
   <data name="PathEditor_NoSelection" xml:space="preserve">
     <value>未选择点</value>
@@ -1924,6 +2123,9 @@ GetProperty&lt;T&gt;("path", time) 或 GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="GraphVelocity" xml:space="preserve">
     <value>关键帧速度</value>
   </data>
+  <data name="GraphVelocityMenu" xml:space="preserve">
+    <value>关键帧速度…</value>
+  </data>
   <data name="GraphIncoming" xml:space="preserve">
     <value>传入</value>
   </data>
@@ -1953,6 +2155,9 @@ GetProperty&lt;T&gt;("path", time) 或 GetProperty&lt;T&gt;(guid, "propertyName"
   </data>
   <data name="GraphScaleValues" xml:space="preserve">
     <value>缩放数值</value>
+  </data>
+  <data name="GraphScaleValuesMenu" xml:space="preserve">
+    <value>缩放数值…</value>
   </data>
   <data name="GraphScaleFactor" xml:space="preserve">
     <value>倍数</value>
@@ -2018,7 +2223,7 @@ GetProperty&lt;T&gt;("path", time) 或 GetProperty&lt;T&gt;(guid, "propertyName"
     <value>在默认浏览器中打开</value>
   </data>
   <data name="Print" xml:space="preserve">
-    <value>打印</value>
+    <value>打印…</value>
   </data>
   <data name="WebBrowserActionFailed" xml:space="preserve">
     <value>无法完成浏览器操作。</value>
@@ -2061,9 +2266,6 @@ GetProperty&lt;T&gt;("path", time) 或 GetProperty&lt;T&gt;(guid, "propertyName"
   </data>
   <data name="Ai" xml:space="preserve">
     <value>AI</value>
-  </data>
-  <data name="AiGenerateImage" xml:space="preserve">
-    <value>生成图像</value>
   </data>
   <data name="AiImageGeneration" xml:space="preserve">
     <value>AI 图像生成</value>
@@ -2164,9 +2366,6 @@ GetProperty&lt;T&gt;("path", time) 或 GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="AiImageAddedToScene" xml:space="preserve">
     <value>已将图像添加到场景。</value>
   </data>
-  <data name="AiGenerateSubtitles" xml:space="preserve">
-    <value>生成字幕</value>
-  </data>
   <data name="AiSubtitle" xml:space="preserve">
     <value>AI 字幕</value>
   </data>
@@ -2200,9 +2399,6 @@ GetProperty&lt;T&gt;("path", time) 或 GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="AiSubtitleAddedToScene" xml:space="preserve">
     <value>已将字幕添加到场景。</value>
   </data>
-  <data name="AiEditImage" xml:space="preserve">
-    <value>编辑图像</value>
-  </data>
   <data name="AiImageEdit" xml:space="preserve">
     <value>AI 图像编辑</value>
   </data>
@@ -2223,9 +2419,6 @@ GetProperty&lt;T&gt;("path", time) 或 GetProperty&lt;T&gt;(guid, "propertyName"
   </data>
   <data name="AiEditSelectSource" xml:space="preserve">
     <value>请先选择图像文件。</value>
-  </data>
-  <data name="AiGenerateVideo" xml:space="preserve">
-    <value>生成视频</value>
   </data>
   <data name="AiVideoGeneration" xml:space="preserve">
     <value>AI 视频生成</value>
@@ -2695,6 +2888,9 @@ GetProperty&lt;T&gt;("path", time) 或 GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="VersionControl_Restore" xml:space="preserve">
     <value>恢复</value>
   </data>
+  <data name="VersionControl_RestoreMenu" xml:space="preserve">
+    <value>恢复…</value>
+  </data>
   <data name="VersionControl_RestoreToNewBranch" xml:space="preserve">
     <value>恢复到新分支…</value>
   </data>
@@ -2948,6 +3144,21 @@ GetProperty&lt;T&gt;("path", time) 或 GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="VersionControl_Pushing" xml:space="preserve">
     <value>正在推送版本…</value>
   </data>
+  <data name="VersionControl_FetchingLfs" xml:space="preserve">
+    <value>正在下载 Git LFS 文件…</value>
+  </data>
+  <data name="VersionControl_ApplyingPull" xml:space="preserve">
+    <value>正在应用远程更改…</value>
+  </data>
+  <data name="VersionControl_Committing" xml:space="preserve">
+    <value>正在创建提交…</value>
+  </data>
+  <data name="VersionControl_Restoring" xml:space="preserve">
+    <value>正在还原版本…</value>
+  </data>
+  <data name="VersionControl_SwitchingBranch" xml:space="preserve">
+    <value>正在切换分支…</value>
+  </data>
   <data name="VersionControl_Pulling" xml:space="preserve">
     <value>正在拉取版本…</value>
   </data>
@@ -3047,6 +3258,9 @@ GetProperty&lt;T&gt;("path", time) 或 GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="WebDownloadMedia" xml:space="preserve">
     <value>下载文件</value>
   </data>
+  <data name="WebDownloadMediaMenu" xml:space="preserve">
+    <value>下载文件…</value>
+  </data>
   <data name="WebDownloadProject" xml:space="preserve">
     <value>项目目录</value>
   </data>
@@ -3096,7 +3310,7 @@ GetProperty&lt;T&gt;("path", time) 或 GetProperty&lt;T&gt;(guid, "propertyName"
     <value>已将“{0}”添加到书签。</value>
   </data>
   <data name="BrowserSettings" xml:space="preserve">
-    <value>搜索与隐私</value>
+    <value>搜索与隐私…</value>
   </data>
   <data name="BrowserRetry" xml:space="preserve">
     <value>重新下载</value>
@@ -3139,6 +3353,9 @@ GetProperty&lt;T&gt;("path", time) 或 GetProperty&lt;T&gt;(guid, "propertyName"
   </data>
   <data name="BrowserFind" xml:space="preserve">
     <value>在页面中查找</value>
+  </data>
+  <data name="BrowserFindMenu" xml:space="preserve">
+    <value>在页面中查找…</value>
   </data>
   <data name="BrowserFindNext" xml:space="preserve">
     <value>下一个匹配项</value>
@@ -3293,6 +3510,9 @@ GetProperty&lt;T&gt;("path", time) 或 GetProperty&lt;T&gt;(guid, "propertyName"
   </data>
   <data name="CloudStorageDownload" xml:space="preserve">
     <value>下载</value>
+  </data>
+  <data name="CloudStorageDownloadMenu" xml:space="preserve">
+    <value>下载…</value>
   </data>
   <data name="CloudStorageCopyLink" xml:space="preserve">
     <value>复制链接</value>
@@ -3741,6 +3961,24 @@ GetProperty&lt;T&gt;("path", time) 或 GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="TogglePreviewCheckerboard_Description" xml:space="preserve">
     <value>在预览中将透明部分显示在棋盘格上，而不是黑色上。</value>
   </data>
+  <data name="CompareFilterEffect" xml:space="preserve">
+    <value>比较滤镜效果</value>
+  </data>
+  <data name="CompareFilterEffect_Description" xml:space="preserve">
+    <value>比较当前帧应用和未应用指定滤镜效果时的画面。</value>
+  </data>
+  <data name="ChooseFilterEffectToCompare" xml:space="preserve">
+    <value>在属性编辑器中选择要比较的滤镜效果。</value>
+  </data>
+  <data name="EffectComparisonBefore" xml:space="preserve">
+    <value>应用前：{0}</value>
+  </data>
+  <data name="EffectComparisonAfter" xml:space="preserve">
+    <value>应用后</value>
+  </data>
+  <data name="EffectComparisonDivider" xml:space="preserve">
+    <value>效果比较分隔线</value>
+  </data>
   <data name="PreviewZoom" xml:space="preserve">
     <value>预览缩放</value>
   </data>
@@ -3800,6 +4038,9 @@ GetProperty&lt;T&gt;("path", time) 或 GetProperty&lt;T&gt;(guid, "propertyName"
   </data>
   <data name="AutoSplitBySilence" xml:space="preserve">
     <value>按静音自动分割</value>
+  </data>
+  <data name="AutoSplitBySilenceMenu" xml:space="preserve">
+    <value>按静音自动分割…</value>
   </data>
   <data name="SilenceSplit_Threshold" xml:space="preserve">
     <value>阈值 (dB)</value>
@@ -3887,5 +4128,224 @@ GetProperty&lt;T&gt;("path", time) 或 GetProperty&lt;T&gt;(guid, "propertyName"
   </data>
   <data name="Paste_ProjectNotSaved" xml:space="preserve">
     <value>粘贴剪辑之前请先保存项目。</value>
+  </data>
+  <data name="Portal_LibraryDescription" xml:space="preserve">
+    <value>将下方图层的内容引入当前图层（图层引用、流程输入 / layer reference, flow input）。</value>
+  </data>
+  <data name="StartupProjects" xml:space="preserve">
+    <value>项目</value>
+  </data>
+  <data name="HostedGit_AuthenticationRequired" xml:space="preserve">
+    <value>请登录 Beutl 以访问你的仓库。</value>
+  </data>
+  <data name="HostedGit_Unavailable" xml:space="preserve">
+    <value>Beutl 仓库暂时不可用。请稍后重试。</value>
+  </data>
+  <data name="HostedGit_NotFound" xml:space="preserve">
+    <value>在你的 Beutl 账户中找不到此仓库。</value>
+  </data>
+  <data name="HostedGit_RepositoryLimit" xml:space="preserve">
+    <value>已达到 Beutl 仓库数量上限。请连接现有仓库，或在网页中管理仓库。</value>
+  </data>
+  <data name="HostedGit_TokenLimit" xml:space="preserve">
+    <value>此仓库的访问令牌数量已达到上限。请在网页中撤销一个未使用的令牌后重试。</value>
+  </data>
+  <data name="HostedGit_AccountChanged" xml:space="preserve">
+    <value>当前登录账户已切换。请切回原账户后重试。</value>
+  </data>
+  <data name="HostedGit_Conflict" xml:space="preserve">
+    <value>与现有仓库冲突，无法保存。请刷新仓库列表后重试。</value>
+  </data>
+  <data name="HostedGit_RequestFailed" xml:space="preserve">
+    <value>Beutl 仓库操作失败。请重试。</value>
+  </data>
+  <data name="HostedGit_InvalidRepositoryName" xml:space="preserve">
+    <value>请输入不超过 80 个字符的仓库名称，名称不能包含斜杠、反斜杠或控制字符。</value>
+  </data>
+  <data name="HostedGit_InvalidRepositoryId" xml:space="preserve">
+    <value>仓库或访问令牌的 ID 无效。</value>
+  </data>
+  <data name="HostedGit_InvalidTokenName" xml:space="preserve">
+    <value>请输入不超过 80 个字符且不含控制字符的访问令牌名称。</value>
+  </data>
+  <data name="HostedGit_InvalidTokenScope" xml:space="preserve">
+    <value>请选择令牌的读取或写入权限。</value>
+  </data>
+  <data name="HostedGit_InvalidRepositoryUrl" xml:space="preserve">
+    <value>Beutl 返回的此仓库 Git URL 无效。</value>
+  </data>
+  <data name="HostedGit_InvalidRevision" xml:space="preserve">
+    <value>链接中的 Git 修订版本无效。</value>
+  </data>
+  <data name="HostedGit_InvalidDestination" xml:space="preserve">
+    <value>请选择有效的上级文件夹并输入文件夹名称。</value>
+  </data>
+  <data name="HostedGit_DestinationExists" xml:space="preserve">
+    <value>请选择空文件夹或尚不存在的文件夹作为目标位置。</value>
+  </data>
+  <data name="HostedGit_ConnectRemote" xml:space="preserve">
+    <value>连接 Git 远程</value>
+  </data>
+  <data name="HostedGit_CreateRepository" xml:space="preserve">
+    <value>在 Beutl 中创建</value>
+  </data>
+  <data name="HostedGit_ConnectExisting" xml:space="preserve">
+    <value>现有仓库</value>
+  </data>
+  <data name="HostedGit_CustomUrl" xml:space="preserve">
+    <value>Git URL</value>
+  </data>
+  <data name="HostedGit_RepositoryName" xml:space="preserve">
+    <value>仓库名称</value>
+  </data>
+  <data name="HostedGit_Connect" xml:space="preserve">
+    <value>连接</value>
+  </data>
+  <data name="HostedGit_ConnectAndPublish" xml:space="preserve">
+    <value>连接并发布</value>
+  </data>
+  <data name="HostedGit_CreateAndConnect" xml:space="preserve">
+    <value>创建并连接</value>
+  </data>
+  <data name="HostedGit_CreateAndPublish" xml:space="preserve">
+    <value>创建并发布</value>
+  </data>
+  <data name="HostedGit_ReplaceOrigin" xml:space="preserve">
+    <value>将替换当前的 origin。</value>
+  </data>
+  <data name="HostedGit_OriginChanged" xml:space="preserve">
+    <value>当前的 origin 已更改。请重新打开对话框，确认后再连接。</value>
+  </data>
+  <data name="HostedGit_OriginAlreadyConfigured" xml:space="preserve">
+    <value>已配置 origin。请使用“推送”发布到该远程。</value>
+  </data>
+  <data name="HostedGit_PushDestinationMismatch" xml:space="preserve">
+    <value>Git 将推送到其他仓库。请在连接前检查 origin 的推送 URL。</value>
+  </data>
+  <data name="HostedGit_SignIn" xml:space="preserve">
+    <value>登录 Beutl</value>
+  </data>
+  <data name="HostedGit_SignInFailed" xml:space="preserve">
+    <value>登录失败。请重新登录。</value>
+  </data>
+  <data name="HostedGit_NoRepositories" xml:space="preserve">
+    <value>此账户下没有 Beutl 仓库。</value>
+  </data>
+  <data name="HostedGit_NoSearchResults" xml:space="preserve">
+    <value>没有符合搜索条件的仓库。</value>
+  </data>
+  <data name="HostedGit_Reconnect" xml:space="preserve">
+    <value>重新连接 Beutl 远程</value>
+  </data>
+  <data name="HostedGit_ReconnectHint" xml:space="preserve">
+    <value>请重新连接以签发新的访问令牌，然后重试 Git 操作。</value>
+  </data>
+  <data name="HostedGit_Reconnected" xml:space="preserve">
+    <value>已重新连接 Beutl 远程。</value>
+  </data>
+  <data name="HostedGit_OpenOnWeb" xml:space="preserve">
+    <value>在网页中打开</value>
+  </data>
+  <data name="HostedGit_OpenCommitOnWeb" xml:space="preserve">
+    <value>在网页中查看提交</value>
+  </data>
+  <data name="HostedGit_CloneRepository" xml:space="preserve">
+    <value>克隆仓库</value>
+  </data>
+  <data name="HostedGit_CloneRepositoryMenu" xml:space="preserve">
+    <value>克隆仓库…</value>
+  </data>
+  <data name="HostedGit_DeleteRepository" xml:space="preserve">
+    <value>删除远程仓库</value>
+  </data>
+  <data name="HostedGit_DeleteRepositoryMenu" xml:space="preserve">
+    <value>删除远程仓库…</value>
+  </data>
+  <data name="HostedGit_DeletingRepository" xml:space="preserve">
+    <value>正在删除仓库…</value>
+  </data>
+  <data name="HostedGit_BeutlRepositories" xml:space="preserve">
+    <value>Beutl 仓库</value>
+  </data>
+  <data name="HostedGit_CloneFromUrl" xml:space="preserve">
+    <value>从 URL 克隆</value>
+  </data>
+  <data name="HostedGit_Clone" xml:space="preserve">
+    <value>克隆</value>
+  </data>
+  <data name="HostedGit_CloneMenu" xml:space="preserve">
+    <value>克隆…</value>
+  </data>
+  <data name="HostedGit_ClonedProject" xml:space="preserve">
+    <value>本地副本</value>
+  </data>
+  <data name="HostedGit_CloudProject" xml:space="preserve">
+    <value>云端</value>
+  </data>
+  <data name="HostedGit_FolderName" xml:space="preserve">
+    <value>文件夹名称</value>
+  </data>
+  <data name="HostedGit_ParentFolder" xml:space="preserve">
+    <value>上级文件夹</value>
+  </data>
+  <data name="HostedGit_Cloning" xml:space="preserve">
+    <value>正在克隆仓库…</value>
+  </data>
+  <data name="HostedGit_Canceling" xml:space="preserve">
+    <value>正在取消克隆…</value>
+  </data>
+  <data name="HostedGit_CloneFailed" xml:space="preserve">
+    <value>无法克隆仓库。</value>
+  </data>
+  <data name="HostedGit_CloneRequiresLfs" xml:space="preserve">
+    <value>此仓库包含 Git LFS 文件。请安装 Git LFS 后重试克隆。</value>
+  </data>
+  <data name="HostedGit_ChooseClonedProject" xml:space="preserve">
+    <value>选择要打开的项目</value>
+  </data>
+  <data name="HostedGit_NoProjectFound" xml:space="preserve">
+    <value>仓库已克隆，但其中没有 Beutl 项目文件。</value>
+  </data>
+  <data name="HostedGit_OpenFolder" xml:space="preserve">
+    <value>打开文件夹</value>
+  </data>
+  <data name="HostedGit_ProjectAlreadyOpen" xml:space="preserve">
+    <value>此仓库已在 Beutl 中打开。</value>
+  </data>
+  <data name="HostedGit_ExistingCloneFound" xml:space="preserve">
+    <value>此计算机上已有来自此仓库的项目。</value>
+  </data>
+  <data name="HostedGit_OpenLocalProject" xml:space="preserve">
+    <value>打开本地副本</value>
+  </data>
+  <data name="HostedGit_CloneNewCopy" xml:space="preserve">
+    <value>克隆新副本</value>
+  </data>
+  <data name="HostedGit_RevisionFormat" xml:space="preserve">
+    <value>修订版本 {0}</value>
+  </data>
+  <data name="EffectCategory" xml:space="preserve">
+    <value>类别</value>
+  </data>
+  <data name="AllEffectCategories" xml:space="preserve">
+    <value>所有类别</value>
+  </data>
+  <data name="TimelineDrag_StartLength" xml:space="preserve">
+    <value>开始 {0}   长度 {1}</value>
+  </data>
+  <data name="TimelineDrag_EndLength" xml:space="preserve">
+    <value>结束 {0}   长度 {1}</value>
+  </data>
+  <data name="TimelineDrag_StartLayer" xml:space="preserve">
+    <value>开始 {0}   图层 {1}</value>
+  </data>
+  <data name="TimelineDrag_RollLengths" xml:space="preserve">
+    <value>左侧 {0}   右侧 {1}</value>
+  </data>
+  <data name="TimelineDrag_StartEnd" xml:space="preserve">
+    <value>开始 {0}   结束 {1}</value>
+  </data>
+  <data name="TimelineDrag_MediaOffset" xml:space="preserve">
+    <value>素材偏移 {0}</value>
   </data>
 </root>

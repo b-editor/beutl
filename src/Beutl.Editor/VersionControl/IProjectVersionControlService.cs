@@ -81,12 +81,18 @@ internal interface IProjectVersionControlBackend :
         RepositoryInfo repository,
         CancellationToken cancellationToken);
 
+    /// <summary>Checks known Git refusals before the caller saves project files for a manual commit.</summary>
+    Task CheckManualCommitBeforeSaveAsync(bool interactive, CancellationToken cancellationToken);
+
     Task<CommitResult> CommitAllAsync(
         string message,
         SnapshotKind kind,
         CancellationToken cancellationToken);
+    Task<CommitResult> CommitNonInteractiveAsync(string message, CancellationToken cancellationToken);
 
     Task SetRemoteAsync(string url, CancellationToken cancellationToken);
+
+    Task SetRemoteAsync(GitRemoteUrl remote, string? expectedOrigin, CancellationToken cancellationToken);
 
     Task<RemoteOpResult> PushAsync(
         IProgress<string>? progress,
@@ -121,7 +127,8 @@ internal interface IProjectVersionControlTransaction
 
     Task<PullPreflightResult> PreflightPullAsync(
         CheckedOutBranchTip expectedCurrent,
-        CancellationToken cancellationToken);
+        CancellationToken cancellationToken,
+        IProgress<string>? progress = null);
 
     /// <summary>
     /// Replaces the project's files with their state at <paramref name="sourceCommit"/> and records
@@ -170,7 +177,8 @@ internal interface IProjectVersionControlTransaction
     Task PrefetchCommitLfsObjectsAsync(
         string sha,
         LfsPrefetchScope scope,
-        CancellationToken cancellationToken);
+        CancellationToken cancellationToken,
+        IProgress<string>? progress = null);
 
     Task SwitchBranchAsync(string name, CancellationToken cancellationToken);
 

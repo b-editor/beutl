@@ -44,6 +44,12 @@
   <data name="ConfirmExcludeItem" xml:space="preserve">
     <value>¿Quieres excluir este elemento del proyecto?</value>
   </data>
+  <data name="CannotRemoveLastScene" xml:space="preserve">
+    <value>No se puede quitar la última escena de un proyecto.</value>
+  </data>
+  <data name="SaveSceneBeforeRemoving" xml:space="preserve">
+    <value>Guarda los cambios de esta escena antes de quitarla.</value>
+  </data>
   <data name="FailedToOpenFileWithExtension" xml:space="preserve">
     <value>No se pudo abrir el siguiente archivo con '{0}'.
 '{1}'</value>
@@ -111,6 +117,24 @@ porque el nuevo nombre entra en conflicto con una carpeta existente.</value>
   </data>
   <data name="FrameDrawingException" xml:space="preserve">
     <value>Se produjo una excepción al dibujar el fotograma.</value>
+  </data>
+  <data name="PreviewWorkingScaleClamped" xml:space="preserve">
+    <value>La vista previa de este fotograma se renderiza con una densidad de trabajo menor que la exportación. El resultado exportado puede verse distinto.</value>
+  </data>
+  <data name="RenderTargetLiveByteBudgetExceeded" xml:space="preserve">
+    <value>Añadir un destino de renderizado de {0} × {1} píxeles superaría el límite de memoria de {2:N0} bytes de esta solicitud. Los destinos activos ya usan {3:N0} bytes.</value>
+  </data>
+  <data name="Scene3DBackendUnavailable" xml:space="preserve">
+    <value>No se puede renderizar en 3D porque Vulkan no está disponible.</value>
+  </data>
+  <data name="Scene3DExtentLimitExceeded" xml:space="preserve">
+    <value>El renderizado 3D requiere un búfer de {0} × {1} px que supera el límite de {2} px por lado de la GPU.</value>
+  </data>
+  <data name="Scene3DSurfaceUnavailable" xml:space="preserve">
+    <value>No se pudo crear la superficie de renderizado 3D.</value>
+  </data>
+  <data name="Scene3DAntiAliasingReduced" xml:space="preserve">
+    <value>Se ha reducido el suavizado de bordes 3D a {0}x por falta de memoria de la GPU.</value>
   </data>
   <data name="OutputException" xml:space="preserve">
     <value>Se produjo una excepción durante la salida.</value>
@@ -512,6 +536,9 @@ Se capturaron {1} fotogramas (se descartaron {2}).</value>
   <data name="ConfirmDeleteProjectFolderFromDisk" xml:space="preserve">
     <value>¿Eliminar permanentemente la carpeta de este proyecto y todo su contenido? Esta acción no se puede deshacer.</value>
   </data>
+  <data name="ConfirmDeleteHostedRepository" xml:space="preserve">
+    <value>Se eliminarán permanentemente el repositorio y su historial de Beutl.&#10;Podrás seguir abriendo las copias locales.</value>
+  </data>
   <data name="ConfirmDeleteProjectFileFromDisk" xml:space="preserve">
     <value>Este proyecto no está en una carpeta propia, así que solo se eliminará el archivo del proyecto; sus escenas y demás archivos permanecerán en el disco. ¿Eliminar permanentemente el archivo del proyecto? Esta acción no se puede deshacer.</value>
   </data>
@@ -565,5 +592,14 @@ Se capturaron {1} fotogramas (se descartaron {2}).</value>
   </data>
   <data name="ExtensionUpdatesIncluded" xml:space="preserve">
     <value>Actualizaciones de extensiones incluidas ({0})</value>
+  </data>
+  <data name="FlowInputMissingDrawable" xml:space="preserve">
+    <value>{0} necesita un objeto visual. Colócalo en una capa inferior de modo que los clips se solapen. Añade o activa un Portal antes de este operador y ajusta la Cantidad del Portal para incluir esa capa.</value>
+  </data>
+  <data name="FlowInputMissingObject3D" xml:space="preserve">
+    <value>{0} necesita un objeto 3D. Colócalo en una capa inferior de modo que los clips se solapen. Añade o activa un Portal antes de este operador y ajusta la Cantidad del Portal para incluir esa capa.</value>
+  </data>
+  <data name="FlowInputMissingSound" xml:space="preserve">
+    <value>{0} necesita un objeto de audio. Colócalo en una capa inferior de modo que los clips se solapen. Añade o activa un Portal antes de este operador y ajusta la Cantidad del Portal para incluir esa capa.</value>
   </data>
 </root>

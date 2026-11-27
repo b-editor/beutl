@@ -2,6 +2,7 @@
 using System.Threading.Channels;
 
 using Beutl.Media;
+using Beutl.Media.Decoding;
 using Beutl.Media.Proxy;
 using Beutl.UnitTests.Engine.Graphics.Rendering;
 using Beutl.UnitTests.TestInfrastructure;
@@ -11,6 +12,31 @@ namespace Beutl.UnitTests.Media.Proxy;
 [TestFixture]
 public class ProxyJobQueueTests
 {
+    [Test]
+    public async Task EnqueueAsyncDeduplicatesByEffectiveDeinterlacingSettings()
+    {
+        var generator = new ToggleAvailabilityGenerator();
+        await using var queue = new ProxyJobQueue(generator);
+        var source = CreateFingerprint("variants.mov");
+        var inactive = new VideoDeinterlaceOptions(DeinterlaceMode.Off, DeinterlaceFieldOrder.BottomFieldFirst,
+            DeinterlaceMethod.Bwdif, DeinterlaceFrameRateMode.Field);
+        var active = inactive with { Mode = DeinterlaceMode.On };
+        var first = await queue.EnqueueAsync(source, ProxyPreset.Half);
+        var off = await queue.EnqueueAsync(source, ProxyPreset.Half, deinterlace: inactive);
+        var fields = await queue.EnqueueAsync(source, ProxyPreset.Half, deinterlace: active);
+        var duplicate = await queue.EnqueueAsync(source, ProxyPreset.Half, deinterlace: active);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(off, Is.SameAs(first));
+            Assert.That(duplicate, Is.SameAs(fields));
+            Assert.That(fields, Is.Not.SameAs(first));
+            Assert.That(queue.Pending(), Is.EquivalentTo(new[] { first, fields }));
+            Assert.That(queue.IsGenerating(source, ProxyPreset.Half, active with { Method = DeinterlaceMethod.Yadif }), Is.False);
+            Assert.That(queue.IsGenerating(source, ProxyPreset.Half, active), Is.True);
+        });
+    }
+
     [Test]
     public async Task EnqueueAsync_DispatchesSeriallyInArrivalOrder()
     {
@@ -100,27 +126,35 @@ public class ProxyJobQueueTests
     [Test]
     public async Task Cancellation_callback_can_query_the_queue_without_lock_inversion()
     {
-        ProxyJobQueue? queue = null;
-        var callbackCompleted = new TaskCompletionSource(
+        TimeSpan timeout = TimeSpan.FromSeconds(5);
+        var generator = new ControlledBlockingGenerator();
+        await using var queue = new ProxyJobQueue(generator);
+        var jobCanceled = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
-        var generator = new CancellationCallbackGenerator(() =>
+        queue.JobChanged += (_, e) =>
         {
-            _ = queue!.Pending();
-            callbackCompleted.TrySetResult();
-        });
-        await using var activeQueue = new ProxyJobQueue(generator);
-        queue = activeQueue;
-        ProxyJob job = await activeQueue.EnqueueAsync(
+            if (e.Kind == ProxyJobChangeKind.Canceled)
+                jobCanceled.TrySetResult();
+        };
+
+        ProxyJob job = await queue.EnqueueAsync(
             CreateFingerprint("cancellation-callback-query.mov"),
             ProxyPreset.Quarter);
-        await generator.Started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await generator.WaitForStartedCountAsync(1);
 
-        await Task.Run(() => activeQueue.Cancel(job.JobId))
-            .WaitAsync(TimeSpan.FromSeconds(5));
-        await callbackCompleted.Task.WaitAsync(TimeSpan.FromSeconds(5));
-        await WaitForTerminalAsync(job);
+        // Keep the query callback registered through cancellation, independently of generator cleanup.
+        IReadOnlyList<ProxyJob>? pendingDuringCancellation = null;
+        using CancellationTokenRegistration registration =
+            job.CancellationToken.Register(() => pendingDuringCancellation = queue.Pending());
 
-        Assert.That(job.Status, Is.EqualTo(ProxyJobStatus.Canceled));
+        await Task.Run(() => queue.Cancel(job.JobId)).WaitAsync(timeout);
+        await jobCanceled.Task.WaitAsync(timeout);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(pendingDuringCancellation, Is.EqualTo(new[] { job }));
+            Assert.That(job.Status, Is.EqualTo(ProxyJobStatus.Canceled));
+        });
     }
 
     [Test]
@@ -1293,7 +1327,7 @@ public class ProxyJobQueueTests
     {
         private ProxyEntry? _entry;
 
-        public override ProxyEntry? TryGet(ProxyFingerprint source, ProxyPreset preset) => _entry;
+        public override ProxyEntry? TryGet(ProxyFingerprint source, ProxyPreset preset, VideoDeinterlaceOptions deinterlace = default) => _entry;
 
         public override IReadOnlyList<ProxyEntry> Enumerate() => _entry is null ? [] : [_entry];
 
@@ -1303,7 +1337,7 @@ public class ProxyJobQueueTests
             onRegister();
         }
 
-        public override bool Delete(ProxyFingerprint source, ProxyPreset preset) => throw new IOException("delete failed");
+        public override bool Delete(ProxyFingerprint source, ProxyPreset preset, VideoDeinterlaceOptions deinterlace = default) => throw new IOException("delete failed");
     }
 
     private sealed class MutatingThenThrowStore(Action onRegister) : StubProxyStore(Path.GetTempPath())
@@ -1311,7 +1345,7 @@ public class ProxyJobQueueTests
         private ProxyEntry? _entry;
         private bool _throwOnRegister = true;
 
-        public override ProxyEntry? TryGet(ProxyFingerprint source, ProxyPreset preset) => _entry;
+        public override ProxyEntry? TryGet(ProxyFingerprint source, ProxyPreset preset, VideoDeinterlaceOptions deinterlace = default) => _entry;
 
         public override IReadOnlyList<ProxyEntry> Enumerate() => _entry is null ? [] : [_entry];
 
@@ -1326,7 +1360,7 @@ public class ProxyJobQueueTests
             }
         }
 
-        public override bool Delete(ProxyFingerprint source, ProxyPreset preset)
+        public override bool Delete(ProxyFingerprint source, ProxyPreset preset, VideoDeinterlaceOptions deinterlace = default)
         {
             bool removed = _entry is not null;
             _entry = null;

@@ -2,6 +2,7 @@
 using Avalonia.Data.Converters;
 using Beutl.Configuration;
 using Beutl.Editor.Components.TerminalTab.ViewModels;
+using Beutl.ViewModels.SettingsPages;
 using RoyalTerminal.Avalonia.Controls;
 using RoyalTerminal.Avalonia.Services;
 
@@ -26,10 +27,10 @@ public sealed partial class TerminalSettingsPage : UserControl
     protected override void OnDataContextChanged(EventArgs e)
     {
         base.OnDataContextChanged(e);
-        if (DataContext is not TerminalConfig configuration) return;
+        if (DataContext is not TerminalSettingsPageViewModel viewModel) return;
         // Keep a saved font selectable if this computer does not have it installed.
         FontFamilyBox.ItemsSource = TerminalFontCatalog.GetSystemFontFamilies()
-            .Prepend(string.Empty).Append(configuration.FontFamily.Value)
+            .Prepend(string.Empty).Append(viewModel.Config.FontFamily.Value)
             .Distinct(StringComparer.Ordinal).ToArray();
     }
 }

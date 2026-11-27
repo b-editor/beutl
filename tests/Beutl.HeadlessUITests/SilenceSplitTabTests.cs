@@ -470,7 +470,8 @@ public class SilenceSplitTabTests
             var tab = editor.FindToolTab<SilenceSplitTabViewModel>()!;
             Assert.That(tab.Target, Is.SameAs(elements[0]), "the clicked element is independent of the current selection");
             Assert.That(SilenceSplitTabExtension.Instance.Header, Is.Null);
-            Assert.That(TestShell.MainViewModel.MenuItems.Single(item => item.Header == Strings.Tools).Items!
+            Assert.That(TestShell.MainViewModel.MenuItems.Single(item => item.Header == Strings.View).Items!
+                .Single(item => item.Header == Strings.Tools).Items!
                 .Any(item => item.Header == Strings.AutoSplitBySilence), Is.False);
             OpenMenu(elements[1], true, click: true);
             Assert.That(editor.FindToolTab<SilenceSplitTabViewModel>(), Is.SameAs(tab));

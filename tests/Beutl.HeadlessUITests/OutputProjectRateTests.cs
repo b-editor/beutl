@@ -26,7 +26,7 @@ public sealed class OutputProjectRateTests
     public async Task Output_view_shows_project_rates()
     {
         EditViewModel editor = await OpenEditor();
-        editor.Scene.FindHierarchicalParent<Project>()!.ChannelLayout.Value = SpeakerLayout.Surround51;
+        editor.Scene.ChannelLayout.Value = SpeakerLayout.Surround51;
         const int packageId = 2858;
         var encoder = new TestEncoder();
         editor.ExtensionProvider.AddExtensions(packageId, [encoder]);
@@ -76,7 +76,7 @@ public sealed class OutputProjectRateTests
     public async Task New_ffmpeg_controller_scales_the_stereo_default(SpeakerLayout layout, int channels, int bitrate)
     {
         EditViewModel editor = await OpenEditor();
-        editor.Scene.FindHierarchicalParent<Project>()!.ChannelLayout.Value = layout;
+        editor.Scene.ChannelLayout.Value = layout;
         using var output = CreateOutput(editor, new FFmpegControlledEncodingExtension());
 
         Assert.That(output.Controller.Value!.AudioSettings.Channels.Value, Is.EqualTo(channels));
@@ -128,12 +128,12 @@ public sealed class OutputProjectRateTests
     public async Task Preview_and_export_use_the_project_channels()
     {
         EditViewModel editor = await OpenEditor();
-        Project project = editor.Scene.FindHierarchicalParent<Project>()!;
+        Scene scene = editor.Scene;
         bool? playingAtSwap = null;
         using var composerSubscription = editor.Composer.Skip(1).Subscribe(_ => playingAtSwap = editor.Player.IsPlaying.Value);
         editor.Player.IsPlaying.Value = true;
-        project.ChannelLayout.Value = SpeakerLayout.Mono;
-        project.ChannelLayout.Value = SpeakerLayout.Surround51;
+        scene.ChannelLayout.Value = SpeakerLayout.Mono;
+        scene.ChannelLayout.Value = SpeakerLayout.Surround51;
         HeadlessTestHelpers.Settle();
         for (int attempt = 0; attempt < 200 && editor.Composer.Value.ChannelLayout != AudioChannelLayout.Surround51; attempt++)
             await Task.Delay(10);

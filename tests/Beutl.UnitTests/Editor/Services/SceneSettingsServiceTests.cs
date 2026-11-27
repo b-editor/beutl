@@ -1,10 +1,7 @@
-﻿using System.Text.Json.Nodes;
-using Beutl.Editor;
+﻿using Beutl.Editor;
 using Beutl.Editor.Services;
 using Beutl.Media;
 using Beutl.ProjectSystem;
-using Beutl.Serialization;
-using Beutl.Services;
 using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.Editor.Services;
@@ -37,21 +34,63 @@ public class SceneSettingsServiceTests
     }
 
     [Test]
-    public void Apply_ProjectLayoutAndSceneChangesAreOneUndoableEntry()
+    public void Apply_SceneRatesLayoutAndSizeChangesAreOneUndoableEntry()
     {
-        var project = new Project { Items = { _scene } };
-        PixelSize previous = _scene.FrameSize.Value;
+        PixelSize previousSize = _scene.FrameSize.Value;
+        Rational previousFrameRate = _scene.FrameRate.Value;
+        int previousSampleRate = _scene.SampleRate.Value;
         int before = _history.UndoCount;
-        _service.Apply(_scene, new PixelSize(800, 600), _scene.Start.Value, _scene.Duration.Value, SpeakerLayout.Surround51);
-        Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
-        Assert.That(project.ChannelLayout.Value, Is.EqualTo(SpeakerLayout.Surround51));
+
+        bool applied = _service.Apply(
+            _scene,
+            new PixelSize(800, 600),
+            _scene.Start.Value,
+            _scene.Duration.Value,
+            new Rational(60),
+            48000,
+            SpeakerLayout.Surround51,
+            75f);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.True);
+            Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
+            Assert.That(_scene.FrameSize.Value, Is.EqualTo(new PixelSize(800, 600)));
+            Assert.That(_scene.FrameRate.Value, Is.EqualTo(new Rational(60)));
+            Assert.That(_scene.SampleRate.Value, Is.EqualTo(48000));
+            Assert.That(_scene.ChannelLayout.Value, Is.EqualTo(SpeakerLayout.Surround51));
+            Assert.That(_scene.MasterVolume.Value, Is.EqualTo(75f));
+        });
+
         _history.Undo();
-        Assert.That(project.ChannelLayout.Value, Is.EqualTo(SpeakerLayout.Stereo));
-        Assert.That(_scene.FrameSize.Value, Is.EqualTo(previous));
+        Assert.Multiple(() =>
+        {
+            Assert.That(_scene.FrameSize.Value, Is.EqualTo(previousSize));
+            Assert.That(_scene.FrameRate.Value, Is.EqualTo(previousFrameRate));
+            Assert.That(_scene.SampleRate.Value, Is.EqualTo(previousSampleRate));
+            Assert.That(_scene.ChannelLayout.Value, Is.EqualTo(SpeakerLayout.Stereo));
+            Assert.That(_scene.MasterVolume.Value, Is.EqualTo(100f));
+        });
+
         _history.Redo();
-        Assert.That(project.ChannelLayout.Value, Is.EqualTo(SpeakerLayout.Surround51));
-        Assert.That(_scene.FrameSize.Value, Is.EqualTo(new PixelSize(800, 600)));
-        Assert.That(_service.Apply(_scene, _scene.FrameSize.Value, _scene.Start.Value, _scene.Duration.Value, SpeakerLayout.Surround51), Is.False);
+        Assert.Multiple(() =>
+        {
+            Assert.That(_scene.FrameSize.Value, Is.EqualTo(new PixelSize(800, 600)));
+            Assert.That(_scene.FrameRate.Value, Is.EqualTo(new Rational(60)));
+            Assert.That(_scene.SampleRate.Value, Is.EqualTo(48000));
+            Assert.That(_scene.ChannelLayout.Value, Is.EqualTo(SpeakerLayout.Surround51));
+            Assert.That(_scene.MasterVolume.Value, Is.EqualTo(75f));
+        });
+
+        Assert.That(_service.Apply(
+            _scene,
+            _scene.FrameSize.Value,
+            _scene.Start.Value,
+            _scene.Duration.Value,
+            new Rational(60),
+            48000,
+            SpeakerLayout.Surround51,
+            75f), Is.False);
     }
 
     [Test]
@@ -87,185 +126,6 @@ public class SceneSettingsServiceTests
             Assert.That(applied, Is.False);
             Assert.That(_history.UndoCount, Is.EqualTo(before));
         });
-    }
-
-    [Test]
-    public void Apply_ProjectLayoutPersistsOnApplyUndoAndRedo()
-    {
-        string directory = Directory.CreateTempSubdirectory("beutl-layout-").FullName;
-        string path = Path.Combine(directory, "project.json");
-        _scene.Uri = new Uri(Path.Combine(directory, "scene.scene"));
-        var project = new Project { Uri = new Uri(path), Items = { _scene } };
-        try
-        {
-            CoreSerializer.StoreToUri(project, project.Uri);
-            int before = _history.UndoCount;
-            _service.Apply(_scene, _scene.FrameSize.Value, _scene.Start.Value, _scene.Duration.Value, SpeakerLayout.Surround51);
-            Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
-            AssertStoredLayout(SpeakerLayout.Surround51);
-
-            Assert.That(_history.Undo(), Is.True);
-            AssertStoredLayout(SpeakerLayout.Stereo);
-            Assert.That(_history.Redo(), Is.True);
-            AssertStoredLayout(SpeakerLayout.Surround51);
-        }
-        finally
-        {
-            Directory.Delete(directory, recursive: true);
-        }
-
-        void AssertStoredLayout(SpeakerLayout expected)
-        {
-            Assert.That(project.ChannelLayout.Value, Is.EqualTo(expected));
-            Assert.That(JsonNode.Parse(File.ReadAllText(path))!["ChannelLayout"]!.GetValue<int>(), Is.EqualTo((int)expected));
-        }
-    }
-
-    // The layout is the project's alone, so writing it leaves the scene files, and an edit not saved in one, as they
-    // are (#4147).
-    [Test]
-    public void Apply_ProjectLayoutWritesOnlyTheProjectFile()
-    {
-        string directory = Directory.CreateTempSubdirectory("beutl-layout-scenes-").FullName;
-        string path = Path.Combine(directory, "project.json");
-        _scene.Uri = new Uri(Path.Combine(directory, "scene.scene"));
-        var other = new Scene(640, 480, string.Empty) { Uri = new Uri(Path.Combine(directory, "other.scene")) };
-        var project = new Project { Uri = new Uri(path), Items = { _scene, other } };
-        try
-        {
-            CoreSerializer.StoreToUri(project, project.Uri);
-            string savedScene = File.ReadAllText(_scene.Uri.LocalPath);
-            string savedOther = File.ReadAllText(other.Uri.LocalPath);
-            other.Duration.Value = MediaTime.FromSeconds(9);
-
-            _service.Apply(_scene, _scene.FrameSize.Value, _scene.Start.Value, _scene.Duration.Value, SpeakerLayout.Surround51);
-            Assert.That(_history.Undo(), Is.True);
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(File.ReadAllText(_scene.Uri.LocalPath), Is.EqualTo(savedScene));
-                Assert.That(File.ReadAllText(other.Uri.LocalPath), Is.EqualTo(savedOther), "The unsaved edit stays unsaved.");
-                Assert.That(JsonNode.Parse(File.ReadAllText(path))!["ChannelLayout"]!.GetValue<int>(),
-                    Is.EqualTo((int)SpeakerLayout.Stereo));
-            });
-        }
-        finally
-        {
-            Directory.Delete(directory, recursive: true);
-        }
-    }
-
-    [Test]
-    public void Apply_ProjectWriteFailureRestoresTheLayoutWithoutRecordingAnEdit()
-    {
-        string directory = Directory.CreateTempSubdirectory("beutl-layout-failure-").FullName;
-        _scene.Uri = new Uri(Path.Combine(directory, "scene.scene"));
-        var project = new Project { Uri = new Uri(directory), Items = { _scene } };
-        PixelSize previousSize = _scene.FrameSize.Value;
-        int before = _history.UndoCount;
-        try
-        {
-            Exception? failure = Assert.Catch<Exception>(() => _service.Apply(_scene, new PixelSize(800, 600),
-                _scene.Start.Value, _scene.Duration.Value, SpeakerLayout.Surround51));
-            Assert.That(failure, Is.InstanceOf<IOException>().Or.InstanceOf<UnauthorizedAccessException>());
-            Assert.That(project.ChannelLayout.Value, Is.EqualTo(SpeakerLayout.Stereo));
-            Assert.That(_scene.FrameSize.Value, Is.EqualTo(previousSize));
-            Assert.That(_history.UndoCount, Is.EqualTo(before));
-        }
-        finally
-        {
-            Directory.Delete(directory, recursive: true);
-        }
-    }
-
-    [TestCase(false)]
-    [TestCase(true)]
-    public void Replay_ProjectWriteFailureRestoresTheLayoutAndCanBeRetried(bool redo)
-    {
-        string directory = Directory.CreateTempSubdirectory("beutl-layout-retry-").FullName;
-        string path = Path.Combine(directory, "project.json");
-        _scene.Uri = new Uri(Path.Combine(directory, "scene.scene"));
-        var project = new Project { Uri = new Uri(path), Items = { _scene } };
-        try
-        {
-            _service.Apply(_scene, _scene.FrameSize.Value, _scene.Start.Value, _scene.Duration.Value, SpeakerLayout.Surround51);
-            if (redo) Assert.That(_history.Undo(), Is.True);
-            SpeakerLayout previous = project.ChannelLayout.Value;
-            int undoCount = _history.UndoCount;
-            int redoCount = _history.RedoCount;
-            project.Uri = new Uri(directory);
-
-            Exception? failure = Assert.Catch<Exception>(() =>
-            {
-                if (redo) _history.Redo(); else _history.Undo();
-            });
-            Assert.That(failure, Is.InstanceOf<IOException>().Or.InstanceOf<UnauthorizedAccessException>());
-            Assert.That(project.ChannelLayout.Value, Is.EqualTo(previous));
-            Assert.That(_history.UndoCount, Is.EqualTo(undoCount));
-            Assert.That(_history.RedoCount, Is.EqualTo(redoCount));
-            Assert.That(redo ? _history.CanRedo : _history.CanUndo, Is.True);
-
-            project.Uri = new Uri(path);
-            Assert.That(redo ? _history.Redo() : _history.Undo(), Is.True);
-            SpeakerLayout expected = redo ? SpeakerLayout.Surround51 : SpeakerLayout.Stereo;
-            Assert.That(project.ChannelLayout.Value, Is.EqualTo(expected));
-            Assert.That(JsonNode.Parse(File.ReadAllText(path))!["ChannelLayout"]!.GetValue<int>(), Is.EqualTo((int)expected));
-            Assert.That(redo ? _history.Undo() : _history.Redo(), Is.True);
-            Assert.That(project.ChannelLayout.Value, Is.EqualTo(previous));
-            Assert.That(JsonNode.Parse(File.ReadAllText(path))!["ChannelLayout"]!.GetValue<int>(), Is.EqualTo((int)previous));
-        }
-        finally
-        {
-            Directory.Delete(directory, recursive: true);
-        }
-    }
-
-    [TestCase(false)]
-    [TestCase(true)]
-    public void Undo_LayoutObserverFailureBlocksReplay(bool duringRollback)
-    {
-        string directory = Directory.CreateTempSubdirectory("beutl-layout-diverged-").FullName;
-        string path = Path.Combine(directory, "project.json");
-        _scene.Uri = new Uri(Path.Combine(directory, "scene.scene"));
-        var project = new Project { Uri = new Uri(path), Items = { _scene } };
-        var observerFailure = new InvalidOperationException("layout observer failed");
-        void FailOnLayoutChange(object? sender, PropertyValueChangedEventArgs<SpeakerLayout> e)
-        {
-            if (e.NewValue == (duringRollback ? SpeakerLayout.Surround51 : SpeakerLayout.Stereo))
-                throw observerFailure;
-        }
-
-        try
-        {
-            _service.Apply(_scene, _scene.FrameSize.Value, _scene.Start.Value, _scene.Duration.Value, SpeakerLayout.Surround51);
-            project.Uri = new Uri(directory);
-            project.ChannelLayout.ValueChanged += FailOnLayoutChange;
-
-            HistoryReplayException? failure = Assert.Throws<HistoryReplayException>(() => _history.Undo());
-            if (duringRollback)
-            {
-                Assert.That(failure!.InnerException, Is.TypeOf<ProjectStateDivergedException>());
-                var diverged = (ProjectStateDivergedException)failure.InnerException!;
-                Assert.That(diverged.InnerException, Is.InstanceOf<IOException>().Or.InstanceOf<UnauthorizedAccessException>());
-                Assert.That(diverged.RollbackException, Is.SameAs(observerFailure));
-            }
-            else
-            {
-                Assert.That(failure!.InnerException, Is.SameAs(observerFailure));
-            }
-
-            project.ChannelLayout.ValueChanged -= FailOnLayoutChange;
-            project.Uri = new Uri(path);
-            Assert.That(_history.CanUndo, Is.False);
-            Assert.That(_history.CanRedo, Is.False);
-            Assert.That(_history.Undo(), Is.False);
-            Assert.That(_history.Redo(), Is.False);
-        }
-        finally
-        {
-            project.ChannelLayout.ValueChanged -= FailOnLayoutChange;
-            Directory.Delete(directory, recursive: true);
-        }
     }
 
     [Test]
@@ -349,5 +209,65 @@ public class SceneSettingsServiceTests
             Assert.That(_scene.Start.Value, Is.EqualTo(originalStart));
             Assert.That(_scene.Duration.Value, Is.EqualTo(originalDuration));
         });
+    }
+
+    [Test]
+    public void Default_interface_Apply_rejects_rate_changes_without_mutating_scene_and_delegates_unchanged_rates()
+    {
+        var legacy = new LegacySceneSettingsService(_service);
+        ISceneSettingsService iface = legacy;
+        Rational originalFrameRate = _scene.FrameRate.Value;
+        int originalSampleRate = _scene.SampleRate.Value;
+
+        Assert.Throws<NotSupportedException>(() => iface.Apply(
+            _scene,
+            new PixelSize(1280, 720),
+            _scene.Start.Value,
+            _scene.Duration.Value,
+            new Rational(60),
+            originalSampleRate,
+            _scene.ChannelLayout.Value,
+            _scene.MasterVolume.Value));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(_scene.FrameRate.Value, Is.EqualTo(originalFrameRate));
+            Assert.That(_scene.SampleRate.Value, Is.EqualTo(originalSampleRate));
+            Assert.That(legacy.LegacyCallCount, Is.Zero);
+        });
+
+        bool delegated = iface.Apply(
+            _scene,
+            new PixelSize(1280, 720),
+            _scene.Start.Value,
+            _scene.Duration.Value,
+            originalFrameRate,
+            originalSampleRate,
+            _scene.ChannelLayout.Value,
+            _scene.MasterVolume.Value);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(delegated, Is.True);
+            Assert.That(legacy.LegacyCallCount, Is.EqualTo(1));
+            Assert.That(_scene.FrameSize.Value, Is.EqualTo(new PixelSize(1280, 720)));
+        });
+    }
+
+    private sealed class LegacySceneSettingsService(SceneSettingsService inner) : ISceneSettingsService
+    {
+        public int LegacyCallCount { get; private set; }
+
+        public bool Apply(Scene scene, PixelSize frameSize, MediaTime start, MediaTime duration)
+            => inner.Apply(scene, frameSize, start, duration);
+
+        public bool Apply(Scene scene, PixelSize frameSize, MediaTime start, MediaTime duration, SpeakerLayout channelLayout)
+            => inner.Apply(scene, frameSize, start, duration, channelLayout);
+
+        public bool Apply(Scene scene, PixelSize frameSize, MediaTime start, MediaTime duration, SpeakerLayout channelLayout, float masterVolume)
+        {
+            LegacyCallCount++;
+            return inner.Apply(scene, frameSize, start, duration, channelLayout, masterVolume);
+        }
     }
 }

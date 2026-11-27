@@ -21,7 +21,7 @@ namespace Beutl.Controls.PropertyEditors;
 [TemplatePart("PART_MasterWheel", typeof(GradingWheel))]
 [TemplatePart("PART_Components", typeof(GradingColorComponentsEditor))]
 [TemplatePart("PART_ResetButton", typeof(Button))]
-public class ColorGradingWheel : PropertyEditor
+public partial class ColorGradingWheel : PropertyEditor
 {
     public static readonly DirectProperty<ColorGradingWheel, GradingColor> ColorProperty =
         AvaloniaProperty.RegisterDirect<ColorGradingWheel, GradingColor>(
@@ -29,21 +29,6 @@ public class ColorGradingWheel : PropertyEditor
             o => o.Color,
             (o, v) => o.Color = v,
             defaultBindingMode: BindingMode.TwoWay);
-
-    // The color that changes nothing, such as (1, 1, 1) for Gain.
-    public static readonly StyledProperty<GradingColor> NeutralProperty =
-        AvaloniaProperty.Register<ColorGradingWheel, GradingColor>(nameof(Neutral));
-
-    // The chroma, in Cb and Cr, at the edge of the pad.
-    public static readonly StyledProperty<double> MaxChromaProperty =
-        AvaloniaProperty.Register<ColorGradingWheel, double>(nameof(MaxChroma), 0.25);
-
-    // What a drag across the whole jog adds to R, G and B.
-    public static readonly StyledProperty<double> MasterRangeProperty =
-        AvaloniaProperty.Register<ColorGradingWheel, double>(nameof(MasterRange), 1.0);
-
-    public static readonly StyledProperty<bool> IsSideBySideProperty =
-        AvaloniaProperty.Register<ColorGradingWheel, bool>(nameof(IsSideBySide));
 
     private readonly CompositeDisposable _partHandlers = [];
     private Grid? _layout;
@@ -60,6 +45,8 @@ public class ColorGradingWheel : PropertyEditor
     private bool _dragStopped;
     private bool _editingComponents;
     private bool _valueChanged;
+    private Func<GradingColor?>? _readUnderlyingColor;
+    private (int Index, float Value)? _underlyingComponentEdit;
 
     public GradingColor Color
     {
@@ -67,29 +54,20 @@ public class ColorGradingWheel : PropertyEditor
         set => SetAndRaise(ColorProperty, ref field, value);
     }
 
-    public GradingColor Neutral
-    {
-        get => GetValue(NeutralProperty);
-        set => SetValue(NeutralProperty, value);
-    }
+    // The color that changes nothing, such as (1, 1, 1) for Gain.
+    [GeneratedStyledProperty]
+    public partial GradingColor Neutral { get; set; }
 
-    public double MaxChroma
-    {
-        get => GetValue(MaxChromaProperty);
-        set => SetValue(MaxChromaProperty, value);
-    }
+    // The chroma, in Cb and Cr, at the edge of the pad.
+    [GeneratedStyledProperty(DefaultValue = 0.25)]
+    public partial double MaxChroma { get; set; }
 
-    public double MasterRange
-    {
-        get => GetValue(MasterRangeProperty);
-        set => SetValue(MasterRangeProperty, value);
-    }
+    // What a drag across the whole jog adds to R, G and B.
+    [GeneratedStyledProperty(DefaultValue = 1.0)]
+    public partial double MasterRange { get; set; }
 
-    public bool IsSideBySide
-    {
-        get => GetValue(IsSideBySideProperty);
-        set => SetValue(IsSideBySideProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial bool IsSideBySide { get; set; }
 
     // What the wheel needs besides its pad, whether stacked or side by side: the height of the header, the jog and
     // the boxes with the spacing between them, and the width they would like. Measured with no limits, they are what
@@ -102,6 +80,10 @@ public class ColorGradingWheel : PropertyEditor
     // Whether the pad or the jog is being dragged; a stopped drag no longer counts.
     public bool IsDragging => (_padDragging || _masterDragging) && !_dragStopped;
 
+    internal bool IsComponentDragging => _components?.ValueDragOwner != null;
+
+    internal Func<Control, Action, IPropertyEditorDragSession?>? OpenComponentDragSession { get; set; }
+
     // Ends the drag in progress without ValueConfirmed, for a host that ended the gesture itself. The pad's drag ends
     // with it, so that the cursor its pointer lock hid comes back without waiting for the release.
     public void StopDrag()
@@ -109,6 +91,20 @@ public class ColorGradingWheel : PropertyEditor
         _valueChanged = false;
         _dragStopped = _padDragging || _masterDragging;
         _pad?.StopDrag();
+    }
+
+    internal IDisposable ConnectUnderlyingComponents(Func<GradingColor?> read)
+    {
+        _readUnderlyingColor = read;
+        _underlyingComponentEdit = null;
+        return Disposable.Create(() =>
+        {
+            if (ReferenceEquals(_readUnderlyingColor, read))
+            {
+                _readUnderlyingColor = null;
+                _underlyingComponentEdit = null;
+            }
+        });
     }
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
@@ -130,6 +126,15 @@ public class ColorGradingWheel : PropertyEditor
         _master?.AddDisposableHandler(Thumb.DragCompletedEvent, OnMasterDragCompleted).DisposeWith(_partHandlers);
         _components?.AddDisposableHandler(ValueChangedEvent, OnComponentsValueChanged).DisposeWith(_partHandlers);
         _components?.AddDisposableHandler(ValueConfirmedEvent, OnComponentsValueConfirmed).DisposeWith(_partHandlers);
+        _components?.ConnectUnderlyingComponents(ReadUnderlyingComponentColor, OnUnderlyingComponentChanged).DisposeWith(_partHandlers);
+        if (_components is { } components)
+        {
+            components.OpenDragSession = (owner, stop) => OpenComponentDragSession?.Invoke(owner, () =>
+            {
+                _underlyingComponentEdit = null;
+                stop();
+            });
+        }
         _resetButton?.AddDisposableHandler(Button.ClickEvent, OnResetClick).DisposeWith(_partHandlers);
         UpdateParts();
     }
@@ -272,12 +277,55 @@ public class ColorGradingWheel : PropertyEditor
         if (_components == null || e is not PropertyEditorValueChangedEventArgs<(float, float, float)> args)
             return;
 
+        if (_underlyingComponentEdit is { } edit)
+        {
+            _underlyingComponentEdit = null;
+            if (_readUnderlyingColor?.Invoke() is { } underlying)
+                RaiseEvent(new PropertyEditorValueChangedEventArgs<GradingColor>(
+                    WithComponent(underlying, edit.Index, edit.Value), underlying, ValueConfirmedEvent));
+            return;
+        }
+
+        // Binding updates can change the boxes while one has focus, without any edit to confirm.
+        if (!_valueChanged)
+            return;
+
+        _valueChanged = false;
         GradingColor oldValue = _components.ToGradingColorFromTuple(args.OldValue);
         GradingColor newValue = _components.ToGradingColorFromTuple(args.NewValue);
-        bool changed = _valueChanged;
-        _valueChanged = false;
-        if (changed || oldValue != newValue)
-            RaiseEvent(new PropertyEditorValueChangedEventArgs<GradingColor>(newValue, oldValue, ValueConfirmedEvent));
+        RaiseEvent(new PropertyEditorValueChangedEventArgs<GradingColor>(newValue, oldValue, ValueConfirmedEvent));
+    }
+
+    private GradingColor? ReadUnderlyingComponentColor()
+    {
+        GradingColor? color = _readUnderlyingColor?.Invoke();
+        return color is { } underlying && _underlyingComponentEdit is { } edit
+            ? WithComponent(underlying, edit.Index, edit.Value)
+            : color;
+    }
+
+    private void OnUnderlyingComponentChanged(int index, float value, bool scrub)
+    {
+        if (ReadUnderlyingComponentColor() is not { } previous)
+            return;
+
+        _underlyingComponentEdit = (index, value);
+        GradingColor next = WithComponent(previous, index, value);
+        // An unfocused scrub also moves the wheel locally when live preview is off.
+        if (scrub)
+        {
+            float delta = value - previous.ToVector3()[index];
+            Color = WithComponent(Color, index, Color.ToVector3()[index] + delta);
+        }
+
+        RaiseEvent(new PropertyEditorValueChangedEventArgs<GradingColor>(next, previous, ValueChangedEvent));
+    }
+
+    private static GradingColor WithComponent(GradingColor color, int index, float value)
+    {
+        var rgb = color.ToVector3();
+        rgb[index] = value;
+        return GradingColor.FromVector3(rgb);
     }
 
     private void OnResetClick(object? sender, RoutedEventArgs e) => Replace(Neutral);

@@ -1,10 +1,14 @@
 ﻿using System.Text.Json.Nodes;
 using Avalonia;
 using Beutl.Editor.Services;
+using Beutl.Engine;
 using Beutl.Language;
 using Beutl.Logging;
 using Beutl.NodeGraph;
 using Beutl.NodeGraph.Generative;
+using Beutl.NodeGraph.Nodes;
+using Beutl.NodeGraph.Nodes.Group;
+using Beutl.NodeGraph.Nodes.Shaders;
 using Beutl.ProjectSystem;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -156,11 +160,59 @@ public sealed class NodeGraphViewModel : IDisposable, IJsonSerializable
 
     public CoreList<GraphNodeViewModel> Nodes { get; } = [];
 
+    internal bool DeleteNodes(GraphNodeViewModel[] nodes)
+    {
+        GraphNodeViewModel[] removable = [.. nodes.Where(node => node.Delete.CanExecute())];
+        if (removable.Length == 0) return false;
+
+        if (removable.Length == 1)
+            removable[0].Delete.Execute();
+        else
+            EditorContext.GetRequiredService<INodeGraphMutationService>()
+                .RemoveNode(NodeGraph, removable.Select(node => node.GraphNode).ToArray());
+        return true;
+    }
+
     public CoreList<ConnectionViewModel> AllConnections { get; } = [];
 
     public ReactiveProperty<Matrix> Matrix { get; } = new(Avalonia.Matrix.Identity);
 
+    internal ReactivePropertySlim<GraphNodeViewModel?> PendingReveal { get; } = new();
+
     public GraphModel NodeGraph { get; }
+
+    internal static Func<Type, bool> GetNodeTypeFilter(GraphModel graph)
+    {
+        EngineObject? owner = graph.EnumerateAncestors<EngineObject>()
+            .FirstOrDefault(ancestor => ancestor is NodeGraphDrawable or NodeGraphFilterEffect);
+        var group = graph as GraphGroup;
+        bool isLoopBody = group?.HierarchicalParent is ShaderLoopNode;
+        bool isInsideLoop = graph.FindHierarchicalParent<ShaderLoopNode>() != null;
+
+        return type =>
+        {
+            // Only the effect root binds an effect input to the layer being processed.
+            if (typeof(FilterEffectInputNode).IsAssignableFrom(type))
+                return group == null && owner is not NodeGraphDrawable;
+            if (typeof(OutputNode).IsAssignableFrom(type))
+                return group == null;
+            if (typeof(GroupInput).IsAssignableFrom(type))
+                return group is { Input.Value: null } && typeof(ShaderLoopInput).IsAssignableFrom(type) == isLoopBody;
+            if (typeof(GroupOutput).IsAssignableFrom(type))
+                return group is { Output.Value: null } && typeof(ShaderLoopOutput).IsAssignableFrom(type) == isLoopBody;
+            if (typeof(ShaderLoopInfoNode).IsAssignableFrom(type))
+                return isInsideLoop;
+            return true;
+        };
+    }
+
+    internal void RevealNode(GraphNode node)
+    {
+        if (Nodes.FirstOrDefault(item => item.GraphNode == node) is not { } target) return;
+        foreach (GraphNodeViewModel item in Nodes)
+            item.IsSelected.Value = item == target;
+        PendingReveal.Value = target;
+    }
 
     public NodePortViewModel? FindNodePortViewModel(INodePort port)
     {
@@ -254,6 +306,7 @@ public sealed class NodeGraphViewModel : IDisposable, IJsonSerializable
 
         Nodes.Clear();
 
+        PendingReveal.Dispose();
         _disposables.Dispose();
     }
 

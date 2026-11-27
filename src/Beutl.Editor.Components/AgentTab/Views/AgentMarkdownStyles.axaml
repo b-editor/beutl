@@ -1,0 +1,79 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:icons="using:FluentIcons.Avalonia.Fluent"
+        xmlns:lang="using:Beutl.Language"
+        xmlns:md="using:LiveMarkdown.Avalonia">
+    <Styles.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceInclude Source="avares://LiveMarkdown.Avalonia/Defaults.axaml" />
+            </ResourceDictionary.MergedDictionaries>
+            <SolidColorBrush x:Key="ForegroundColor" Color="{DynamicResource TextFillColorPrimary}" />
+            <SolidColorBrush x:Key="BorderColor" Color="{DynamicResource DividerStrokeColorDefault}" />
+            <SolidColorBrush x:Key="CardBackgroundColor" Color="{DynamicResource ControlFillColorDefault}" />
+            <SolidColorBrush x:Key="SecondaryCardBackgroundColor" Color="{DynamicResource ControlFillColorDefault}" />
+            <SolidColorBrush x:Key="CodeInlineColor" Color="{DynamicResource TextFillColorPrimary}" />
+            <SolidColorBrush x:Key="QuoteBorderColor" Color="{DynamicResource ControlStrokeColorDefault}" />
+        </ResourceDictionary>
+    </Styles.Resources>
+
+    <StyleInclude Source="avares://LiveMarkdown.Avalonia/Styles.axaml" />
+    <Style Selector="md|MarkdownTextBlock">
+        <Setter Property="FontFamily" Value="{DynamicResource BeutlUIFontFamily}" />
+        <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+        <Setter Property="LineHeight" Value="23" />
+        <Setter Property="SelectionBrush" Value="{DynamicResource AccentFillColorDefaultBrush}" />
+        <Setter Property="SelectionForegroundBrush" Value="{DynamicResource TextOnAccentFillColorPrimaryBrush}" />
+    </Style>
+    <Style Selector="md|CodeBlock md|MarkdownTextBlock">
+        <Setter Property="LineHeight" Value="18" />
+    </Style>
+    <Style Selector="md|MarkdownRenderer md|CodeInline">
+        <Setter Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
+        <Setter Property="Padding" Value="3,0" />
+    </Style>
+    <Style Selector="md|MarkdownRenderer md|Link, md|MarkdownRenderer md|Link:clicked">
+        <Setter Property="Foreground" Value="{DynamicResource AccentTextFillColorPrimaryBrush}" />
+    </Style>
+    <Style Selector="md|MarkdownRenderer Border.Table">
+        <Setter Property="BorderBrush" Value="{DynamicResource DividerStrokeColorDefaultBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="6" />
+        <Setter Property="Margin" Value="0,4" />
+    </Style>
+    <Style Selector="md|MarkdownRenderer md|CodeBlock">
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border CornerRadius="7" BorderThickness="1" ClipToBounds="True"
+                        Background="{DynamicResource ControlAltFillColorSecondaryBrush}"
+                        BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}">
+                    <Grid RowDefinitions="Auto,*">
+                        <Border Padding="8,2,4,2" BorderThickness="0,0,0,1"
+                                BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}">
+                            <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="2">
+                                <TextBlock x:Name="PART_LanguageTextBlock" Text="{TemplateBinding Language}"
+                                           Classes="agent-caption" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                <ToggleButton x:Name="PART_ToggleTextWrapButton" Grid.Column="1" Width="23" Height="23" Padding="0"
+                                              Theme="{StaticResource ColorPickerTypeTransparentToggleButtonStyle}"
+                                              IsChecked="{TemplateBinding IsCodeWrapped, Mode=TwoWay}"
+                                              AutomationProperties.Name="{x:Static lang:AgentStrings.WrapCode}" ToolTip.Tip="{x:Static lang:AgentStrings.WrapCode}">
+                                    <icons:FluentIcon Icon="TextWrap" FontSize="13" />
+                                </ToggleButton>
+                                <Button x:Name="PART_CopyButton" Grid.Column="2" Width="23" Height="23" Padding="0"
+                                        Theme="{StaticResource ToolTabBarIconButtonTheme}"
+                                        AutomationProperties.Name="{x:Static lang:AgentStrings.CopyCode}" ToolTip.Tip="{x:Static lang:AgentStrings.CopyCode}">
+                                    <icons:FluentIcon Icon="Copy" FontSize="13" />
+                                </Button>
+                            </Grid>
+                        </Border>
+                        <ScrollViewer x:Name="PART_ScrollViewer" Grid.Row="1" VerticalScrollBarVisibility="Disabled"
+                                      HorizontalScrollBarVisibility="{TemplateBinding HorizontalScrollBarVisibility}">
+                            <md:MarkdownTextBlock x:Name="PART_CodeTextBlock" Margin="8,6" Padding="0"
+                                                  FontFamily="{TemplateBinding FontFamily}" TextWrapping="{TemplateBinding TextWrapping}" />
+                        </ScrollViewer>
+                    </Grid>
+                </Border>
+            </ControlTemplate>
+        </Setter>
+    </Style>
+</Styles>

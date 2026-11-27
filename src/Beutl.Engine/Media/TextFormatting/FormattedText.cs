@@ -37,6 +37,7 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
     private SKPath? _fillPath;
     private SKPath? _strokePath;
     private List<Geometry.Resource> _pathList = [];
+    private GlyphPart[] _glyphParts = [];
     private readonly ScaledTextCache _scaledCache;
     private readonly Dictionary<int, (ShapedGlyph Glyph, FormattedText? Text)> _nonOutlineGlyphs = [];
     private readonly List<Rect> _nonOutlineBounds = [];
@@ -78,6 +79,7 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
         }
 
         _pathList = [];
+        _glyphParts = [];
         _textBlob = null;
         _fillPath = null;
         _strokePath = null;
@@ -307,6 +309,14 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
         return CollectionsMarshal.AsSpan(_pathList);
     }
 
+    internal readonly record struct GlyphPart(int Cluster, bool HasInk, float AdvanceStart, float AdvanceEnd);
+
+    internal ReadOnlySpan<GlyphPart> GetGlyphParts()
+    {
+        MeasureAndSetField();
+        return _glyphParts;
+    }
+
     // A borrowed, already-shaped single-glyph run, owned by this text just like ToGeometries().
     // Keeping the glyph ID and position preserves ligatures, surrogate pairs and character spacing.
     internal FormattedText? GetNonOutlineGlyph(int index)
@@ -355,7 +365,7 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
         _nonOutlineBounds.Clear();
     }
 
-    private List<ShapedRun> Shape(SKFont font, float density, out bool rightToLeft)
+    private List<ShapedRun> Shape(SKFont font, float density, bool capturePenPositions, out bool rightToLeft)
     {
         rightToLeft = false;
         if (_shapedGlyph is { } glyph)
@@ -385,7 +395,7 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
         {
             using SKFont runFont = CreateSKFont(runs[0].Typeface, density);
             using var shaper = new TextShaper(runs[0].Typeface);
-            return [new ShapedRun(runs[0].Typeface, shaper.ShapeWithAdvance(buffer, runFont, letterSpacing))];
+            return [new ShapedRun(runs[0].Typeface, shaper.ShapeWithAdvance(buffer, runFont, letterSpacing, capturePenPositions))];
         }
 
         var shapedRuns = new List<ShapedRun>(runs.Count);
@@ -408,7 +418,7 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
                 runBuffer.Direction = buffer.Direction;
                 runBuffer.Language = buffer.Language;
                 runBuffer.GuessSegmentProperties();
-                shapedRuns.Add(new ShapedRun(run.Typeface, shaper.ShapeWithAdvance(runBuffer, runFont, letterSpacing)));
+                shapedRuns.Add(new ShapedRun(run.Typeface, shaper.ShapeWithAdvance(runBuffer, runFont, letterSpacing, capturePenPositions)));
             }
         }
         finally
@@ -453,7 +463,7 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
 
         using SKFont font = ToSKFont(density);
 
-        List<ShapedRun> shapedRuns = Shape(font, density, out bool rightToLeft);
+        List<ShapedRun> shapedRuns = Shape(font, density, updatePathList, out bool rightToLeft);
         int glyphCount = shapedRuns.Sum(run => run.Result.Codepoints.Length);
         int[]? graphemes = Orientation != TextRunOrientation.Horizontal && Spacing != 0 && _shapedGlyph is null
             ? StringInfo.ParseCombiningCharacters(Text.ToString()) : null;
@@ -465,6 +475,8 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
         {
             ClearNonOutlineGlyphs();
             pathList = PreparePathList(glyphCount);
+            if (_glyphParts.Length != glyphCount)
+                _glyphParts = new GlyphPart[glyphCount];
         }
 
         Rect nonOutlineBounds = default;
@@ -474,6 +486,7 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
         int previousGrapheme = graphemes?.Length ?? 0;
         int graphemeSpacingIndex = 0;
         float advance = 0;
+        bool upright = Orientation == TextRunOrientation.Upright;
         Span<SKRect> glyphBounds = stackalloc SKRect[1];
         Span<float> glyphWidth = stackalloc float[1];
         foreach (ShapedRun shapedRun in shapedRuns)
@@ -505,18 +518,21 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
                     }
                     spacingIndex = graphemeSpacingIndex;
                 }
-                if (Orientation == TextRunOrientation.Upright)
-                    point.Y += advance + spacingIndex * spacing;
+                float penOffset = advance + spacingIndex * spacing;
+                if (upright)
+                    point.Y += penOffset;
                 else
-                    point.X += advance + spacingIndex * spacing;
+                    point.X += penOffset;
                 positions[i] = point;
 
                 SKPath? tmp = runFont.GetGlyphPath(glyphs[i]);
-                if (tmp is null || tmp.IsEmpty)
+                bool hasInk = tmp is { IsEmpty: false };
+                if (!hasInk)
                 {
                     runFont.GetGlyphWidths(glyphs.Slice(i, 1), glyphWidth, glyphBounds);
                     if (!glyphBounds[0].IsEmpty)
                     {
+                        hasInk = true;
                         glyphBounds[0].Offset(point);
                         Rect inkBounds = glyphBounds[0].ToGraphicsRect();
                         nonOutlineBounds = nonOutlineBounds.Union(inkBounds);
@@ -530,6 +546,14 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
                             }
                         }
                     }
+                }
+
+                if (updatePathList)
+                {
+                    SKPoint start = result.PenPositions?[i] ?? default;
+                    SKPoint end = result.PenPositions?[i + 1] ?? result.Advance;
+                    _glyphParts[glyphIndex] = new GlyphPart((int)result.Clusters[i], hasInk,
+                        penOffset + (upright ? start.Y : start.X), penOffset + (upright ? end.Y : end.X));
                 }
 
                 if (tmp != null)
@@ -562,7 +586,7 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
                 Top = MathF.Min(metrics.Top, runMetrics.Top),
                 Bottom = MathF.Max(metrics.Bottom, runMetrics.Bottom),
             };
-            advance += Orientation == TextRunOrientation.Upright ? result.Advance.Y : result.Advance.X;
+            advance += upright ? result.Advance.Y : result.Advance.X;
             glyphOffset += glyphs.Length;
         }
 

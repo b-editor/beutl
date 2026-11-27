@@ -86,7 +86,7 @@ internal sealed class PackageLinkBroker : IDisposable
 
     public static async Task<bool> TryForwardAsync(string uri, string? pipeName = null, CancellationToken cancellationToken = default)
     {
-        if (!PackageInstallRequest.TryParse(uri, out _))
+        if (!BeutlLinkRequest.TryParse(uri, out _))
             return false;
 
         try
@@ -125,13 +125,13 @@ internal sealed class PackageLinkBroker : IDisposable
                 byte[] header = new byte[4];
                 await _pipe.ReadExactlyAsync(header, timeout.Token).ConfigureAwait(false);
                 int length = BinaryPrimitives.ReadInt32LittleEndian(header);
-                if (length is <= 0 or > PackageInstallRequest.MaxUriLength)
+                if (length <= 0 || length > s_encoding.GetMaxByteCount(BeutlLinkRequest.MaxUriLength))
                     continue;
 
                 byte[] payload = new byte[length];
                 await _pipe.ReadExactlyAsync(payload, timeout.Token).ConfigureAwait(false);
                 string uri = s_encoding.GetString(payload);
-                if (!PackageInstallRequest.TryParse(uri, out _))
+                if (!BeutlLinkRequest.TryParse(uri, out _))
                     continue;
 
                 lock (_gate)

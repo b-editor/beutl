@@ -120,6 +120,7 @@ public sealed partial class GraphEditorTabViewModel
         {
             pair.IsSeparated.Skip(1).Subscribe(_ => ScheduleRefresh()).DisposeWith(_pairDisposables);
             pair.ObserveAnimation.Skip(1).Subscribe(_ => ScheduleRefresh()).DisposeWith(_pairDisposables);
+            pair.ObserveExpression.Skip(1).Subscribe(_ => ScheduleRefresh()).DisposeWith(_pairDisposables);
         }
     }
 
@@ -224,6 +225,10 @@ public sealed partial class GraphEditorTabViewModel
             ? canAnimate && pair.CanStandAsOne.Value
             : canAnimate && ComponentSeparation.CanSeparate(engineProperty);
         item.HasSeparatedComponents.Value = separated != null;
+        item.HasExpression.Value = pair != null
+            ? pair.HasExpression
+            : engineProperty is IExpressionProperty { HasExpression: true }
+                || item.Adapter is IExpressionPropertyAdapter { HasExpression: true };
         if (separated != null)
         {
             item.CanAnimate.Value = false;
@@ -305,7 +310,7 @@ public sealed partial class GraphEditorTabViewModel
     {
         if (_disposed) return;
         var element = Element.Value;
-        Rational rate = (element?.FindHierarchicalParent<Project>()).GetFrameRate();
+        Rational rate = (element?.FindHierarchicalParent<Scene>()).GetFrameRate();
         MediaTime globalTime = _clock.CurrentTime.Value;
         foreach (var item in _treeCache.Values)
         {

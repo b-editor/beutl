@@ -65,6 +65,8 @@ public class SelectorToolTabBarTests
         using var curves = new CurvesTabViewModel(editor);
         using var grading = new ColorGradingTabViewModel(editor);
         using var scopes = new ColorScopesTabViewModel(editor);
+        // This fixture switches scopes to check their toolbars. Rendering gets its own fixed input.
+        scopes.SourceBitmap.Value = null;
         using var audio = new AudioVisualizerTabViewModel(editor);
         var curvesView = new CurvesTabView { DataContext = curves };
         var gradingView = new ColorGradingTabView { DataContext = grading };

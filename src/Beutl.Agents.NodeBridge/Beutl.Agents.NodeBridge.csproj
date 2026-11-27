@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <DefaultItemExcludes>$(DefaultItemExcludes);node_modules/**;dist/**</DefaultItemExcludes>
+  </PropertyGroup>
+  <ItemGroup>
+    <NodeBridgeSource Include="src/**/*.ts;package.json;pnpm-lock.yaml;pnpm-workspace.yaml;tsconfig.json;build.mjs" />
+    <UpToDateCheckInput Include="@(NodeBridgeSource)" />
+    <UpToDateCheckOutput Include="dist/bridge.mjs" />
+  </ItemGroup>
+  <Target Name="BuildNodeBridge" BeforeTargets="CoreCompile"
+          Condition="'$(DesignTimeBuild)' != 'true'"
+          Inputs="@(NodeBridgeSource)" Outputs="dist/bridge.mjs">
+    <Exec Command="pnpm --version" IgnoreExitCode="true" StandardOutputImportance="Low">
+      <Output TaskParameter="ExitCode" PropertyName="_PnpmExitCode" />
+    </Exec>
+    <PropertyGroup>
+      <_PnpmCommand Condition="'$(_PnpmExitCode)' == '0'">pnpm</_PnpmCommand>
+      <_PnpmCommand Condition="'$(_PnpmExitCode)' != '0'">npx --yes pnpm@11.9.0</_PnpmCommand>
+    </PropertyGroup>
+    <Exec Command="$(_PnpmCommand) install --frozen-lockfile --ignore-scripts" WorkingDirectory="$(MSBuildProjectDirectory)" />
+    <Exec Command="$(_PnpmCommand) run build" WorkingDirectory="$(MSBuildProjectDirectory)" />
+  </Target>
+  <Target Name="CleanNodeBridge" AfterTargets="Clean">
+    <Delete Files="dist/bridge.mjs" />
+  </Target>
+</Project>

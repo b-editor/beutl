@@ -8,25 +8,84 @@ using Image = Silk.NET.Vulkan.Image;
 internal sealed unsafe partial class VulkanContext
 {
     public ITexture2D CreateTexture2D(int width, int height, TextureFormat format)
+        => CreateTexture2D(width, height, format, 1);
+
+    public ITexture2D CreateTexture2D(int width, int height, TextureFormat format, int sampleCount)
     {
+        AttachmentSampleCount.Validate(sampleCount);
+
         // The driver does not refuse an extent it cannot make: SwiftShader answers success past its
         // framebuffer limit, MoltenVK aborts the process. The usage below carries an attachment bit, which
         // makes the framebuffer limits apply at creation whether the texture is ever attached or not.
         ThrowIfCannotMakeAttachableImage(MaxImageDimension2D, width, height);
 
-        ImageUsageFlags usage;
-        if (format.IsDepthFormat())
+        ImageUsageFlags usage = GetSampledAttachmentUsage(format);
+        if (sampleCount == 1)
         {
-            usage = ImageUsageFlags.DepthStencilAttachmentBit | ImageUsageFlags.SampledBit |
-                    ImageUsageFlags.TransferSrcBit | ImageUsageFlags.TransferDstBit;
+            usage |= ImageUsageFlags.TransferSrcBit | ImageUsageFlags.TransferDstBit;
         }
         else
         {
-            usage = VulkanTexture2D.ColorTextureUsage;
+            ThrowIfUnsupportedSampleCount(format, sampleCount);
         }
-        var texture = new VulkanTexture2D(this, width, height, format, usage);
+        var texture = new VulkanTexture2D(this, width, height, format, usage, sampleCount);
         RecordTextureAllocation(format);
         return texture;
+    }
+
+    public int GetSupportedSampleCount(int requested, IReadOnlyList<TextureFormat> formats)
+    {
+        if (requested <= 1 || formats.Count == 0)
+            return 1;
+
+        SampleCountFlags supported = GetAttachmentSampleCounts(formats[0]);
+        for (int i = 1; i < formats.Count; i++)
+        {
+            supported &= GetAttachmentSampleCounts(formats[i]);
+        }
+
+        for (int count = AttachmentSampleCount.Maximum; count > 1; count >>= 1)
+        {
+            if (count <= requested && (supported & (SampleCountFlags)count) != 0)
+                return count;
+        }
+
+        return 1;
+    }
+
+    private static ImageUsageFlags GetSampledAttachmentUsage(TextureFormat format)
+        => (format.IsDepthFormat() ? ImageUsageFlags.DepthStencilAttachmentBit : ImageUsageFlags.ColorAttachmentBit)
+            | ImageUsageFlags.SampledBit;
+
+    private SampleCountFlags GetAttachmentSampleCounts(TextureFormat format)
+    {
+        Result result = Vk.GetPhysicalDeviceImageFormatProperties(PhysicalDevice, format.ToVulkanFormat(),
+            ImageType.Type2D, ImageTiling.Optimal, GetSampledAttachmentUsage(format), 0, out ImageFormatProperties properties);
+        if (result != Result.Success)
+            return 0;
+
+        PhysicalDeviceLimits limits = Limits;
+        if (format.IsDepthFormat())
+        {
+            SampleCountFlags supported = properties.SampleCounts & limits.FramebufferDepthSampleCounts
+                & limits.SampledImageDepthSampleCounts;
+            return format.HasStencil() ? supported & limits.FramebufferStencilSampleCounts : supported;
+        }
+
+        // The per-format properties include integer attachment support. The core framebuffer color
+        // limit applies to floating- and fixed-point formats.
+        return format.GetNumericType() == NumericType.Float
+            ? properties.SampleCounts & limits.FramebufferColorSampleCounts & limits.SampledImageColorSampleCounts
+            : properties.SampleCounts & limits.SampledImageIntegerSampleCounts;
+    }
+
+    private void ThrowIfUnsupportedSampleCount(TextureFormat format, int sampleCount)
+    {
+        if ((GetAttachmentSampleCounts(format) & (SampleCountFlags)sampleCount) == 0)
+        {
+            throw new NotSupportedException(
+                $"{format} does not support {sampleCount} samples as a sampled attachment on this Vulkan device.");
+        }
     }
 
     public ITextureCube CreateTextureCube(int size, TextureFormat format)
@@ -109,7 +168,16 @@ internal sealed unsafe partial class VulkanContext
         TextureFormat? depthFormat,
         AttachmentLoadOp colorLoadOp = AttachmentLoadOp.Clear,
         AttachmentLoadOp depthLoadOp = AttachmentLoadOp.Clear)
+        => CreateRenderPass3D(colorFormats, depthFormat, colorLoadOp, depthLoadOp, 1);
+
+    public IRenderPass3D CreateRenderPass3D(
+        IReadOnlyList<TextureFormat> colorFormats,
+        TextureFormat? depthFormat,
+        AttachmentLoadOp colorLoadOp,
+        AttachmentLoadOp depthLoadOp,
+        int sampleCount)
     {
+        AttachmentSampleCount.Validate(sampleCount);
         if (colorFormats.Any(static format => format.IsDepthFormat()))
         {
             throw new ArgumentException("Color attachments cannot use a depth format.", nameof(colorFormats));
@@ -120,9 +188,17 @@ internal sealed unsafe partial class VulkanContext
             throw new ArgumentException("The depth attachment must use a depth format.", nameof(depthFormat));
         }
 
+        if (sampleCount > 1)
+        {
+            foreach (TextureFormat format in colorFormats)
+                ThrowIfUnsupportedSampleCount(format, sampleCount);
+            if (depthFormat is TextureFormat depth)
+                ThrowIfUnsupportedSampleCount(depth, sampleCount);
+        }
+
         var vulkanColorFormats = colorFormats.Select(f => f.ToVulkanFormat()).ToList();
         Format? vulkanDepthFormat = depthFormat?.ToVulkanFormat();
-        return new VulkanRenderPass3D(this, vulkanColorFormats, vulkanDepthFormat, colorLoadOp, depthLoadOp);
+        return new VulkanRenderPass3D(this, vulkanColorFormats, vulkanDepthFormat, colorLoadOp, depthLoadOp, sampleCount);
     }
 
     public IFramebuffer3D CreateFramebuffer3D(
@@ -186,14 +262,12 @@ internal sealed unsafe partial class VulkanContext
 
         return new VulkanPipeline3D(
             this,
-            vulkanRenderPass.Handle,
+            vulkanRenderPass,
             vertexShaderSpirv,
             fragmentShaderSpirv,
             vulkanVertexInput,
             vulkanBindings,
             specializationConstants,
-            vulkanRenderPass.ColorAttachmentCount,
-            vulkanRenderPass.HasDepthAttachment,
             VulkanPipelineFixedFunctionState.From(pipelineOptions));
     }
 
@@ -274,7 +348,8 @@ internal sealed unsafe partial class VulkanContext
         string resourceName,
         ImageType imageType = ImageType.Type2D,
         uint depth = 1,
-        uint mipLevels = 1)
+        uint mipLevels = 1,
+        SampleCountFlags samples = SampleCountFlags.Count1Bit)
     {
         var imageInfo = new ImageCreateInfo
         {
@@ -286,7 +361,7 @@ internal sealed unsafe partial class VulkanContext
             Extent = new Extent3D((uint)width, (uint)height, depth),
             MipLevels = mipLevels,
             ArrayLayers = arrayLayers,
-            Samples = SampleCountFlags.Count1Bit,
+            Samples = samples,
             Tiling = ImageTiling.Optimal,
             Usage = usage,
             SharingMode = SharingMode.Exclusive,
@@ -304,8 +379,8 @@ internal sealed unsafe partial class VulkanContext
     }
 
     /// <summary>
-    /// Allocates device-local memory sized for <paramref name="image"/> and binds it. On failure the image
-    /// is destroyed and nothing stays allocated, so the caller never has to unwind a partial binding.
+    /// Allocates memory sized for <paramref name="image"/> and binds it, preferring device-local memory.
+    /// On failure the image is destroyed, so the caller never has to unwind a partial binding.
     /// </summary>
     /// <param name="resourceName">
     /// Names the image in the thrown message, e.g. <c>"cube map image"</c>.
@@ -322,11 +397,24 @@ internal sealed unsafe partial class VulkanContext
         vk.GetImageMemoryRequirements(device, image, &memReqs);
         allocationSize = memReqs.Size;
 
+        uint memoryTypeIndex;
+        try
+        {
+            PhysicalDeviceMemoryProperties memProps;
+            vk.GetPhysicalDeviceMemoryProperties(PhysicalDevice, &memProps);
+            memoryTypeIndex = VulkanPhysicalDeviceQueries.FindImageMemoryType(in memProps, memReqs);
+        }
+        catch
+        {
+            vk.DestroyImage(device, image, null);
+            throw;
+        }
+
         var allocInfo = new MemoryAllocateInfo
         {
             SType = StructureType.MemoryAllocateInfo,
             AllocationSize = memReqs.Size,
-            MemoryTypeIndex = FindMemoryType(memReqs.MemoryTypeBits, MemoryPropertyFlags.DeviceLocalBit)
+            MemoryTypeIndex = memoryTypeIndex
         };
 
         DeviceMemory memory;

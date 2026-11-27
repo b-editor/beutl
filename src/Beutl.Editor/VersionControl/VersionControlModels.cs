@@ -188,7 +188,7 @@ internal abstract record RemoteOpResult
     {
     }
 
-    public sealed record Success : RemoteOpResult;
+    public sealed record Success(IReadOnlyList<string>? PushUrls = null) : RemoteOpResult;
 
     public sealed record AuthFailed(string Guidance, string Stderr) : RemoteOpResult;
 
@@ -308,6 +308,14 @@ internal sealed class GitIdentityRequiredException : InvalidOperationException
 {
     public GitIdentityRequiredException()
         : base("A Git user name and email address are required to create this commit.")
+    {
+    }
+}
+
+internal sealed class GitInteractiveSigningException : InvalidOperationException
+{
+    public GitInteractiveSigningException()
+        : base("The repository requires Git commit signing. Create the signed commit in the Beutl editor.")
     {
     }
 }

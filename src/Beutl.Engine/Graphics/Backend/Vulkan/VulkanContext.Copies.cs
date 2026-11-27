@@ -24,47 +24,14 @@ internal sealed unsafe partial class VulkanContext
         var vulkanSource = RequireOwned<VulkanTexture2D>(source, nameof(source));
         var vulkanDest = RequireOwned<VulkanTexture2D>(destination, nameof(destination));
 
+        vulkanSource.ThrowIfMultisampled(nameof(CopyTexture));
+        vulkanDest.ThrowIfMultisampled(nameof(CopyTexture));
         vulkanSource.TransitionTo(ImageLayout.TransferSrcOptimal);
 
         // Track both layouts through the deferred recording batch.
         vulkanDest.TransitionTo(ImageLayout.TransferDstOptimal);
 
-        RecordCommands(cmd =>
-        {
-            // Use blit for format conversion (RGBA8 -> BGRA8)
-            var blitRegion = new ImageBlit
-            {
-                SrcSubresource = new ImageSubresourceLayers
-                {
-                    AspectMask = ImageAspectFlags.ColorBit,
-                    MipLevel = 0,
-                    BaseArrayLayer = 0,
-                    LayerCount = 1
-                },
-                DstSubresource = new ImageSubresourceLayers
-                {
-                    AspectMask = ImageAspectFlags.ColorBit,
-                    MipLevel = 0,
-                    BaseArrayLayer = 0,
-                    LayerCount = 1
-                }
-            };
-
-            blitRegion.SrcOffsets[0] = new Offset3D(0, 0, 0);
-            blitRegion.SrcOffsets[1] = new Offset3D(source.Width, source.Height, 1);
-            blitRegion.DstOffsets[0] = new Offset3D(0, 0, 0);
-            blitRegion.DstOffsets[1] = new Offset3D(destination.Width, destination.Height, 1);
-
-            Vk.CmdBlitImage(
-                cmd,
-                vulkanSource.ImageHandle,
-                ImageLayout.TransferSrcOptimal,
-                vulkanDest.ImageHandle,
-                ImageLayout.TransferDstOptimal,
-                1,
-                &blitRegion,
-                Filter.Nearest);
-        });
+        RecordColorBlit(vulkanSource, vulkanDest.ImageHandle, destination.Width, destination.Height, 0, Filter.Nearest);
 
         vulkanDest.MarkContentsUnknown();
 
@@ -83,6 +50,7 @@ internal sealed unsafe partial class VulkanContext
         var vulkanSource = RequireOwned<VulkanTexture2D>(source, nameof(source));
         var vulkanDest = RequireOwned<VulkanTextureCube>(destination, nameof(destination));
 
+        vulkanSource.ThrowIfMultisampled(nameof(CopyTextureToCubeFace));
         vulkanSource.TransitionTo(ImageLayout.TransferSrcOptimal);
         vulkanDest.TransitionFaceToTransferDestination(faceIndex);
 
@@ -99,6 +67,73 @@ internal sealed unsafe partial class VulkanContext
         vulkanSource.TransitionTo(ImageLayout.ShaderReadOnlyOptimal);
     }
 
+    public void BlitTextureToCubeFace(ITexture2D source, ITextureCube destination, int faceIndex)
+    {
+        VulkanTextureCube.ThrowIfFaceOutOfRange(faceIndex);
+        var vulkanSource = RequireOwned<VulkanTexture2D>(source, nameof(source));
+        var vulkanDest = RequireOwned<VulkanTextureCube>(destination, nameof(destination));
+        vulkanSource.ThrowIfMultisampled(nameof(BlitTextureToCubeFace));
+
+        if (source.Format.IsDepthFormat() || destination.Format.IsDepthFormat()
+            || source.Format.GetNumericType() != destination.Format.GetNumericType()
+            || (vulkanSource.Usage & ImageUsageFlags.TransferSrcBit) == 0)
+            throw new ArgumentException("Incompatible source or destination for a cube face color blit.");
+
+        if (source.Width == destination.Size && source.Height == destination.Size && source.Format == destination.Format)
+        {
+            CopyTextureToCubeFace(source, destination, faceIndex);
+            return;
+        }
+
+        Vk.GetPhysicalDeviceFormatProperties(PhysicalDevice, source.Format.ToVulkanFormat(), out FormatProperties srcProperties);
+        Vk.GetPhysicalDeviceFormatProperties(PhysicalDevice, destination.Format.ToVulkanFormat(), out FormatProperties dstProperties);
+        if ((srcProperties.OptimalTilingFeatures & FormatFeatureFlags.BlitSrcBit) == 0
+            || (dstProperties.OptimalTilingFeatures & FormatFeatureFlags.BlitDstBit) == 0)
+            throw new NotSupportedException($"This Vulkan device cannot blit {source.Format} to {destination.Format}.");
+
+        Filter filter = (srcProperties.OptimalTilingFeatures & FormatFeatureFlags.SampledImageFilterLinearBit) != 0
+            ? Filter.Linear
+            : Filter.Nearest;
+
+        vulkanSource.TransitionTo(ImageLayout.TransferSrcOptimal);
+        vulkanDest.TransitionFaceToTransferDestination(faceIndex);
+        RecordColorBlit(vulkanSource, vulkanDest.ImageHandle, destination.Size, destination.Size, (uint)faceIndex, filter);
+        vulkanDest.TransitionFaceToSampled(faceIndex);
+        vulkanSource.TransitionTo(ImageLayout.ShaderReadOnlyOptimal);
+    }
+
+    private void RecordColorBlit(
+        VulkanTexture2D source, Image destination, int width, int height, uint destinationLayer, Filter filter)
+    {
+        RecordCommands(cmd =>
+        {
+            var region = new ImageBlit
+            {
+                SrcSubresource = new ImageSubresourceLayers
+                {
+                    AspectMask = ImageAspectFlags.ColorBit,
+                    MipLevel = 0,
+                    BaseArrayLayer = 0,
+                    LayerCount = 1
+                },
+                DstSubresource = new ImageSubresourceLayers
+                {
+                    AspectMask = ImageAspectFlags.ColorBit,
+                    MipLevel = 0,
+                    BaseArrayLayer = destinationLayer,
+                    LayerCount = 1
+                }
+            };
+            region.SrcOffsets[0] = new Offset3D(0, 0, 0);
+            region.SrcOffsets[1] = new Offset3D(source.Width, source.Height, 1);
+            region.DstOffsets[0] = new Offset3D(0, 0, 0);
+            region.DstOffsets[1] = new Offset3D(width, height, 1);
+
+            Vk.CmdBlitImage(cmd, source.ImageHandle, ImageLayout.TransferSrcOptimal,
+                destination, ImageLayout.TransferDstOptimal, 1, &region, filter);
+        });
+    }
+
     public unsafe void CopyTextureToArrayLayer(ITexture2D source, ITextureArray destination, int layerIndex)
     {
         if (layerIndex < 0 || layerIndex >= (int)destination.ArraySize)
@@ -107,6 +142,7 @@ internal sealed unsafe partial class VulkanContext
         var vulkanSource = RequireOwned<VulkanTexture2D>(source, nameof(source));
         var vulkanDest = RequireOwned<VulkanTextureArray>(destination, nameof(destination));
 
+        vulkanSource.ThrowIfMultisampled(nameof(CopyTextureToArrayLayer));
         var aspectMask = GetCopyAspectMask(source.Format);
 
         vulkanSource.TransitionTo(ImageLayout.TransferSrcOptimal);
@@ -134,6 +170,7 @@ internal sealed unsafe partial class VulkanContext
         var vulkanSource = RequireOwned<VulkanTexture2D>(source, nameof(source));
         var vulkanDest = RequireOwned<VulkanTextureCubeArray>(destination, nameof(destination));
 
+        vulkanSource.ThrowIfMultisampled(nameof(CopyTextureToCubeArrayFace));
         var aspectMask = GetCopyAspectMask(source.Format);
 
         uint layerIndex = (uint)(arrayIndex * 6 + faceIndex);

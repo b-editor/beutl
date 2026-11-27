@@ -159,7 +159,13 @@ internal sealed partial class VersionControlTabViewModel : IToolContext
             .DisposeWith(_disposables);
         HasRemote = new ReactivePropertySlim<bool>()
             .DisposeWith(_disposables);
-        RemoteProgress = new ReactivePropertySlim<string>()
+        HostedRepositoryId = new ReactivePropertySlim<string?>().DisposeWith(_disposables);
+        IsHostedGitRemote = HostedRepositoryId.Select(static id => id is not null)
+            .ToReadOnlyReactivePropertySlim().DisposeWith(_disposables);
+        OpenOnWebCommand = new AsyncReactiveCommand(IsHostedGitRemote.AsObservable())
+            .WithSubscribe(() => RunCommandAsync(() => OpenOnWebAsync(), nameof(OpenOnWebCommand)))
+            .DisposeWith(_disposables);
+        RemoteProgress = new ReactivePropertySlim<VersionControlRemoteProgress>(new(string.Empty))
             .DisposeWith(_disposables);
         IsRemoteOperationRunning = new ReactivePropertySlim<bool>()
             .DisposeWith(_disposables);
@@ -434,7 +440,13 @@ internal sealed partial class VersionControlTabViewModel : IToolContext
 
     public ReactivePropertySlim<bool> HasRemote { get; }
 
-    public ReactivePropertySlim<string> RemoteProgress { get; }
+    public ReactivePropertySlim<string?> HostedRepositoryId { get; }
+
+    public ReadOnlyReactivePropertySlim<bool> IsHostedGitRemote { get; }
+
+    public AsyncReactiveCommand OpenOnWebCommand { get; }
+
+    public ReactivePropertySlim<VersionControlRemoteProgress> RemoteProgress { get; }
 
     public ReactivePropertySlim<bool> IsRemoteOperationRunning { get; }
 

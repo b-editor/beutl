@@ -361,6 +361,11 @@
         </ControlTheme>
     </Styles.Resources>
 
+    <!-- A retained splitter can overflow its zero-width or zero-height presenter when its dock is empty. -->
+    <Style Selector="ProportionalDockControl /template/ ItemsControl.ProportionalStackPanel > ContentPresenter">
+        <Setter Property="ClipToBounds" Value="True" />
+    </Style>
+
     <!--
         The stock splitter template is fully transparent, so adjacent panels show no boundary. The
         pseudo-class reflects the parent panel's orientation (:horizontal panel => vertical divider bar).
@@ -369,7 +374,18 @@
         <Setter Property="Template">
             <ControlTemplate>
                 <Panel Background="Transparent">
-                    <Rectangle Name="PART_DividerLine" Fill="{DynamicResource DockSplitterIdleBrush}" />
+                    <Rectangle Name="PART_DividerLine"
+                               Fill="{DynamicResource DockSplitterIdleBrush}"
+                               RenderTransform="scale(1)">
+                        <Rectangle.Transitions>
+                            <Transitions>
+                                <BrushTransition Property="Fill" Duration="00:00:00.100" />
+                                <TransformOperationsTransition Easing="0,0 0,1"
+                                                               Property="RenderTransform"
+                                                               Duration="00:00:00.120" />
+                            </Transitions>
+                        </Rectangle.Transitions>
+                    </Rectangle>
                 </Panel>
             </ControlTemplate>
         </Setter>
@@ -386,6 +402,12 @@
     </Style>
     <Style Selector="ProportionalStackPanelSplitter:pointerover /template/ Rectangle#PART_DividerLine">
         <Setter Property="Fill" Value="{DynamicResource DockSplitterHoverBrush}" />
+    </Style>
+    <Style Selector="ProportionalStackPanelSplitter:horizontal:pointerover /template/ Rectangle#PART_DividerLine">
+        <Setter Property="RenderTransform" Value="scaleX(2)" />
+    </Style>
+    <Style Selector="ProportionalStackPanelSplitter:vertical:pointerover /template/ Rectangle#PART_DividerLine">
+        <Setter Property="RenderTransform" Value="scaleY(2)" />
     </Style>
 
     <Style Selector="HostWindow">
@@ -508,6 +530,11 @@
 
         <Style Selector="^ /template/ ContentPresenter#PART_HeaderPresenter, ^ /template/ ContentPresenter#PART_IconPresenter">
             <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondary}" />
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Foreground" Duration="00:00:00.083" />
+                </Transitions>
+            </Setter>
         </Style>
 
         <Style Selector="^:pointerover">
@@ -547,6 +574,11 @@
             <Setter Property="BorderThickness" Value="0" />
             <Setter Property="CornerRadius" Value="4" />
             <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondary}" />
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Foreground" Duration="00:00:00.083" />
+                </Transitions>
+            </Setter>
         </Style>
         <Style Selector="^ Button#PART_TabCloseButton:pointerover">
             <Setter Property="Background" Value="{DynamicResource DockChromeButtonHoverBackgroundBrush}" />
@@ -560,6 +592,11 @@
             <Setter Property="BorderThickness" Value="0" />
             <Setter Property="CornerRadius" Value="4" />
             <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondary}" />
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Foreground" Duration="00:00:00.083" />
+                </Transitions>
+            </Setter>
         </Style>
         <Style Selector="^ Button#PART_TabUnpinButton:pointerover">
             <Setter Property="Background" Value="{DynamicResource DockChromeButtonHoverBackgroundBrush}" />

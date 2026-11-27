@@ -3,6 +3,7 @@ using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shaders;
 using Beutl.Graphics.Transformation;
+using Beutl.Language;
 using Beutl.Media;
 using Beutl.NodeGraph;
 using Beutl.NodeGraph.Nodes;
@@ -85,6 +86,30 @@ public class CompatibleNodeFinderTests
     }
 
     [Test]
+    public void Find_ShapeFill_OffersDrawableAsBrush()
+    {
+        if (GraphNodeRegistry.FindItem(typeof(FactoryNode<DrawableBrush>)) is null)
+        {
+            NodesRegistrar.RegisterAll();
+        }
+
+        var graph = new GraphModel();
+        var shape = new GeometryShapeNode();
+        graph.Nodes.Add(shape);
+        var brushes = GraphNodeRegistry.GetRegistered().OfType<GraphNodeRegistry.GroupableRegistryItem>()
+            .Single(group => group.DisplayName == GraphicsStrings.Brush);
+
+        var candidates = CompatibleNodeFinder.Find(graph, shape.Fill, [brushes]);
+        var candidate = candidates.Values.Single(item => item.Registry.Type == typeof(FactoryNode<DrawableBrush>));
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(candidate.Registry.DisplayName, Is.EqualTo(GraphicsStrings.DrawableBrushNode));
+            Assert.That(candidate.Ports.Single()?.AssociatedType, Is.EqualTo(typeof(DrawableBrush)));
+        }
+    }
+
+    [Test]
     public void Find_RenderSource_OffersGraphOutputAtRootButNotInsideGroup()
     {
         var outputItem = Item<OutputNode>("Graph output");
@@ -164,6 +189,30 @@ public class CompatibleNodeFinderTests
         var groupOutput = Item<GroupOutput>("Group output");
 
         Assert.That(CompatibleNodeFinder.Find(root, source.Value, [groupOutput]), Is.Empty);
+    }
+
+    [Test]
+    public void Find_EffectInputIsOnlySuggestedWhereTheEffectBindsIt()
+    {
+        GraphModel effect = new NodeGraphFilterEffect().Model.Value!;
+        GraphModel drawable = new NodeGraphDrawable().Model.Value!;
+        var group = new GroupNode();
+        effect.Nodes.Add(group);
+        var item = Item<FilterEffectInputNode>("Effect input");
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(IsOffered(effect), Is.True);
+            Assert.That(IsOffered(drawable), Is.False);
+            Assert.That(IsOffered(group.Group.Value), Is.False);
+        }
+
+        bool IsOffered(GraphModel graph)
+        {
+            var measure = new MeasureNode();
+            graph.Nodes.Add(measure);
+            return CompatibleNodeFinder.Find(graph, measure.Input, [item]).ContainsKey(item);
+        }
     }
 
     [Test]

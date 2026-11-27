@@ -16,6 +16,7 @@ public partial class PropertyConversionGoldenTests
     [Test]
     public void TheSettingsSections()
     {
+        const string proxyStorePath = "/golden/proxies";
         // In the order GlobalConfiguration writes them, each with values that do not depend on the machine.
         var json = new JsonObject
         {
@@ -27,7 +28,6 @@ public partial class PropertyConversionGoldenTests
                 IsWindowMaximized = { Value = true },
                 UseCustomAccentColor = { Value = true },
                 CustomAccentColor = { Value = "#FF112233" },
-                ShowExactBoundaries = { Value = true },
                 RecentProjectsLayout = { Value = RecentProjectsLayout.List },
                 UseNativeContextMenus = { Value = false },
                 RecentFiles = { "/golden/a.belm" },
@@ -47,6 +47,7 @@ public partial class PropertyConversionGoldenTests
                 SeekOnTimelineClick = { Value = false },
                 FrameCacheMaxSize = { Value = 512 },
                 FrameCacheScale = { Value = FrameCacheConfigScale.Original },
+                TimelineLayerSize = { Value = TimelineLayerSize.Large },
                 TimelineAutoScrollMode = { Value = TimelineAutoScrollMode.AlwaysFollow },
                 ToneMappingMode = { Value = UIToneMappingOperator.ACES },
                 ToneMappingExposure = { Value = 0.5f },
@@ -62,11 +63,14 @@ public partial class PropertyConversionGoldenTests
                 InstallScope = { Value = "user" },
                 ProjectRoot = { Value = "/golden" },
                 InstallSubagents = { Value = false },
+                ComposerSendKey = { Value = AgentComposerSendKey.CtrlEnter },
+                EnableNotifications = { Value = false },
+                EnableNotificationSound = { Value = false },
                 FollowLiveMcpEdits = { Value = true },
             }),
             ["ProxyStore"] = CoreSerializer.SerializeToJsonObject(new ProxyStoreConfig
             {
-                StoreRootPath = { Value = "/golden/proxies" },
+                StoreRootPath = { Value = proxyStorePath },
                 MaxTotalBytes = { Value = 1024 },
                 DefaultPreset = { Value = 1 },
             }),
@@ -79,6 +83,10 @@ public partial class PropertyConversionGoldenTests
             ["Update"] = CoreSerializer.SerializeToJsonObject(new UpdateConfig { AutoDownload = { Value = false } }),
         };
 
+        // Verify the normalized path, then use the same fixture value on every OS.
+        var proxyStore = (JsonObject)json["ProxyStore"]!;
+        Assert.That((string?)proxyStore["StoreRootPath"], Is.EqualTo(Path.GetFullPath(proxyStorePath)));
+        proxyStore["StoreRootPath"] = proxyStorePath;
         AssertGolden(json, "settings");
     }
 
@@ -92,7 +100,7 @@ public partial class PropertyConversionGoldenTests
             string path = Path.Combine(directory, "settings.json");
             File.WriteAllText(path, new JsonObject
             {
-                ["view"] = new JsonObject { ["UICulture"] = "ja-JP", ["ShowExactBoundaries"] = true },
+                ["view"] = new JsonObject { ["UICulture"] = "ja-JP", ["UseCustomAccentColor"] = true },
                 ["telemetry"] = new JsonObject { ["Beutl_Logging"] = true },
             }.ToJsonString());
             var config = new GlobalConfiguration();
@@ -101,7 +109,7 @@ public partial class PropertyConversionGoldenTests
             Assert.Multiple(() =>
             {
                 Assert.That(config.ViewConfig.UICulture.Value, Is.EqualTo(CultureInfo.GetCultureInfo("ja-JP")));
-                Assert.That(config.ViewConfig.ShowExactBoundaries.Value, Is.True);
+                Assert.That(config.ViewConfig.UseCustomAccentColor.Value, Is.True);
                 Assert.That(config.TelemetryConfig.Beutl_Logging.Value, Is.True);
             });
         }
@@ -168,6 +176,9 @@ public partial class PropertyConversionGoldenTests
         var settings = (ICoreSerializable)Activator.CreateInstance(type)!;
 
         CoreSerializer.PopulateFromJsonObject(settings, type, (JsonObject)expected.DeepClone());
+
+        if (settings is ProxyStoreConfig)
+            expected["StoreRootPath"] = Path.GetFullPath((string)expected["StoreRootPath"]!);
 
         Assert.That(CoreSerializer.SerializeToJsonObject(settings).ToJsonString(), Is.EqualTo(expected.ToJsonString()));
     }

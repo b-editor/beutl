@@ -91,6 +91,9 @@ internal sealed class CompositeContext : IGraphicsContext
 
     public int MaxCubeFaceDimension => Vulkan.MaxCubeFaceDimension;
 
+    public int GetSupportedSampleCount(int requested, IReadOnlyList<TextureFormat> formats)
+        => Vulkan.GetSupportedSampleCount(requested, formats);
+
     /// <inheritdoc cref="VulkanContext.MaxImageDimension2D"/>
     internal int MaxImageDimension2D => Vulkan.MaxImageDimension2D;
 
@@ -109,6 +112,11 @@ internal sealed class CompositeContext : IGraphicsContext
 
         return Vulkan.CreateTexture2D(width, height, format);
     }
+
+    public ITexture2D CreateTexture2D(int width, int height, TextureFormat format, int sampleCount)
+        => sampleCount == 1
+            ? CreateTexture2D(width, height, format)
+            : Vulkan.CreateTexture2D(width, height, format, sampleCount);
 
     public ITextureCube CreateTextureCube(int size, TextureFormat format)
     {
@@ -143,6 +151,14 @@ internal sealed class CompositeContext : IGraphicsContext
     {
         return Vulkan.CreateRenderPass3D(colorFormats, depthFormat, colorLoadOp, depthLoadOp);
     }
+
+    public IRenderPass3D CreateRenderPass3D(
+        IReadOnlyList<TextureFormat> colorFormats,
+        TextureFormat? depthFormat,
+        AttachmentLoadOp colorLoadOp,
+        AttachmentLoadOp depthLoadOp,
+        int sampleCount)
+        => Vulkan.CreateRenderPass3D(colorFormats, depthFormat, colorLoadOp, depthLoadOp, sampleCount);
 
     public IFramebuffer3D CreateFramebuffer3D(
         IRenderPass3D renderPass,
@@ -191,6 +207,11 @@ internal sealed class CompositeContext : IGraphicsContext
     public void CopyTextureToCubeFace(ITexture2D source, ITextureCube destination, int faceIndex)
     {
         Vulkan.CopyTextureToCubeFace(source, destination, faceIndex);
+    }
+
+    public void BlitTextureToCubeFace(ITexture2D source, ITextureCube destination, int faceIndex)
+    {
+        Vulkan.BlitTextureToCubeFace(source, destination, faceIndex);
     }
 
 

@@ -8,17 +8,8 @@ namespace Beutl.Controls.PropertyEditors;
 // A ValueSlider laid over a number's text box, which makes the box the slider: the box fills up to the value and a slim
 // upright thumb stands at it, for a number with a range to show. Its theme keeps it see-through until the pointer comes,
 // so that a row at rest looks like any other box. A click on it edits the text, and only a drag moves the value.
-public class ValueSliderField : ValueSlider
+public partial class ValueSliderField : ValueSlider
 {
-    public static readonly StyledProperty<CornerRadius> CornerRadiusProperty =
-        Border.CornerRadiusProperty.AddOwner<ValueSliderField>();
-
-    public static readonly StyledProperty<IBrush?> BorderBrushProperty =
-        Border.BorderBrushProperty.AddOwner<ValueSliderField>();
-
-    public static readonly StyledProperty<bool> ShowsValueProperty =
-        AvaloniaProperty.Register<ValueSliderField, bool>(nameof(ShowsValue), true);
-
     private const double BorderThickness = 1;
     private const double ThumbWidth = 3;
     private const double ThumbHeightRatio = 0.6;
@@ -28,24 +19,15 @@ public class ValueSliderField : ValueSlider
         AffectsRender<ValueSliderField>(CornerRadiusProperty, BorderBrushProperty, ShowsValueProperty);
     }
 
-    public CornerRadius CornerRadius
-    {
-        get => GetValue(CornerRadiusProperty);
-        set => SetValue(CornerRadiusProperty, value);
-    }
+    [GeneratedStyledProperty(AddOwnerFrom = typeof(Border))]
+    public partial CornerRadius CornerRadius { get; set; }
 
-    public IBrush? BorderBrush
-    {
-        get => GetValue(BorderBrushProperty);
-        set => SetValue(BorderBrushProperty, value);
-    }
+    [GeneratedStyledProperty(AddOwnerFrom = typeof(Border))]
+    public partial IBrush? BorderBrush { get; set; }
 
     // Whether the fill and the thumb show where the value sits in the range.
-    public bool ShowsValue
-    {
-        get => GetValue(ShowsValueProperty);
-        set => SetValue(ShowsValueProperty, value);
-    }
+    [GeneratedStyledProperty(DefaultValue = true)]
+    public partial bool ShowsValue { get; set; }
 
     internal override bool EditsOnClick => true;
 

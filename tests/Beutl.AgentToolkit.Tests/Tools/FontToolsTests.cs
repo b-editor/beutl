@@ -142,7 +142,7 @@ public sealed class FontToolsTests
             Assert.That(
                 lower.Value.Families,
                 Has.All.Matches<FontFamilySummary>(
-                    item => item.Name.Contains(fragment, StringComparison.OrdinalIgnoreCase)));
+                    item => item?.Name.Contains(fragment, StringComparison.OrdinalIgnoreCase) == true));
         });
     }
 
@@ -180,11 +180,11 @@ public sealed class FontToolsTests
             // renderer falls back rather than failing, so the edit must still land.
             Assert.That(apply.Value!.Valid, Is.True);
             Assert.That(apply.Value.Validation, Has.Some.Matches<ValidationOutcome>(outcome =>
-                outcome.Status == ValidationStatus.Warning
-                && outcome.Message!.Contains(UnregisteredFamilyName, StringComparison.Ordinal)));
+                outcome is { Status: ValidationStatus.Warning, Message: { } message }
+                && message.Contains(UnregisteredFamilyName, StringComparison.Ordinal)));
             Assert.That(apply.Value.Validation, Has.Some.Matches<ValidationOutcome>(outcome =>
-                outcome.Status == ValidationStatus.Warning
-                && outcome.Hint!.Contains("list_fonts", StringComparison.Ordinal)));
+                outcome is { Status: ValidationStatus.Warning, Hint: { } hint }
+                && hint.Contains("list_fonts", StringComparison.Ordinal)));
             Assert.That(RequireTextBlock(scene).FontFamily.Value!.Name, Is.EqualTo(UnregisteredFamilyName));
         });
     }
@@ -203,8 +203,8 @@ public sealed class FontToolsTests
         {
             Assert.That(apply.IsSuccess, Is.True, apply.Error?.Message);
             Assert.That(apply.Value!.Validation, Has.None.Matches<ValidationOutcome>(outcome =>
-                outcome.Status == ValidationStatus.Warning
-                && outcome.Message!.Contains("not installed", StringComparison.Ordinal)));
+                outcome is { Status: ValidationStatus.Warning, Message: { } message }
+                && message.Contains("not installed", StringComparison.Ordinal)));
         });
     }
 

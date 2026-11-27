@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
+  <data name="Title" xml:space="preserve"><value>プロジェクトの素材</value></data>
+  <data name="MenuLabel" xml:space="preserve"><value>プロジェクトの素材を整理</value></data>
+  <data name="OpenScene" xml:space="preserve"><value>ファイルタブを使うにはシーンを開いてください。</value></data>
+  <data name="Collect" xml:space="preserve"><value>素材を集約</value></data>
+  <data name="Unused" xml:space="preserve"><value>未使用素材</value></data>
+  <data name="Quarantined" xml:space="preserve"><value>退避済み</value></data>
+  <data name="QuarantineFolder" xml:space="preserve"><value>プロジェクトの退避フォルダー</value></data>
+  <data name="Copy" xml:space="preserve"><value>コピーして参照を更新</value></data>
+  <data name="MoveAside" xml:space="preserve"><value>退避する</value></data>
+  <data name="Restore" xml:space="preserve"><value>元の場所に戻す</value></data>
+  <data name="DeletePermanently" xml:space="preserve"><value>完全に削除</value></data>
+  <data name="DeleteConfirmation" xml:space="preserve"><value>選択した {0} 件を完全に削除しますか？</value></data>
+  <data name="CurrentPath" xml:space="preserve"><value>元の場所 {0}</value></data>
+  <data name="Destination" xml:space="preserve"><value>移動先 {0}</value></data>
+  <data name="Selection" xml:space="preserve"><value>{0}/{1} 件を選択 · {2}</value></data>
+  <data name="BundleSize" xml:space="preserve"><value>{0} ファイル · {1}</value></data>
+  <data name="NoAssets" xml:space="preserve"><value>対象のファイルはありません。</value></data>
+  <data name="Scanning" xml:space="preserve"><value>プロジェクトの参照を確認しています…</value></data>
+  <data name="Working" xml:space="preserve"><value>処理を適用しています…</value></data>
+  <data name="Finished" xml:space="preserve"><value>処理が完了しました。</value></data>
+  <data name="Canceled" xml:space="preserve"><value>処理をキャンセルしました。</value></data>
+  <data name="DeleteCanceled" xml:space="preserve"><value>削除をキャンセルしました（{0} 件削除済み）。</value></data>
+  <data name="PlanChanged" xml:space="preserve"><value>プロジェクトまたはファイルが変わりました。更新した一覧を確認してください。</value></data>
+  <data name="Missing" xml:space="preserve"><value>素材ファイルまたは依存ファイルが見つかりません。</value></data>
+  <data name="ValidationFailed" xml:space="preserve"><value>{0} のコピーを読み込めませんでした。</value></data>
+  <data name="UnsafePath" xml:space="preserve"><value>プロジェクト内の安全なパスを確認できません。</value></data>
+  <data name="SharedReference" xml:space="preserve"><value>別のプロジェクトやシーンと共有されている可能性があります。</value></data>
+  <data name="IncompleteReferences" xml:space="preserve"><value>参照を確認できないデータがあります。</value></data>
+  <data name="EditHistory" xml:space="preserve"><value>編集履歴から復元される可能性があります。</value></data>
+  <data name="InUse" xml:space="preserve"><value>開いているプロジェクトまたはエディターで参照されています。</value></data>
+  <data name="DestinationExists" xml:space="preserve"><value>元の場所に別のファイルがあります。</value></data>
+  <data name="Unavailable" xml:space="preserve"><value>素材ファイルまたは依存ファイルを読み込めません。</value></data>
+  <data name="InvalidAction" xml:space="preserve"><value>collect、quarantine、restore、delete のいずれかを指定してください。</value></data>
+  <data name="SelectAssetPaths" xml:space="preserve"><value>inspect_project_assets の一覧から、この操作を実行できるアセットのパスを指定してください。</value></data>
+  <data name="ConfirmPermanentDelete" xml:space="preserve"><value>選択したファイルを完全に削除するには、confirmDelete を true にしてください。</value></data>
+  <data name="DeleteOneAsset" xml:space="preserve"><value>完全に削除できる隔離済みファイルは、1 回の呼び出しにつき 1 件です。</value></data>
+  <data name="InvalidSceneId" xml:space="preserve"><value>エディターで開いているプロジェクトの有効なシーン ID を指定するか、sceneId を省略してください。</value></data>
+  <data name="SaveProjectBeforeCollecting" xml:space="preserve"><value>素材を集約する前に、save_project で未保存のプロジェクト変更を保存してください。</value></data>
+</root>

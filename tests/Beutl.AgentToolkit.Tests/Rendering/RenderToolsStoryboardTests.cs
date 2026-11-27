@@ -264,11 +264,11 @@ public sealed class RenderToolsStoryboardTests
 
         static Scene CreateScene(int frameRate)
         {
-            var scene = new Scene(16, 9, "frame-rate") { Duration = { Value = MediaTime.FromSeconds(1) } };
-            var project = new Project();
-            project.FrameRate.Value = new Rational(frameRate);
-            project.Items.Add(scene);
-            return scene;
+            return new Scene(16, 9, "frame-rate")
+            {
+                Duration = { Value = MediaTime.FromSeconds(1) },
+                FrameRate = { Value = new Rational(frameRate) },
+            };
         }
     }
 
@@ -435,6 +435,7 @@ public sealed class RenderToolsStoryboardTests
             Assert.That(result.Value!.Status, Is.EqualTo("completed"));
             Assert.That(result.Value.JobId, Is.Null);
             Assert.That(result.Value.Result!.Shots, Has.Count.EqualTo(2));
+            Assert.That(result.Value.Result.Warnings, Is.Empty);
             Assert.That(result.Value.Result.Shots.Select(shot => shot.Kind), Has.All.EqualTo("shot"));
             Assert.That(result.Value.Result.Shots.Select(shot => shot.SubdivisionLevel), Has.All.EqualTo(0));
             Assert.That(File.Exists(result.Value.Result.ContactSheetPath), Is.True);

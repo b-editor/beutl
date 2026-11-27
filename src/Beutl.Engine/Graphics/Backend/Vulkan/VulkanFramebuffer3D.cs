@@ -149,13 +149,30 @@ internal sealed unsafe class VulkanFramebuffer3D : IFramebuffer3D, IVulkanContex
                     $"Color attachment {i} format must match the render pass.",
                     nameof(colorTextures));
             }
+
+            if (colorTextures[i].SampleCount != renderPass.SampleCount)
+            {
+                throw new ArgumentException(
+                    $"Color attachment {i} sample count must match the render pass.",
+                    nameof(colorTextures));
+            }
         }
 
-        if (depthTexture is not null && depthTexture.Format.ToVulkanFormat() != renderPass.DepthFormat)
+        if (depthTexture is not null)
         {
-            throw new ArgumentException(
-                "The depth attachment format must match the render pass.",
-                nameof(depthTexture));
+            if (depthTexture.Format.ToVulkanFormat() != renderPass.DepthFormat)
+            {
+                throw new ArgumentException(
+                    "The depth attachment format must match the render pass.",
+                    nameof(depthTexture));
+            }
+
+            if (depthTexture.SampleCount != renderPass.SampleCount)
+            {
+                throw new ArgumentException(
+                    "The depth attachment sample count must match the render pass.",
+                    nameof(depthTexture));
+            }
         }
 
         int width = (colorTextures.FirstOrDefault() ?? depthTexture!).Width;

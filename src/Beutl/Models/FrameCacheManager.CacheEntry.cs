@@ -2,6 +2,7 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
 
+using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using Beutl.Media.Source;
 
@@ -19,10 +20,10 @@ public partial class FrameCacheManager
         private int _height;
         private bool _isYuv;
 
-        public CacheEntry(Ref<Bitmap> bitmap, FrameCacheOptions options)
+        public CacheEntry(Ref<Bitmap> bitmap, FrameCacheOptions options, PreviewRenderDiagnostics diagnostics)
         {
             _data = [];
-            SetBitmap(bitmap, options);
+            SetBitmap(bitmap, options, diagnostics);
         }
 
         public DateTime LastAccessTime { get; private set; }
@@ -31,13 +32,16 @@ public partial class FrameCacheManager
 
         public bool IsLocked { get; set; }
 
+        public PreviewRenderDiagnostics Diagnostics { get; private set; }
+
         [MemberNotNull(nameof(_data))]
-        public void SetBitmap(Ref<Bitmap> bitmap, FrameCacheOptions options)
+        public void SetBitmap(Ref<Bitmap> bitmap, FrameCacheOptions options, PreviewRenderDiagnostics diagnostics)
         {
             ReturnBuffer();
             using Ref<Bitmap> t = bitmap.Clone();
             (_data, _dataLength, _width, _height, _isYuv) = ToCacheData(t, options);
 
+            Diagnostics = diagnostics;
             LastAccessTime = DateTime.UtcNow;
         }
 

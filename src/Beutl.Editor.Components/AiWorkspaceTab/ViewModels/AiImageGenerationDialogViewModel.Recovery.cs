@@ -54,8 +54,11 @@ internal sealed partial class AiImageGenerationDialogViewModel
         _runningRequest = operation;
         try
         {
+            using var account = new AiAccountJobScope(_requestRecoveryContext);
+            using CancellationTokenSource cancellation = account.Link(operation.CancellationToken);
+            CancellationToken requestToken = cancellation.Token;
             (AiPendingJobState state, AiJob? job) = await AiPendingJobLookup.FindAsync(
-                _jobs, _jobKinds, _requestRecoveryContext, attempt, operation.CancellationToken);
+                _jobs, _jobKinds, _requestRecoveryContext, attempt, account, requestToken);
             switch (state)
             {
                 case AiPendingJobState.Succeeded:
@@ -65,16 +68,20 @@ internal sealed partial class AiImageGenerationDialogViewModel
                         break;
                     }
 
-                    Ref<Bitmap> image = await AiImageResultDownload.DownloadBitmapAsync(
-                        _content, contentUri, operation.CancellationToken);
-                    _recovery.TrySettle(attempt);
-                    if (!operation.TryPublish(() =>
+                    Ref<Bitmap> image = await account.SendAsync(
+                        token => AiImageResultDownload.DownloadBitmapAsync(_content, contentUri, token),
+                        requestToken);
+                    if (account.AccountChanged || !operation.TryPublish(() =>
                         {
                             ResultImage.Value?.Dispose();
                             ResultImage.Value = image;
                         }))
                     {
                         image.Dispose();
+                    }
+                    else if (!account.AccountChanged)
+                    {
+                        _recovery.TrySettle(attempt);
                     }
                     break;
                 case AiPendingJobState.Running:

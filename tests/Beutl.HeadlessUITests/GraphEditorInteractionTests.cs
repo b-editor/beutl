@@ -19,25 +19,44 @@ namespace Beutl.HeadlessUITests;
 public class GraphEditorInteractionTests
 {
     [AvaloniaTest]
-    [TestCase(KeyModifiers.Control, false)]
-    [TestCase(KeyModifiers.Meta, false)]
-    [TestCase(KeyModifiers.Control, true)]
-    [TestCase(KeyModifiers.Meta, true)]
-    public async Task Command_shift_a_clears_selection_without_editing_keys(KeyModifiers command, bool speedGraph)
+    public async Task Fit_selection_shows_a_key_at_the_end_at_the_left_margin_on_a_wide_view()
+    {
+        using var graph = await GraphScope.CreateAsync(elementStart: MediaTime.FromSeconds(20));
+        graph.Model.Scene.Duration.Value = MediaTime.FromSeconds(22);
+        graph.Second.KeyTime.Value = MediaTime.FromSeconds(2);
+        graph.Model.SelectedView.Value!.SetSelection([graph.Second]);
+        graph.Window.Width = 1660;
+        HeadlessTestHelpers.Render();
+
+        var scroll = graph.View.FindControl<ScrollViewer>("scroll")!;
+        graph.View.Focus();
+        graph.PressKey(Key.F, RawInputModifiers.Shift);
+
+        double left = scroll.TranslatePoint(default, graph.Window)!.Value.X;
+        HeadlessCapture.SaveIfRequested(graph.View, nameof(GraphEditorInteractionTests), "fit-selection-wide");
+        Assert.That(graph.Position(graph.Second).X - left, Is.EqualTo(32).Within(0.5));
+    }
+
+    [AvaloniaTest]
+    [TestCase(RawInputModifiers.None, false)]
+    [TestCase(RawInputModifiers.Alt, false)]
+    [TestCase(RawInputModifiers.None, true)]
+    [TestCase(RawInputModifiers.Alt, true)]
+    public async Task Command_shift_a_clears_selection_without_editing_keys(RawInputModifiers extra, bool speedGraph)
     {
         using var graph = await GraphScope.CreateAsync(separateHandles: true, selectAll: false);
-        using var commandModifier = CommandModifierScope.Use(command);
         graph.Model.IsSpeedGraph.Value = speedGraph;
         HeadlessTestHelpers.Render(3);
         int undo = graph.Model.HistoryManager.UndoCount;
         MediaTime playhead = graph.Model.CurrentTime.Value;
         graph.View.Focus();
-        graph.PressKey(Key.A, GraphScope.CommandModifier);
+        var command = OperatingSystem.IsMacOS() ? RawInputModifiers.Meta : RawInputModifiers.Control;
+        graph.PressKey(Key.A, command | extra);
         Assert.That(Selected(graph), Is.EquivalentTo(new[] { graph.First, graph.Second }));
-        graph.PressKey(Key.A, GraphScope.CommandModifier | RawInputModifiers.Shift);
+        graph.PressKey(Key.A, command | extra | RawInputModifiers.Shift);
         Assert.That(Selected(graph), Is.Empty);
         Assert.That(graph.Model.SelectedView.Value!.SelectionCount.Value, Is.Zero);
-        graph.PressKey(Key.A, GraphScope.CommandModifier);
+        graph.PressKey(Key.A, command | extra);
         Assert.That(Selected(graph), Has.Length.EqualTo(2));
         Assert.That(graph.Model.HistoryManager.UndoCount, Is.EqualTo(undo));
         Assert.That(graph.Model.CurrentTime.Value, Is.EqualTo(playhead));

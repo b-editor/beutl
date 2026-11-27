@@ -5,8 +5,15 @@ using Avalonia.Headless.NUnit;
 using Avalonia.Input;
 using Avalonia.VisualTree;
 using Beutl.Controls.PropertyEditors;
+using Beutl.Editor.Components.PropertyEditors.Services;
+using Beutl.Editor.Components.PropertyEditors.ViewModels;
+using Beutl.Engine;
+using Beutl.Graphics.Effects;
+using Beutl.PropertyAdapters;
 using Beutl.Testing.Headless;
+using static Beutl.HeadlessUITests.PropertyEditorTestHost;
 using AvaPoint = Avalonia.Point;
+using BeutlPoint = Beutl.Graphics.Point;
 using RelativeUnit = Beutl.Graphics.RelativeUnit;
 
 namespace Beutl.HeadlessUITests;
@@ -14,6 +21,50 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public class VectorBoxDragTests
 {
+    [AvaloniaTest]
+    [TestCase(true)]
+    [TestCase(false)]
+    public void Cancelling_a_vector_scrub_restores_the_component_and_allows_a_new_press(bool header)
+    {
+        var pin = new PuppetPin();
+        var initial = new BeutlPoint(0.1f, 0.2f);
+        pin.Position.Value = initial;
+        using var history = new HistoryScope(pin);
+        using var model = VectorEditors.Point(new AnimatablePropertyAdapter<BeutlPoint>((AnimatableProperty<BeutlPoint>)pin.Position, pin));
+        var editor = new Vector2Editor<float>();
+        model.Accept(ServiceVisitor.For(history.History));
+        PropertyEditorControls.Attach(model, editor);
+        using var host = new BoxHost(editor);
+        Control part = header
+            ? editor.GetVisualDescendants().OfType<TextBlock>().Single(text => text.Name == "PART_HeaderFirstTextBlock")
+            : host.Box("First");
+        AvaPoint start = HeadlessTestHelpers.Center(part, host.Window);
+        int scrubs = HeaderScrubGesture.ActiveCount;
+
+        host.Press(start);
+        host.DragTo(start + new AvaPoint(4, 0));
+        host.DragTo(start + new AvaPoint(24, 0));
+        Assert.That(pin.Position.Value.X, Is.GreaterThan(initial.X));
+        Assert.That(history.History.TryCancelGesture(), Is.True);
+        Assert.That(HeaderScrubGesture.ActiveCount, Is.EqualTo(scrubs));
+        host.DragTo(start + new AvaPoint(48, 0));
+        host.Release(start + new AvaPoint(48, 0));
+        Assert.Multiple(() =>
+        {
+            Assert.That(pin.Position.Value, Is.EqualTo(initial));
+            Assert.That(editor.FirstValue, Is.EqualTo(initial.X));
+            Assert.That(editor.SecondValue, Is.EqualTo(initial.Y));
+            Assert.That(history.History.UndoCount, Is.Zero);
+        });
+
+        host.Press(start);
+        host.DragTo(start + new AvaPoint(4, 0));
+        host.DragTo(start + new AvaPoint(24, 0));
+        host.Release(start + new AvaPoint(24, 0));
+        Assert.That(pin.Position.Value.X, Is.GreaterThan(initial.X));
+        Assert.That(history.History.UndoCount, Is.EqualTo(1));
+    }
+
     [AvaloniaTest]
     public void A_drag_on_a_box_moves_that_component_alone_with_the_pointer_locked()
     {

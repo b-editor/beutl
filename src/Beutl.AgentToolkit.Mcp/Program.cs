@@ -13,7 +13,9 @@ var builder = Host.CreateApplicationBuilder(args);
 builder.Logging.ClearProviders();
 ConfigureConsoleLogging(builder.Logging);
 
-builder.Services.AddAgentToolkitServer(BeutlEnvironment.GetHomeDirectoryPath());
+Guid? agentThreadId = Guid.TryParse(Environment.GetEnvironmentVariable(AgentHostPeerClient.AgentThreadEnvironmentVariable),
+    out Guid threadId) ? threadId : null;
+builder.Services.AddAgentToolkitServer(BeutlEnvironment.GetHomeDirectoryPath(), agentThreadId);
 builder.Services.AddHostedService<LiveInstanceWatcher>();
 builder.Services
     .AddMcpServer()

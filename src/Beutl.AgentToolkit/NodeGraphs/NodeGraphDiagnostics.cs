@@ -91,11 +91,32 @@ internal static partial class NodeGraphDiagnostics
     // What a rendered copy of the scene reports on its nodes, for the warnings of a render. Run before the renderer
     // that drew it is disposed, which takes back what its pictures failed on.
     public static IReadOnlyList<string> CollectRenderFailures(Scene scene)
+        => CollectRenderFailures(ListGraphRoots(scene));
+
+    // The graphs a render of a scene nothing edits reads failures from; a walk that throws keeps the graphs before it.
+    public static IReadOnlyList<(EngineObject Owner, GraphModel Root)> ListGraphRoots(Scene scene)
+    {
+        var roots = new List<(EngineObject Owner, GraphModel Root)>();
+        try
+        {
+            foreach ((EngineObject Owner, GraphModel Root) root in NodeGraphLocator.EnumerateRoots(scene))
+            {
+                roots.Add(root);
+            }
+        }
+        catch (Exception)
+        {
+        }
+
+        return roots;
+    }
+
+    public static IReadOnlyList<string> CollectRenderFailures(IReadOnlyList<(EngineObject Owner, GraphModel Root)> roots)
     {
         var failures = new List<string>();
         try
         {
-            foreach ((EngineObject owner, GraphModel root) in NodeGraphLocator.EnumerateRoots(scene))
+            foreach ((EngineObject owner, GraphModel root) in roots)
             {
                 foreach (GraphModel graph in root.EnumerateGraphs())
                 {
@@ -155,11 +176,23 @@ internal static partial class NodeGraphDiagnostics
         GraphNode? consumer = input?.FindHierarchicalParent<GraphNode>();
         string from = End(producer, output, label);
         string to = End(consumer, input, label);
-        string message = producer is not null && NodeGraphMembers.ReadError(producer) is not null
-            ? "The connection fails because the node it comes from failed; see that node's error."
-            : output is null || input is null
-                ? "The connection has an end that no longer exists."
-                : $"{NodeGraphMembers.FormatType(NodeGraphMembers.ValueTypeOf(output))} from the output does not convert to {NodeGraphMembers.FormatType(NodeGraphMembers.ValueTypeOf(input))} of the input, or the input cannot take a connection now.";
+        string message;
+        if (producer is not null && NodeGraphMembers.ReadError(producer) is not null)
+        {
+            message = "The connection fails because the node it comes from failed; see that node's error.";
+        }
+        else if (connection.HasFailedPicture)
+        {
+            message = "The connection fails because the shader graph could not produce a picture. See the shader nodes' errors.";
+        }
+        else if (output is null || input is null)
+        {
+            message = "The connection has an end that no longer exists.";
+        }
+        else
+        {
+            message = $"{NodeGraphMembers.FormatType(NodeGraphMembers.ValueTypeOf(output))} from the output does not convert to {NodeGraphMembers.FormatType(NodeGraphMembers.ValueTypeOf(input))} of the input, or the input cannot take a connection now.";
+        }
         return new NodeGraphDiagnostic(Error, message, consumer?.Id.Value.ToString(), consumer is null ? null : label(consumer), $"{from} -> {to}")
         {
             ConnectionKey = $"{connection.Output.Value.Id} -> {connection.Input.Value.Id}"

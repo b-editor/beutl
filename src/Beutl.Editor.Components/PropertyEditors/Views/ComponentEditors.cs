@@ -19,25 +19,27 @@ namespace Beutl.Editor.Components.PropertyEditors.Views;
 internal sealed class ComponentEditors : StackPanel, IDisposable
 {
     private readonly PropertyEditorViewModel _owner;
-    private readonly Control _combined;
+    private readonly Control? _combined;
     private readonly bool _hasMenu;
     private readonly List<IPropertyEditorContext> _contexts = [];
     private readonly IDisposable _subscription;
     // Built when the components are first separated, which most properties never are.
     private SeparatedChrome? _chrome;
 
-    public ComponentEditors(PropertyEditorViewModel owner, Control combined)
+    public ComponentEditors(PropertyEditorViewModel owner, Control? combined)
     {
         _owner = owner;
         _combined = combined;
         _hasMenu = combined is PropertyEditor { MenuContent: not null };
-        Children.Add(combined);
+        if (combined is not null)
+            Children.Add(combined);
         _subscription = owner.SeparatedProperties.Subscribe(Rebuild);
     }
 
     private void Rebuild(IReadOnlyList<IPropertyAdapter>? properties)
     {
-        _combined.IsVisible = properties == null;
+        if (_combined is not null)
+            _combined.IsVisible = properties == null;
         if (properties == null && _chrome == null) return;
 
         SeparatedChrome chrome = EnsureSeparatedChrome();
@@ -56,8 +58,14 @@ internal sealed class ComponentEditors : StackPanel, IDisposable
             if (context == null) continue;
             _contexts.Add(context);
             context.Accept(new ChildVisitor(_owner));
-            if (_owner.UnseparatesFromNestedEditors && context is PropertyEditorViewModel nested)
-                nested.SeparatedFrom = _owner;
+            if (context is PropertyEditorViewModel nested)
+            {
+                // Set before the control reads the default: a row resets to its component of the default the owner
+                // has in place of the property's own, as a pin's rest position.
+                nested.DefaultValueOverride = _owner.ComponentDefaultValueOverride;
+                if (_owner.UnseparatesFromNestedEditors)
+                    nested.SeparatedFrom = _owner;
+            }
             if (PropertyEditorHost.TryCreateControl(context, PropertyEditorSurface.Panel, out Control? control))
             {
                 control.DataContext = context;

@@ -1,4 +1,6 @@
-﻿using Beutl.Graphics;
+﻿using System.Text.Json.Nodes;
+using Beutl.Engine.Expressions;
+using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shapes;
@@ -7,7 +9,9 @@ using Beutl.Graphics.Transitions;
 using Beutl.Media;
 using Beutl.Media.Pixel;
 using Beutl.ProjectSystem;
+using Beutl.Serialization;
 using Beutl.UnitTests.Engine.Graphics.Backend;
+using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.Graphics;
 
@@ -107,13 +111,12 @@ public partial class TransitionRenderTests
         });
     }
 
-    [TestCase(false, 0, 255, 0)]
-    [TestCase(true, 255, 255, 255)]
-    public void Dip_ReachesItsColourAtTheMidpoint(bool white, int r, int g, int b)
+    [TestCase(0xFF00FF00u)]
+    [TestCase(0xFFFFFFFFu)]
+    public void Dip_ReachesItsColourAtTheMidpoint(uint argb)
     {
-        ClipTransition dip = white
-            ? new DipToWhiteTransition()
-            : new DipToColorTransition { Color = { Value = Color.FromArgb(255, 0, 255, 0) } };
+        Color color = Color.FromUInt32(argb);
+        var dip = new DipToColorTransition { Color = { Value = color } };
 
         Bgra8888 middle = RenderCenter(dip, progress: 0.5);
         Bgra8888 early = RenderCenter(dip, progress: 0.2);
@@ -121,11 +124,58 @@ public partial class TransitionRenderTests
 
         Assert.Multiple(() =>
         {
-            Assert.That((middle.R, middle.G, middle.B, middle.A), Is.EqualTo((r, g, b, 255)));
+            Assert.That((middle.R, middle.G, middle.B, middle.A), Is.EqualTo((color.R, color.G, color.B, color.A)));
             Assert.That(early.A, Is.EqualTo(255));
             Assert.That(early.R, Is.GreaterThan(early.B), "the first half fades the outgoing clip");
             Assert.That(late.A, Is.EqualTo(255));
             Assert.That(late.B, Is.GreaterThan(late.R), "the second half fades the incoming clip in");
+        });
+    }
+
+    [Test]
+    public void SavedDipToWhiteTransition_MigratesToDipToColorAndRendersWhite()
+    {
+        using var directory = new TemporaryDirectory();
+        Directory.CreateDirectory(directory.Path);
+        var uri = new Uri(Path.Combine(directory.Path, "incoming.belm"));
+        (Scene scene, _) = CreateScene(new DipToColorTransition(), withOutgoing: true);
+        CoreSerializer.StoreToUri(scene.Children[1], uri);
+        JsonObject savedElement = JsonNode.Parse(File.ReadAllText(uri.LocalPath))!.AsObject();
+        JsonObject savedTransition = savedElement[nameof(Element.EnterTransition)]!.AsObject();
+        savedTransition["$type"] = "[Beutl.Engine]Beutl.Graphics.Transitions:DipToWhiteTransition";
+        savedTransition.Remove(nameof(DipToColorTransition.Color));
+        File.WriteAllText(uri.LocalPath, CoreSerializer.ConvertToJsonString(savedElement));
+
+        Element restored = CoreSerializer.RestoreFromUri<Element>(uri);
+        Assert.That(restored.EnterTransition.Value, Is.TypeOf<DipToColorTransition>());
+        var migrated = (DipToColorTransition)restored.EnterTransition.Value!;
+        Assert.That(migrated.Color.Value, Is.EqualTo(Colors.White));
+        scene.Children[1] = restored;
+
+        VulkanTestEnvironment.EnsureAvailable();
+        using Bitmap bitmap = VulkanTestEnvironment.InvokeOnRenderThread(() => RenderScene(scene, progress: 0.5));
+        Bgra8888 pixel = bitmap.GetRow<Bgra8888>(Height / 2)[Width / 2];
+        Assert.That((pixel.R, pixel.G, pixel.B, pixel.A), Is.EqualTo((255, 255, 255, 255)));
+    }
+
+    [TestCase(null)]
+    [TestCase("Colors.White")]
+    public void SavedDipToColorWithDefaultValue_StillLoadsBlack(string? expression)
+    {
+        var dip = new DipToColorTransition();
+        if (expression != null)
+        {
+            dip.Color.Expression = Expression.Create<Color>(expression);
+        }
+
+        JsonObject saved = CoreSerializer.SerializeToJsonObject(dip);
+        Assert.That(saved.ContainsKey(nameof(DipToColorTransition.Color)), Is.True);
+
+        var restored = (DipToColorTransition)CoreSerializer.DeserializeFromJsonObject(saved, typeof(DipToColorTransition));
+        Assert.Multiple(() =>
+        {
+            Assert.That(restored.Color.Value, Is.EqualTo(Colors.Black));
+            Assert.That(restored.Color.Expression?.ExpressionString, Is.EqualTo(expression));
         });
     }
 
@@ -149,7 +199,7 @@ public partial class TransitionRenderTests
             adjustment.EnterTransition.Value = new CrossDissolveTransition { Duration = { Value = MediaTime.FromSeconds(1) } };
             scene.Children.Add(adjustment);
 
-            using var renderer = new SceneRenderer(scene, TestFonts.Manager, RenderIntent.Delivery);
+            using var renderer = new SceneRenderer(scene, TestFonts.RenderServices, RenderIntent.Delivery);
             renderer.Render(renderer.Compositor.EvaluateGraphics(TimeAt(progress)));
             using Bitmap snapshot = renderer.Snapshot();
             using Bitmap srgb = snapshot.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Unpremul, BitmapColorSpace.Srgb);
@@ -202,7 +252,7 @@ public partial class TransitionRenderTests
             adjustment.EnterTransition.Value = new CrossDissolveTransition { Duration = { Value = MediaTime.FromSeconds(1) } };
             scene.Children.Add(adjustment);
 
-            using var renderer = new SceneRenderer(scene, TestFonts.Manager, RenderIntent.Delivery);
+            using var renderer = new SceneRenderer(scene, TestFonts.RenderServices, RenderIntent.Delivery);
             renderer.Render(renderer.Compositor.EvaluateGraphics(TimeAt(progress)));
             using Bitmap snapshot = renderer.Snapshot();
             using Bitmap srgb = snapshot.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Unpremul, BitmapColorSpace.Srgb);
@@ -276,7 +326,7 @@ public partial class TransitionRenderTests
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             (Scene scene, SourceBackdrop incoming) = CreateBackdropSceneChange(() => new CrossDissolveTransition(), continuous: false);
-            using var renderer = new SceneRenderer(scene, TestFonts.Manager, RenderIntent.Preview);
+            using var renderer = new SceneRenderer(scene, TestFonts.RenderServices, RenderIntent.Preview);
             var frame = renderer.Compositor.EvaluateGraphics(MediaTime.FromSeconds(1.75));
             renderer.Render(frame);
 
@@ -291,7 +341,7 @@ public partial class TransitionRenderTests
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             (Scene scene, RectShape incoming) = CreateScene(new CrossDissolveTransition(), withOutgoing: true);
-            using var renderer = new SceneRenderer(scene, TestFonts.Manager, RenderIntent.Preview);
+            using var renderer = new SceneRenderer(scene, TestFonts.RenderServices, RenderIntent.Preview);
             var frame = renderer.Compositor.EvaluateGraphics(TimeAt(0.5));
             renderer.Render(frame);
 
@@ -391,7 +441,7 @@ public partial class TransitionRenderTests
             (Scene scene, RectShape incoming) = CreateScene(transition, withOutgoing: false);
             incoming.Width.Value = incoming.Height.Value = 16;
             incoming.Fill.Value = new SolidColorBrush(Color.FromArgb(128, 0, 0, 255));
-            using var renderer = new SceneRenderer(scene, TestFonts.Manager, RenderIntent.Delivery, renderScale: scale);
+            using var renderer = new SceneRenderer(scene, TestFonts.RenderServices, RenderIntent.Delivery, renderScale: scale);
             foreach (ZoomTransitionDirection direction in new[] { ZoomTransitionDirection.In, ZoomTransitionDirection.Out, ZoomTransitionDirection.In })
             {
                 if (transition is ZoomTransition zoom) zoom.Direction.Value = direction;
@@ -464,7 +514,7 @@ public partial class TransitionRenderTests
             (Scene scene, RectShape outgoingShape, RectShape? leftHalf, RectShape corner) =
                 CreateCornerScene(new CrossDissolveTransition(), withLeftHalf: true);
 
-            using var renderer = new SceneRenderer(scene, TestFonts.Manager, RenderIntent.Preview);
+            using var renderer = new SceneRenderer(scene, TestFonts.RenderServices, RenderIntent.Preview);
             var frame = renderer.Compositor.EvaluateGraphics(TimeAt(0.5));
             renderer.Render(frame);
 
@@ -488,7 +538,7 @@ public partial class TransitionRenderTests
             (Scene scene, RectShape outgoingShape, _, RectShape corner) =
                 CreateCornerScene(new PushTransition(), withLeftHalf: true);
 
-            using var renderer = new SceneRenderer(scene, TestFonts.Manager, RenderIntent.Preview);
+            using var renderer = new SceneRenderer(scene, TestFonts.RenderServices, RenderIntent.Preview);
             var frame = renderer.Compositor.EvaluateGraphics(TimeAt(0.5));
             renderer.Render(frame);
 
@@ -522,7 +572,7 @@ public partial class TransitionRenderTests
             (Scene scene, RectShape outgoingShape, RectShape? leftHalf, _) =
                 CreateCornerScene(transition, withLeftHalf: true);
 
-            using var renderer = new SceneRenderer(scene, TestFonts.Manager, RenderIntent.Preview);
+            using var renderer = new SceneRenderer(scene, TestFonts.RenderServices, RenderIntent.Preview);
             var frame = renderer.Compositor.EvaluateGraphics(TimeAt(0.5));
             renderer.Render(frame);
 
@@ -544,7 +594,7 @@ public partial class TransitionRenderTests
             (Scene scene, RectShape outgoingShape, _, RectShape corner) = CreateCornerScene(
                 new IrisTransition { Direction = { Value = IrisTransitionDirection.Out } }, withLeftHalf: true);
 
-            using var renderer = new SceneRenderer(scene, TestFonts.Manager, RenderIntent.Preview);
+            using var renderer = new SceneRenderer(scene, TestFonts.RenderServices, RenderIntent.Preview);
             var frame = renderer.Compositor.EvaluateGraphics(TimeAt(0.5));
             renderer.Render(frame);
 
@@ -566,7 +616,7 @@ public partial class TransitionRenderTests
         {
             (Scene scene, _, _, RectShape corner) = CreateCornerScene(new PushTransition(), withLeftHalf: false);
 
-            using var renderer = new SceneRenderer(scene, TestFonts.Manager, RenderIntent.Preview);
+            using var renderer = new SceneRenderer(scene, TestFonts.RenderServices, RenderIntent.Preview);
             renderer.Render(renderer.Compositor.EvaluateGraphics(TimeAt(0.5)));
 
             (Rect Bounds, Matrix Transform)? local = renderer.GetLocalBoundary(corner);
@@ -611,7 +661,7 @@ public partial class TransitionRenderTests
             incoming.EnterTransition.Value = new SplitTransition { Duration = { Value = MediaTime.FromSeconds(1) } };
             scene.Children.Add(incoming);
 
-            using var renderer = new SceneRenderer(scene, TestFonts.Manager, RenderIntent.Preview);
+            using var renderer = new SceneRenderer(scene, TestFonts.RenderServices, RenderIntent.Preview);
             renderer.Render(renderer.Compositor.EvaluateGraphics(TimeAt(0.5)));
 
             (Rect Bounds, Matrix Transform)? local = renderer.GetLocalBoundary(fillsTheFrame);
@@ -664,11 +714,16 @@ public partial class TransitionRenderTests
         return VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             (Scene scene, _) = CreateScene(transition, withOutgoing, outgoing);
-            using var renderer = new SceneRenderer(scene, TestFonts.Manager, RenderIntent.Delivery);
-            renderer.Render(renderer.Compositor.EvaluateGraphics(TimeAt(progress)));
-            using Bitmap snapshot = renderer.Snapshot();
-            return snapshot.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Unpremul, BitmapColorSpace.Srgb);
+            return RenderScene(scene, progress);
         });
+    }
+
+    private static Bitmap RenderScene(Scene scene, double progress)
+    {
+        using var renderer = new SceneRenderer(scene, TestFonts.RenderServices, RenderIntent.Delivery);
+        renderer.Render(renderer.Compositor.EvaluateGraphics(TimeAt(progress)));
+        using Bitmap snapshot = renderer.Snapshot();
+        return snapshot.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Unpremul, BitmapColorSpace.Srgb);
     }
 
     // The transition is the incoming clip's one-second enter transition, which starts at one second.
@@ -747,7 +802,7 @@ public partial class TransitionRenderTests
         return VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             (Scene scene, _) = CreateBackdropSceneChange(transition, continuous);
-            using var renderer = new SceneRenderer(scene, TestFonts.Manager, RenderIntent.Delivery);
+            using var renderer = new SceneRenderer(scene, TestFonts.RenderServices, RenderIntent.Delivery);
             renderer.Render(renderer.Compositor.EvaluateGraphics(MediaTime.FromSeconds(seconds)));
             using Bitmap snapshot = renderer.Snapshot();
             using Bitmap srgb = snapshot.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Unpremul, BitmapColorSpace.Srgb);

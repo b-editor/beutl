@@ -4,7 +4,7 @@ using FluentIcons.Common;
 
 namespace Beutl.ViewModels;
 
-// An action that the Edit menu of a macOS app sends to whatever has the keyboard focus.
+// An action that the Edit menu can send to the focused control.
 public enum StandardEditAction
 {
     Undo,
@@ -12,7 +12,8 @@ public enum StandardEditAction
     Cut,
     Copy,
     Paste,
-    SelectAll
+    SelectAll,
+    Delete
 }
 
 // An entry of the main menu. MainView shows the entries as a Menu, and MacWindow and the floating tool windows as a
@@ -28,8 +29,13 @@ public sealed class MainMenuItem(string? header)
 
     public object? CommandParameter { get; init; }
 
-    // The id of the MainViewExtension command whose key gesture the item shows.
+    // The id of the command whose key gesture the item shows.
     public string? GestureCommand { get; init; }
+
+    // Context shortcuts are displayed in-window only. Native Edit actions use their standard gestures.
+    internal Type? InWindowGestureExtensionType { get; init; }
+
+    internal bool BlockNativeCommandWhileDialogOpen { get; init; }
 
     // The native menu shows no icons.
     public Icon? Icon { get; init; }
@@ -42,12 +48,15 @@ public sealed class MainMenuItem(string? header)
     // A list that raises CollectionChanged is followed.
     public IReadOnlyList<MainMenuItem>? Items { get; init; }
 
-    // macOS has it in the application menu instead.
+    // Only the in-window menu shows this entry.
     public bool IsInWindowOnly { get; init; }
 
     // What macOS users expect of a menu bar. On the other platforms, the title bar or the panels have it.
     public bool IsInNativeMenuOnly { get; init; }
 
-    // In the native menu, the focused control gets this action first, and Command does what no control took.
+    // In the native menu the focused control gets this action first. In-window, the clipboard and selection
+    // actions go to the focused text input. Command provides the editor fallback.
     public StandardEditAction? EditAction { get; init; }
+
+    internal (Func<bool> IsEnabled, IObservable<Unit> Changed)? EditActionAvailability { get; init; }
 }

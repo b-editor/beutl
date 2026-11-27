@@ -99,15 +99,15 @@ public partial class PackageInstaller
 
         // Cancellation is accepted until this short publication step starts. Once
         // it starts, callers finish repository registration without cancellation.
-        public void Commit() => CommitCore(null);
+        public void Commit() => CommitCore(null, null);
 
-        public void Commit(Action register)
+        public void Commit(Action register, Action? validate = null)
         {
             ArgumentNullException.ThrowIfNull(register);
-            CommitCore(register);
+            CommitCore(register, validate);
         }
 
-        private void CommitCore(Action? register)
+        private void CommitCore(Action? register, Action? validate)
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
             if (_attempted) throw new InvalidOperationException("This deployment was already attempted.");
@@ -116,9 +116,10 @@ public partial class PackageInstaller
             {
                 lock (s_dataPackageGate)
                 {
-                    using FileStream installLock = AcquireDataInstallLock();
+                    using FileStream installLock = AcquireDataInstallLock(waitForContention: validate is not null, token);
                     EnsureNoPendingDataInstall(name, staging);
                     token.ThrowIfCancellationRequested();
+                    validate?.Invoke();
                     List<PayloadChange> active = SelectActiveChanges();
                     token.ThrowIfCancellationRequested();
                     var journal = CreateDataInstallJournal(name, version, deploymentId, active, register is not null);

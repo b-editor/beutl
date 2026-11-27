@@ -322,7 +322,7 @@ public sealed partial class PackageManager : IBeutlApiResource
             }
             catch
             {
-                TryUnloadLoadContext(package, result.LoadContext);
+                TryUnloadLoadContext(package.Name, result.LoadContext);
                 throw;
             }
         }
@@ -345,19 +345,8 @@ public sealed partial class PackageManager : IBeutlApiResource
 
     private (Assembly[] Assemblies, PluginLoadContext LoadContext) Load(LocalPackage package, string installedPath)
     {
-        NuGetFramework framework = Helper.GetFrameworkName();
         using var reader = new PackageFolderReader(installedPath);
-
-        NuGetFramework nearest = Helper.FrameworkReducer
-            .GetNearest(framework, reader.GetLibItems().Select(x => x.TargetFramework))
-            ?? Helper.FrameworkReducer.GetNearest(framework, reader.GetPackageDependencies().Select(x => x.TargetFramework))
-            ?? throw new Exception("Unknown Framework");
-
-        string mainDirectory = Path.Combine(installedPath, "lib", nearest.ToString());
-        string[] asmFiles = Directory.GetFiles(mainDirectory, "*.dll");
-        // Extensions load in assembly order, and file systems list files in different orders.
-        Array.Sort(asmFiles, StringComparer.Ordinal);
-        EnsureCompatible(package, mainDirectory, reader, asmFiles);
+        (string mainDirectory, string[] asmFiles) = GetCompatibleAssemblyPaths(package, installedPath, reader);
 
         var loadContext = new PluginLoadContext(mainDirectory, reader);
         Assembly[] assemblies = new Assembly[asmFiles.Length];
@@ -369,6 +358,28 @@ public sealed partial class PackageManager : IBeutlApiResource
         }
 
         return (assemblies, loadContext);
+    }
+
+    internal void CheckInstalledExtensionCompatibility(LocalPackage package)
+    {
+        using var reader = new PackageFolderReader(package.InstalledPath!);
+        GetCompatibleAssemblyPaths(package, package.InstalledPath!, reader);
+    }
+
+    private (string Directory, string[] Assemblies) GetCompatibleAssemblyPaths(
+        LocalPackage package, string installedPath, PackageFolderReader reader)
+    {
+        NuGetFramework framework = Helper.GetFrameworkName();
+        NuGetFramework nearest = Helper.FrameworkReducer
+            .GetNearest(framework, reader.GetLibItems().Select(x => x.TargetFramework))
+            ?? Helper.FrameworkReducer.GetNearest(framework, reader.GetPackageDependencies().Select(x => x.TargetFramework))
+            ?? throw new Exception("Unknown Framework");
+        string directory = Path.Combine(installedPath, "lib", nearest.ToString());
+        string[] assemblies = Directory.GetFiles(directory, "*.dll");
+        // Extensions load in assembly order, and file systems list files in different orders.
+        Array.Sort(assemblies, StringComparer.Ordinal);
+        EnsureCompatible(package, directory, reader, assemblies);
+        return (directory, assemblies);
     }
 
     private (Assembly[] Assemblies, PluginLoadContext LoadContext) SideLoad(LocalPackage package, string installedPath)

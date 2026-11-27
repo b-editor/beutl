@@ -17,6 +17,7 @@ public partial class MenuBarViewModel
         yield return new("MenuBar.PasteLayer", Strings.Paste, PasteLayer);
         yield return new("MenuBar.ResetDockLayout", Strings.ResetDockLayout, ResetDockLayout);
         yield return new("MenuBar.ShowSceneSettings", Strings.SceneSettings, ShowSceneSettings);
+        yield return new("MenuBar.ShowUndisplayableData", UndisplayableDataStrings.Title, ShowUndisplayableData);
     }
 
     internal static Task ExecuteCommandAsync(ICommand command)

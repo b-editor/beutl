@@ -491,7 +491,7 @@ public class AiSubtitleTemplateTests
             "Saved");
         int undoCount = editor.HistoryManager.UndoCount;
 
-        CaptionSceneImportResult result = await AiCaptionSceneImporter.AddAsync(
+        CaptionSceneImportResult result = await CaptionSceneImporter.AddAsync(
             editor.Scene,
             adder,
             CreateCues((1, 3, "First"), (2, 6, "Second")),
@@ -534,7 +534,7 @@ public class AiSubtitleTemplateTests
         var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
         int undoCount = editor.HistoryManager.UndoCount;
 
-        CaptionSceneImportResult result = await AiCaptionSceneImporter.AddAsync(
+        CaptionSceneImportResult result = await CaptionSceneImporter.AddAsync(
             editor.Scene,
             adder,
             CreateCues((1, 3, "First"), (2, 8, "Second")),
@@ -584,7 +584,7 @@ public class AiSubtitleTemplateTests
             CreateTextElement("Text", 12, 2, 4, new TextBlock { Text = { Value = "Placeholder" } }),
         ]);
 
-        CaptionSceneImportResult result = await AiCaptionSceneImporter.AddAsync(
+        CaptionSceneImportResult result = await CaptionSceneImporter.AddAsync(
             editor.Scene,
             adder,
             CreateCues((0, 4, "First"), (2, 6, "Second")),
@@ -615,7 +615,7 @@ public class AiSubtitleTemplateTests
             CreateTextElement("Text", 10, 4, 5, new TextBlock { Text = { Value = "Placeholder" } }),
         ]);
 
-        CaptionSceneImportResult result = await AiCaptionSceneImporter.AddAsync(
+        CaptionSceneImportResult result = await CaptionSceneImporter.AddAsync(
             editor.Scene,
             adder,
             CreateCues((1, 3, "First"), (2, 4, "Second")),
@@ -649,7 +649,7 @@ public class AiSubtitleTemplateTests
             CreateTextElement("Late", 12, 1, 6, new EllipseShape()),
         ]);
 
-        CaptionSceneImportResult result = await AiCaptionSceneImporter.AddAsync(
+        CaptionSceneImportResult result = await CaptionSceneImporter.AddAsync(
             editor.Scene,
             adder,
             CreateCues((1, 2, "Short")),
@@ -675,7 +675,7 @@ public class AiSubtitleTemplateTests
         editor.Scene.AddChild(CreateTextElement("Existing", 0, 10, 0, new RectShape()));
         editor.Scene.Layers.Add(new TimelineLayer { ZIndex = { Value = 2 }, IsLocked = { Value = true } });
 
-        CaptionSceneImportResult result = await AiCaptionSceneImporter.AddAsync(
+        CaptionSceneImportResult result = await CaptionSceneImporter.AddAsync(
             editor.Scene,
             adder,
             CreateCues((1, 3, "First")),

@@ -24,8 +24,8 @@ public class FileBrowserTemplateThumbnailTests
     public void SetUpTemplates()
     {
         _decoders = new DecoderRegistry(new());
-        _templates = new ObjectTemplateService(TestFonts.Manager,
-            Path.Combine(BeutlEnvironment.GetTemplatesDirectoryPath(), Guid.NewGuid().ToString("N")), decoders: _decoders);
+        _templates = new ObjectTemplateService(new SceneRenderServices(TestFonts.Manager, _decoders),
+            Path.Combine(BeutlEnvironment.GetTemplatesDirectoryPath(), Guid.NewGuid().ToString("N")));
         _thumbnails = new FileThumbnailService(_decoders, _templates);
     }
 
@@ -45,11 +45,11 @@ public class FileBrowserTemplateThumbnailTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(service.IsObjectTemplateFile(Path.Combine(templates, "a.json"), _templates), Is.True);
-            Assert.That(service.IsObjectTemplateFile(Path.Combine(templates, "pkg", "a.json"), _templates), Is.True);
-            Assert.That(service.IsObjectTemplateFile(Path.Combine(templates, "a.png"), _templates), Is.False);
+            Assert.That(service.IsObjectTemplateFile(Path.Combine(templates, "a.json")), Is.True);
+            Assert.That(service.IsObjectTemplateFile(Path.Combine(templates, "pkg", "a.json")), Is.True);
+            Assert.That(service.IsObjectTemplateFile(Path.Combine(templates, "a.png")), Is.False);
             Assert.That(
-                service.IsObjectTemplateFile(Path.Combine(Path.GetTempPath(), "elsewhere.json"), _templates),
+                service.IsObjectTemplateFile(Path.Combine(Path.GetTempPath(), "elsewhere.json")),
                 Is.False);
         });
     }
@@ -64,11 +64,11 @@ public class FileBrowserTemplateThumbnailTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(service.CanGenerateThumbnail("a.png", _templates), Is.True);
-            Assert.That(service.CanGenerateThumbnail("a.fakevid", _templates), Is.True);
-            Assert.That(service.CanGenerateThumbnail(Path.Combine(templates, "a.json"), _templates), Is.True);
-            Assert.That(service.CanGenerateThumbnail("a.fakeaud", _templates), Is.False);
-            Assert.That(service.CanGenerateThumbnail("a.txt", _templates), Is.False);
+            Assert.That(service.CanGenerateThumbnail("a.png"), Is.True);
+            Assert.That(service.CanGenerateThumbnail("a.fakevid"), Is.True);
+            Assert.That(service.CanGenerateThumbnail(Path.Combine(templates, "a.json")), Is.True);
+            Assert.That(service.CanGenerateThumbnail("a.fakeaud"), Is.False);
+            Assert.That(service.CanGenerateThumbnail("a.txt"), Is.False);
         });
     }
 
@@ -82,7 +82,7 @@ public class FileBrowserTemplateThumbnailTests
 
         Assert.That(item?.Preview, Is.Not.Null.And.Not.Empty);
 
-        var thumbnail = await _thumbnails.GetThumbnailAsync(item!.FilePath!, _templates);
+        var thumbnail = await _thumbnails.GetThumbnailAsync(item!.FilePath!);
 
         Assert.That(thumbnail, Is.Not.Null);
         Assert.That(thumbnail!.PixelSize.Width, Is.GreaterThan(0));
@@ -96,7 +96,7 @@ public class FileBrowserTemplateThumbnailTests
 
         Assert.That(item?.Preview, Is.Null);
 
-        var thumbnail = await _thumbnails.GetThumbnailAsync(item!.FilePath!, _templates);
+        var thumbnail = await _thumbnails.GetThumbnailAsync(item!.FilePath!);
 
         Assert.That(thumbnail, Is.Null);
     }
@@ -134,7 +134,7 @@ public class FileBrowserTemplateThumbnailTests
         {
             await File.WriteAllBytesAsync(path, [0]);
             await _thumbnails.GetMediaInfoAsync(path);
-            await _thumbnails.GetThumbnailAsync(path, _templates);
+            await _thumbnails.GetThumbnailAsync(path);
         }
         finally
         {
@@ -158,7 +158,7 @@ public class FileBrowserTemplateThumbnailTests
         await File.WriteAllTextAsync(item!.FilePath!, BuildTemplateJsonWithPreview(item, 1024, 1024));
         _thumbnails.ClearCache();
 
-        var thumbnail = await _thumbnails.GetThumbnailAsync(item.FilePath!, _templates);
+        var thumbnail = await _thumbnails.GetThumbnailAsync(item.FilePath!);
 
         Assert.That(thumbnail, Is.Not.Null);
         Assert.That(thumbnail!.PixelSize.Width, Is.LessThanOrEqualTo(_thumbnails.ThumbnailSize));

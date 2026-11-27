@@ -26,12 +26,12 @@ public static class ExportRendererFactory
         ArgumentNullException.ThrowIfNull(scene);
 
         var renderer = new SceneRenderer(
-            scene, fonts,
+            scene, new SceneRenderServices(fonts, decoders),
             RenderIntent.Delivery,
             renderScale,
             disableResourceShare: true,
             maxWorkingScale: WorkingScaleCeiling.Export(),
-            forceOriginalSource: true, decoders: decoders);
+            forceOriginalSource: true);
         try
         {
             renderer.CacheOptions = RenderCacheOptions.Disabled;
@@ -53,10 +53,10 @@ public static class ExportRendererFactory
     /// <param name="sampleRate">Output sample rate in Hz.</param>
     public static SceneComposer CreateComposer(Scene scene, FontManager fonts, int sampleRate, DecoderRegistry? decoders = null)
     {
-        return new SceneComposer(scene, fonts, disableResourceShare: true, forceOriginalSource: true, decoders: decoders)
+        return new SceneComposer(scene, new SceneRenderServices(fonts, decoders), disableResourceShare: true, forceOriginalSource: true)
         {
             SampleRate = sampleRate,
-            ChannelLayout = scene.FindHierarchicalParent<Project>().GetChannelLayout(),
+            ChannelLayout = scene.GetChannelLayout(),
         };
     }
 

@@ -31,13 +31,15 @@ internal enum GitExecutionPolicy
     DefaultOpenSshBatchMode = 1 << 1,
 }
 
+// A stdout progress sink consumes the command's output as progress records instead of capturing it.
 internal sealed record GitCommandOptions(
     GitCommandExecutionKind ExecutionKind,
     IReadOnlyDictionary<string, string?>? EnvironmentOverrides = null,
     int? MaxStdoutBytes = null,
     string? StandardInput = null,
     bool UseLiteralPathspecs = true,
-    bool CaptureStdoutBytes = false)
+    bool CaptureStdoutBytes = false,
+    IProgress<string>? StdoutProgress = null)
 {
     public static GitCommandOptions Local { get; } = new(GitCommandExecutionKind.Local);
 
@@ -162,7 +164,8 @@ internal sealed partial class GitCliRunner : IGitCliRunner
             options.CaptureStdoutBytes,
             throwOnFailure: true,
             stopGracefully: options.ExecutionKind is GitCommandExecutionKind.LocalUnbounded
-                or GitCommandExecutionKind.LocalWithLfs).ConfigureAwait(false);
+                or GitCommandExecutionKind.LocalWithLfs,
+            stdoutProgress: options.StdoutProgress).ConfigureAwait(false);
     }
 
     // Lets tests inspect the start info (SSH batch mode, environment overrides) without starting Git.
@@ -224,22 +227,26 @@ internal sealed partial class GitCliRunner : IGitCliRunner
         byte[]? standardInput,
         bool captureStdoutBytes,
         bool throwOnFailure,
-        bool stopGracefully = false)
+        bool stopGracefully = false,
+        IProgress<string>? stdoutProgress = null)
     {
         int exitCode;
         (string Output, byte[]? OutputBytes, bool Truncated) stdout;
         string stderr;
+        if (stdoutProgress is not null && ReferenceEquals(stdoutProgress, stderrProgress))
+        {
+            stdoutProgress = stderrProgress = new SerializedProgress(stdoutProgress);
+        }
+
         Interlocked.Increment(ref _activeProcesses);
         try
         {
             (exitCode, stdout, stderr) = await GitProcess.RunAsync(
                 startInfo,
                 standardInput,
-                (reader, token) => CaptureStandardOutputAsync(
-                    reader.BaseStream,
-                    maxStdoutBytes,
-                    captureStdoutBytes,
-                    token),
+                (reader, token) => stdoutProgress is not null
+                    ? StreamStandardOutputProgressAsync(reader, stdoutProgress, token)
+                    : CaptureStandardOutputAsync(reader.BaseStream, maxStdoutBytes, captureStdoutBytes, token),
                 (reader, token) => ReadStandardErrorAsync(reader, stderrProgress, token),
                 executionPolicy.HasFlag(GitExecutionPolicy.LocalTimeout) ? _localTimeout : null,
                 cancellationToken,
@@ -279,6 +286,19 @@ internal sealed partial class GitCliRunner : IGitCliRunner
             stdout.OutputBytes);
     }
 
+    private sealed class SerializedProgress(IProgress<string> progress) : IProgress<string>
+    {
+        private readonly Lock _gate = new();
+
+        public void Report(string value)
+        {
+            lock (_gate)
+            {
+                progress.Report(value);
+            }
+        }
+    }
+
     public static IReadOnlyList<string> SplitNullSeparated(string output)
     {
         ArgumentNullException.ThrowIfNull(output);
@@ -300,6 +320,7 @@ internal sealed partial class GitCliRunner : IGitCliRunner
             RedirectStandardInput = true,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
+            StandardOutputEncoding = Encoding.UTF8,
             StandardErrorEncoding = Encoding.UTF8,
         };
         foreach (string argument in arguments)
@@ -317,6 +338,8 @@ internal sealed partial class GitCliRunner : IGitCliRunner
         GitProcessEnvironment.ConfigureToolSearchPath(startInfo);
 
         startInfo.Environment["GIT_TERMINAL_PROMPT"] = "0";
+        startInfo.Environment["GIT_TRACE_REDACT"] = "1";
+        startInfo.Environment["GCM_TRACE_SECRETS"] = "0";
         startInfo.Environment["GIT_OPTIONAL_LOCKS"] = "0";
         startInfo.Environment["GIT_LITERAL_PATHSPECS"] = useLiteralPathspecs ? "1" : "0";
         startInfo.Environment["LC_ALL"] = "C";

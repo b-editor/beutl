@@ -30,6 +30,9 @@ public class PreviewFrameOrderIndependenceTests
 
     private GlobalConfiguration _testConfiguration = new();
 
+    private SceneRenderServices RenderServices
+        => new(TestFonts.Manager, _decoders, _testConfiguration.EditorConfig, _testConfiguration.ProxyStoreConfig);
+
     private const int Rate = 30;
     private const int FrameCount = 16;
     private const int SquareWidth = 80;
@@ -76,7 +79,7 @@ public class PreviewFrameOrderIndependenceTests
             using var media = new SceneMedia(_decoders, _testConfiguration.EditorConfig, preferProxy, withEffect, withBackdrops);
 
             string[] baseline = new string[FrameCount];
-            using (var renderer = new SceneRenderer(media.NewScene(), TestFonts.Manager, RenderIntent.Preview, editorConfig: _testConfiguration.EditorConfig, proxyConfig: _testConfiguration.ProxyStoreConfig, decoders: _decoders) { CacheOptions = RenderCacheOptions.Default })
+            using (var renderer = new SceneRenderer(media.NewScene(), RenderServices, RenderIntent.Preview) { CacheOptions = RenderCacheOptions.Default })
             {
                 for (int frame = 0; frame < FrameCount; frame++)
                 {
@@ -90,7 +93,7 @@ public class PreviewFrameOrderIndependenceTests
             Assert.That(baseline.Distinct().Count(), Is.EqualTo(FrameCount),
                 "the scene has to look different on every frame or the comparisons below prove nothing");
 
-            using (var renderer = new SceneRenderer(media.NewScene(), TestFonts.Manager, RenderIntent.Preview, editorConfig: _testConfiguration.EditorConfig, proxyConfig: _testConfiguration.ProxyStoreConfig, decoders: _decoders) { CacheOptions = RenderCacheOptions.Default })
+            using (var renderer = new SceneRenderer(media.NewScene(), RenderServices, RenderIntent.Preview) { CacheOptions = RenderCacheOptions.Default })
             {
                 var rendered = new HashSet<int>();
                 foreach (int frame in s_scrub)
@@ -140,7 +143,7 @@ public class PreviewFrameOrderIndependenceTests
             group.Children.Add(glass);
 
             Scene scene = media.NewSceneWith(group);
-            using var renderer = new SceneRenderer(scene, TestFonts.Manager, RenderIntent.Preview, editorConfig: _testConfiguration.EditorConfig, proxyConfig: _testConfiguration.ProxyStoreConfig, decoders: _decoders) { CacheOptions = RenderCacheOptions.Default };
+            using var renderer = new SceneRenderer(scene, RenderServices, RenderIntent.Preview) { CacheOptions = RenderCacheOptions.Default };
             renderer.Render(renderer.Compositor.EvaluateGraphics(MediaTime.Zero));
 
             using Bitmap snapshot = renderer.Snapshot();

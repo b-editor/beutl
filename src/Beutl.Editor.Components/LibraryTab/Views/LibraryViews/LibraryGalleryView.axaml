@@ -28,29 +28,53 @@
     </UserControl.Styles>
 
     <ScrollViewer HorizontalScrollBarVisibility="Disabled">
-        <ItemsRepeater x:Name="Repeater" Margin="0,0,0,8">
-            <ItemsRepeater.Layout>
-                <controls:HorizontalGridLayout ColumnSpacing="8"
-                                               MinItemWidth="144"
-                                               RowSpacing="12" />
-            </ItemsRepeater.Layout>
-
-            <ItemsRepeater.ItemTemplate>
-                <DataTemplate x:DataType="viewModel:LibraryGalleryItemViewModel">
-                    <Border x:Name="Tile"
-                            Classes="galleryTile"
-                            ToolTip.Tip="{Binding Description}">
-                        <StackPanel Spacing="4">
-                            <Border Classes="galleryFrame">
-                                <controls:AnimatedThumbnail IsPlaying="{Binding #Tile.IsPointerOver}" Source="{Binding Thumbnail}" />
-                            </Border>
-                            <TextBlock HorizontalAlignment="Center"
-                                       Text="{Binding DisplayName}"
-                                       TextTrimming="CharacterEllipsis" />
-                        </StackPanel>
-                    </Border>
+        <ItemsControl x:Name="Sections" Margin="0,0,0,8">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <StackPanel Spacing="16" />
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="viewModel:LibraryGallerySection">
+                    <StackPanel Spacing="6">
+                        <TextBlock Classes="effectCategoryHeading"
+                                   FontWeight="SemiBold"
+                                   IsVisible="{Binding Title, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                   Text="{Binding Title}"
+                                   TextTrimming="CharacterEllipsis"
+                                   ToolTip.Tip="{Binding Description}" />
+                        <ItemsRepeater ItemsSource="{Binding Items}">
+                            <ItemsRepeater.Layout>
+                                <controls:HorizontalGridLayout ColumnSpacing="8"
+                                                               MinItemWidth="144"
+                                                               RowSpacing="12" />
+                            </ItemsRepeater.Layout>
+                            <!--  Each repeater owns its template and its recycling pool.  -->
+                            <ItemsRepeater.ItemTemplate>
+                                <DataTemplate x:DataType="viewModel:LibraryGalleryItemViewModel">
+                                    <Border x:Name="Tile"
+                                            Classes="galleryTile"
+                                            ToolTip.Placement="Top"
+                                            ToolTip.Tip="{Binding Description}"
+                                            ToolTip.VerticalOffset="0">
+                                        <StackPanel Spacing="4">
+                                            <Border Classes="galleryFrame">
+                                                <!--  One pixel tighter than ControlCornerRadius, so the thumbnail sits flush inside the 1px stroke.  -->
+                                                <Border ClipToBounds="True" CornerRadius="7">
+                                                    <controls:AnimatedThumbnail IsPlaying="{Binding #Tile.IsPointerOver}" Source="{Binding Thumbnail}" />
+                                                </Border>
+                                            </Border>
+                                            <TextBlock HorizontalAlignment="Center"
+                                                       Text="{Binding DisplayName}"
+                                                       TextTrimming="CharacterEllipsis" />
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsRepeater.ItemTemplate>
+                        </ItemsRepeater>
+                    </StackPanel>
                 </DataTemplate>
-            </ItemsRepeater.ItemTemplate>
-        </ItemsRepeater>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
     </ScrollViewer>
 </UserControl>

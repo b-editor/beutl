@@ -6,6 +6,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media.Immutable;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using Beutl.Composition;
 using Beutl.Configuration;
 using Beutl.Controls;
@@ -14,10 +15,13 @@ using Beutl.Editor.Components.PathEditorTab.ViewModels;
 using Beutl.Editor.Components.PathEditorTab.Views;
 using Beutl.Engine;
 using Beutl.Graphics;
+using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
-using Beutl.Graphics.Transformation;
+using Beutl.Language;
 using Beutl.Logging;
+using Beutl.NodeGraph;
 using Beutl.ProjectSystem;
+using Beutl.Services.PrimitiveImpls;
 using Beutl.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -86,10 +90,26 @@ public partial class PlayerView : UserControl
 
         Player.CurrentTimeSubmitted += OnPlayerCurrentTimeSubmitted;
         Player.TemplateApplied += OnPlayerTemplateApplied;
+        ConfigurePreviewToolButton(moveToolButton, PreviewTool.Move, SceneEditorExtension.SelectPreviewMoveToolCommandId);
+        ConfigurePreviewToolButton(handToolButton, PreviewTool.Hand, SceneEditorExtension.SelectPreviewHandToolCommandId);
+        ConfigurePreviewToolButton(cropToolButton, PreviewTool.Crop, SceneEditorExtension.SelectPreviewCropToolCommandId);
+        ConfigurePreviewToolButton(cameraToolButton, PreviewTool.Camera3D, SceneEditorExtension.SelectPreviewCameraToolCommandId);
         ShowShortcutInToolTip(guidesToggle, "editor.togglePreviewGuides");
         ShowShortcutInToolTip(onionSkinToggle, "editor.toggleOnionSkin");
         ShowShortcutInToolTip(checkerboardToggle, "editor.togglePreviewCheckerboard");
+        ShowShortcutInToolTip(effectComparisonToggle, SceneEditorExtension.CompareFilterEffectCommandId);
     }
+
+    private void ConfigurePreviewToolButton(RadioButton button, PreviewTool tool, string commandId)
+    {
+        button.Click += (_, _) => (DataContext as PlayerViewModel)?.SelectPreviewTool(tool);
+        ShowShortcutInToolTip(button, commandId);
+    }
+
+    internal bool CanUsePreviewToolShortcut(Visual source)
+        => _mouseState is null
+            && _temporaryHandPlayer is null
+            && !source.GetSelfAndVisualAncestors().Any(visual => visual == pathEditorView || visual == pathToolsHost);
 
     private async void OnPlayerCurrentTimeSubmitted(object? sender, Beutl.Controls.TimecodeSubmittedEventArgs e)
     {
@@ -152,13 +172,14 @@ public partial class PlayerView : UserControl
         _boundsSubscription?.Dispose();
         RemoveHdrView();
 
+        const string sourcePath = $"{nameof(PlayerViewModel.EditorPreviewImage)}.Value";
         if (useHdr)
         {
             // A native view covers what the UI draws in its place, and follows neither the frame panel's transform nor
             // its clip. So it covers the whole viewport and draws the frame where the slot is, zoom and pan included,
             // with a copy of what the UI draws over the frame. Around the frame the UI under it shows.
             var slot = new PreviewFrameSlot();
-            var view = (HdrBitmapView)PreviewSurface.CreateImage(true, "PreviewImage.Value");
+            var view = (HdrBitmapView)PreviewSurface.CreateImage(true, sourcePath);
             _hdrSourceSizeSubscription = view.GetObservable(HdrBitmapView.SourceSizeProperty)
                 .Subscribe(size => slot.SourceSize = size);
             image = slot;
@@ -170,7 +191,7 @@ public partial class PlayerView : UserControl
         }
         else
         {
-            image = PreviewSurface.CreateImage(false, "PreviewImage.Value");
+            image = PreviewSurface.CreateImage(false, sourcePath);
             // Insert after imageBackground, before guideOverlay
             framePanel.Children.Insert(1, image);
         }
@@ -237,6 +258,7 @@ public partial class PlayerView : UserControl
 
     protected override async void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
+        EndTemporaryHand();
         Presentation?.Close();
         // The visual parent is already gone during detachment. Use the original subscription source.
         if (_scalingTopLevel is { } topLevel)
@@ -278,14 +300,17 @@ public partial class PlayerView : UserControl
 
     protected override void OnDataContextChanged(EventArgs e)
     {
+        EndTemporaryHand();
         Presentation?.Close();
         base.OnDataContextChanged(e);
         _disposables.Clear();
         _imageConfigSubscription?.Dispose();
         _imageConfigSubscription = null;
         SetupImageControl();
+        puppetPlacementHint.IsVisible = false;
 
         InvalidateTransformHandleResource();
+        SubscribeEffectComparison(DataContext as PlayerViewModel);
 
         if (DataContext is PlayerViewModel vm)
         {
@@ -328,6 +353,9 @@ public partial class PlayerView : UserControl
                 .DisposeWith(_disposables);
 
             SubscribeCursor(vm);
+            vm.SelectedPuppetPin.ObserveOnUIDispatcher()
+                .Subscribe(pin => transformHandlesOverlay.SetSelectedPuppetPin(pin?.Id.Value.ToString()))
+                .DisposeWith(_disposables);
 
             var selection = vm.EditViewModel.GetRequiredService<Beutl.Editor.Services.IEditorSelection>();
             selection.SelectedObject
@@ -357,6 +385,7 @@ public partial class PlayerView : UserControl
             {
                 framePanel.RenderTransformOrigin = Avalonia.RelativePoint.TopLeft;
                 framePanel.RenderTransform = new ImmutableTransform(matrix.ToAvaMatrix());
+                transformHandlesOverlay.SetEditingHandleZoom(matrix.M11);
                 guideOverlay.Zoom = matrix.M11;
                 UpdateFrameOutline(matrix.M11);
                 UpdateZoomDisplay();
@@ -367,11 +396,21 @@ public partial class PlayerView : UserControl
 
     private void SubscribeCursor(PlayerViewModel vm)
     {
-        vm.IsHandMode.CombineLatest(vm.IsCropMode, vm.IsCameraMode, vm.PointPick.Select(pick => pick != null))
+        var picking = vm.PointPick.CombineLatest(vm.PuppetPlacementEffect, vm.ShownEditingStage,
+            static (point, effect, stage) => (point, effect, stage));
+        vm.IsHandMode.CombineLatest(vm.IsCropMode, vm.IsCameraMode, picking)
             .ObserveOnUIDispatcher()
             .Subscribe(t =>
             {
-                if (t.Fourth)
+                var (point, puppet, stage) = t.Fourth;
+                puppetPlacementHint.IsVisible = puppet is not null || stage is not null;
+                if (puppet is not null)
+                    puppetPlacementMessage.Text = ReferenceEquals(point?.LocalOwner, puppet)
+                        ? GraphicsStrings.Puppet_PlacementHint
+                        : GraphicsStrings.Puppet_PreparingPlacement;
+                else
+                    puppetPlacementMessage.Text = stage?.EditingStageHint;
+                if (point is not null || puppet is not null)
                     framePanel.Cursor = Cursors.Cross;
                 else if (t.First)
                     framePanel.Cursor = Cursors.Hand;
@@ -454,7 +493,8 @@ public partial class PlayerView : UserControl
             BtlDrawable target = drawable;
             BtlSize availableSize = scene.FrameSize.Value.ToSize(1.0f);
             MediaTime ctxTime = time;
-            snap = QueryRenderThread(() => ComputeOverlayGeometry(renderer, target, availableSize, ctxTime), null);
+            snap = QueryRenderThread(() => ComputeOverlayGeometry(renderer, target, availableSize, ctxTime,
+                allowLayoutFallback: provider is not null), null);
         }
         catch (Exception ex) when (ex is not OutOfMemoryException and not StackOverflowException)
         {
@@ -474,7 +514,10 @@ public partial class PlayerView : UserControl
         }
 
         transformHandlesOverlay.Update(drawable, element, s.localBounds, s.userMatrix, s.pivotLocal, viewport);
-        transformHandlesOverlay.UpdateEditingHandles(provider ?? drawable as Beutl.Engine.IEditingHandleProvider, time);
+        BtlMatrix? downstream = provider is FilterEffect effect and IEditingStageProvider
+            ? vm.GetEditingGraphTransform(effect, time)
+            : BtlMatrix.Identity;
+        transformHandlesOverlay.UpdateEditingHandles(provider ?? drawable as IEditingHandleProvider, time, downstream);
     }
 
     // The render thread's answer, or fallback when it does not come within RenderThreadWait.
@@ -514,10 +557,10 @@ public partial class PlayerView : UserControl
     // independent Resource on RenderThread so we evaluate animations against ctxTime without piggybacking
     // on the renderer's cached render node.
     private (BtlRect localBounds, BtlMatrix userMatrix, BtlPoint pivotLocal)? ComputeOverlayGeometry(
-        SceneRenderer renderer, BtlDrawable target, BtlSize availableSize, MediaTime ctxTime)
+        SceneRenderer renderer, BtlDrawable target, BtlSize availableSize, MediaTime ctxTime, bool allowLayoutFallback)
     {
         BtlRect? bounds = renderer.GetBoundary(target);
-        if (bounds is not { Width: > 0, Height: > 0 }) return null;
+        if (!allowLayoutFallback && bounds is not { Width: > 0, Height: > 0 }) return null;
 
         var ctx = new CompositionContext(ctxTime) { Fonts = renderer.Compositor.Fonts, Decoders = renderer.Compositor.Decoders };
         if (_transformHandleResource == null || _transformHandleResourceTarget != target)
@@ -542,7 +585,7 @@ public partial class PlayerView : UserControl
 
         // The box is what the drawable draws (glyph extents, effects, offset geometry), measured inside its
         // transform: it turns with the drawable, and its axis-aligned extent is the boundary drawn in the frame.
-        if (renderer.GetLocalBoundary(target) is { } drawn)
+        if (renderer.GetLocalBoundary(target, allowDirectContent: allowLayoutFallback && target is NodeGraphDrawable) is { } drawn)
         {
             return (drawn.Bounds, drawn.Transform, pivot);
         }
@@ -550,7 +593,10 @@ public partial class PlayerView : UserControl
         // A drawable that does not draw under a transform of its own gets its layout box instead. userMatrix
         // omits FilterEffect-induced offsets; align against rendered bounds.
         BtlMatrix userMatrix = resource.GetTransformMatrix(availableSize, localSize);
-        BtlMatrix adjusted = TransformHandleMath.AlignUserMatrixToRenderedBounds(userMatrix, localSize, bounds.Value, new BtlRect(availableSize));
+        if (bounds is not { Width: > 0, Height: > 0 } renderedBounds)
+            return (new BtlRect(localSize), userMatrix, pivot);
+
+        BtlMatrix adjusted = TransformHandleMath.AlignUserMatrixToRenderedBounds(userMatrix, localSize, renderedBounds, new BtlRect(availableSize));
 
         return (new BtlRect(localSize), adjusted, pivot);
     }

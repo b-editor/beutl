@@ -43,6 +43,8 @@ public sealed class FilterEffectInputContext
 
     internal FilterEffect.Resource Effect { get; }
 
+    internal MediaTime InputStart => _flow.Object.Start;
+
     /// <summary>Evaluates and retains an independent input at <paramref name="time"/>.</summary>
     /// <remarks>
     /// Repeated times reuse the completed sample within this context. The context owns the returned sample, which

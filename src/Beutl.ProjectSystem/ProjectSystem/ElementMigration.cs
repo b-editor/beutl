@@ -26,8 +26,7 @@ internal static class ElementMigration
         new KeyValuePair<string, Type>("[Beutl.ProjectSystem]Beutl.Operation:DecorateOperator", typeof(DrawableDecorator)),
         new KeyValuePair<string, Type>("[Beutl.ProjectSystem]Beutl.Operation:GroupOperator", typeof(DrawableGroup)));
 
-    private static readonly ConditionalWeakTable<FallbackEngineObject, object> s_unmigratedOperators = new();
-    private static readonly object s_unmigratedOperator = new();
+    private static readonly ConditionalWeakTable<FallbackEngineObject, JsonObject> s_unmigratedOperators = new();
 
     // The type Beutl 1.x wrote for an element's node tree. Nothing in 2.x provides it.
     internal const string LegacyNodeTreeTypeName = "[Beutl.ProjectSystem]Beutl.NodeTree:ElementNodeTreeModel";
@@ -69,8 +68,11 @@ internal static class ElementMigration
     internal static bool IsUnmigratedContent(EngineObject obj)
     {
         return IsUnmigratedNodeTree(obj)
-               || (obj is FallbackEngineObject fallback && s_unmigratedOperators.TryGetValue(fallback, out _));
+               || (obj is FallbackEngineObject fallback && GetUnmigratedOperatorJson(fallback) is not null);
     }
+
+    internal static JsonObject? GetUnmigratedOperatorJson(FallbackEngineObject fallback)
+        => s_unmigratedOperators.TryGetValue(fallback, out var json) ? json : null;
 
     internal static bool TryMigrateFromOperation(
         IJsonSerializationContext jsonContext,
@@ -156,15 +158,16 @@ internal static class ElementMigration
                 dummy.Json = valueObj.DeepClone().AsObject();
                 dummy.Reason = FallbackReason.DeserializationFailed;
                 dummy.ErrorMessage = ex.Message;
-                s_unmigratedOperators.AddOrUpdate(dummy, s_unmigratedOperator);
+                s_unmigratedOperators.Add(dummy, operatorObj.DeepClone().AsObject());
                 return dummy;
             }
         }
 
         // 不明なOperator: FallbackEngineObjectにJSON保存
         var fallback = new FallbackEngineObject();
-        fallback.Json = operatorObj.DeepClone().AsObject();
-        s_unmigratedOperators.AddOrUpdate(fallback, s_unmigratedOperator);
+        var original = operatorObj.DeepClone().AsObject();
+        fallback.Json = original;
+        s_unmigratedOperators.Add(fallback, original);
         return fallback;
     }
 }

@@ -16,17 +16,31 @@ namespace Beutl.Editor.Services;
 /// <summary>Full-coverage, channel-preserving peak envelopes for silence analysis.</summary>
 internal static class SilenceWaveform
 {
+    internal static bool HasAnalyzableAudio(Element element)
+        => element.Length.Value > MediaTime.Zero && element.Objects.Any(HasAudioSource);
+
+    private static bool HasAudioSource(EngineObject obj) => obj switch
+    {
+        SourceSound sound => sound.Source.Value != null || sound.Source.HasExpression,
+        SceneSound sound => sound.ReferencedScene.Value != null || sound.ReferencedScene.HasExpression,
+        SoundGroup group => group.Children.Any(HasAudioSource),
+        _ => false
+    };
+
+    internal static int GetChunkCount(MediaTime duration)
+        => Math.Max(1, checked((int)Math.Ceiling(duration.ToSeconds() / 0.02)));
+
     public static async IAsyncEnumerable<WaveformChunk> GetChunksAsync(
         FontManager fonts, Scene scene, Element element, int chunkCount, [EnumeratorCancellation] CancellationToken cancellationToken = default,
-        Action<Scene>? observeScene = null, DecoderRegistry? decoders = null)
+        Action<Scene>? observeScene = null, DecoderRegistry? decoders = null, Action<Action>? invokeOnOwner = null)
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(chunkCount);
         TaskScheduler owner = SynchronizationContext.Current is null
             ? TaskScheduler.Current : TaskScheduler.FromCurrentSynchronizationContext();
         var range = element.Range;
-        int sampleRate = scene.FindHierarchicalParent<Project>().GetSampleRate();
-        AudioChannelLayout channelLayout = scene.FindHierarchicalParent<Project>().GetChannelLayout();
+        int sampleRate = scene.GetSampleRate();
+        AudioChannelLayout channelLayout = scene.GetChannelLayout();
         if (range.Duration <= MediaTime.Zero) yield break;
         long totalSamples = range.Duration.ToSamples(sampleRate, MidpointRounding.ToZero);
         if (totalSamples < chunkCount) yield break;
@@ -105,9 +119,10 @@ internal static class SilenceWaveform
         }
 
         using var composer = new Composer { SampleRate = sampleRate, ChannelLayout = channelLayout };
-        SceneCompositor compositor = isolated ? new SceneCompositor(scene, fonts, decoders: decoders) { ForceOriginalSource = true }
-            : await Task.Factory.StartNew(() => new SceneCompositor(scene, fonts, decoders: decoders) { ForceOriginalSource = true },
-                cancellationToken, TaskCreationOptions.DenyChildAttach, owner).ConfigureAwait(false);
+        var services = new SceneRenderServices(fonts, decoders);
+        SceneCompositor compositor = isolated ? new SceneCompositor(scene, services) { ForceOriginalSource = true }
+            : await RunOnOwner(() => new SceneCompositor(scene, services) { ForceOriginalSource = true }, cancellationToken)
+                .ConfigureAwait(false);
         try
         {
             // Compose about one second per dispatch, then reduce it into small envelope bins. This
@@ -137,7 +152,7 @@ internal static class SilenceWaveform
                 // composition on the owning thread; never let fallback analysis race live edits.
                 using var buffer = await (isolated
                     ? ComposeThread.Dispatcher.InvokeAsync(ComposeWindow, DispatchPriority.Low, cancellationToken)
-                    : Task.Factory.StartNew(ComposeWindow, cancellationToken, TaskCreationOptions.DenyChildAttach, owner)).ConfigureAwait(false);
+                    : RunOnOwner(ComposeWindow, cancellationToken)).ConfigureAwait(false);
                 var result = new WaveformChunk[to - from];
                 for (int i = from; i < to; i++)
                 {
@@ -166,7 +181,42 @@ internal static class SilenceWaveform
         finally
         {
             if (isolated) compositor.Dispose();
-            else await Task.Factory.StartNew(compositor.Dispose, CancellationToken.None, TaskCreationOptions.DenyChildAttach, owner).ConfigureAwait(false);
+            else
+            {
+                bool entered = false;
+                try
+                {
+                    await RunOnOwner(() =>
+                    {
+                        entered = true;
+                        compositor.Dispose();
+                        return true;
+                    }, CancellationToken.None).ConfigureAwait(false);
+                }
+                finally
+                {
+                    // A file session may have closed before dispatching cleanup of its old scene.
+                    if (invokeOnOwner != null && !entered) compositor.Dispose();
+                }
+            }
+        }
+
+        Task<T> RunOnOwner<T>(Func<T> action, CancellationToken token)
+        {
+            if (invokeOnOwner == null)
+                return Task.Factory.StartNew(action, token, TaskCreationOptions.DenyChildAttach, owner);
+
+            // File sessions have a lock in place of a synchronization context.
+            return Task.Run(() =>
+            {
+                T result = default!;
+                invokeOnOwner(() =>
+                {
+                    token.ThrowIfCancellationRequested();
+                    result = action();
+                });
+                return result;
+            }, token);
         }
 
         long Position(int index) => (long)((Int128)index * totalSamples / chunkCount);

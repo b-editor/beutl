@@ -46,9 +46,9 @@ public class VersionControlSnapshotScopeTests : RealGitTestRepository
                 new FileChange(changedElement, FileChangeStatus.Modified),
             ]));
         Assert.That(changedFiles, Has.None.Matches<FileChange>(
-            change => change.Path.EndsWith(".bep", StringComparison.Ordinal)
+            change => change is not null && (change.Path.EndsWith(".bep", StringComparison.Ordinal)
                       || change.Path.Contains(".beutl", StringComparison.Ordinal)
-                      || change.Path == unchangedElement));
+                      || change.Path == unchangedElement)));
     }
 
     [Test]

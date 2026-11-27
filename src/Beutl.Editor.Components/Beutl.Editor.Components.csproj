@@ -6,6 +6,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Beutl.Agents\Beutl.Agents.csproj" />
     <ProjectReference Include="..\Beutl.Api\Beutl.Api.csproj" />
     <ProjectReference Include="..\Beutl.Extensibility\Beutl.Extensibility.csproj" />
     <ProjectReference Include="..\Beutl.Controls\Beutl.Controls.csproj" />
@@ -23,6 +24,7 @@
     <PackageReference Include="DynamicData" />
     <PackageReference Include="FluentAvaloniaUI" />
     <PackageReference Include="FluentIcons.Avalonia.Fluent" />
+    <PackageReference Include="LiveMarkdown.Avalonia" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
     <PackageReference Include="Microsoft.Extensions.Logging" />
     <PackageReference Include="ReactiveProperty" />

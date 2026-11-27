@@ -1,7 +1,6 @@
 ﻿using System.Text.Json.Nodes;
 using Avalonia;
 using Avalonia.Input;
-using Avalonia.Input.Platform;
 using Avalonia.Media;
 using Avalonia.Media.Immutable;
 using Avalonia.Threading;
@@ -10,6 +9,7 @@ using Beutl.Animation.Easings;
 using Beutl.Configuration;
 using Beutl.Controls;
 using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Components.Services;
 using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.Logging;
@@ -97,9 +97,11 @@ public sealed partial class GraphEditorViewModel : IDisposable
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
+        ViewportWidth = new ReactivePropertySlim<double>().DisposeWith(_disposables);
         (StartingBarMargin, EndingBarMargin, PanelWidth) = TimelineHelper.CreateSceneBarMargins(
-            Scene, _editorClock, timelineOptions.Scale, _disposables);
+            Scene, _editorClock, timelineOptions.Scale, ViewportWidth, _disposables);
 
+        FrameRate = TimelineHelper.ObserveFrameRate(Scene, _disposables);
         TimeDisplayFormat = TimelineHelper.ObserveTimeDisplayFormat(editorContext.GetRequiredService<GlobalConfiguration>().EditorConfig, _disposables);
 
         Factory = GraphEditorViewViewModelFactory.GetFactory(this);
@@ -158,6 +160,8 @@ public sealed partial class GraphEditorViewModel : IDisposable
 
     public ReadOnlyReactivePropertySlim<double> PanelWidth { get; }
 
+    internal ReactivePropertySlim<double> ViewportWidth { get; }
+
     public ReadOnlyReactivePropertySlim<Thickness> SeekBarMargin { get; }
 
     public ReadOnlyReactivePropertySlim<Thickness> StartingBarMargin { get; }
@@ -165,7 +169,7 @@ public sealed partial class GraphEditorViewModel : IDisposable
     public ReadOnlyReactivePropertySlim<Thickness> EndingBarMargin { get; }
 
     // The rate and the format that the ruler writes times in, which are the player's.
-    public Rational FrameRate => SceneTimeRangeService.GetFrameRate(Scene);
+    public ReadOnlyReactivePropertySlim<Rational> FrameRate { get; }
 
     public ReadOnlyReactivePropertySlim<TimeDisplayFormat> TimeDisplayFormat { get; }
 
@@ -375,11 +379,11 @@ public sealed partial class GraphEditorViewModel : IDisposable
         Element = null;
     }
 
-    private Task CopyAllKeyFramesAsync() => KeyFrameClipboardCommands.CopyAnimationAsync(EditorContext.GetRequiredService<INotificationService>(), Animation, _logger);
+    private Task CopyAllKeyFramesAsync() => KeyFrameClipboardCommands.CopyAnimationAsync(EditorContext, Animation, _logger);
 
-    internal async Task PasteKeyFrameAtPositionAsync(MediaTime pointerPosition, IClipboard? clipboard = null)
+    internal async Task PasteKeyFrameAtPositionAsync(MediaTime pointerPosition, IClipboardGateway? clipboard = null)
     {
-        clipboard ??= ClipboardHelper.GetClipboard();
+        clipboard ??= AvaloniaClipboardGateway.Resolve(EditorContext);
         if (!IsClipboardContextActive || clipboard == null || SelectedView.Value == null) return;
         var canPaste = CapturePasteContext();
 

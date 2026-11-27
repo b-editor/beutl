@@ -27,73 +27,13 @@ public partial class Player : RangeBase
     // Below this width the footer's sides do not fit on a row of their own.
     private const double TinyWidth = 216;
 
-    public static readonly StyledProperty<string?> DurationProperty = AvaloniaProperty.Register<Player, string?>(nameof(Duration));
-    public static readonly StyledProperty<object?> ContentProperty = AvaloniaProperty.Register<Player, object?>(nameof(Content));
-    public static readonly StyledProperty<object?> InnerLeftContentProperty = AvaloniaProperty.Register<Player, object?>(nameof(InnerLeftContent));
-    public static readonly StyledProperty<object?> InnerRightContentProperty = AvaloniaProperty.Register<Player, object?>(nameof(InnerRightContent));
-    public static readonly StyledProperty<object?> FooterRightContentProperty = AvaloniaProperty.Register<Player, object?>(nameof(FooterRightContent));
-    public static readonly StyledProperty<string?> PlaybackRateTextProperty = AvaloniaProperty.Register<Player, string?>(nameof(PlaybackRateText));
     public static readonly DirectProperty<Player, string> CurrentTimeProperty =
         AvaloniaProperty.RegisterDirect<Player, string>(
             nameof(CurrentTime),
             owner => owner.CurrentTime,
             (owner, obj) => owner.CurrentTime = obj);
-    public static readonly DirectProperty<Player, bool> IsPlayingProperty =
-        AvaloniaProperty.RegisterDirect<Player, bool>(
-            nameof(IsPlaying),
-            owner => owner.IsPlaying,
-            (owner, obj) => owner.IsPlaying = obj);
-
-    public static readonly DirectProperty<Player, bool> IsLoopEnabledProperty =
-        AvaloniaProperty.RegisterDirect<Player, bool>(
-            nameof(IsLoopEnabled),
-            owner => owner.IsLoopEnabled,
-            (owner, obj) => owner.IsLoopEnabled = obj,
-            defaultBindingMode: BindingMode.TwoWay);
-
-    public static readonly DirectProperty<Player, ICommand?> PlayButtonCommandProperty =
-        AvaloniaProperty.RegisterDirect<Player, ICommand?>(
-            nameof(PlayButtonCommand),
-            owner => owner.PlayButtonCommand,
-            (owner, obj) => owner.PlayButtonCommand = obj);
-
-    public static readonly DirectProperty<Player, ICommand?> NextButtonCommandProperty =
-        AvaloniaProperty.RegisterDirect<Player, ICommand?>(
-            nameof(NextButtonCommand),
-            owner => owner.NextButtonCommand,
-            (owner, obj) => owner.NextButtonCommand = obj);
-
-    public static readonly DirectProperty<Player, ICommand?> PreviousButtonCommandProperty =
-        AvaloniaProperty.RegisterDirect<Player, ICommand?>(
-            nameof(PreviousButtonCommand),
-            owner => owner.PreviousButtonCommand,
-            (owner, obj) => owner.PreviousButtonCommand = obj);
-
-    public static readonly DirectProperty<Player, ICommand?> EndButtonCommandProperty =
-        AvaloniaProperty.RegisterDirect<Player, ICommand?>(
-            nameof(EndButtonCommand),
-            owner => owner.EndButtonCommand,
-            (owner, obj) => owner.EndButtonCommand = obj);
-
-    public static readonly DirectProperty<Player, ICommand?> StartButtonCommandProperty =
-        AvaloniaProperty.RegisterDirect<Player, ICommand?>(
-            nameof(StartButtonCommand),
-            owner => owner.StartButtonCommand,
-            (owner, obj) => owner.StartButtonCommand = obj);
-
-    public static readonly StyledProperty<IReadOnlyList<PlayerMarkerEntry>?> MarkersProperty =
-        AvaloniaProperty.Register<Player, IReadOnlyList<PlayerMarkerEntry>?>(nameof(Markers));
-
-    public static readonly StyledProperty<Rational> FrameRateProperty =
-        PlayerSeekBar.FrameRateProperty.AddOwner<Player>();
-
-    public static readonly StyledProperty<TimeDisplayFormat> TimeDisplayFormatProperty =
-        PlayerSeekBar.TimeDisplayFormatProperty.AddOwner<Player>();
-
     private string _currentTime = string.Empty;
     private string _editStartText = string.Empty;
-    private bool _isPlaying;
-    private bool _isLoopEnabled;
     private ToggleButton? _playButton;
     private RepeatButton? _nextButton;
     private RepeatButton? _previousButton;
@@ -107,51 +47,27 @@ public partial class Player : RangeBase
     private Popup? _markerPopup;
     private ListBox? _markerListBox;
     private IDisposable? _markersChangeSubscription;
-    private ICommand? _playButtonCommand;
-    private ICommand? _nextButtonCommand;
-    private ICommand? _previousButtonCommand;
-    private ICommand? _endButtonCommand;
-    private ICommand? _startButtonCommand;
-
     public event EventHandler<TimecodeSubmittedEventArgs>? CurrentTimeSubmitted;
 
-    public string? Duration
-    {
-        get => GetValue(DurationProperty);
-        set => SetValue(DurationProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial string? Duration { get; set; }
 
-    public object? Content
-    {
-        get => GetValue(ContentProperty);
-        set => SetValue(ContentProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial object? Content { get; set; }
 
-    public object? InnerLeftContent
-    {
-        get => GetValue(InnerLeftContentProperty);
-        set => SetValue(InnerLeftContentProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial object? InnerLeftContent { get; set; }
 
-    public object? InnerRightContent
-    {
-        get => GetValue(InnerRightContentProperty);
-        set => SetValue(InnerRightContentProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial object? InnerRightContent { get; set; }
 
     /// <summary>Gets or sets the controls at the trailing end of the footer, beside the transport buttons.</summary>
-    public object? FooterRightContent
-    {
-        get => GetValue(FooterRightContentProperty);
-        set => SetValue(FooterRightContentProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial object? FooterRightContent { get; set; }
 
     /// <summary>Gets or sets the shuttle's rate, such as 2×, shown beside the time. Null while there is none to show.</summary>
-    public string? PlaybackRateText
-    {
-        get => GetValue(PlaybackRateTextProperty);
-        set => SetValue(PlaybackRateTextProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial string? PlaybackRateText { get; set; }
 
     public string CurrentTime
     {
@@ -159,71 +75,41 @@ public partial class Player : RangeBase
         set => SetAndRaise(CurrentTimeProperty, ref _currentTime, value);
     }
 
-    public bool IsPlaying
-    {
-        get => _isPlaying;
-        set => SetAndRaise(IsPlayingProperty, ref _isPlaying, value);
-    }
+    [GeneratedDirectProperty]
+    public partial bool IsPlaying { get; set; }
 
-    public bool IsLoopEnabled
-    {
-        get => _isLoopEnabled;
-        set => SetAndRaise(IsLoopEnabledProperty, ref _isLoopEnabled, value);
-    }
+    [GeneratedDirectProperty(DefaultBindingMode = BindingMode.TwoWay)]
+    public partial bool IsLoopEnabled { get; set; }
 
-    public ICommand? PlayButtonCommand
-    {
-        get => _playButtonCommand;
-        set => SetAndRaise(PlayButtonCommandProperty, ref _playButtonCommand, value);
-    }
+    [GeneratedDirectProperty]
+    public partial ICommand? PlayButtonCommand { get; set; }
 
-    public ICommand? NextButtonCommand
-    {
-        get => _nextButtonCommand;
-        set => SetAndRaise(NextButtonCommandProperty, ref _nextButtonCommand, value);
-    }
+    [GeneratedDirectProperty]
+    public partial ICommand? NextButtonCommand { get; set; }
 
-    public ICommand? PreviousButtonCommand
-    {
-        get => _previousButtonCommand;
-        set => SetAndRaise(PreviousButtonCommandProperty, ref _previousButtonCommand, value);
-    }
+    [GeneratedDirectProperty]
+    public partial ICommand? PreviousButtonCommand { get; set; }
 
-    public ICommand? EndButtonCommand
-    {
-        get => _endButtonCommand;
-        set => SetAndRaise(EndButtonCommandProperty, ref _endButtonCommand, value);
-    }
+    [GeneratedDirectProperty]
+    public partial ICommand? EndButtonCommand { get; set; }
 
-    public ICommand? StartButtonCommand
-    {
-        get => _startButtonCommand;
-        set => SetAndRaise(StartButtonCommandProperty, ref _startButtonCommand, value);
-    }
+    [GeneratedDirectProperty]
+    public partial ICommand? StartButtonCommand { get; set; }
 
     /// <summary>Gets or sets the markers, which the seek bar marks and the time editor offers after an @.</summary>
-    public IReadOnlyList<PlayerMarkerEntry>? Markers
-    {
-        get => GetValue(MarkersProperty);
-        set => SetValue(MarkersProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial IReadOnlyList<PlayerMarkerEntry>? Markers { get; set; }
 
     /// <summary>Gets or sets the rate that the seek bar's tip counts frames at. It must be positive.</summary>
-    public Rational FrameRate
-    {
-        get => GetValue(FrameRateProperty);
-        set => SetValue(FrameRateProperty, value);
-    }
+    [GeneratedStyledProperty(AddOwnerFrom = typeof(PlayerSeekBar))]
+    public partial Rational FrameRate { get; set; }
 
     /// <summary>
     /// Gets or sets how the seek bar's tip writes times. <see cref="CurrentTime"/> and <see cref="Duration"/> come
     /// written, and should be written the same way.
     /// </summary>
-    public TimeDisplayFormat TimeDisplayFormat
-    {
-        get => GetValue(TimeDisplayFormatProperty);
-        set => SetValue(TimeDisplayFormatProperty, value);
-    }
+    [GeneratedStyledProperty(AddOwnerFrom = typeof(PlayerSeekBar))]
+    public partial TimeDisplayFormat TimeDisplayFormat { get; set; }
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {

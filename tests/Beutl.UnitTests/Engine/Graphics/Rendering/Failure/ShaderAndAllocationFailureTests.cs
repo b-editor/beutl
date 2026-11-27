@@ -49,11 +49,11 @@ public sealed class ShaderAndAllocationFailureTests
             Assert.That(renderer.TargetPoolStatistics.OwnedTargets, Is.GreaterThan(0));
             Assert.That(renderer.ProgramCacheStatistics.RetainedPrograms, Is.Zero,
                 "A failed backend compile must not install a program-cache entry.");
-            Assert.That(factory.Targets, Has.All.Matches<FailureTestRenderTarget>(target => !target.IsDisposed));
+            Assert.That(factory.Targets, Has.All.Matches<FailureTestRenderTarget>(target => target is { IsDisposed: false }));
         });
 
         renderer.Dispose();
-        Assert.That(factory.Targets, Has.All.Matches<FailureTestRenderTarget>(target => target.DisposeCalls == 1));
+        Assert.That(factory.Targets, Has.All.Matches<FailureTestRenderTarget>(target => target is { DisposeCalls: 1 }));
     }
 
     [TestCase(RuntimeBindingFailure.MissingUniform)]
@@ -82,7 +82,7 @@ public sealed class ShaderAndAllocationFailureTests
         Assert.That(verifyRetainedWriter, Throws.TypeOf<InvalidOperationException>());
 
         renderer.Dispose();
-        Assert.That(factory.Targets, Has.All.Matches<FailureTestRenderTarget>(target => target.DisposeCalls == 1));
+        Assert.That(factory.Targets, Has.All.Matches<FailureTestRenderTarget>(target => target is { DisposeCalls: 1 }));
     }
 
     [Test]
@@ -104,11 +104,11 @@ public sealed class ShaderAndAllocationFailureTests
                 "The root and callback output were both acquired before the injected callback fault.");
             Assert.That(renderer.TargetPoolStatistics.LeasedTargets, Is.Zero);
             Assert.That(node.Cache.IsCached, Is.False);
-            Assert.That(factory.Targets, Has.All.Matches<FailureTestRenderTarget>(target => !target.IsDisposed));
+            Assert.That(factory.Targets, Has.All.Matches<FailureTestRenderTarget>(target => target is { IsDisposed: false }));
         });
 
         renderer.Dispose();
-        Assert.That(factory.Targets, Has.All.Matches<FailureTestRenderTarget>(target => target.DisposeCalls == 1));
+        Assert.That(factory.Targets, Has.All.Matches<FailureTestRenderTarget>(target => target is { DisposeCalls: 1 }));
     }
 
     [Test]
@@ -136,7 +136,7 @@ public sealed class ShaderAndAllocationFailureTests
         });
 
         renderer.Dispose();
-        Assert.That(factory.Targets, Has.All.Matches<FailureTestRenderTarget>(target => target.DisposeCalls == 1));
+        Assert.That(factory.Targets, Has.All.Matches<FailureTestRenderTarget>(target => target is { DisposeCalls: 1 }));
     }
 
     [Test]
@@ -255,7 +255,7 @@ public sealed class ShaderAndAllocationFailureTests
             Assert.That(renderer.TargetPoolStatistics.LeasedTargets, Is.Zero);
             Assert.That(renderer.ProgramCacheStatistics.RetainedPrograms, Is.EqualTo(1));
             Assert.That(renderer.StructuralPlanCacheStatistics.RetainedPlans, Is.EqualTo(1));
-            Assert.That(factory.Targets, Has.All.Matches<FailureTestRenderTarget>(target => target.DisposeCalls == 1));
+            Assert.That(factory.Targets, Has.All.Matches<FailureTestRenderTarget>(target => target is { DisposeCalls: 1 }));
             Assert.DoesNotThrow(renderer.Dispose);
         });
     }

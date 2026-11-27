@@ -42,7 +42,8 @@ public partial class MainViewModel : IAiWorkspaceHost
             CreateGenerativePromptLibrary(),
             _beutlClients.GetResource<IAiImageEditingService>(),
             _beutlClients.GetResource<IAiVideoService>(),
-            _beutlClients.GetResource<IAiJobKindRegistry>(), AppServices.GetRequiredService<DecoderRegistry>());
+            _beutlClients.GetResource<IAiJobKindRegistry>(), AppServices.GetRequiredService<DecoderRegistry>(),
+            _aiRequestRecoveryContext, _beutlClients.GetResource<IAiJobClient>());
 
     internal Beutl.NodeGraph.Generative.IGenerativePromptLibrary CreateGenerativePromptLibrary()
         => new AiGenerativePromptLibrary(PromptLibraryProvider.For(_aiRequestRecoveryContext));
@@ -64,11 +65,15 @@ public partial class MainViewModel : IAiWorkspaceHost
     internal AiSubtitleDialogViewModel CreateAiSubtitleToolViewModel(EditViewModel? editViewModel)
     {
         _captionCatalog.RefreshObjectTemplates(CaptionCatalog.FindObjectTemplates(_objectTemplateService));
-        return new AiSubtitleDialogViewModel(AppServices.GetRequiredService<INotificationService>(),
-            // The editor's fonts, so caption previews draw the project's bundled fonts.
+        // The editor's fonts, so caption previews draw the project's bundled fonts.
+        var renderServices = new SceneRenderServices(
             editViewModel?.GetService(typeof(Beutl.Media.FontManager)) as Beutl.Media.FontManager
                 ?? AppServices.GetRequiredService<Beutl.Media.FontManager>(),
             AppServices.GetRequiredService<DecoderRegistry>(),
+            Configuration.EditorConfig,
+            Configuration.ProxyStoreConfig);
+        return new AiSubtitleDialogViewModel(AppServices.GetRequiredService<INotificationService>(),
+            renderServices,
             _beutlClients.GetResource<IAiEntitlementService>(),
             _beutlClients.GetResource<IAiOperationAvailabilityService>(),
             _beutlClients.GetResource<IAiModelCatalogService>(),
@@ -78,7 +83,7 @@ public partial class MainViewModel : IAiWorkspaceHost
             _captionCatalog,
             CaptionDraftStoreProvider.Current,
             CreateCaptionDraftScopes(editViewModel),
-            editViewModel, Configuration.EditorConfig, Configuration.ProxyStoreConfig);
+            editViewModel, _aiRequestRecoveryContext);
     }
 
     private IObservable<CaptionDraftScope?> CreateCaptionDraftScopes(EditViewModel? editViewModel)
@@ -109,28 +114,7 @@ public partial class MainViewModel : IAiWorkspaceHost
     internal async void OpenAiJobCenter()
         => await OpenAiWorkspaceAsync(AiWorkspaceSection.Jobs);
 
-    internal async void OpenAiImageGeneration()
-        => await OpenAiWorkspaceAsync(AiWorkspaceSection.ImageGeneration);
-
-    internal async void OpenAiImageEdit()
-        => await OpenAiWorkspaceAsync(AiWorkspaceSection.ImageEdit);
-
-    internal async void OpenAiSubtitle(AiCaptionHistoryResult? historyResult = null)
-    {
-        if (await OpenAiWorkspaceAsync(AiWorkspaceSection.Subtitles) is AiSubtitleDialogViewModel viewModel
-            && historyResult is not null)
-        {
-            viewModel.LoadHistoryResult(historyResult);
-        }
-    }
-
-    internal async void OpenAiVideoEditing()
-        => await OpenAiWorkspaceAsync(AiWorkspaceSection.VideoEditing);
-
-    internal async void OpenAiVideoGeneration()
-        => await OpenAiWorkspaceAsync(AiWorkspaceSection.VideoGeneration);
-
-    private async Task<object?> OpenAiWorkspaceAsync(AiWorkspaceSection section, EditViewModel? target = null)
+    internal async Task<object?> OpenAiWorkspaceAsync(AiWorkspaceSection section, EditViewModel? target = null)
     {
         EditViewModel? editorContext = target ?? _editorService.SelectedTabItem.Value?.Context.Value as EditViewModel;
         if (editorContext is null
@@ -139,9 +123,7 @@ public partial class MainViewModel : IAiWorkspaceHost
             return null;
         }
 
-        // A tab already on that page is the one the person means. Otherwise an open
-        // AI tab is turned to it, because the menu is a request to see something,
-        // not a request for another tab; the tab strip's own button adds those.
+        // Opening a page activates a tab already showing it or switches an existing AI tab to it.
         AiWorkspaceViewModel? workspace =
             editorContext.FindToolTab<AiWorkspaceViewModel>(tab => tab.SelectedSection.Value?.Id == section)
             ?? editorContext.FindToolTab<AiWorkspaceViewModel>();

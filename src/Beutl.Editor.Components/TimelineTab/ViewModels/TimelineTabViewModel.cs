@@ -4,6 +4,7 @@ using Beutl.Collections.Pooled;
 using Beutl.Configuration;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.PropertyEditors.ViewModels;
+using Beutl.Editor.Components.TimelineTab.Models;
 using Beutl.Editor.Models;
 using Beutl.Editor.Services;
 using Beutl.Logging;
@@ -22,12 +23,13 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
 {
     private readonly ILogger _logger = Log.CreateLogger<TimelineTabViewModel>();
     private readonly CompositeDisposable _disposables = [];
-    private readonly Subject<LayerHeaderViewModel> _layerHeightChanged = new();
+    private readonly Subject<LayerHeaderViewModel?> _layerHeightChanged = new();
     private readonly Subject<System.Reactive.Unit> _canExecuteChangedSubject = new();
     private readonly Dictionary<int, TrackedLayerTopObservable> _trackerCache = [];
     private readonly Dictionary<PropertyPair, IDisposable> _inlinePairs = [];
     private readonly IEditorSelection _selection;
     private readonly IEditorClock _editorClock;
+    private MediaTime? _clickedFrame;
     private bool _isDisposed;
     private bool _updatingToolMode;
     private bool _addingLayerHeaders;
@@ -55,10 +57,19 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
 
+        ViewportWidth = new ReactivePropertySlim<double>().DisposeWith(_disposables);
         (StartingBarMargin, EndingBarMargin, PanelWidth) = TimelineHelper.CreateSceneBarMargins(
-            Scene, _editorClock, Scale, _disposables);
+            Scene, _editorClock, Scale, ViewportWidth, _disposables);
 
-        TimeDisplayFormat = TimelineHelper.ObserveTimeDisplayFormat(editorContext.GetRequiredService<GlobalConfiguration>().EditorConfig, _disposables);
+        EditorConfig editorConfig = editorContext.GetRequiredService<GlobalConfiguration>().EditorConfig;
+        FrameRate = TimelineHelper.ObserveFrameRate(Scene, _disposables);
+        TimeDisplayFormat = TimelineHelper.ObserveTimeDisplayFormat(editorConfig, _disposables);
+        LayerRowHeight = editorConfig.TimelineLayerSize.GetObservable()
+            .Select(size => Enum.IsDefined(size) ? (double)size : FrameNumberHelper.LayerHeight)
+            .DistinctUntilChanged()
+            .ToReadOnlyReactivePropertySlim()
+            .AddTo(_disposables);
+        LayerRowHeight.Skip(1).Subscribe(ApplyLayerRowHeight).AddTo(_disposables);
 
         AddElement.WithSubscribe(AddElementCore).AddTo(_disposables);
 
@@ -90,6 +101,7 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
         }
 
         TrackSceneElements();
+        TrackFlowInputWarnings();
 
         // SelectedElements mirrors the editor's selection, which outlives this tab.
         _selection = editorContext.GetRequiredService<IEditorSelection>();
@@ -105,6 +117,15 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
                 })
             .AddTo(_disposables);
 
+        FitAll = new ReactiveCommandSlim().WithSubscribe(FitScene).DisposeWith(_disposables);
+        FrameSelection.Skip(1).Subscribe(_ => RaiseCanExecuteChanged()).DisposeWith(_disposables);
+
+        // Like the graph editor's, it waits for a selection. A selection change raises CanExecuteChanged.
+        FitSelection = CanExecuteChanged.Select(_ => SelectedElements.Count > 0)
+            .ToReactiveCommandSlim(SelectedElements.Count > 0)
+            .WithSubscribe(FitSelectedElements)
+            .DisposeWith(_disposables);
+
         Options.Select(x => x.MaxLayerCount)
             .DistinctUntilChanged()
             .Subscribe(TryApplyLayerCount)
@@ -119,8 +140,6 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
         CloseAllGaps = new ReactiveCommandSlim().WithSubscribe(CloseAllSceneGaps).DisposeWith(_disposables);
         GoToNextGap = new ReactiveCommandSlim().WithSubscribe(() => GoToGap(forward: true)).DisposeWith(_disposables);
         GoToPreviousGap = new ReactiveCommandSlim().WithSubscribe(() => GoToGap(forward: false)).DisposeWith(_disposables);
-        EditorConfig editorConfig = EditorContext.GetRequiredService<GlobalConfiguration>().EditorConfig;
-
         AutoAdjustSceneDuration = editorConfig.AutoAdjustSceneDuration.GetObservable()
             .ToReactiveProperty()
             .DisposeWith(_disposables);
@@ -292,6 +311,8 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
 
     public IObservable<float> Scale { get; }
 
+    public ReadOnlyReactivePropertySlim<double> LayerRowHeight { get; }
+
     public IReactiveProperty<TimelineOptions> Options { get; }
 
     public IReadOnlyReactiveProperty<MediaTime> CurrentTime { get; }
@@ -304,6 +325,8 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
 
     public ReadOnlyReactivePropertySlim<double> PanelWidth { get; }
 
+    internal ReactivePropertySlim<double> ViewportWidth { get; }
+
     public ReadOnlyReactivePropertySlim<Thickness> SeekBarMargin { get; }
 
     public ReadOnlyReactivePropertySlim<Thickness> StartingBarMargin { get; }
@@ -311,7 +334,7 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
     public ReadOnlyReactivePropertySlim<Thickness> EndingBarMargin { get; }
 
     // The rate and the format that the ruler writes times in, which are the player's.
-    public Rational FrameRate => SceneTimeRangeService.GetFrameRate(Scene);
+    public ReadOnlyReactivePropertySlim<Rational> FrameRate { get; }
 
     public ReadOnlyReactivePropertySlim<TimeDisplayFormat> TimeDisplayFormat { get; }
 
@@ -332,8 +355,19 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
 
     public ReactiveCommand<(TimeRange Range, int ZIndex)> ScrollTo { get; } = new();
 
+    // A range to zoom to until it fills the view's width, and a layer to bring into view when there is one. It waits
+    // until a view with a size takes it, which clears it.
+    public ReactivePropertySlim<(TimeRange Range, int? ZIndex)?> PendingFit { get; } = new();
+
+    public ReactiveCommandSlim FitAll { get; }
+
+    public ReactiveCommandSlim FitSelection { get; }
+
     // Asks the view to flash an element so an edit made outside the timeline is easy to spot.
     public ReactiveCommand<Element> HighlightElement { get; } = new();
+
+    // Other tools may take this dock before a location's timeline has been laid out.
+    internal ReactivePropertySlim<(TimeRange Range, int? ZIndex, Element? Element)?> PendingLocate { get; } = new();
 
     public ReactiveCommandSlim SetStartTimeToPointerPosition { get; } = new();
 
@@ -369,11 +403,17 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
 
     public ReactiveProperty<bool> IsRippleEnabled { get; }
 
+    internal ReactivePropertySlim<FrameSelectionRange?> FrameSelection { get; } = new();
+
     public ReactivePropertySlim<double?> SnapBarPosition { get; } = new();
 
     public ReactivePropertySlim<CacheBlock?> HoveredCacheBlock { get; } = new();
 
-    public MediaTime ClickedFrame { get; set; }
+    public MediaTime ClickedFrame
+    {
+        get => _clickedFrame.GetValueOrDefault();
+        set => _clickedFrame = value;
+    }
 
     public Point ClickedPosition { get; set; }
 
@@ -391,7 +431,8 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
 
     public IReactiveProperty<bool> IsSelected { get; } = new ReactivePropertySlim<bool>();
 
-    public IObservable<LayerHeaderViewModel> LayerHeightChanged => _layerHeightChanged;
+    // A null header means all rows changed height.
+    public IObservable<LayerHeaderViewModel?> LayerHeightChanged => _layerHeightChanged;
 
     public IObservable<System.Reactive.Unit> CanExecuteChanged => _canExecuteChangedSubject;
 
@@ -415,6 +456,7 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
         // 以降の OnNext を抑止してから内部 Subject を Dispose する。
         _isDisposed = true;
         _disposables.Dispose();
+        _flowInputWarnings.Clear();
         ElementViewModel[] elements = RealizedElementsSnapshot();
         foreach (ElementViewModel item in elements)
         {
@@ -446,6 +488,8 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
 
         _layerHeightChanged.Dispose();
         _canExecuteChangedSubject.Dispose();
+        PendingLocate.Dispose();
+        FrameSelection.Dispose();
 
         Inlines.Clear();
         LayerHeaders.Clear();
@@ -457,6 +501,10 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
 
         _logger.LogInformation("TimelineViewModel disposed successfully.");
     }
+
+    internal bool CanDuplicateSelectedElements()
+        => SelectedElements.Count > 0
+            && _selection.GetTargetElements(Scene).Any(element => ElementDuplicateService.IsEligibleSource(Scene, element));
 
     private void DuplicateSelectedElements()
     {
@@ -525,8 +573,11 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
     {
         try
         {
+            (MediaTime start, int layer) = _clickedFrame is { } frame
+                ? (frame, CalculateClickedLayer())
+                : PlayheadPlacement.Find(EditorContext, Scene);
             ElementPasteOutcome outcome = await EditorContext.GetRequiredService<IElementClipboardService>()
-                .PasteAsync(Scene, ClickedFrame, CalculateClickedLayer());
+                .PasteAsync(Scene, start, layer);
 
             if (outcome.Pasted && outcome.ScrollTo.Duration > MediaTime.Zero)
             {
@@ -566,7 +617,7 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
             }
         }
 
-        if (Inlines.Any(x => x.Element.Model == element && x.Property == property))
+        if (FindInline(element, property) != null)
         {
             _logger.LogWarning("Inline animation already attached for element {ElementId}.", element.Id.Value);
             return;
@@ -580,6 +631,45 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
 
         Inlines.Add(new InlineAnimationLayerViewModel(property, this, viewModel));
         _logger.LogInformation("Inline animation attached successfully for element {ElementId}.", element.Id.Value);
+    }
+
+    // The layer that shows property on element's track. Each caller makes its own adapter of a property, so a layer
+    // of the same engine property counts as well, and a property of two that stand as one is in their one layer, as
+    // AttachInline shows it.
+    internal InlineAnimationLayerViewModel? FindInline(Element element, IAnimatablePropertyAdapter property)
+    {
+        if (PropertyPair.Find(property) is { IsSeparated.Value: false } pair)
+            property = pair;
+
+        IProperty? engineProperty = property.GetEngineProperty();
+        return Inlines.FirstOrDefault(x => x.Element.Model == element
+            && (ReferenceEquals(x.Property, property)
+                || (engineProperty != null && ReferenceEquals(x.Property.GetEngineProperty(), engineProperty))));
+    }
+
+    // Snaps a drag to element edges but exclude's and moving's, the scene's targets and extra, else to the BPM grid.
+    internal SnapResult SnapTime(MediaTime time, float scale, bool disabled, Element? exclude,
+        IEnumerable<ElementViewModel>? moving = null, IEnumerable<MediaTime>? extra = null)
+    {
+        if (disabled || !IsSnapEnabled.Value)
+        {
+            return new SnapResult(time, false);
+        }
+
+        HashSet<Element>? leaving = moving?.Select(item => item.Model).ToHashSet();
+        IEnumerable<Element> others = leaving is null
+            ? Scene.Children
+            : Scene.Children.Where(element => !leaving.Contains(element));
+        IEnumerable<MediaTime> candidates = SnapHelper
+            .CollectElementCandidates(others, exclude)
+            .Concat(SnapHelper.CollectSceneCandidates(Scene, CurrentTime.Value));
+        if (extra != null)
+        {
+            candidates = candidates.Concat(extra);
+        }
+
+        return SnapHelper.Snap(
+            time, candidates, Options.Value.BpmGrid, SceneTimeRangeService.GetFrameRate(Scene), scale);
     }
 
     private void ReplaceInlines(PropertyPair pair, Element element)
@@ -624,8 +714,11 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
 
     public void ClearSelected()
     {
-        _selection.SelectedElements.Clear();
+        ClearSelectedElements();
+        FrameSelection.Value = null;
     }
+
+    internal void ClearSelectedElements() => _selection.SelectedElements.Clear();
 
     internal void SelectAll() => _selection.SelectAll(Scene);
 
@@ -635,6 +728,35 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
     internal void ZoomAroundPlayhead(float factor) => SetScaleAroundPlayhead(Options.Value.Scale * factor);
 
     internal void ResetZoom() => SetScaleAroundPlayhead(1);
+
+    private void FitScene() => RequestFit(new TimeRange(Scene.Start.Value, Scene.Duration.Value), null);
+
+    // From the first selected element's start to the last one's end, and the topmost one's layer.
+    private void FitSelectedElements()
+    {
+        if (SelectedElements.Count == 0) return;
+
+        MediaTime start = MediaTime.MaxValue;
+        MediaTime end = MediaTime.MinValue;
+        int top = int.MaxValue;
+        foreach (ElementViewModel item in SelectedElements)
+        {
+            TimeRange range = item.Model.Range;
+            if (range.Start < start) start = range.Start;
+            if (range.End > end) end = range.End;
+            top = Math.Min(top, item.Model.ZIndex.Value);
+        }
+
+        RequestFit(TimeRange.FromRange(start, end), top);
+    }
+
+    // A shown view takes the fit at once. A fit still pending means another tab hides the timeline, as when the
+    // palette runs one, so the timeline comes to the front, where its new view takes the fit.
+    private void RequestFit(TimeRange range, int? zindex)
+    {
+        PendingFit.Value = (range, zindex);
+        if (PendingFit.Value is not null) EditorContext.OpenToolTab(this);
+    }
 
     private void SetScaleAroundPlayhead(float scale)
     {

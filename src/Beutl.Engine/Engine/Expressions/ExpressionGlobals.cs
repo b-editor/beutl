@@ -13,8 +13,9 @@ public class ExpressionGlobals
         _context = context ?? throw new ArgumentNullException(nameof(context));
         EngineObject? obj = (_context.CurrentProperty.GetOwnerObject() as IHierarchical)
             ?.FindHierarchicalParent<EngineObject>(includeSelf: true);
-        Start = obj?.TimeRange.Value.Start.ToSeconds() ?? 0;
-        Duration = obj?.TimeRange.Value.Duration.ToSeconds() ?? 0;
+        var preview = context.GetPreviewTimeRange(obj);
+        Start = (preview?.Start ?? obj?.TimeRange.Value.Start ?? MediaTime.Zero).ToSeconds();
+        Duration = (preview?.Duration ?? obj?.TimeRange.Value.Duration ?? MediaTime.Zero).ToSeconds();
         Time = _context.Time.ToSeconds() - Start;
     }
 
@@ -131,4 +132,40 @@ public class ExpressionGlobals
     public double FrameRandom() => Random((int)(Time * 1000));
 
     public double FrameRandom(double min, double max) => Random((int)(Time * 1000), min, max);
+
+    /// <summary>Returns a smooth, deterministic offset sampled at the owner's local time.</summary>
+    /// <param name="frequency">The number of wiggles per second.</param>
+    /// <param name="amplitude">The scale of the offset. Its absolute value bounds the result.</param>
+    /// <param name="octaves">The number of noise layers, up to 16.</param>
+    /// <param name="seed">An optional seed. The property's identity supplies the default.</param>
+    public double Wiggle(double frequency, double amplitude, int octaves = 1, int? seed = null)
+    {
+        if (!double.IsFinite(frequency) || !double.IsFinite(amplitude))
+            return double.NaN;
+        if (amplitude == 0 || octaves <= 0)
+            return 0;
+
+        return WiggleNoise.Sample(Time * frequency, octaves, GetWiggleSeed(seed)) * amplitude;
+    }
+
+    private protected ulong GetWiggleSeed(int? seed)
+    {
+        if (seed is int explicitSeed)
+            return unchecked((ulong)explicitSeed);
+
+        IProperty property = Context.CurrentProperty;
+        Guid ownerId = property.GetOwnerObject()?.Id.Value ?? Guid.Empty;
+        string name;
+        try
+        {
+            name = property.Name;
+        }
+        catch (InvalidOperationException)
+        {
+            // Properties created outside an object may not have been assigned a name yet.
+            name = string.Empty;
+        }
+
+        return WiggleNoise.CreateSeed(ownerId, name);
+    }
 }

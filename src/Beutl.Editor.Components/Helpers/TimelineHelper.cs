@@ -4,6 +4,7 @@ using Avalonia.Input;
 using Beutl.Configuration;
 using Beutl.Editor.Components.Views;
 using Beutl.Editor.Services;
+using Beutl.Media;
 using Beutl.ProjectSystem;
 using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
@@ -30,11 +31,19 @@ public static class TimelineHelper
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(disposables);
 
+    internal static ReadOnlyReactivePropertySlim<Rational> ObserveFrameRate(Scene scene, CompositeDisposable disposables)
+        => scene.FrameRate.GetObservable()
+            .Select(_ => SceneTimeRangeService.GetFrameRate(scene))
+            .DistinctUntilChanged()
+            .ToReadOnlyReactivePropertySlim(SceneTimeRangeService.GetFrameRate(scene))
+            .DisposeWith(disposables);
+
     // The timeline and the graph editor place the scene's start and end bars and size the panel the same way.
     internal static (ReadOnlyReactivePropertySlim<Thickness> StartingBarMargin,
         ReadOnlyReactivePropertySlim<Thickness> EndingBarMargin,
         ReadOnlyReactivePropertySlim<double> PanelWidth) CreateSceneBarMargins(
-            Scene scene, IEditorClock clock, IObservable<float> scale, CompositeDisposable disposables)
+            Scene scene, IEditorClock clock, IObservable<float> scale, IObservable<double> viewportWidth,
+            CompositeDisposable disposables)
     {
         ReadOnlyReactivePropertySlim<Thickness> startingBarMargin = scene.Start.GetObservable()
             .CombineLatest(scale)
@@ -59,8 +68,9 @@ public static class TimelineHelper
                 Math.Max(
                     Math.Max(i.First.Flicks, i.Second.Flicks + i.Third.Flicks),
                     i.Fourth.Flicks)))
-            .CombineLatest(scale)
-            .Select(i => i.First.TimeToPixel(i.Second) + 500)
+            .CombineLatest(scale, viewportWidth)
+            // Leave enough room to scroll the end of the content near the left edge.
+            .Select(i => i.First.TimeToPixel(i.Second) + Math.Max(500, i.Third))
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(disposables);
 
@@ -94,6 +104,58 @@ public static class TimelineHelper
     {
         double deltaLeft = pointerX - offsetX;
         return (float)((pointerX / oldScale * newScale) - deltaLeft);
+    }
+
+    // The scale and offset at which the range fills a view of the given width, less the margin at each side. The view
+    // cannot scroll left of time zero, so a range that would start within the margin of zero starts at the left edge
+    // and keeps the margin at its end only. A range too short to fill the view at the largest scale is centered, and
+    // one too long for the smallest starts at the margin.
+    internal static (float Scale, double OffsetX) FitRange(TimeRange range, double viewportWidth, double margin)
+    {
+        // The range's ends at scale 1.
+        double start = range.Start.TimeToPixel(1);
+        double end = range.End.TimeToPixel(1);
+        double scale = end > start ? Math.Max(1, viewportWidth - 2 * margin) / (end - start) : TimelineOptions.MaxScale;
+        double offset = start * scale - margin;
+        if (offset < 0 && end > start)
+        {
+            scale = Math.Max(1, viewportWidth - margin) / end;
+            offset = 0;
+        }
+
+        if (scale >= TimelineOptions.MaxScale)
+        {
+            return (TimelineOptions.MaxScale,
+                Math.Max(0, (start + end) / 2 * TimelineOptions.MaxScale - viewportWidth / 2));
+        }
+
+        if (scale <= TimelineOptions.MinScale)
+        {
+            return (TimelineOptions.MinScale, Math.Max(0, start * TimelineOptions.MinScale - margin));
+        }
+
+        return ((float)scale, offset);
+    }
+
+    // Moves a view from one scale and offset to another about the point that both views show at the same x, so that
+    // every step zooms about that point, as the wheel zooms about the pointer. Between two views at one scale, which
+    // have no such point, it scrolls.
+    internal sealed class ZoomMotion(float fromScale, Vector fromOffset, float toScale, Vector toOffset)
+    {
+        public (float Scale, Vector Offset) At(double progress)
+        {
+            double y = fromOffset.Y + (toOffset.Y - fromOffset.Y) * progress;
+            if (Math.Abs(toScale - fromScale) <= fromScale * 1e-4)
+            {
+                return ((float)(fromScale + (toScale - fromScale) * progress),
+                    new Vector(fromOffset.X + (toOffset.X - fromOffset.X) * progress, y));
+            }
+
+            double scale = fromScale * Math.Pow((double)toScale / fromScale, progress);
+            // The point's place at scale 1, from x = place * fromScale - fromOffset.X = place * toScale - toOffset.X.
+            double place = (toOffset.X - fromOffset.X) / ((double)toScale - fromScale);
+            return ((float)scale, new Vector(place * scale - (place * fromScale - fromOffset.X), y));
+        }
     }
 
     // The zoom menus pass their levels as invariant string literals, and Beutl leaves CurrentCulture at the OS one.

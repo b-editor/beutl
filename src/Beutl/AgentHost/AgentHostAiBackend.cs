@@ -1,4 +1,5 @@
-﻿using Beutl.Api.Objects;
+﻿using System.Globalization;
+using Beutl.AgentToolkit.Common;
 using Beutl.Api.Services;
 using Beutl.Audio;
 using Beutl.Editor.Components.AiWorkspaceTab.Services;
@@ -11,21 +12,26 @@ namespace Beutl.AgentHost;
 
 /// <summary>The signed-in application's AI services, for the agent host's AI tools.</summary>
 internal sealed class AgentHostAiBackend(
-    Func<AuthenticatedUser?> user,
+    AiRequestRecoveryContext recoveryContext,
     IAiEntitlementService entitlements,
     IAiOperationAvailabilityService availability,
     IAiTranscriptionService transcription,
     Func<IGenerativeModelCatalog> catalog,
     Func<Scene, IGenerativeNodeExecutor> executor,
-    IAiModelCatalogService modelCatalog, DecoderRegistry decoders) : IAgentAiBackend
+    IAiModelCatalogService modelCatalog, DecoderRegistry decoders,
+    IAiJobClient? jobClient = null) : IAgentAiBackend
 {
+    internal const string SignInReason = "Sign in to Beutl in the running app to use AI generation.";
+
     // The longest piece of audio sent at once: ten minutes of 16 kHz mono stays under the upload limit.
     private static readonly TimeSpan s_chunkDuration = TimeSpan.FromMinutes(10);
 
+    public AiRequestRecoveryContext RecoveryContext => recoveryContext;
+
     public async Task<string?> GetUnavailableReasonAsync(CancellationToken cancellationToken)
     {
-        if (user() is null)
-            return "Sign in to Beutl in the running app to use AI generation.";
+        if (recoveryContext.GetCurrentIdentity() is null)
+            return SignInReason;
 
         AiEntitlements? current = entitlements.Entitlements.Value;
         if (current is null)
@@ -69,14 +75,43 @@ internal sealed class AgentHostAiBackend(
         return AiRequestRules.RequiresPrompt(loaded, imageEditTask);
     }
 
-    public async Task<AgentTranscript> TranscribeAsync(
+    public async Task<AgentTranscriptionResult> TranscribeAsync(
         string path,
         string? language,
         string? modelId,
         IProgress<string> progress,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        AgentTranscriptionRetry? retry = null)
     {
-        AiModelId? model = string.IsNullOrWhiteSpace(modelId) ? null : new AiModelId(modelId.Trim());
+        AiAccountJobScope? account = null;
+        try
+        {
+            using var job = account = new AiAccountJobScope(recoveryContext);
+            using CancellationTokenSource cancellation = job.Link(cancellationToken);
+            return await TranscribeCoreAsync(path, language, modelId, progress, job, cancellation.Token, retry)
+                .ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is AuthenticationRequiredException || account?.AccountChanged == true)
+        {
+            throw AgentAiException.AuthenticationRequired();
+        }
+        catch (Exception ex) when (AiRequestFailure.Classify(ex) is { } failure)
+        {
+            throw new AgentAiException(AgentAiException.CodeFor(ex), failure.Message);
+        }
+    }
+
+    private async Task<AgentTranscriptionResult> TranscribeCoreAsync(
+        string path,
+        string? language,
+        string? modelId,
+        IProgress<string> progress,
+        AiAccountJobScope account,
+        CancellationToken cancellationToken,
+        AgentTranscriptionRetry? retry)
+    {
+        account.ThrowIfInvalid(cancellationToken);
+        modelId = string.IsNullOrWhiteSpace(modelId) ? null : modelId.Trim();
         MediaReader opened;
         try
         {
@@ -115,20 +150,62 @@ internal sealed class AgentHostAiBackend(
 
         int chunkSamples = checked((int)(s_chunkDuration.TotalSeconds * sampleRate));
         int estimatedParts = Math.Max(1, (int)Math.Ceiling(totalSamples / (double)chunkSamples));
-        var segments = new List<AgentTranscriptSegment>();
-        var words = new List<AgentTranscriptWord>();
-        bool hasWords = false;
-        string? detected = null;
-        // Each part starts where the last one stopped reading; a short read can come mid-file.
-        long start = 0;
-        int part = 0;
-        bool reachedEnd = false;
         // Every part is a paid request: a decoder that keeps reading short gets at most twice the
         // parts the length calls for, and no part cut short under a second.
         int maxParts = estimatedParts * 2;
+        using AgentTranscriptionRecovery? recovery = retry is { } request
+            ? new AgentTranscriptionRecovery(recoveryContext.Store.StoragePath, account.AccountId!, request.Key)
+            : null;
+        AgentTranscriptionCheckpoint? checkpoint = null;
+        if (recovery is not null)
+        {
+            var source = new FileInfo(path);
+            string fingerprint = GenerativeFingerprint.Combine([
+                source.FullName,
+                source.Length.ToString(CultureInfo.InvariantCulture),
+                source.LastWriteTimeUtc.Ticks.ToString(CultureInfo.InvariantCulture),
+                sampleRate.ToString(CultureInfo.InvariantCulture),
+                totalSamples.ToString(CultureInfo.InvariantCulture),
+                language,
+                retry!.Value.RequestedModel,
+            ]);
+            checkpoint = await recovery.LoadAsync(cancellationToken).ConfigureAwait(false)
+                ?? new AgentTranscriptionCheckpoint(fingerprint, modelId, 0, 0, null, false, new AgentTranscript(null, [], null));
+            if (checkpoint.SourceFingerprint != fingerprint)
+            {
+                throw new AgentAiException(ErrorCode.ValidationRejected,
+                    "requestKey already names a transcription with a different source or options. Use the original arguments or a new requestKey.");
+            }
+            if (checkpoint.NextSample < 0 || checkpoint.NextSample > totalSamples
+                || checkpoint.CompletedParts < 0 || checkpoint.CompletedParts > maxParts
+                || (checkpoint.Transcript is null ? !checkpoint.IsComplete : checkpoint.Transcript.Segments is null))
+            {
+                throw new InvalidDataException("The transcription checkpoint has invalid progress.");
+            }
+
+            modelId = checkpoint.ModelId;
+            if (checkpoint.IsComplete)
+            {
+                account.ThrowIfInvalid(cancellationToken);
+                AgentTranscript saved = checkpoint.Transcript ?? throw new AgentAiException(ErrorCode.AiJobNotFound,
+                    "The saved transcript for this requestKey has expired. Use a new requestKey to transcribe the audio again.");
+                return new AgentTranscriptionResult(WithLanguageFallback(saved, language), modelId);
+            }
+        }
+
+        AiModelId? model = modelId is null ? null : new AiModelId(modelId);
+        AgentTranscript? savedTranscript = checkpoint?.Transcript;
+        List<AgentTranscriptSegment> segments = savedTranscript?.Segments.ToList() ?? [];
+        List<AgentTranscriptWord> words = savedTranscript?.Words?.ToList() ?? [];
+        bool hasWords = savedTranscript?.Words is not null;
+        string? detected = savedTranscript?.Language;
+        // Each part starts where the last one stopped reading; a short read can come mid-file.
+        long start = checkpoint?.NextSample ?? 0;
+        int part = checkpoint?.CompletedParts ?? 0;
+        bool reachedEnd = false;
         while (start < totalSamples && part < maxParts)
         {
-            cancellationToken.ThrowIfCancellationRequested();
+            account.ThrowIfInvalid(cancellationToken);
             long partStart = start;
             int length = checked((int)Math.Min(chunkSamples, totalSamples - partStart));
             part++;
@@ -174,44 +251,44 @@ internal sealed class AgentHostAiBackend(
                     tail = true;
                 }
 
-                bool covered;
-                try
+                string? pendingKey = checkpoint?.PendingPartKey;
+                string partKey = pendingKey ?? Guid.NewGuid().ToString("N");
+                if (pendingKey is null)
                 {
-                    covered = await availability.CheckAsync(
-                        new AiOperationAvailabilityRequest.Transcription(
-                            AiOperations.Transcription,
-                            chunk.UploadedDuration.TotalSeconds,
-                            model),
+                    // The service looks up a repeated key before checking available credits.
+                    bool covered = await account.SendAsync(
+                        token => availability.CheckAsync(new AiOperationAvailabilityRequest.Transcription(
+                            AiOperations.Transcription, chunk.UploadedDuration.TotalSeconds, model), token),
                         cancellationToken).ConfigureAwait(false);
-                }
-                // The check itself can refuse, when the session or credits changed since the call.
-                catch (Exception ex) when (AiRequestFailure.Classify(ex) is { } failure)
-                {
-                    throw new AgentAiException(AgentAiException.CodeFor(ex), failure.Message);
-                }
+                    if (!covered)
+                    {
+                        throw new AgentAiException(ErrorCode.AiUnavailable,
+                            "The account's AI usage does not cover this transcription.");
+                    }
 
-                if (!covered)
-                {
-                    throw new AgentAiException(
-                        Beutl.AgentToolkit.Common.ErrorCode.AiUnavailable,
-                        "The account's AI usage does not cover this transcription.");
+                    if (recovery is not null)
+                    {
+                        checkpoint = checkpoint! with { PendingPartKey = partKey };
+                        await recovery.SaveAsync(checkpoint, cancellationToken).ConfigureAwait(false);
+                    }
                 }
 
                 AiTranscriptionResponse response;
                 try
                 {
-                    response = await transcription.TranscribeAsync(
-                        new AiTranscriptionRequest(
-                            AiUploadSource.FromFile(wave, "audio.wav"),
-                            language,
-                            model,
-                            Guid.NewGuid().ToString("N")),
+                    response = await account.SendAsync(
+                        token => transcription.TranscribeAsync(
+                            new AiTranscriptionRequest(AiUploadSource.FromFile(wave, "audio.wav"), language, model, partKey), token),
                         cancellationToken).ConfigureAwait(false);
                 }
-                catch (Exception ex) when (AiRequestFailure.Classify(ex) is { } failure)
+                catch (AiProviderErrorException) when (recovery is not null)
                 {
-                    throw new AgentAiException(AgentAiException.CodeFor(ex), failure.Message);
+                    // A provider error can also come back after a paid result file expires.
+                    if (await IsTranscriptionFailureConfirmedAsync(partKey, account, cancellationToken).ConfigureAwait(false))
+                        await recovery.SaveAsync(checkpoint! with { PendingPartKey = null }, CancellationToken.None).ConfigureAwait(false);
+                    throw;
                 }
+                account.ThrowIfInvalid(cancellationToken);
 
                 // Checked as the subtitle flow checks a part before accepting it: times inside the part,
                 // in order, so offsetting them cannot overlap the next part.
@@ -261,11 +338,21 @@ internal sealed class AgentHostAiBackend(
                 }
 
                 start = partStart + chunk.SourceSampleCount;
-                if (tail)
+                reachedEnd = tail || start >= totalSamples;
+                if (recovery is not null)
                 {
-                    reachedEnd = true;
-                    break;
+                    checkpoint = checkpoint! with
+                    {
+                        CompletedParts = part,
+                        NextSample = start,
+                        PendingPartKey = null,
+                        IsComplete = reachedEnd,
+                        Transcript = new AgentTranscript(detected, segments, hasWords ? words : null),
+                    };
+                    await recovery.SaveAsync(checkpoint, cancellationToken).ConfigureAwait(false);
                 }
+                if (reachedEnd)
+                    break;
             }
             finally
             {
@@ -278,8 +365,39 @@ internal sealed class AgentHostAiBackend(
         if (!reachedEnd && start < totalSamples)
             throw IncompleteRead(start, sampleRate);
 
-        return new AgentTranscript(detected ?? language, segments, hasWords ? words : null);
+        var transcript = new AgentTranscript(detected, segments, hasWords ? words : null);
+        if (recovery is not null && !checkpoint!.IsComplete)
+        {
+            await recovery.SaveAsync(checkpoint with { IsComplete = true, Transcript = transcript }, cancellationToken)
+                .ConfigureAwait(false);
+        }
+        account.ThrowIfInvalid(cancellationToken);
+        return new AgentTranscriptionResult(WithLanguageFallback(transcript, language), modelId);
     }
+
+    private async Task<bool> IsTranscriptionFailureConfirmedAsync(
+        string partKey, AiAccountJobScope account, CancellationToken cancellationToken)
+    {
+        if (jobClient is null)
+            return false;
+
+        try
+        {
+            AiJob job = await account.SendAsync(
+                token => jobClient.GetByIdempotencyKeyAsync(partKey, token), cancellationToken).ConfigureAwait(false);
+            account.ThrowIfInvalid(cancellationToken);
+            return job.Kind == AiJobKinds.Transcription && job.Status == AiJobStatuses.Failed;
+        }
+        catch (Exception ex) when (ex is AiException or HttpRequestException or TimeoutException or OperationCanceledException)
+        {
+            // If the service cannot confirm the failure, the key is still needed for recovery.
+            account.ThrowIfInvalid(cancellationToken);
+            return false;
+        }
+    }
+
+    private static AgentTranscript WithLanguageFallback(AgentTranscript transcript, string? language)
+        => transcript with { Language = transcript.Language ?? language };
 
     // Whether audio remains at a position: a read there that succeeds with nothing is the end of the
     // recording; one that fails is a decode error the caller must hear about, not a shorter
@@ -305,7 +423,7 @@ internal sealed class AgentHostAiBackend(
             Beutl.AgentToolkit.Common.ErrorCode.MediaUnsupported,
             $"The audio decoder returned the recording in pieces too short to transcribe, from {TimeSpan.FromSeconds(position / (double)sampleRate):hh\\:mm\\:ss} on; it was not read to the end.");
 
-    private static void TryDelete(string path)
+    internal static void TryDelete(string path)
     {
         try
         {

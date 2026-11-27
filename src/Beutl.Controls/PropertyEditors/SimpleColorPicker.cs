@@ -25,18 +25,8 @@ public enum SimpleColorPickerInputType
 }
 
 [PseudoClasses(":details")]
-public class SimpleColorPicker : TemplatedControl
+public partial class SimpleColorPicker : TemplatedControl
 {
-    public static readonly StyledProperty<Color2> ColorProperty =
-        AvaloniaProperty.Register<SimpleColorPicker, Color2>(nameof(Color),
-            Colors.Red, defaultBindingMode: BindingMode.TwoWay);
-
-    public static readonly StyledProperty<SimpleColorPickerInputType> InputTypeProperty =
-        AvaloniaProperty.Register<SimpleColorPicker, SimpleColorPickerInputType>(nameof(InputType));
-
-    public static readonly StyledProperty<bool> IsAlphaEnabledProperty =
-        AvaloniaProperty.Register<SimpleColorPicker, bool>(nameof(IsAlphaEnabled), true);
-
     private readonly CompositeDisposable _disposables = [];
     private ColorSpectrum? _spectrum;
     private ColorSpectrum? _ringSpectrum;
@@ -56,6 +46,10 @@ public class SimpleColorPicker : TemplatedControl
     private CancellationTokenSource? _cts;
     private readonly ColorPartPress _press;
 
+    public static readonly StyledProperty<Color2> ColorProperty =
+        AvaloniaProperty.Register<SimpleColorPicker, Color2>(
+            nameof(Color), Colors.Red, defaultBindingMode: BindingMode.TwoWay);
+
     public SimpleColorPicker()
     {
         _press = new ColorPartPress(this, () => _oldColor = Color, ConfirmPress);
@@ -71,18 +65,12 @@ public class SimpleColorPicker : TemplatedControl
         set => SetValue(ColorProperty, value);
     }
 
-    public SimpleColorPickerInputType InputType
-    {
-        get => GetValue(InputTypeProperty);
-        set => SetValue(InputTypeProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial SimpleColorPickerInputType InputType { get; set; }
 
     // False keeps every color opaque, as a layer's label needs, and the theme hides the opacity.
-    public bool IsAlphaEnabled
-    {
-        get => GetValue(IsAlphaEnabledProperty);
-        set => SetValue(IsAlphaEnabledProperty, value);
-    }
+    [GeneratedStyledProperty(DefaultValue = true)]
+    public partial bool IsAlphaEnabled { get; set; }
 
     // Whether a spectrum, slider or previewer is being dragged.
     public bool IsDragging => _press.IsPressed;
@@ -188,6 +176,9 @@ public class SimpleColorPicker : TemplatedControl
 
         _opacityBox?.GetPropertyChangedObservable(TextBox.TextProperty)
             .Subscribe(OnOpacityBoxTextChanged)
+            .DisposeWith(_disposables);
+
+        _opacityBox?.AddDisposableHandler(LostFocusEvent, OnOpacityBoxLostFocus)
             .DisposeWith(_disposables);
 
         _opacityBox?.AddDisposableHandler(PointerWheelChangedEvent, OnOpacityBoxPointerWheelChanged, RoutingStrategies.Tunnel)
@@ -430,16 +421,29 @@ public class SimpleColorPicker : TemplatedControl
 
     private static bool TryParseOpacity(string? s, out float r)
     {
-        r = 0;
-        if (string.IsNullOrWhiteSpace(s)) return false;
-
-        string text = s.Trim();
-        if (text.EndsWith('%'))
+        if (!RelativeUnitParser.TryStripPercentUnits(s, out string expression, out _))
         {
-            text = text.TrimEnd('%');
+            r = 0;
+            return false;
         }
 
-        return NumberEditorHelper.TryParse(text, out r);
+        return NumberEditorHelper.TryParse(expression, out r);
+    }
+
+    private void OnOpacityBoxLostFocus(object? sender, RoutedEventArgs e)
+    {
+        if (_opacityBox != null && !_ignoreColorChange && !DataValidationErrors.GetHasErrors(_opacityBox))
+        {
+            try
+            {
+                _ignoreColorChange = true;
+                _opacityBox.Text = Color.Af.ToString("P0");
+            }
+            finally
+            {
+                _ignoreColorChange = false;
+            }
+        }
     }
 
     private void OnOpacityBoxTextChanged(AvaloniaPropertyChangedEventArgs args)
@@ -448,7 +452,8 @@ public class SimpleColorPicker : TemplatedControl
         {
             if (TryParseOpacity(_opacityBox.Text, out float f))
             {
-                UpdateColor(Color.WithAlphaf(f / 100f), ignoreOpacity: f >= 0 && f <= 100);
+                DataValidationErrors.ClearErrors(_opacityBox);
+                UpdateColor(Color.WithAlphaf(f / 100f), ignoreOpacity: _opacityBox.IsKeyboardFocusWithin || (f >= 0 && f <= 100));
             }
             else
             {

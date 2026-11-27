@@ -25,6 +25,8 @@ class Build : NukeBuild
     AbsolutePath OutputDirectory => RootDirectory / "output";
     AbsolutePath ArtifactsDirectory => RootDirectory / "artifacts";
 
+    private static readonly string[] s_agentHelperProjects = ["Beutl.AgentToolkit.Mcp", "Beutl.Agents.Worker"];
+
     Target Clean => _ => _
         .Executes(() =>
         {
@@ -144,12 +146,8 @@ class Build : NukeBuild
                     .ForEach(t => t.Source.Copy(t.Target));
             }
 
-            // The MCP server has private dependencies, so merge its whole output with FileSkip.
-            string[] fullClosureSubProjects =
-            [
-                "Beutl.AgentToolkit.Mcp",
-            ];
-            foreach (string item in fullClosureSubProjects)
+            // Keep the helpers' private dependencies, including the agent worker's bridge and native Node library.
+            foreach (string item in s_agentHelperProjects)
             {
                 AbsolutePath output = OutputDirectory / item;
                 output.CreateOrCleanDirectory();
@@ -240,6 +238,7 @@ class Build : NukeBuild
                 .SetProperty("RuntimeIdentifier", Runtime.ToString())
                 .SetProperty("TargetFramework", tfm)
                 .SetProperty("UseAppHost", true)
+                .SetProperty("NukePublish", true)
                 .SetProperty("SelfContained", true));
 
             // Dotnet.Bundle 0.9.13 does not forward CFBundleURLTypes to its plist writer.
@@ -278,21 +277,23 @@ class Build : NukeBuild
                 .Select(p => (Source: p, Target: bundleContents / workerOutput.GetRelativePathTo(p)))
                 .ForEach(t => t.Source.Copy(t.Target, ExistsPolicy.FileSkip));
 
-            AbsolutePath mcpProj = SourceDirectory / "Beutl.AgentToolkit.Mcp" / "Beutl.AgentToolkit.Mcp.csproj";
-            AbsolutePath mcpOutput = OutputDirectory / "Beutl.AgentToolkit.Mcp";
-            mcpOutput.CreateOrCleanDirectory();
-            DotNetPublish(s => s
-                .SetRuntime(Runtime)
-                .SetSelfContained(true)
-                .SetFramework(tfm)
-                .SetConfiguration(Configuration)
-                .SetVersions(Version, AssemblyVersion, InformationalVersion)
-                .SetProject(mcpProj)
-                .SetOutput(mcpOutput));
+            foreach (string item in s_agentHelperProjects)
+            {
+                AbsolutePath helperOutput = OutputDirectory / item;
+                helperOutput.CreateOrCleanDirectory();
+                DotNetPublish(s => s
+                    .SetRuntime(Runtime)
+                    .SetSelfContained(true)
+                    .SetFramework(tfm)
+                    .SetConfiguration(Configuration)
+                    .SetVersions(Version, AssemblyVersion, InformationalVersion)
+                    .SetProject(SourceDirectory / item / $"{item}.csproj")
+                    .SetOutput(helperOutput));
 
-            mcpOutput.GlobFiles("**/*")
-                .Select(p => (Source: p, Target: bundleContents / mcpOutput.GetRelativePathTo(p)))
-                .ForEach(t => t.Source.Copy(t.Target, ExistsPolicy.FileSkip));
+                helperOutput.GlobFiles("**/*")
+                    .Select(p => (Source: p, Target: bundleContents / helperOutput.GetRelativePathTo(p)))
+                    .ForEach(t => t.Source.Copy(t.Target, ExistsPolicy.FileSkip));
+            }
 
             CopyDistributionLicenses(output / "Beutl.app" / "Contents" / "Resources");
         });

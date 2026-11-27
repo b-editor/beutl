@@ -1,7 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using Beutl.Configuration;
 using Beutl.Editor.Components.Helpers;
-using Beutl.Editor.Components.SceneSettingsTab.ViewModels;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Services;
 using Beutl.ProjectSystem;
@@ -14,7 +13,7 @@ namespace Beutl.ViewModels;
 
 public partial class MenuBarViewModel
 {
-    [MemberNotNull(nameof(NewScene), nameof(DeleteLayer), nameof(CutLayer), nameof(PasteLayer), nameof(CopyLayer), nameof(SelectAll), nameof(ShowSceneSettings), nameof(RemoveFromProject))]
+    [MemberNotNull(nameof(NewScene), nameof(ImportMedia), nameof(DeleteLayer), nameof(CutLayer), nameof(PasteLayer), nameof(CopyLayer), nameof(SelectAll), nameof(ShowSceneSettings), nameof(RemoveFromProject), nameof(ShowUndisplayableData))]
     private void InitializeSceneCommands(IObservable<bool> isSceneOpened)
     {
         IObservable<bool> isProjectOpenedAndTabOpened = _projectService.IsOpened
@@ -23,6 +22,7 @@ public partial class MenuBarViewModel
 
         // A scene belongs to a project.
         NewScene = new AsyncReactiveCommand(IsProjectOpened);
+        ImportMedia = new AsyncReactiveCommand(isSceneOpened);
 
         RemoveFromProject = new(isProjectOpenedAndTabOpened);
 
@@ -45,9 +45,18 @@ public partial class MenuBarViewModel
             if (TryGetSelectedEditViewModel(out var editor))
                 await editor.OpenMissingMediaAsync(refresh: true);
         });
+        ShowUndisplayableData = new ReactiveCommandSlim(isSceneOpened).WithSubscribe(() =>
+        {
+            if (TryGetSelectedEditViewModel(out var editor))
+                editor.OpenUndisplayableData();
+        });
     }
 
     public AsyncReactiveCommand NewScene { get; private set; }
+
+    public AsyncReactiveCommand ImportMedia { get; private set; }
+
+    internal AsyncReactiveCommand ExportSubtitles { get; }
 
     public ReactiveCommandSlim<EditorTabItem?> RemoveFromProject { get; private set; }
 
@@ -64,6 +73,8 @@ public partial class MenuBarViewModel
     public ReactiveCommandSlim ShowSceneSettings { get; private set; }
 
     public AsyncReactiveCommand RelinkMedia { get; private set; }
+
+    public ReactiveCommandSlim ShowUndisplayableData { get; private set; }
 
     private bool TryGetSelectedEditViewModel([NotNullWhen(true)] out EditViewModel? viewModel)
     {
@@ -152,15 +163,7 @@ public partial class MenuBarViewModel
     {
         if (TryGetSelectedEditViewModel(out EditViewModel? viewModel))
         {
-            SceneSettingsTabViewModel? tab = viewModel.FindToolTab<SceneSettingsTabViewModel>();
-            if (tab != null)
-            {
-                tab.IsSelected.Value = true;
-            }
-            else
-            {
-                viewModel.OpenToolTab(new SceneSettingsTabViewModel(viewModel));
-            }
+            SceneSettingsTabHelper.Show(viewModel);
         }
     }
 }

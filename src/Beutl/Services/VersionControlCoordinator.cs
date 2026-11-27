@@ -134,6 +134,10 @@ internal sealed partial class VersionControlCoordinator :
 
     public event EventHandler? RepositoryAdoptionChanged;
 
+    internal event EventHandler<PushSucceededEventArgs>? PushSucceeded;
+
+    internal sealed record PushSucceededEventArgs(IReadOnlyList<string> PushUrls);
+
     public RepositoryAdoptionRequest? PendingRepositoryAdoption => _pendingRepositoryAdoption;
 
     internal Func<CancellationToken, Task<bool>> ConfirmRestoreAsync { get; set; }
@@ -259,20 +263,43 @@ internal sealed partial class VersionControlCoordinator :
         });
     }
 
+    public Task SetRemoteAsync(
+        GitRemoteUrl remote, string? expectedOrigin, CancellationToken cancellationToken)
+        => RunOnUiThreadAsync(async () =>
+        {
+            using OperationLease operation = await BeginOperationAsync(cancellationToken);
+            await GetTrackedBackend().SetRemoteAsync(remote, expectedOrigin, operation.CancellationToken);
+        });
+
     public Task<RemoteOpResult> PushAsync(
         IProgress<string>? progress,
         CancellationToken cancellationToken = default)
     {
         return RunOnUiThreadAsync(async () =>
         {
-            using OperationLease operation = await BeginOperationAsync(cancellationToken);
-            return await GetTrackedBackend().PushAsync(progress, operation.CancellationToken);
+            RemoteOpResult result;
+            using (OperationLease operation = await BeginOperationAsync(cancellationToken))
+            {
+                result = await GetTrackedBackend().PushAsync(progress, operation.CancellationToken);
+            }
+
+            if (result is RemoteOpResult.Success { PushUrls: { Count: > 0 } pushUrls })
+            {
+                PushSucceeded?.Invoke(this, new PushSucceededEventArgs(pushUrls));
+            }
+
+            return result;
         });
     }
 
     public Task<RemoteOpResult> PullAsync(CancellationToken cancellationToken = default)
+        => PullAsync(progress: null, cancellationToken);
+
+    public Task<RemoteOpResult> PullAsync(
+        IProgress<string>? progress,
+        CancellationToken cancellationToken)
     {
-        return RunOnUiThreadAsync(() => RunPullCycleAsync(cancellationToken));
+        return RunOnUiThreadAsync(() => RunPullCycleAsync(progress, cancellationToken));
     }
 
     public void Dispose()

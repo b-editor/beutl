@@ -1,4 +1,5 @@
 ﻿using Beutl.Api.Services;
+using Beutl.Editor.Components.AgentTab;
 using Beutl.Editor.Components.AiWorkspaceTab;
 using Beutl.Editor.Components.AudioVisualizerTab;
 using Beutl.Editor.Components.ChannelMapProperties;
@@ -25,6 +26,7 @@ using Beutl.Editor.Components.SilenceSplitTab;
 using Beutl.Editor.Components.SoundPannerProperties;
 using Beutl.Editor.Components.TerminalTab;
 using Beutl.Editor.Components.TransitionTab;
+using Beutl.Editor.Components.UndisplayableDataTab;
 using Beutl.Editor.Components.VersionControlTab;
 using Beutl.Editor.Components.WebBrowserTab;
 using Beutl.Logging;
@@ -73,18 +75,20 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
         ScriptEditorExtension.Instance,
         FileBrowserTabExtension.Instance,
         AiWorkspaceTabExtension.Instance,
+        AgentTabExtension.Instance,
         HistoryTabExtension.Instance,
         TransitionTabExtension.Instance,
         SilenceSplitTabExtension.Instance,
         VersionControlTabExtension.Instance,
         MissingMediaTabExtension.Instance,
+        UndisplayableDataTabExtension.Instance,
         DockLayoutTabExtension.Instance,
         TerminalTabExtension.Instance,
         WebBrowserTabExtension.Instance,
         DarkBorderThemeExtension.Instance
     ];
 
-    internal LoadPrimitiveExtensionTask(PackageManager manager, IExtensionRegistry provider,
+    internal LoadPrimitiveExtensionTask(PackageManager manager,
         EditorService editorService, ProjectService projectService)
     {
         _manager = manager;
@@ -96,12 +100,7 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
         {
             using (Activity? activity = Telemetry.StartActivity("LoadPrimitiveExtensionTask"))
             {
-                foreach (Extension item in allExtensions)
-                {
-                    _manager.LoadExtension(item);
-                }
-
-                provider.AddExtensions(LocalPackage.Reserved0, allExtensions);
+                _manager.LoadBuiltInExtensions(LocalPackage.Reserved0, allExtensions, restoreSettingsFirst: null);
                 activity?.AddEvent(new("Loaded_Extensions"));
 
                 await Task.Yield();
@@ -126,11 +125,10 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
                         var encoding = new Extensions.FFmpeg.Encoding.FFmpegControlledEncodingExtension();
                         var propertyEditor = new Extensions.FFmpeg.PropertyEditors.FFmpegEncoderSpecializedPropertyExtension();
                         var proxy = new Extensions.FFmpeg.Proxy.FFmpegProxyExtension();
-                        LoadEmbedded(
-                            provider,
-                            pkg,
-                            [decoding, encoding, propertyEditor],
-                            [decoding, encoding, propertyEditor, proxy]);
+                        _manager.LoadBuiltInExtensions(
+                            pkg.LocalId,
+                            [decoding, encoding, propertyEditor, proxy],
+                            [decoding, encoding, propertyEditor]);
                     }
                     catch (Exception ex)
                     {
@@ -163,7 +161,7 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
                     {
                         var decoding = new Embedding.MediaFoundation.Decoding.MFDecodingExtension();
                         var encoding = new Embedding.MediaFoundation.Encoding.MFEncodingExtension();
-                        LoadEmbedded(provider, pkg, [decoding, encoding], [decoding, encoding]);
+                        _manager.LoadBuiltInExtensions(pkg.LocalId, [decoding, encoding], [decoding, encoding]);
                     }
                     catch (Exception ex)
                     {
@@ -196,7 +194,7 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
                     {
                         var decoding = new Extensions.AVFoundation.Decoding.AVFDecodingExtension();
                         var encoding = new Extensions.AVFoundation.Encoding.AVFEncodingExtension();
-                        LoadEmbedded(provider, pkg, [decoding, encoding], [decoding, encoding]);
+                        _manager.LoadBuiltInExtensions(pkg.LocalId, [decoding, encoding], [decoding, encoding]);
                     }
                     catch (Exception ex)
                     {
@@ -231,26 +229,6 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
         pkg.WebSite = "https://github.com/b-editor/beutl";
         pkg.Publisher = "b-editor";
         return pkg;
-    }
-
-    // Settings are restored for the first list only, before any extension of the package loads.
-    private void LoadEmbedded(
-        IExtensionRegistry provider,
-        LocalPackage pkg,
-        IReadOnlyList<Extension> withSettings,
-        IReadOnlyList<Extension> extensions)
-    {
-        foreach (Extension extension in withSettings)
-        {
-            _manager.SetupExtensionSettings(extension);
-        }
-
-        foreach (Extension extension in extensions)
-        {
-            _manager.LoadExtension(extension, restoreSettings: false);
-        }
-
-        provider.AddExtensions(pkg.LocalId, extensions);
     }
 
     public override Task Task { get; }

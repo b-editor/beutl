@@ -33,12 +33,11 @@ public class CaptionValidationTests
         Assert.Multiple(() =>
         {
             Assert.That(issues, Has.Some.Matches<CaptionValidationIssue>(issue =>
-                issue.Kind == CaptionValidationIssueKind.EndNotAfterStart && issue.CueIndex == 0));
+                issue is { Kind: CaptionValidationIssueKind.EndNotAfterStart, CueIndex: 0 }));
             Assert.That(issues, Has.Some.Matches<CaptionValidationIssue>(issue =>
-                issue.Kind == CaptionValidationIssueKind.NegativeStart && issue.CueIndex == 1));
+                issue is { Kind: CaptionValidationIssueKind.NegativeStart, CueIndex: 1 }));
             Assert.That(issues, Has.Some.Matches<CaptionValidationIssue>(issue =>
-                issue.Kind == CaptionValidationIssueKind.OutOfOrder
-                && issue.CueIndex == 1));
+                issue is { Kind: CaptionValidationIssueKind.OutOfOrder, CueIndex: 1 }));
         });
     }
 
@@ -57,10 +56,9 @@ public class CaptionValidationTests
         Assert.Multiple(() =>
         {
             Assert.That(issues, Has.Some.Matches<CaptionValidationIssue>(issue =>
-                issue.Kind == CaptionValidationIssueKind.Overlap
-                && issue.CueIndex == 2));
+                issue is { Kind: CaptionValidationIssueKind.Overlap, CueIndex: 2 }));
             Assert.That(issues, Has.Some.Matches<CaptionValidationIssue>(issue =>
-                issue.Kind == CaptionValidationIssueKind.OutOfOrder && issue.CueIndex == 2));
+                issue is { Kind: CaptionValidationIssueKind.OutOfOrder, CueIndex: 2 }));
         });
     }
 
@@ -81,10 +79,10 @@ public class CaptionValidationTests
         Assert.Multiple(() =>
         {
             Assert.That(issues, Has.One.Matches<CaptionValidationIssue>(issue =>
-                issue.Kind == CaptionValidationIssueKind.TooManyLines));
+                issue is { Kind: CaptionValidationIssueKind.TooManyLines }));
             // Only "third" exceeds four grapheme clusters; the first line is four clusters in five chars.
             Assert.That(issues, Has.One.Matches<CaptionValidationIssue>(issue =>
-                issue.Kind == CaptionValidationIssueKind.LineTooLong));
+                issue is { Kind: CaptionValidationIssueKind.LineTooLong }));
         });
     }
 
