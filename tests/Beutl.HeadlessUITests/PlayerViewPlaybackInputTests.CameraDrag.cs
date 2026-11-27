@@ -8,6 +8,7 @@ using Beutl.Editor.Services;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Transformation;
 using Beutl.Graphics3D;
+using Beutl.Graphics3D.Primitives;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Beutl.Views;
@@ -26,16 +27,19 @@ public partial class PlayerViewPlaybackInputTests
         EditViewModel editor = await OpenEditor();
         Scene3D scene = await Add3DScene(editor);
         var camera = scene.Camera.Value!;
+        var cube = (Cube3D)scene.Objects.Single();
         editor.GetRequiredService<IEditorSelection>().Select(editor.Scene.Children.Single());
         var view = new PlayerView { DataContext = editor.Player };
         var window = new Window { Content = view, Width = 800, Height = 600 };
         var renderStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var followUpFrame = new TaskCompletionSource<byte[]>(TaskCreationOptions.RunContinuationsAsynchronously);
         using var releaseRender = new ManualResetEventSlim();
         int blockNextRender = 0;
         int framesPresented = 0;
         Point point = default;
 
-        scene.AmbientIntensity.Expression = new PreviewRenderProbe(scene.AmbientIntensity.Value, () =>
+        // The scene reconciles its camera before its objects, so this delays the render after it has read the first pose.
+        cube.Width.Expression = new PreviewRenderProbe(cube.Width.Value, () =>
         {
             if (Interlocked.Exchange(ref blockNextRender, 0) == 1)
             {
@@ -44,7 +48,13 @@ public partial class PlayerViewPlaybackInputTests
             }
         });
 
-        void OnPreviewInvalidated(object? sender, EventArgs e) => Interlocked.Increment(ref framesPresented);
+        byte[] PreviewPixels() => editor.Player.PreviewImage.Value!.Value.GetPixelSpan().ToArray();
+
+        void OnPreviewInvalidated(object? sender, EventArgs e)
+        {
+            if (Interlocked.Increment(ref framesPresented) == 2)
+                followUpFrame.TrySetResult(PreviewPixels());
+        }
 
         try
         {
@@ -63,16 +73,31 @@ public partial class PlayerViewPlaybackInputTests
             Assert.That(firstTarget, Is.Not.EqualTo(originalTarget));
 
             // This job runs after the in-flight render and ahead of any render for the following moves.
-            Task<int> framesAfterFirstRender = RenderThread.Dispatcher.InvokeAsync(() => Volatile.Read(ref framesPresented));
+            var firstFrame = RenderThread.Dispatcher.InvokeAsync(() => (Volatile.Read(ref framesPresented), PreviewPixels()));
             window.MouseMove(point + new Vector(30, 6), RawInputModifiers.RightMouseButton);
             window.MouseMove(point + new Vector(46, 12), RawInputModifiers.RightMouseButton);
             Assert.That(camera.Target.Value, Is.Not.EqualTo(firstTarget));
 
             releaseRender.Set();
-            Assert.That(await framesAfterFirstRender.WaitAsync(TimeSpan.FromSeconds(5)), Is.EqualTo(1),
+            var (firstCount, firstPixels) = await firstFrame.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.That(firstCount, Is.EqualTo(1),
                 "An edit arriving mid-render must not discard the frame being drawn.");
-            await HeadlessTestHelpers.WaitUntilAsync(() => Volatile.Read(ref framesPresented) >= 2,
-                message: "The last camera update must reach the preview while the button is still held.");
+            byte[] followUpPixels = await followUpFrame.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            byte[] expectedPixels = await RenderThread.Dispatcher.InvokeAsync(() =>
+            {
+                SceneRenderer renderer = editor.Renderer.Value;
+                renderer.Render(renderer.Compositor.EvaluateGraphics(MediaTime.Zero));
+                using var frame = renderer.Snapshot();
+                return frame.GetPixelSpan().ToArray();
+            }).WaitAsync(TimeSpan.FromSeconds(5));
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(expectedPixels.AsSpan().SequenceEqual(firstPixels), Is.False,
+                    "The fixture must show different images for the first and final camera poses.");
+                Assert.That(followUpPixels.AsSpan().SequenceEqual(expectedPixels), Is.True,
+                    "The follow-up preview must match the final camera pose while the button is held.");
+            });
             HeadlessTestHelpers.Render();
             Capture(window, "3d-camera-drag");
         }
