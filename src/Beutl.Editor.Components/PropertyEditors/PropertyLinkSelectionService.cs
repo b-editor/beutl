@@ -50,21 +50,31 @@ internal sealed class PropertyLinkSelectionService : IPropertyLinkSelection, IDi
     {
         if (_disposed || !_isSelecting.Value || _source is not { IsDisposed: false } source || target.IsDisposed)
             return false;
-        // The row of the property itself cannot follow itself.
-        if (ReferenceEquals(target, source) || target.EditsSeveralElements)
+        if (target.EditsSeveralElements)
             return false;
-        if (target.PropertyAdapter.GetEngineProperty() is not { } targetProperty
-            || targetProperty.GetOwnerObject() is null)
+        // Another editor of the same property, as its object's own panel shows, is the property itself too.
+        if (source.PropertyAdapter.GetEngineProperty() is not { } sourceProperty
+            || target.PropertyAdapter.GetEngineProperty() is not { } targetProperty
+            || targetProperty.GetOwnerObject() is null
+            || IsSameProperty(sourceProperty, targetProperty))
+        {
             return false;
+        }
 
-        return targetProperty.ValueType == SourceValueType;
+        return targetProperty.ValueType == sourceProperty.ValueType;
     }
 
     public bool TryChooseLinkTarget(PropertyEditorViewModel target)
     {
         if (!CanLinkTo(target) || _source is not { } source) return false;
 
-        IProperty targetProperty = target.PropertyAdapter.GetEngineProperty()!;
+        if (source.PropertyAdapter.GetEngineProperty() is not { } sourceProperty
+            || target.PropertyAdapter.GetEngineProperty() is not { } targetProperty
+            || IsSameProperty(sourceProperty, targetProperty))
+        {
+            return false;
+        }
+
         CoreObject owner = targetProperty.GetOwnerObject()!;
         string typeName = PropertyEditorMenu.GetTypeAlias(targetProperty.ValueType);
         string expression = $"GetProperty<{typeName}>(\"{{{owner.Id.Value}}}.{targetProperty.Name}\")";
@@ -74,6 +84,19 @@ internal sealed class PropertyLinkSelectionService : IPropertyLinkSelection, IDi
         if (!set)
             _failure.Value = new PropertyLinkFailure(source, error ?? MessageStrings.OperationFailed);
         return set;
+    }
+
+    // The same live property, or one of the copy that stands for several elements, which keeps the owner's Id and name.
+    private static bool IsSameProperty(IProperty sourceProperty, IProperty targetProperty)
+    {
+        if (ReferenceEquals(sourceProperty, targetProperty)) return true;
+
+        CoreObject? sourceOwner = sourceProperty.GetOwnerObject();
+        CoreObject? targetOwner = targetProperty.GetOwnerObject();
+        return sourceOwner is not null
+               && targetOwner is not null
+               && sourceOwner.Id.Value == targetOwner.Id.Value
+               && sourceProperty.Name == targetProperty.Name;
     }
 
     public void Dispose()

@@ -15,6 +15,7 @@ internal sealed class PropertyLinkSelectionAttachment : IDisposable
     private IPropertyLinkSelection? _selection;
     private IDisposable? _subscription;
     private TopLevel? _topLevel;
+    private bool _attached;
 
     public PropertyLinkSelectionAttachment(Control view, Control prompt)
     {
@@ -29,36 +30,50 @@ internal sealed class PropertyLinkSelectionAttachment : IDisposable
 
     public void SetDataContext(object? dataContext)
     {
-        _subscription?.Dispose();
-        _subscription = null;
+        Unsubscribe();
         // Another tab replaces this one's picking rather than retargeting it.
         _selection?.CancelLinkSelection();
         _selection = (dataContext as IPropertyLinkSelectionHost)?.LinkSelection;
-        if (_selection is null)
-        {
-            _prompt.IsVisible = false;
-            return;
-        }
+        _prompt.IsVisible = false;
+        if (_attached)
+            Subscribe();
+    }
 
-        _subscription = _selection.IsSelectingLinkTarget.Subscribe(selecting => _prompt.IsVisible = selecting);
+    private void Subscribe()
+    {
+        Unsubscribe();
+        if (_selection is { } selection)
+            _subscription = selection.IsSelectingLinkTarget.Subscribe(selecting => _prompt.IsVisible = selecting);
+    }
+
+    private void Unsubscribe()
+    {
+        _subscription?.Dispose();
+        _subscription = null;
     }
 
     private void OnAttachedToVisualTree(object? sender, VisualTreeAttachmentEventArgs e)
     {
+        _attached = true;
         _topLevel = TopLevel.GetTopLevel(_view);
         _topLevel?.AddHandler(InputElement.KeyDownEvent, OnKeyDown, RoutingStrategies.Tunnel,
             handledEventsToo: true);
+        // A tab that is shown again follows the service again, from its current state.
+        Subscribe();
     }
 
     private void OnDetachedFromVisualTree(object? sender, VisualTreeAttachmentEventArgs e)
     {
+        _attached = false;
         if (_topLevel is not null)
         {
             _topLevel.RemoveHandler(InputElement.KeyDownEvent, OnKeyDown);
             _topLevel = null;
         }
 
-        // Closing the tab, or putting it away, ends picking without changes.
+        // A detached view keeps no reference from the service, and picking ends without changes.
+        Unsubscribe();
+        _prompt.IsVisible = false;
         _selection?.CancelLinkSelection();
     }
 
@@ -86,6 +101,7 @@ internal sealed class PropertyLinkSelectionAttachment : IDisposable
 
     public void Dispose()
     {
+        _attached = false;
         _view.RemoveHandler(InputElement.PointerPressedEvent, OnPointerPressed);
         _view.AttachedToVisualTree -= OnAttachedToVisualTree;
         _view.DetachedFromVisualTree -= OnDetachedFromVisualTree;
@@ -95,8 +111,7 @@ internal sealed class PropertyLinkSelectionAttachment : IDisposable
             _topLevel = null;
         }
 
-        _subscription?.Dispose();
-        _subscription = null;
+        Unsubscribe();
         _selection = null;
     }
 }

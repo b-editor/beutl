@@ -10,6 +10,8 @@ using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.ElementPropertyTab.ViewModels;
 using Beutl.Editor.Components.ElementPropertyTab.Views;
 using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Components.ObjectPropertyTab.ViewModels;
+using Beutl.Editor.Components.ObjectPropertyTab.Views;
 using Beutl.Editor.Components.PropertyEditors;
 using Beutl.Editor.Components.PropertyEditors.Views;
 using Beutl.Editor.PropertyEditors;
@@ -97,6 +99,74 @@ public sealed class PropertyLinkSelectionTests
 
         PressEscape(window);
         Assert.That(Selection(editor).IsSelectingLinkTarget.Value, Is.False);
+    }
+
+    [AvaloniaTest]
+    public async Task Another_editor_of_the_same_property_is_not_a_target()
+    {
+        using LinkHost host = await LinkHost.OpenAsync();
+        var (window, editor, _, source, _, _, elementView) = host;
+        int before = editor.HistoryManager.UndoCount;
+
+        using var objectTab = new ObjectPropertyTabViewModel(editor);
+        objectTab.NavigateCore(source, back: false, provider: null);
+        HeadlessTestHelpers.Settle();
+        var objectView = new ObjectPropertyTabView { DataContext = objectTab };
+
+        window.Content = null;
+        var panels = new Grid { ColumnDefinitions = new ColumnDefinitions("*,*") };
+        Grid.SetColumn(elementView, 0);
+        Grid.SetColumn(objectView, 1);
+        panels.Children.Add(elementView);
+        panels.Children.Add(objectView);
+        window.Content = panels;
+        window.Width = 1440;
+        HeadlessTestHelpers.Render(3);
+
+        await StartLinkAsync(elementView, source.Opacity);
+        PropertyEditor duplicateRow = await ScrollToRowAsync(objectView, source.Opacity);
+        PropertyLinkSelectionOverlay overlay = OverlayOf(duplicateRow);
+        Assert.That(overlay.IsCandidate, Is.False, "The same property in another panel is the property itself.");
+
+        await HoverAsync(window, overlay);
+        Assert.That(overlay.IsHighlighted, Is.False);
+
+        HeadlessTestHelpers.Click(duplicateRow);
+        HeadlessTestHelpers.Settle();
+        Assert.Multiple(() =>
+        {
+            Assert.That(Selection(editor).IsSelectingLinkTarget.Value, Is.True);
+            Assert.That(source.Opacity.Expression, Is.Null);
+            Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(before));
+        });
+
+        PressEscape(window);
+    }
+
+    [AvaloniaTest]
+    public async Task A_detached_property_tab_stops_following_the_picking()
+    {
+        using LinkHost host = await LinkHost.OpenAsync();
+        var (window, editor, _, source, _, _, view) = host;
+        PropertyEditor row = await ScrollToRowAsync(view, source.Opacity);
+        var sourceEditor = (PropertyEditorViewModel)row.DataContext!;
+        Border prompt = view.FindControl<Border>("linkSelectionPrompt")!;
+        IPropertyLinkSelection selection = Selection(editor);
+
+        // The tab keeps its editors while it is away, so the picking can name a property of it.
+        window.Content = null;
+        HeadlessTestHelpers.Render(3);
+        selection.BeginLinkSelection(sourceEditor);
+        HeadlessTestHelpers.Render();
+        Assert.That(prompt.IsVisible, Is.False, "A detached view no longer follows the service.");
+        selection.CancelLinkSelection();
+
+        window.Content = view;
+        HeadlessTestHelpers.Render(3);
+        selection.BeginLinkSelection(sourceEditor);
+        HeadlessTestHelpers.Render();
+        Assert.That(prompt.IsVisible, Is.True, "Showing the tab again subscribes it again.");
+        selection.CancelLinkSelection();
     }
 
     [AvaloniaTest]
@@ -313,8 +383,8 @@ public sealed class PropertyLinkSelectionTests
     private static IPropertyLinkSelection Selection(EditViewModel editor)
         => (IPropertyLinkSelection)editor.GetService(typeof(IPropertyLinkSelection))!;
 
-    private static PropertyEditor RowOf(Window window, IProperty property)
-        => window.GetVisualDescendants().OfType<PropertyEditor>()
+    private static PropertyEditor RowOf(Visual scope, IProperty property)
+        => scope.GetVisualDescendants().OfType<PropertyEditor>()
             .Single(row => row.DataContext is PropertyEditorViewModel viewModel
                 && ReferenceEquals(viewModel.PropertyAdapter.GetEngineProperty(), property));
 
@@ -322,13 +392,13 @@ public sealed class PropertyLinkSelectionTests
         => row.GetVisualAncestors().OfType<PropertyLinkSelectionRow>().First().Children
             .OfType<PropertyLinkSelectionOverlay>().Single();
 
-    private static async Task<PropertyEditor> ScrollToRowAsync(Window window, IProperty property)
+    private static async Task<PropertyEditor> ScrollToRowAsync(Visual scope, IProperty property)
     {
         PropertyEditor? row = null;
         await HeadlessTestHelpers.WaitUntilAsync(() =>
         {
             HeadlessTestHelpers.Render();
-            row = window.GetVisualDescendants().OfType<PropertyEditor>()
+            row = scope.GetVisualDescendants().OfType<PropertyEditor>()
                 .FirstOrDefault(candidate => candidate.DataContext is PropertyEditorViewModel viewModel
                     && ReferenceEquals(viewModel.PropertyAdapter.GetEngineProperty(), property));
             return row is { IsEffectivelyVisible: true, Bounds.Width: > 0 };
@@ -347,9 +417,9 @@ public sealed class PropertyLinkSelectionTests
         HeadlessTestHelpers.Render();
     }
 
-    private static async Task StartLinkAsync(Window window, IProperty sourceProperty)
+    private static async Task StartLinkAsync(Visual scope, IProperty sourceProperty)
     {
-        PropertyEditor sourceRow = await ScrollToRowAsync(window, sourceProperty);
+        PropertyEditor sourceRow = await ScrollToRowAsync(scope, sourceProperty);
         PropertyEditorMenu menu = sourceRow.GetVisualDescendants().OfType<PropertyEditorMenu>().Single();
         Button button = menu.GetVisualDescendants().OfType<Button>().First();
         var flyout = (FAMenuFlyout)button.ContextFlyout!;
@@ -364,10 +434,10 @@ public sealed class PropertyLinkSelectionTests
         HeadlessTestHelpers.Render(2);
     }
 
-    private static async Task LinkAsync(Window window, IProperty sourceProperty, IProperty targetProperty)
+    private static async Task LinkAsync(Visual scope, IProperty sourceProperty, IProperty targetProperty)
     {
-        await StartLinkAsync(window, sourceProperty);
-        PropertyEditor targetRow = await ScrollToRowAsync(window, targetProperty);
+        await StartLinkAsync(scope, sourceProperty);
+        PropertyEditor targetRow = await ScrollToRowAsync(scope, targetProperty);
         HeadlessTestHelpers.Click(targetRow);
         HeadlessTestHelpers.Settle();
     }
