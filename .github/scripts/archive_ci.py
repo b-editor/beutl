@@ -13,6 +13,8 @@ PROJECT_GROUPS = {
     "Beutl.UnitTests": "unit",
     "Beutl.HeadlessUITests": "ui",
     "Beutl.Graphics3DTests": "graphics3d",
+    "Beutl.FFmpegIpc.Tests": "other-ffmpeg",
+    "Beutl.FFmpegWorker.Tests": "other-ffmpeg",
 }
 
 
@@ -67,7 +69,7 @@ if __name__ == "__main__":
     list_parser.add_argument("--rid", required=True)
     list_parser.add_argument("--group", choices=[*PROJECT_GROUPS.values(), "other"], required=True)
     pattern_parser = commands.add_parser("pattern", help="select the artifacts needed by a test shard")
-    pattern_parser.add_argument("suite", choices=[*FILTERS, *VALIDATION_GROUPS, "graphics3d", "other"])
+    pattern_parser.add_argument("suite", choices=[*FILTERS, *VALIDATION_GROUPS, "other", "other-ffmpeg"])
     arguments = parser.parse_args()
     root = Path(__file__).resolve().parents[2]
     if arguments.command == "pattern":

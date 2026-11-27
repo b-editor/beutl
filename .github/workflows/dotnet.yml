@@ -183,7 +183,7 @@ jobs:
           mkdir -p .ci-tools
           cp -a "$HOME/.nuget/packages/coverlet.collector/$coverlet_version/build/net10.0" .ci-tools/coverlet
           runtime_graph="$DOTNET_ROOT/sdk/$(dotnet --version)/PortableRuntimeIdentifierGraph.json"
-          for group in unit ui graphics3d other; do
+          for group in unit ui graphics3d other other-ffmpeg; do
             python3 .github/scripts/archive_ci.py list --group "$group" --rid linux-x64 \
               --runtime-graph "$runtime_graph" \
               | tar --null -T - -I 'zstd -T0 -1' -cf "$RUNNER_TEMP/TestBinaries-$group.tar.zst"
@@ -222,6 +222,14 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
+      - name: Share FFmpeg test binaries
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          path: ${{ runner.temp }}/TestBinaries-other-ffmpeg.tar.zst
+          archive: false
+          if-no-files-found: error
+          retention-days: 1
+
   test:
     needs: compile
     permissions:
@@ -231,15 +239,18 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        suite: [unit-particles, unit-golden, unit-rendering, unit-audio, unit-engine, unit-git, unit-other, ui-a-c, ui-d-i-s, ui-j-pe, ui-pf-r, ui-other, graphics3d, other]
+        suite: [unit-particles, unit-rendering, unit-audio, unit-engine-graphics, unit-engine, unit-git, unit-other, ui-a-c, ui-d-i, ui-j-pe, ui-player-s, ui-p-rest, ui-other, graphics3d-a, graphics3d-b, other, other-ffmpeg]
         validation: [false]
         # Every unit and Graphics3D test still runs both normally and under Vulkan
         # validation. Namespace partitions are exhaustive, including untagged GPU
-        # tests; unrelated test assemblies run in the "other" catch-all suite.
+        # tests; unrelated test assemblies run in the "other" catch-all suite, and
+        # FFmpeg-backed assemblies run in "other-ffmpeg".
         include:
           - suite: validation-core
             validation: true
           - suite: validation-rendering
+            validation: true
+          - suite: validation-graphics
             validation: true
 
     steps:
@@ -280,12 +291,14 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends vulkan-validationlayers
 
-      # The "other" suite holds the FFmpeg worker and IPC tests, which skip themselves without the
-      # FFmpeg 8 libraries. Use the BtbN build the app's own installer offers. It is pinned to a
-      # month-end autobuild because BtbN keeps those for about two years. BEUTL_REQUIRE_FFMPEG below
-      # makes ci_tests.py fail the suite if a test still skips because FFmpeg is missing.
+      # The "other-ffmpeg" suite holds the FFmpeg worker and IPC tests, which skip themselves
+      # without the FFmpeg 8 libraries. The remaining "other" assemblies may also probe FFmpeg,
+      # so both groups get the install. Use the BtbN build the app's own installer offers. It is
+      # pinned to a month-end autobuild because BtbN keeps those for about two years.
+      # BEUTL_REQUIRE_FFMPEG below makes ci_tests.py fail a suite if a test still skips because
+      # FFmpeg is missing, including a test that should have moved to "other-ffmpeg".
       - name: Install FFmpeg 8
-        if: matrix.suite == 'other'
+        if: matrix.suite == 'other' || matrix.suite == 'other-ffmpeg'
         env:
           FFMPEG_URL: https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-09-30-13-08/ffmpeg-n8.1.3-9-g29e619e767-linux64-gpl-shared-8.1.tar.xz
           # The same file through the API, which kept serving it while the download page above answered 504.
@@ -310,7 +323,7 @@ jobs:
         env:
           TEST_SUITE: ${{ matrix.suite }}
           BEUTL_REQUIRE_GPU: "1"
-          BEUTL_REQUIRE_FFMPEG: ${{ matrix.suite == 'other' && '1' || '0' }}
+          BEUTL_REQUIRE_FFMPEG: ${{ (matrix.suite == 'other' || matrix.suite == 'other-ffmpeg') && '1' || '0' }}
           BEUTL_VULKAN_VALIDATION: ${{ matrix.validation && '1' || '0' }}
 
       - name: Capture runner diagnostics after failure
