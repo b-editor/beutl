@@ -4237,6 +4237,15 @@ when history recording is enabled.</value>
   <data name="HostedGit_CloneRepositoryMenu" xml:space="preserve">
     <value>Clone Repository…</value>
   </data>
+  <data name="HostedGit_DeleteRepository" xml:space="preserve">
+    <value>Delete Remote Repository</value>
+  </data>
+  <data name="HostedGit_DeleteRepositoryMenu" xml:space="preserve">
+    <value>Delete Remote Repository…</value>
+  </data>
+  <data name="HostedGit_DeletingRepository" xml:space="preserve">
+    <value>Deleting repository…</value>
+  </data>
   <data name="HostedGit_BeutlRepositories" xml:space="preserve">
     <value>Beutl Repositories</value>
   </data>

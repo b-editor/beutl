@@ -4237,6 +4237,15 @@ cuando el registro del historial está activado.</value>
   <data name="HostedGit_CloneRepositoryMenu" xml:space="preserve">
     <value>Clonar repositorio…</value>
   </data>
+  <data name="HostedGit_DeleteRepository" xml:space="preserve">
+    <value>Eliminar repositorio remoto</value>
+  </data>
+  <data name="HostedGit_DeleteRepositoryMenu" xml:space="preserve">
+    <value>Eliminar repositorio remoto…</value>
+  </data>
+  <data name="HostedGit_DeletingRepository" xml:space="preserve">
+    <value>Eliminando el repositorio…</value>
+  </data>
   <data name="HostedGit_BeutlRepositories" xml:space="preserve">
     <value>Repositorios de Beutl</value>
   </data>

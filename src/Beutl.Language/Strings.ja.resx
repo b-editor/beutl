@@ -4232,6 +4232,15 @@ GetProperty&lt;T&gt;("path", time) または GetProperty&lt;T&gt;(guid, "propert
   <data name="HostedGit_CloneRepositoryMenu" xml:space="preserve">
     <value>リポジトリからクローン…</value>
   </data>
+  <data name="HostedGit_DeleteRepository" xml:space="preserve">
+    <value>リモートリポジトリを削除</value>
+  </data>
+  <data name="HostedGit_DeleteRepositoryMenu" xml:space="preserve">
+    <value>リモートリポジトリを削除…</value>
+  </data>
+  <data name="HostedGit_DeletingRepository" xml:space="preserve">
+    <value>リポジトリを削除しています…</value>
+  </data>
   <data name="HostedGit_BeutlRepositories" xml:space="preserve">
     <value>Beutl リポジトリ</value>
   </data>

@@ -527,6 +527,9 @@
   <data name="ConfirmDeleteProjectFolderFromDisk" xml:space="preserve">
     <value>このプロジェクトのフォルダーと、その中のすべてのファイルを完全に削除しますか？この操作は元に戻せません。</value>
   </data>
+  <data name="ConfirmDeleteHostedRepository" xml:space="preserve">
+    <value>Beutl 上のリポジトリと履歴を完全に削除します。&#10;削除後もローカルのコピーを開けます。</value>
+  </data>
   <data name="ConfirmDeleteProjectFileFromDisk" xml:space="preserve">
     <value>このプロジェクトは専用のフォルダーにないため、プロジェクトファイルだけを削除します。シーンなどのファイルはディスクに残ります。プロジェクトファイルを完全に削除しますか？この操作は元に戻せません。</value>
   </data>

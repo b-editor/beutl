@@ -1,4 +1,5 @@
 ﻿using System.Globalization;
+using System.Net;
 using System.Net.Http.Json;
 using Avalonia;
 using Avalonia.Controls;
@@ -11,11 +12,13 @@ using Beutl.Api.Clients;
 using Beutl.Api.Objects;
 using Beutl.Api.Services;
 using Beutl.Configuration;
+using Beutl.Editor.Components.VersionControl.ViewModels;
 using Beutl.Editor.VersionControl;
 using Beutl.Language;
 using Beutl.Services;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels.Dialogs;
+using Beutl.Views;
 using Beutl.Views.Dialogs;
 using FluentAvalonia.UI.Controls;
 
@@ -168,6 +171,98 @@ public sealed class HostedGitDialogsTests
         }
     }
 
+    [AvaloniaTest]
+    [TestCase(HttpStatusCode.NoContent)]
+    [TestCase(HttpStatusCode.NotFound)]
+    public async Task Deleting_a_repository_removes_it_from_the_loaded_list(HttpStatusCode outcome)
+    {
+        const string id = "a3a8927c-bcf4-4f6e-91f4-64897320378e";
+        var handler = new RepositoryListHandler(id) { DeleteStatus = outcome };
+        using var http = new HttpClient(handler);
+        await using var api = new BeutlApiApplication(http, new ExtensionProvider(new ExtensionConfig()),
+            new ViewConfig(), new UpdateConfig(), static () => new HttpClient(), persistAuthenticatedUser: _ => { });
+        AuthenticatedUser user = await api.RunInteractiveAuthenticationAsync(
+            _ => Task.FromResult(CreateUser(api)), CancellationToken.None);
+        using var picker = new HostedRepositoryPickerViewModel(api, CancellationToken.None, Guid.Parse(id));
+        await picker.RefreshAsync();
+        Assert.That(picker.SelectedRepository.Value?.Id, Is.EqualTo(id));
+
+        await picker.DeleteAsync(Guid.Parse(id), user);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(picker.Repositories.Value.Select(repo => repo.Name), Is.EqualTo(new[] { "別のリポジトリ" }));
+            Assert.That(picker.SelectedRepository.Value, Is.Null);
+        });
+    }
+
+    [AvaloniaTest]
+    [TestCase("ja-JP", false)]
+    [TestCase("en-US", true)]
+    public async Task Repository_deletion_shows_progress_until_the_request_finishes(string culture, bool fails)
+    {
+        var previousCulture = CultureInfo.CurrentUICulture;
+        CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo(culture);
+        var request = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var window = new Window { Width = 440, Height = 480, RequestedThemeVariant = ThemeVariant.Light };
+        int requests = 0;
+        window.Show();
+        Task shown = EditorHostFallback.ShowHostedRepositoryDeletionDialogAsync(window, "Demo", () =>
+        {
+            requests++;
+            return request.Task;
+        });
+        try
+        {
+            HeadlessTestHelpers.Render(4);
+            await Task.Delay(300);
+            HeadlessTestHelpers.Render(4);
+            var dialog = window.GetVisualDescendants().OfType<FAContentDialog>().Single();
+            var ring = dialog.GetVisualDescendants().OfType<FAProgressRing>().Single();
+            var delete = dialog.GetVisualDescendants().OfType<Button>().Single(button => button.Name == "PrimaryButton");
+            var cancel = dialog.GetVisualDescendants().OfType<Button>().Single(button => button.Name == "CloseButton");
+            Assert.That(ring.IsEffectivelyVisible, Is.False);
+
+            HeadlessTestHelpers.Click(delete, move: true, ticks: 5);
+            Assert.Multiple(() =>
+            {
+                Assert.That(requests, Is.EqualTo(1));
+                Assert.That(shown.IsCompleted, Is.False);
+                Assert.That(ring.IsEffectivelyVisible && ring.IsActive, Is.True);
+                Assert.That(delete.IsEffectivelyEnabled, Is.False);
+                Assert.That(cancel.IsEffectivelyEnabled, Is.False);
+            });
+            if (HeadlessCapture.IsRequested)
+            {
+                await Task.Delay(550);
+                HeadlessTestHelpers.Render(4);
+                HeadlessCapture.SaveIfRequested(ring, nameof(HostedGitDialogsTests), $"repository-deleting-{culture}");
+            }
+
+            if (fails)
+            {
+                request.SetException(new IOException("The deletion request failed."));
+                await Assert.ThrowsAsync<IOException>(() => shown.WaitAsync(TimeSpan.FromSeconds(5)));
+            }
+            else
+            {
+                request.SetResult();
+                await shown.WaitAsync(TimeSpan.FromSeconds(5));
+            }
+
+            Assert.That(dialog.IsAttachedToVisualTree(), Is.False);
+        }
+        finally
+        {
+            request.TrySetResult();
+            foreach (var dialog in window.GetVisualDescendants().OfType<FAContentDialog>().ToArray())
+                dialog.Hide();
+            window.Close();
+            CultureInfo.CurrentUICulture = previousCulture;
+            HeadlessTestHelpers.Settle();
+        }
+    }
+
     private static AuthenticatedUser CreateUser(BeutlApiApplication api)
         => new(new Profile(new ProfileResponse
         {
@@ -187,16 +282,23 @@ public sealed class HostedGitDialogsTests
     private sealed class RepositoryListHandler(string id) : HttpMessageHandler
     {
         public bool Unavailable { get; set; }
+        public HttpStatusCode DeleteStatus { get; set; }
 
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
+            if (request.Method == HttpMethod.Delete)
+            {
+                Assert.That(request.RequestUri?.AbsolutePath, Is.EqualTo($"/api/v3/repos/{id}"));
+                return Task.FromResult(new HttpResponseMessage(DeleteStatus) { RequestMessage = request });
+            }
+
             Assert.That(request.RequestUri?.AbsolutePath, Is.EqualTo("/api/v3/repos"));
             if (Unavailable)
-                return Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.ServiceUnavailable));
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.ServiceUnavailable));
             DateTimeOffset date = new(2026, 11, 24, 12, 0, 0, TimeSpan.Zero);
             GitRepositorySummary first = new(id, "制作プロジェクト", $"https://example.invalid/api/v3/git/{id}.git", date, date);
             GitRepositorySummary second = new("76972d37-e697-401c-8291-6d08cdeb4d81", "別のリポジトリ", "", date, date);
-            return Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.OK)
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
             {
                 Content = JsonContent.Create(new GitRepositoryListResponse([second, first])),
             });
