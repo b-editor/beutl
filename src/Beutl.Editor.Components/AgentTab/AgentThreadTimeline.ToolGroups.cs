@@ -70,6 +70,7 @@ internal sealed partial class AgentThreadTimeline
             _timeline.RemoveAt(i);
         if (!ReferenceEquals(_timeline[first], group))
             _timeline[first] = group;
+        // Release absorbed groups before SetItems so the merged group ends up owning every child.
         foreach (var joined in span.OfType<AgentToolGroupItem>())
         {
             if (!ReferenceEquals(joined, group))

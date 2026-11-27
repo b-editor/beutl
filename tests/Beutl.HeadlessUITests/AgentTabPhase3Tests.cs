@@ -312,6 +312,27 @@ public sealed class AgentTabPhase3Tests
             Assert.That(((AgentReasoningItem)transcript.Items[3]).Text, Is.EqualTo("r2"));
             var tailGroup = (AgentToolGroupItem)transcript.Items[4];
             Assert.That(tailGroup.Items.Select(DescribeItem), Is.EqualTo(new[] { "tool:t3", "thought:r3", "tool:t4" }));
+
+            // A late tool that bridges two existing groups merges them and keeps every child linked to the merged group.
+            transcript.Clear();
+            var mergeTurn = Guid.NewGuid();
+            transcript.ApplyEntry(new AgentTurnStarted(thread, mergeTurn, now));
+            EmitTool(mergeTurn, "m1", now.AddSeconds(1));
+            EmitTool(mergeTurn, "m2", now.AddSeconds(2));
+            transcript.ApplyEntry(new AgentToolCallStarted(thread, mergeTurn, now.AddSeconds(3), "slow", "execute"));
+            EmitTool(mergeTurn, "m3", now.AddSeconds(4));
+            EmitTool(mergeTurn, "m4", now.AddSeconds(5));
+            Assert.That(transcript.Items.OfType<AgentToolGroupItem>().Count(), Is.EqualTo(2));
+            transcript.ApplyEntry(new AgentToolCallCompleted(thread, mergeTurn, now.AddSeconds(6), "slow", AgentToolStatus.Completed));
+            var merged = transcript.Items.OfType<AgentToolGroupItem>().Single();
+            Assert.That(merged.Tools.Select(tool => tool.ToolCallId), Is.EqualTo(new[] { "m1", "m2", "slow", "m3", "m4" }));
+            Assert.That(merged.Tools.All(tool => ReferenceEquals(tool.Group, merged)), Is.True);
+
+            transcript.ApplyEntry(new AgentToolCallCompleted(thread, mergeTurn, now.AddSeconds(7), "m4",
+                AgentToolStatus.Completed, [new AgentToolOutput("image", Data: encoded)]));
+            Assert.That(transcript.Items.OfType<AgentToolGroupItem>().Single().Tools.Select(tool => tool.ToolCallId),
+                Is.EqualTo(new[] { "m1", "m2", "slow", "m3" }));
+            Assert.That(transcript.Items.OfType<AgentToolItem>().Select(tool => tool.ToolCallId), Is.EqualTo(new[] { "m4" }));
         }
         finally
         {
