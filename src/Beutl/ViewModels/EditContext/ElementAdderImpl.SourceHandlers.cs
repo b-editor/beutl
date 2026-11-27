@@ -1,11 +1,9 @@
 ﻿using System.Collections.Immutable;
 using Beutl.Audio;
 using Beutl.Composition;
-using Beutl.Editor.Components.Helpers;
 using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
-using Beutl.Graphics.Transformation;
 using Beutl.Helpers;
 using Beutl.Media.Decoding;
 using Beutl.Media.Source;
@@ -20,67 +18,19 @@ internal sealed partial class ElementAdderImpl
 {
     private DecoderRegistry Decoders => _context.GetRequiredService<DecoderRegistry>();
 
-    private Element CreateElement(ElementDescription description)
-    {
-        _logger.LogDebug(
-            "Creating an element with start {Start}, length {Length}, and layer {Layer}.",
-            description.Start,
-            description.Length,
-            description.Layer);
-        return new Element
-        {
-            Start = { Value = description.Start },
-            Length = { Value = description.Length
-                     ?? throw new InvalidOperationException("A non-template element source requires a length.") },
-            ZIndex = { Value = description.Layer },
-        };
-    }
-
-    private Element CreateElementFor<TValue>(
+    private static Element CreateElementFor<TValue>(
         ElementDescription description,
         string fileName,
         out TValue value)
         where TValue : EngineObject, new()
     {
         value = new TValue();
-        return CreateElementFor(
+        return ElementDescriptionMaterializer.CreateElementFor(
             description,
             value,
             string.IsNullOrWhiteSpace(description.Name)
                 ? Path.GetFileName(fileName)
                 : description.Name);
-    }
-
-    // A new element named name, colored after the object's type, that holds the object.
-    private Element CreateElementFor(ElementDescription description, EngineObject value, string name)
-    {
-        Element element = CreateElement(description);
-        element.Name.Value = name;
-        Type type = value.GetType();
-        element.AccentColor.Value = ElementAccentColorGenerator.GenerateColor(type.FullName ?? type.Name);
-        element.AddObject(value);
-        if (CanonicalTransformLayout.SeedEmptyGroup(value) is { } translate)
-        {
-            if (description.Position is { } position)
-            {
-                translate.X.Value = position.X;
-                translate.Y.Value = position.Y;
-            }
-        }
-        else if (value is Drawable drawable)
-        {
-            SetTransform(drawable, description);
-        }
-
-        return element;
-    }
-
-    private void SetTransform(Drawable drawable, ElementDescription description)
-    {
-        if (description.Position is not { } position)
-            return;
-
-        AddToGroupHelper.Add(drawable.Transform, new TranslateTransform(position));
     }
 
     private static T? TrySetDuration<T>(Element element, Func<T> initialize, Func<T, MediaTime?> getDuration)
@@ -177,7 +127,7 @@ internal sealed partial class ElementAdderImpl
         }
     }
 
-    private sealed class EngineObjectSourceHandler(ElementAdderImpl owner) : IElementSourceHandler
+    private sealed class EngineObjectSourceHandler : IElementSourceHandler
     {
         public Type SourceType => typeof(ElementSource.EngineObject);
 
@@ -217,7 +167,7 @@ internal sealed partial class ElementAdderImpl
                     new ElementMaterializationFailure("The engine-object factory failed.", ex)));
             }
 
-            Element element = owner.CreateElementFor(
+            Element element = ElementDescriptionMaterializer.CreateElementFor(
                 context.Description,
                 engineObject,
                 context.Description.ResolveName(engineObject.GetType()));
@@ -226,7 +176,7 @@ internal sealed partial class ElementAdderImpl
         }
     }
 
-    private sealed class ElementTemplateSourceHandler(ElementAdderImpl owner) : IElementSourceHandler
+    private sealed class ElementTemplateSourceHandler : IElementSourceHandler
     {
         public Type SourceType => typeof(ElementSource.ElementTemplate);
 
@@ -259,24 +209,7 @@ internal sealed partial class ElementAdderImpl
                     new ElementMaterializationFailure("The element-template factory failed.", ex)));
             }
 
-            element.Start.Value = context.Description.Start;
-            if (context.Description.Length is { } length)
-            {
-                element.Length.Value = length;
-            }
-            element.ZIndex.Value = context.Description.Layer;
-            if (!string.IsNullOrWhiteSpace(context.Description.Name))
-            {
-                element.Name.Value = context.Description.Name;
-            }
-            if (context.Description.Position is not null)
-            {
-                foreach (Drawable drawable in element.Objects.OfType<Drawable>())
-                {
-                    owner.SetTransform(drawable, context.Description);
-                }
-            }
-
+            ElementDescriptionMaterializer.ApplyTemplatePlacement(element, context.Description);
             return ValueTask.FromResult(ElementSourceMaterializationResult.Materialized(
                 new ElementMaterialization(element)));
         }
@@ -465,7 +398,7 @@ internal sealed partial class ElementAdderImpl
                 switch (filePreflight.Kind)
                 {
                     case FileSourceKind.Image:
-                        Element imageElement = owner.CreateElementFor<SourceImage>(
+                        Element imageElement = CreateElementFor<SourceImage>(
                             context.Description,
                             fileName,
                             out SourceImage sourceImage);
@@ -474,7 +407,7 @@ internal sealed partial class ElementAdderImpl
                             new ElementMaterialization(imageElement));
 
                     case FileSourceKind.Video:
-                        Element videoElement = owner.CreateElementFor<SourceVideo>(
+                        Element videoElement = CreateElementFor<SourceVideo>(
                             context.Description,
                             fileName,
                             out SourceVideo sourceVideo);
@@ -494,7 +427,7 @@ internal sealed partial class ElementAdderImpl
                                 new ElementMaterialization(videoElement, resources: resources));
                         }
 
-                        Element soundElement = owner.CreateElementFor<SourceSound>(
+                        Element soundElement = CreateElementFor<SourceSound>(
                             context.Description,
                             fileName,
                             out SourceSound sourceSound);
@@ -516,7 +449,7 @@ internal sealed partial class ElementAdderImpl
                                 resources));
 
                     case FileSourceKind.Audio:
-                        Element audioElement = owner.CreateElementFor<SourceSound>(
+                        Element audioElement = CreateElementFor<SourceSound>(
                             context.Description,
                             fileName,
                             out SourceSound sourceAudio);

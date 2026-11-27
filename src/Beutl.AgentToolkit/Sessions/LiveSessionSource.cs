@@ -8,8 +8,8 @@ public sealed class LiveEditingSession : IEditingSession
 {
     private readonly ILiveSessionBinding _binding;
 
-    internal ILiveElementTemplateBinding ElementTemplates
-        => _binding as ILiveElementTemplateBinding ?? throw new SessionUnavailableException();
+    internal ILiveElementBinding Elements
+        => _binding as ILiveElementBinding ?? throw new SessionUnavailableException();
 
     internal LiveEditingSession(Media.FontManager fonts, string sessionId, ILiveSessionBinding binding)
     {

@@ -13,12 +13,7 @@ internal static class SceneCaptionExporter
         foreach (Element element in elements)
         {
             TimeRange range = element.Range;
-            var context = new EvaluationContext(range.Start);
-            // Templates can repeat the cue in several text objects within the same clip.
-            string text = string.Join('\n', CaptionTextUtilities.FindTextBlocks(element)
-                .Select(block => CaptionTextUtilities.ToSubtitleText(block.Text.Evaluate(context) ?? string.Empty))
-                .Where(value => !string.IsNullOrWhiteSpace(value))
-                .Distinct(StringComparer.Ordinal));
+            string text = ExtractText(element, range.Start);
             if (text.Length == 0)
             {
                 skipped++;
@@ -32,5 +27,15 @@ internal static class SceneCaptionExporter
         }
 
         return (new CaptionDocument(cues.OrderBy(cue => cue.Start).ThenBy(cue => cue.End)), skipped);
+    }
+
+    internal static string ExtractText(Element element, MediaTime start)
+    {
+        var context = new EvaluationContext(start);
+        // Templates can repeat the cue in several text objects within the same clip.
+        return string.Join('\n', CaptionTextUtilities.FindTextBlocks(element)
+            .Select(block => CaptionTextUtilities.ToSubtitleText(block.Text.Evaluate(context) ?? string.Empty))
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .Distinct(StringComparer.Ordinal));
     }
 }

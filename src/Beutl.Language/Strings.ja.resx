@@ -1529,6 +1529,9 @@ GetProperty&lt;T&gt;("path", time) または GetProperty&lt;T&gt;(guid, "propert
   <data name="ExportSubtitles_Format" xml:space="preserve">
     <value>ファイル形式</value>
   </data>
+  <data name="ExportSubtitles_SelectSource" xml:space="preserve">
+    <value>書き出すクリップまたはレイヤーを選択してください。</value>
+  </data>
   <data name="ExportSubtitles_NoText" xml:space="preserve">
     <value>テキストクリップが見つかりませんでした。</value>
   </data>
@@ -3026,6 +3029,12 @@ GetProperty&lt;T&gt;("path", time) または GetProperty&lt;T&gt;(guid, "propert
   </data>
   <data name="AiSubtitle_CaptionsFile" xml:space="preserve">
     <value>字幕ファイル</value>
+  </data>
+  <data name="SubtitleFile_UnsupportedFormat" xml:space="preserve">
+    <value>SRT、ASS、WebVTT のいずれかのファイルを選択してください。</value>
+  </data>
+  <data name="SubtitleFile_UnsupportedTemplate" xml:space="preserve">
+    <value>テキストオブジェクトを含むテンプレートを指定してください。</value>
   </data>
   <data name="SubtitleFile_CouldNotRead" xml:space="preserve">
     <value>{0} から字幕を読み取れませんでした。</value>

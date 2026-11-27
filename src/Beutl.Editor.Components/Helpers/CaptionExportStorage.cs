@@ -1,4 +1,5 @@
 ﻿using Avalonia.Platform.Storage;
+using Beutl.Editor.Services.Captions;
 
 namespace Beutl.Editor.Components.Helpers;
 
@@ -14,42 +15,6 @@ internal static class CaptionExportStorage
         if (!path.IsFile || string.IsNullOrWhiteSpace(path.LocalPath))
             throw new NotSupportedException("Captions can only be exported to a local file.");
 
-        string destinationPath = path.LocalPath;
-        string temporaryPath = destinationPath + $".{Guid.NewGuid():N}.tmp";
-        try
-        {
-            UnixFileMode destinationMode = default;
-            var options = new FileStreamOptions
-            {
-                Mode = FileMode.CreateNew,
-                Access = FileAccess.Write,
-                Share = FileShare.None,
-                Options = FileOptions.WriteThrough,
-            };
-            if (!OperatingSystem.IsWindows())
-            {
-                destinationMode = File.Exists(destinationPath)
-                    ? File.GetUnixFileMode(destinationPath)
-                    : UnixFileMode.UserRead | UnixFileMode.UserWrite;
-                options.UnixCreateMode = destinationMode;
-            }
-
-            await using (var stream = new FileStream(temporaryPath, options))
-            {
-                await stream.WriteAsync(bytes, cancellationToken);
-                await stream.FlushAsync(cancellationToken);
-                stream.Flush(flushToDisk: true);
-            }
-
-            if (!OperatingSystem.IsWindows())
-                File.SetUnixFileMode(temporaryPath, destinationMode);
-            File.Move(temporaryPath, destinationPath, overwrite: true);
-        }
-        finally
-        {
-            try { File.Delete(temporaryPath); }
-            catch (IOException) { }
-            catch (UnauthorizedAccessException) { }
-        }
+        await CaptionFileWriter.WriteAsync(path.LocalPath, bytes, overwrite: true, cancellationToken).ConfigureAwait(false);
     }
 }
