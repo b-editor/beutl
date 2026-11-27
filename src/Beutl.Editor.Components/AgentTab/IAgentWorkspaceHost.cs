@@ -1,4 +1,4 @@
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using Avalonia.Controls;
 using Avalonia.Media.Imaging;
 using Beutl.Agents;

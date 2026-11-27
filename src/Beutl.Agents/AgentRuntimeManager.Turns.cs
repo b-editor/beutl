@@ -1,4 +1,4 @@
-using Beutl.Language;
+﻿using Beutl.Language;
 
 namespace Beutl.Agents;
 
@@ -81,13 +81,13 @@ public sealed partial class AgentRuntimeManager
             session.Active = turn;
             try
             {
-                if (thread.RestorePreviousMessages)
-                    request = request with { PreviousMessages = await ReadPreviousMessagesAsync(projectPath, threadId, linked.Token).ConfigureAwait(false) };
                 var probe = await ProbeProviderAsync(provider, linked.Token).ConfigureAwait(false);
                 if (probe.ExecutablePath is not { } executable)
                     throw new FileNotFoundException(probe.Error);
 
-                await OpenSessionAsync(thread, probe, executable, session.ProjectPath, mcpServers, linked.Token).ConfigureAwait(false);
+                var sessionInfo = await OpenSessionAsync(thread, probe, executable, session.ProjectPath, mcpServers, linked.Token).ConfigureAwait(false);
+                if (thread.RestorePreviousMessages || (sessionInfo.IsNewSession && sessionInfo.ExternalSessionId is null))
+                    request = request with { PreviousMessages = await ReadPreviousMessagesAsync(projectPath, threadId, linked.Token).ConfigureAwait(false) };
                 var result = await _bridge.RunTurnAsync(request, linked.Token)
                     .ConfigureAwait(false);
                 await FlushTimelineAsync().ConfigureAwait(false);

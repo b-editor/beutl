@@ -1,4 +1,4 @@
-using System.Text;
+﻿using System.Text;
 using Avalonia.Media.Imaging;
 using Beutl.Agents;
 using FluentIcons.Common;

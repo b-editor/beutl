@@ -1,4 +1,4 @@
-using System.Reactive.Linq;
+﻿using System.Reactive.Linq;
 using System.Reactive.Subjects;
 using Beutl.Agents;
 using Beutl.Logging;
@@ -57,6 +57,7 @@ internal sealed class AgentProjectThreadSessions(string path, AgentDraftStore dr
     private static readonly ILogger s_logger = Log.CreateLogger<AgentProjectThreadSessions>();
     private readonly Dictionary<Guid, AgentThreadController> _controllers = [];
     private readonly Dictionary<Guid, int> _viewers = [];
+    private readonly Dictionary<string, AgentDraft?> _liveDrafts = [];
     private Task _draftWrites = Task.CompletedTask;
     private Task _metadataWork = Task.CompletedTask;
 
@@ -67,6 +68,7 @@ internal sealed class AgentProjectThreadSessions(string path, AgentDraftStore dr
     public event Action<Guid, AgentThreadMetadata?>? MetadataChanged;
     public event Action<Guid, DateTimeOffset?, DateTimeOffset?>? ActivityChanged;
     public event Action<Guid>? ActivityNotified;
+    public event Action<Guid?, AgentDraft?, object?>? DraftChanged;
     public event Action? FlushingDrafts;
 
     public AgentThreadController GetOrCreate(IAgentWorkspaceHost host, Guid threadId)
@@ -217,18 +219,31 @@ internal sealed class AgentProjectThreadSessions(string path, AgentDraftStore dr
             await controller.ShutdownAsync();
             onRunningChanged?.Invoke();
         }
+        _liveDrafts.Remove(DraftKey(threadId));
         MetadataChanged?.Invoke(threadId, null);
         await QueueDraftWrite(() => drafts.DeleteAsync(path, threadId));
+    }
+
+    public void PublishDraft(Guid? threadId, AgentDraft? draft, object? source = null)
+    {
+        _liveDrafts[DraftKey(threadId)] = draft;
+        DraftChanged?.Invoke(threadId, draft, source);
     }
 
     public async Task<AgentDraftEntry> LoadDraftAsync(Guid? threadId, CancellationToken cancellationToken)
     {
         await _draftWrites.WaitAsync(cancellationToken);
-        return await drafts.LoadAsync(path, threadId, cancellationToken);
+        var entry = await drafts.LoadAsync(path, threadId, cancellationToken);
+        return _liveDrafts.TryGetValue(DraftKey(threadId), out var live) ? entry with { Draft = live } : entry;
     }
 
-    public Task SaveDraftAsync(Guid? threadId, AgentDraft? draft) =>
-        QueueDraftWrite(() => drafts.SaveAsync(path, threadId, draft));
+    public Task SaveDraftAsync(Guid? threadId, AgentDraft? draft, object? source = null)
+    {
+        PublishDraft(threadId, draft, source);
+        return QueueDraftWrite(() => drafts.SaveAsync(path, threadId, draft));
+    }
+
+    private static string DraftKey(Guid? threadId) => threadId?.ToString("D") ?? "draft";
 
     public void RecordPrompt(Guid threadId, string prompt) =>
         _ = QueueDraftWrite(() => drafts.RecordPromptAsync(path, threadId, prompt));

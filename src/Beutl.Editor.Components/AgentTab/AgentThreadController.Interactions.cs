@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using Avalonia.Threading;
 using Beutl.Agents;
 using Beutl.Editor.Components.AgentTab.ViewModels;

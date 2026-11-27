@@ -1,4 +1,4 @@
-using System.Text.Json.Nodes;
+﻿using System.Text.Json.Nodes;
 using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
@@ -480,6 +480,53 @@ public sealed class AgentTabPhase1Tests
         var reloaded = new AgentDraftStore(workspace.Root);
         Assert.That((await reloaded.LoadAsync(workspace.ProjectPath, null)).Draft!.Prompt,
             Is.EqualTo("Draft typed just before quitting"));
+    }
+
+    [AvaloniaTest]
+    public async Task SiblingTabsSynchronizeUnsentDraftsWithoutOverwritingEachOther()
+    {
+        await using var workspace = new AgentTabTestWorkspace();
+        string attachment = Path.Combine(workspace.Root, "sibling-note.txt");
+        File.WriteAllText(attachment, "shared draft attachment");
+
+        using var first = workspace.CreateWorkspace(workspace.Editor);
+        using var second = workspace.CreateWorkspace(workspace.Editor);
+        await first.InitializeAsync();
+        await second.InitializeAsync();
+
+        // Both tabs start on the shared new-thread draft.
+        first.Prompt = "Shared new-thread draft";
+        first.IncludeSceneContext = false;
+        await first.AddFilesAsync([attachment]);
+        await HeadlessTestHelpers.WaitUntilAsync(() => second.Attachments.Count == 1);
+        Assert.Multiple(() =>
+        {
+            Assert.That(second.Prompt, Is.EqualTo("Shared new-thread draft"));
+            Assert.That(second.IncludeSceneContext, Is.False);
+            Assert.That(second.Attachments.Single().Path, Is.EqualTo(attachment));
+        });
+
+        second.Prompt = "Updated from second tab";
+        Assert.That(first.Prompt, Is.EqualTo("Updated from second tab"));
+
+        // Send on the first tab creates a thread and clears the shared new-thread draft.
+        await first.SendAsync();
+        Assert.That(second.Prompt, Is.Null.Or.Empty);
+        Assert.That(second.Attachments, Is.Empty);
+
+        // Selecting the same thread in both tabs synchronizes thread-scoped drafts too.
+        await second.SelectThreadAsync(first.SelectedThread!);
+        first.Prompt = "Reply drafted in tab 1";
+        Assert.That(second.Prompt, Is.EqualTo("Reply drafted in tab 1"));
+        second.Prompt = "Reply refined in tab 2";
+        Assert.That(first.Prompt, Is.EqualTo("Reply refined in tab 2"));
+
+        first.Dispose();
+        second.Dispose();
+        await workspace.ThreadSessions.DisposeAsync();
+        var reloaded = new AgentDraftStore(workspace.Root);
+        Assert.That((await reloaded.LoadAsync(workspace.ProjectPath, first.SelectedThread!.Id)).Draft!.Prompt,
+            Is.EqualTo("Reply refined in tab 2"));
     }
 
     [AvaloniaTest]

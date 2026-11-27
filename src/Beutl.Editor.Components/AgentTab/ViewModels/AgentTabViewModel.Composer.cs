@@ -1,4 +1,4 @@
-using Avalonia.Media.Imaging;
+﻿using Avalonia.Media.Imaging;
 using Beutl.Agents;
 using Beutl.Configuration;
 using Microsoft.Extensions.Logging;

@@ -65,7 +65,7 @@ function acp(frame) {
             assert.equal(params.clientInfo.name, "beutl");
             process.stderr.write("mock ACP initialized\n");
             mark("acp initialize");
-            reply(id, { protocolVersion: 1, agentCapabilities: { loadSession: true, mcpCapabilities: { http: true } } });
+            reply(id, { protocolVersion: 1, agentCapabilities: { loadSession: process.env.BEUTL_MOCK_ACP_NO_LOAD !== "1", mcpCapabilities: { http: true } } });
             break;
         case "session/new":
         case "session/load": {
@@ -111,6 +111,12 @@ function acp(frame) {
                 break;
             }
             if (captureMentionPrompt(prompt)) {
+                reply(id, { stopReason: "end_turn" });
+                break;
+            }
+            if (prompt.includes("acp handoff")) {
+                mark("acp-handoff=" + JSON.stringify(prompt));
+                text("acp handoff reply");
                 reply(id, { stopReason: "end_turn" });
                 break;
             }

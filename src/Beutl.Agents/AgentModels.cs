@@ -1,4 +1,4 @@
-namespace Beutl.Agents;
+﻿namespace Beutl.Agents;
 
 public sealed record AgentModelOption(string? Id, string? Effort);
 

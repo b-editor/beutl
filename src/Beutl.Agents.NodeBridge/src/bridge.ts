@@ -51,8 +51,8 @@ export async function handleCommand(commandJson: string): Promise<string> {
         case "suggestions/list":
             return JSON.stringify(await listSuggestions(command.params));
         case "session/open": {
-            const session = await openSession(command.params);
-            return JSON.stringify({ externalSessionId: session.externalId });
+            const { session, reused } = await openSession(command.params);
+            return JSON.stringify({ externalSessionId: session.externalId, isNewSession: !reused });
         }
         case "session/close":
             await sessions.get(command.params.threadId)?.close();
@@ -158,7 +158,7 @@ function discoveryAdapter(provider: Omit<SuggestionListOptions, "threadId">) {
 
 const Adapters = { acp: AcpAdapter, codex: CodexAdapter, claudeCode: ClaudeAdapter };
 
-async function openSession(options: SessionOptions): Promise<Session> {
+async function openSession(options: SessionOptions): Promise<{ session: Session; reused: boolean }> {
     assertAbsolutePaths(options.executablePath, options.workingDirectory);
     const names = new Set(options.mcpServers.map(server => server.name));
     if (names.size !== options.mcpServers.length) throw new Error("MCP server names must be unique.");
@@ -169,7 +169,7 @@ async function openSession(options: SessionOptions): Promise<Session> {
             await existing.ready;
             await existing.configure(options);
             if (existing.closing) throw new Error("The agent session is closing.");
-            return existing;
+            return { session: existing, reused: true };
         }
         if (existing.provider === options.provider && existing.executablePath === options.executablePath)
             options = { ...options, externalSessionId: existing.externalId ?? options.externalSessionId };
@@ -181,7 +181,7 @@ async function openSession(options: SessionOptions): Promise<Session> {
     sessions.set(options.threadId, session);
     try {
         await session.ready;
-        return session;
+        return { session, reused: false };
     } catch (error) {
         await session.close();
         throw error;
@@ -209,10 +209,10 @@ class Session {
         this.externalId = options.externalSessionId;
         const host: AdapterHost = {
             options,
-            saveSessionId: (id: string) => {
+            saveSessionId: (id?: string) => {
                 const changed = id !== this.externalId;
                 this.externalId = id;
-                if (this.opened && changed) this.emit({ type: "sessionStateChanged", state: "open", externalSessionId: id });
+                if (this.opened && changed && id) this.emit({ type: "sessionStateChanged", state: "open", externalSessionId: id });
             },
             publishSuggestions: (suggestions: ComposerSuggestion[]) => {
                 if (!this.closing) this.emit({ type: "composerSuggestionsChanged", suggestions });

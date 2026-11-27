@@ -139,7 +139,7 @@ export const CLIENT_INFO = { name: "beutl", title: "Beutl", version: "1" };
 
 export interface AdapterHost {
     readonly options: SessionOptions;
-    saveSessionId(id: string): void;
+    saveSessionId(id?: string): void;
     publishSuggestions(suggestions: ComposerSuggestion[]): void;
     terminateProcess(pid: number): Promise<void>;
     disconnected(message: string): void;

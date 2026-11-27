@@ -1,4 +1,4 @@
-using Avalonia.Headless.NUnit;
+﻿using Avalonia.Headless.NUnit;
 using Beutl.AgentHost;
 using Beutl.Editor;
 using Beutl.Editor.Components.AgentTab;

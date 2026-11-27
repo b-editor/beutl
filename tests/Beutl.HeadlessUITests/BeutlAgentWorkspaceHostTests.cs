@@ -1,4 +1,4 @@
-using System.Text.Json.Nodes;
+﻿using System.Text.Json.Nodes;
 using Avalonia.Headless.NUnit;
 using Beutl.AgentHost;
 using Beutl.Agents;

@@ -53,6 +53,7 @@ internal sealed partial class AgentTabViewModel : AgentBindable, IToolContext
         _sessions.MetadataChanged += OnThreadMetadataChanged;
         _sessions.ActivityChanged += OnThreadActivityChanged;
         _sessions.ActivityNotified += OnActivityNotified;
+        _sessions.DraftChanged += OnDraftChanged;
         _sessions.FlushingDrafts += FlushDraft;
         _draftTimer.Tick += OnDraftTimerTick;
         _providerProbe.DisposeWith(_subscriptions);
@@ -380,7 +381,9 @@ internal sealed partial class AgentTabViewModel : AgentBindable, IToolContext
         _sessions.MetadataChanged -= OnThreadMetadataChanged;
         _sessions.ActivityChanged -= OnThreadActivityChanged;
         _sessions.ActivityNotified -= OnActivityNotified;
+        _sessions.DraftChanged -= OnDraftChanged;
         _sessions.FlushingDrafts -= FlushDraft;
+        CancelDraftSync();
         CancelThreadBodySearch();
         _lifetime.Cancel();
         _lifetime.Dispose();

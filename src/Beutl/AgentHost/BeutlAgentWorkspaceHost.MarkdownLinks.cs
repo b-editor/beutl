@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using Avalonia.Threading;
 using Beutl.Editor.Components.AgentTab;
 using Beutl.Editor.Components.FileBrowserTab.Services;

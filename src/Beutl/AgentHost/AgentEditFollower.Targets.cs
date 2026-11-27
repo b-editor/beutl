@@ -1,4 +1,4 @@
-using System.Text.Json.Nodes;
+﻿using System.Text.Json.Nodes;
 using Beutl.Animation;
 using Beutl.Editor;
 using Beutl.Editor.Infrastructure;

@@ -298,7 +298,7 @@ public sealed class AgentTabPolishViewTests
             Assert.That(removeBadge.IsHitTestVisible, Is.False);
             Assert.That(removeBadge.Opacity, Is.EqualTo(0));
             window.MouseMove(HeadlessTestHelpers.Center(removeFrame, window));
-            HeadlessTestHelpers.Render(10);
+            await HeadlessTestHelpers.WaitUntilAsync(() => removeBadge.IsHitTestVisible && removeBadge.Opacity > 0.9);
             Assert.That(removeBadge.IsHitTestVisible, Is.True);
             Assert.That(removeBadge.Opacity, Is.GreaterThan(0.9));
             HeadlessCapture.SaveIfRequested(view, string.Empty, "dark-docked-attachments-hover");

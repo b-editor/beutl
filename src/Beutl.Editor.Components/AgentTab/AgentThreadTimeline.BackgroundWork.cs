@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.ComponentModel;
 using Beutl.Editor.Components.AgentTab.ViewModels;
 using FluentIcons.Common;

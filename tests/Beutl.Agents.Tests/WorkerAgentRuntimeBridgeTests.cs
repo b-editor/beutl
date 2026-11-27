@@ -54,7 +54,10 @@ public sealed class WorkerAgentRuntimeBridgeTests
         var health = await bridge.PingAsync(_timeout.Token);
         using var process = Process.GetProcessById(health.ProcessId);
         Assert.That(Version.Parse(health.NodeVersion).Major, Is.EqualTo(26));
-        Assert.That(Path.GetFileNameWithoutExtension(health.NodeExecutablePath), Is.AnyOf("Beutl.Agents.Worker", "dotnet"));
+        string executableName = Path.GetFileName(health.NodeExecutablePath);
+        if (OperatingSystem.IsWindows() && executableName.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+            executableName = executableName[..^4];
+        Assert.That(executableName, Is.AnyOf("Beutl.Agents.Worker", "dotnet"));
         Assert.That((await bridge.PingAsync(_timeout.Token)).ProcessId, Is.EqualTo(health.ProcessId));
 
         await bridge.DisposeAsync();
@@ -113,6 +116,42 @@ public sealed class WorkerAgentRuntimeBridgeTests
         await bridge.DisposeAsync();
         Assert.That(ReadMockLog(), Does.Contain("session/new").And.Contain("session/set_mode").And.Contain("session/cancel").And.Contain("session/load"));
         Assert.That(diagnostics.Lines, Does.Contain("Agent worker: mock ACP initialized"));
+    }
+
+    [Test]
+    public async Task AcpWithoutLoadSessionHandsOffConversationWhenReopened()
+    {
+        var store = new AgentThreadStore(_directory.FullName);
+        await using var runtime = new AgentRuntimeManager(new WorkerAgentRuntimeBridge(), store);
+        var session = Session(AgentProviderKind.Acp, "acp");
+        var environment = new Dictionary<string, string>(session.Environment!)
+        {
+            ["BEUTL_MOCK_ACP_NO_LOAD"] = "1"
+        };
+        var provider = new AgentProviderDescriptor("acp-no-load", AgentProviderKind.Acp, "Mock ACP",
+            session.ExecutablePath, session.Arguments, environment);
+        string project = Path.Combine(_directory.FullName, "project.beutl");
+        var ct = _timeout.Token;
+
+        var thread = await runtime.CreateThreadAsync(project, provider, "Non-resumable ACP", cancellationToken: ct);
+        await runtime.RunTurnAsync(project, thread.Id, provider, "acp handoff turn 1", session.McpServers, cancellationToken: ct);
+        Assert.That((await store.GetAsync(project, thread.Id, ct))!.ExternalSessionId, Is.Null);
+
+        await runtime.RunTurnAsync(project, thread.Id, provider, "acp handoff turn 2", session.McpServers, cancellationToken: ct);
+        await runtime.CloseSessionAsync(project, thread.Id, ct);
+        await runtime.RunTurnAsync(project, thread.Id, provider, "acp handoff turn 3", session.McpServers, cancellationToken: ct);
+        await runtime.RunTurnAsync(project, thread.Id, provider, "acp handoff turn 4", session.McpServers, cancellationToken: ct);
+
+        var prompts = ReadMockLog().Where(line => line.StartsWith("acp-handoff=", StringComparison.Ordinal)).ToArray();
+        Assert.Multiple(() =>
+        {
+            Assert.That(prompts, Has.Length.EqualTo(4));
+            Assert.That(prompts[0], Does.Not.Contain("acp handoff reply"));
+            Assert.That(prompts[1], Does.Not.Contain("acp handoff turn 1"));
+            Assert.That(prompts[2], Does.Contain("acp handoff turn 1").And.Contain("acp handoff turn 2").And.Contain("acp handoff reply"));
+            Assert.That(prompts[3], Does.Not.Contain("acp handoff turn 1"));
+            Assert.That(ReadMockLog(), Does.Not.Contain("session/load"));
+        });
     }
 
     [Test]
@@ -200,7 +239,9 @@ public sealed class WorkerAgentRuntimeBridgeTests
         var session = Session(AgentProviderKind.Codex, "codex");
         var provider = AgentProviderDescriptor.Codex with
         {
-            Command = session.ExecutablePath, Arguments = session.Arguments, Environment = session.Environment
+            Command = session.ExecutablePath,
+            Arguments = session.Arguments,
+            Environment = session.Environment
         };
         string project = Path.Combine(_directory.FullName, "project.beutl");
         var first = await runtime.CreateThreadAsync(project, provider, "First thread", cancellationToken: _timeout.Token);
@@ -349,7 +390,9 @@ public sealed class WorkerAgentRuntimeBridgeTests
             environment["BEUTL_MOCK_UNSUPPORTED_COMPACT"] = "1";
         var provider = AgentProviderDescriptor.Codex with
         {
-            Command = session.ExecutablePath, Arguments = session.Arguments, Environment = environment
+            Command = session.ExecutablePath,
+            Arguments = session.Arguments,
+            Environment = environment
         };
         string project = Path.Combine(_directory.FullName, "project.beutl");
         var ct = _timeout.Token;

@@ -1,9 +1,9 @@
-using System.Globalization;
+﻿using System.Globalization;
 using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
-using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Presenters;
+using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Layout;
@@ -257,7 +257,7 @@ public sealed class AgentTabPhase4Tests
 
             var matches = bar.FindControl<ItemsControl>("ThreadMatches")!;
             var rowActions = matches.GetVisualDescendants().OfType<Button>().Single(button => button is
-                { Flyout: MenuFlyout, DataContext: AgentThreadRow row } && row.Thread.Id == archived.Id);
+            { Flyout: MenuFlyout, DataContext: AgentThreadRow row } && row.Thread.Id == archived.Id);
             Click(rowActions);
             var rowMenu = (MenuFlyout)rowActions.Flyout!;
             Click(rowMenu.Items.OfType<MenuItem>().Single(item => Equals(item.Header, AgentStrings.UnarchiveThread)));
@@ -527,17 +527,23 @@ public sealed class AgentTabPhase4Tests
         private readonly IDisposable _theme = AgentTabViewTests.UseDockTheme(ThemeVariant.Dark);
         private readonly CultureInfo _culture = CultureInfo.CurrentCulture;
         private readonly CultureInfo _uiCulture = CultureInfo.CurrentUICulture;
+        private readonly CultureInfo? _defaultCulture = CultureInfo.DefaultThreadCurrentCulture;
+        private readonly CultureInfo? _defaultUiCulture = CultureInfo.DefaultThreadCurrentUICulture;
         private readonly bool _popups = TestAppBuilder.HeadlessOptions.OverlayPopups;
 
         public JapaneseDock()
         {
-            CultureInfo.CurrentCulture = CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("ja-JP");
+            var ja = CultureInfo.GetCultureInfo("ja-JP");
+            CultureInfo.CurrentCulture = CultureInfo.CurrentUICulture = ja;
+            CultureInfo.DefaultThreadCurrentCulture = CultureInfo.DefaultThreadCurrentUICulture = ja;
             TestAppBuilder.HeadlessOptions.OverlayPopups = true;
         }
 
         public void Dispose()
         {
             TestAppBuilder.HeadlessOptions.OverlayPopups = _popups;
+            CultureInfo.DefaultThreadCurrentCulture = _defaultCulture;
+            CultureInfo.DefaultThreadCurrentUICulture = _defaultUiCulture;
             CultureInfo.CurrentCulture = _culture;
             CultureInfo.CurrentUICulture = _uiCulture;
             _theme.Dispose();

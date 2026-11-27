@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using Beutl.Agents;
@@ -109,14 +109,14 @@ internal sealed partial class AgentTabViewModel
     public Task RetryMessageAsync(AgentAssistantItem item)
     {
         if (!CanActOnMessages || !item.IsFinalTurnResponse || item.TurnId is not Guid turnId || !_timeline.Contains(item)
-            || _controller is not { } controller || _selectedThread is not { } source || SelectedProvider is not { } provider
-            || _timeline.OfType<AgentUserItem>().FirstOrDefault(user => user.TurnId == turnId) is not { } user)
+            || _controller is not { } controller || _selectedThread is not { } source || SelectedProvider is not { } provider)
+            return Task.CompletedTask;
+        var turnUsers = _timeline.OfType<AgentUserItem>().Where(user => user.TurnId == turnId).ToArray();
+        if (turnUsers.Length == 0)
             return Task.CompletedTask;
         return ManageAsync(async ct =>
         {
-            var entry = user.Entry;
-            var retry = new AgentQueuedMessage(_editor, provider.Descriptor, entry.Text, entry.IncludeSceneContext ?? true,
-                entry.Attachments ?? [], GetInvokedProviderSkills(entry.Text), entry.Mentions);
+            var retry = BuildRetryMessage(provider.Descriptor, turnUsers);
             if (_timeline.OfType<AgentUserItem>().Last().TurnId == turnId)
             {
                 await controller.RewindTurnAsync(turnId, ct, retry);
@@ -127,6 +127,50 @@ internal sealed partial class AgentTabViewModel
                 _ = _controller?.SubmitAsync(retry);
             }
         });
+    }
+
+    private AgentQueuedMessage BuildRetryMessage(AgentProviderDescriptor provider, AgentUserItem[] turnUsers)
+    {
+        if (turnUsers.Length == 1)
+        {
+            var entry = turnUsers[0].Entry;
+            return new AgentQueuedMessage(_editor, provider, entry.Text, entry.IncludeSceneContext ?? true,
+                entry.Attachments ?? [], GetInvokedProviderSkills(entry.Text), entry.Mentions);
+        }
+
+        string text = string.Join("\n\n", turnUsers
+            .Select(user => user.Entry.Text)
+            .Where(value => !string.IsNullOrWhiteSpace(value)));
+        if (string.IsNullOrEmpty(text))
+            text = turnUsers[0].Entry.Text;
+
+        bool includeSceneContext = turnUsers.Any(user => user.Entry.IncludeSceneContext ?? true);
+        var attachments = new List<AgentUserAttachment>();
+        var seenPaths = new HashSet<string>(s_pathComparer);
+        var mentions = new List<AgentContextMention>();
+        var seenMentions = new HashSet<AgentContextMention>();
+        foreach (var user in turnUsers)
+        {
+            if (user.Entry.Attachments is { Count: > 0 } entryAttachments)
+            {
+                foreach (var attachment in entryAttachments)
+                {
+                    if (seenPaths.Add(attachment.Path))
+                        attachments.Add(attachment);
+                }
+            }
+            if (user.Entry.Mentions is { Count: > 0 } entryMentions)
+            {
+                foreach (var mention in entryMentions)
+                {
+                    if (seenMentions.Add(mention))
+                        mentions.Add(mention);
+                }
+            }
+        }
+
+        return new AgentQueuedMessage(_editor, provider, text, includeSceneContext,
+            attachments, GetInvokedProviderSkills(text), mentions.Count > 0 ? mentions : null);
     }
 
     internal async Task OpenMarkdownLinkAsync(AgentMarkdownLink link)

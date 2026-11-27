@@ -1,4 +1,4 @@
-using System.Resources;
+﻿using System.Resources;
 using System.Text.RegularExpressions;
 
 namespace Beutl.Editor.Components.AgentTab.ViewModels;

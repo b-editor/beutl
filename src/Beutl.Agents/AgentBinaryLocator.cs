@@ -1,6 +1,6 @@
-﻿using System.Diagnostics;
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Text.RegularExpressions;
 
 namespace Beutl.Agents;

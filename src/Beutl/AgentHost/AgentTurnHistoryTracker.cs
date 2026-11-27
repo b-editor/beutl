@@ -1,4 +1,4 @@
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using System.Collections.Specialized;
 using System.Runtime.CompilerServices;
 using Avalonia.Threading;

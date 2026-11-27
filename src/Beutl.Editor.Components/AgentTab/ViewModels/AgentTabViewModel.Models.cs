@@ -1,4 +1,4 @@
-using Beutl.Agents;
+﻿using Beutl.Agents;
 using FluentIcons.Common;
 
 namespace Beutl.Editor.Components.AgentTab.ViewModels;

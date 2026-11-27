@@ -1,4 +1,4 @@
-using System.Text;
+﻿using System.Text;
 using System.Text.Json;
 
 namespace Beutl.Agents;
@@ -42,13 +42,13 @@ public sealed partial class AgentThreadStore
             switch (Property(entry, "type"))
             {
                 case "assistantTextDelta":
-                {
-                    var key = (Property(entry, "turnId"), Property(entry, "parentToolCallId"), Property(entry, "messageId"));
-                    if (!streaming.TryGetValue(key, out var message))
-                        streaming[key] = message = new StringBuilder();
-                    message.Append(Property(entry, "text"));
-                    break;
-                }
+                    {
+                        var key = (Property(entry, "turnId"), Property(entry, "parentToolCallId"), Property(entry, "messageId"));
+                        if (!streaming.TryGetValue(key, out var message))
+                            streaming[key] = message = new StringBuilder();
+                        message.Append(Property(entry, "text"));
+                        break;
+                    }
                 case "assistantMessageCompleted":
                     streaming.Remove((Property(entry, "turnId"), Property(entry, "parentToolCallId"), Property(entry, "messageId")));
                     goto case "userMessage";

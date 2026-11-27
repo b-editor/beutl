@@ -97,7 +97,8 @@ public sealed partial class AgentThreadStore(string? beutlHome = null)
             int index = FindThread(threads, marker.ThreadId);
             var thread = threads[index] with
             {
-                ExternalSessionId = null, RestorePreviousMessages = restorePreviousMessages,
+                ExternalSessionId = null,
+                RestorePreviousMessages = restorePreviousMessages,
                 UpdatedAt = LaterOf(threads[index].UpdatedAt, marker.Timestamp)
             };
             await SaveWithMarkerAsync(directory, threads, index, thread, marker, cancellationToken).ConfigureAwait(false);
@@ -131,9 +132,16 @@ public sealed partial class AgentThreadStore(string? beutlHome = null)
             var now = DateTimeOffset.UtcNow;
             var fork = source with
             {
-                Id = Guid.NewGuid(), Title = title, CreatedAt = now, UpdatedAt = now,
-                ExternalSessionId = null, RestorePreviousMessages = HasConversation(entries),
-                IsPinned = false, IsArchived = false, LastReadAt = null, LastActivityAt = null
+                Id = Guid.NewGuid(),
+                Title = title,
+                CreatedAt = now,
+                UpdatedAt = now,
+                ExternalSessionId = null,
+                RestorePreviousMessages = HasConversation(entries),
+                IsPinned = false,
+                IsArchived = false,
+                LastReadAt = null,
+                LastActivityAt = null
             };
 
             string path = TimelinePath(directory, fork.Id);
@@ -161,7 +169,8 @@ public sealed partial class AgentThreadStore(string? beutlHome = null)
                 .ConfigureAwait(false);
             var thread = threads[index] with
             {
-                UpdatedAt = DateTimeOffset.UtcNow, ExternalSessionId = null,
+                UpdatedAt = DateTimeOffset.UtcNow,
+                ExternalSessionId = null,
                 RestorePreviousMessages = HasConversation(entries)
             };
             string path = TimelinePath(directory, id);

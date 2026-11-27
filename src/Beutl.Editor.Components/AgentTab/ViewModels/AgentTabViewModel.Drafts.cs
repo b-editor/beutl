@@ -1,4 +1,4 @@
-using Avalonia.Threading;
+﻿using Avalonia.Threading;
 using Beutl.Agents;
 
 namespace Beutl.Editor.Components.AgentTab.ViewModels;
@@ -12,6 +12,7 @@ internal sealed partial class AgentTabViewModel
     private bool _draftLoaded;
     private bool _draftDirty;
     private bool _restoringDraft;
+    private CancellationTokenSource? _draftSyncCancellation;
     private int _historyIndex;
     private IReadOnlyList<string>? _browsedHistory;
     private string? _savedPrompt;
@@ -21,7 +22,9 @@ internal sealed partial class AgentTabViewModel
     {
         if (!_draftLoaded || _restoringDraft || _disposed)
             return;
+        CancelDraftSync();
         _draftDirty = true;
+        _sessions.PublishDraft(_selectedThread?.Id, CreateDraftSnapshot(), this);
         _draftTimer.Stop();
         _draftTimer.Start();
     }
@@ -36,6 +39,15 @@ internal sealed partial class AgentTabViewModel
 
     private void FlushDraft() => _ = SaveDraftAsync();
 
+    private AgentDraft? CreateDraftSnapshot()
+    {
+        string? text = _browsedHistory is null ? Prompt : _savedPrompt;
+        return string.IsNullOrEmpty(text) && _attachments.Count == 0 && IncludeSceneContext
+            ? null
+            : new AgentDraft(text, _attachments.Select(item => item.Path).ToArray(), IncludeSceneContext,
+                _attachments.Select(item => item.File.MediaType).ToArray(), GetAcceptedMentions(text));
+    }
+
     private async Task SaveDraftAsync()
     {
         _draftTimer.Stop();
@@ -44,13 +56,10 @@ internal sealed partial class AgentTabViewModel
         _draftDirty = false;
 
         Guid? threadId = _selectedThread?.Id;
-        string? text = _browsedHistory is null ? Prompt : _savedPrompt;
-        AgentDraft? draft = string.IsNullOrEmpty(text) && _attachments.Count == 0 && IncludeSceneContext
-            ? null : new AgentDraft(text, _attachments.Select(item => item.Path).ToArray(), IncludeSceneContext,
-                _attachments.Select(item => item.File.MediaType).ToArray(), GetAcceptedMentions(text));
+        AgentDraft? draft = CreateDraftSnapshot();
         try
         {
-            await _sessions.SaveDraftAsync(threadId, draft);
+            await _sessions.SaveDraftAsync(threadId, draft, this);
         }
         catch (Exception ex)
         {
@@ -60,8 +69,119 @@ internal sealed partial class AgentTabViewModel
         }
     }
 
+    private void OnDraftChanged(Guid? threadId, AgentDraft? draft, object? source)
+    {
+        if (!Dispatcher.UIThread.CheckAccess())
+        {
+            Post(() => OnDraftChanged(threadId, draft, source));
+            return;
+        }
+        if (_disposed || ReferenceEquals(source, this) || !_draftLoaded || threadId != _selectedThread?.Id)
+            return;
+
+        _draftTimer.Stop();
+        _draftDirty = false;
+        CancelDraftSync();
+
+        var incomingFiles = draft is null
+            ? []
+            : draft.AttachmentPaths
+                .Select((path, index) => new AgentAttachedFile(path, draft.AttachmentMediaTypes?.ElementAtOrDefault(index)))
+                .Where(file => !string.IsNullOrWhiteSpace(file.Path))
+                .ToArray();
+        var incomingPaths = new HashSet<string>(incomingFiles.Select(file => file.Path), s_pathComparer);
+
+        _restoringDraft = true;
+        try
+        {
+            if (Prompt != draft?.Prompt)
+                ResetPromptHistory();
+            Prompt = draft?.Prompt;
+            RestoreAcceptedMentions(draft?.Mentions);
+            IncludeSceneContext = draft?.IncludeSceneContext ?? true;
+            bool removedAny = false;
+            for (int index = _attachments.Count - 1; index >= 0; index--)
+            {
+                if (!incomingPaths.Contains(_attachments[index].Path))
+                {
+                    var removed = _attachments[index];
+                    _attachments.RemoveAt(index);
+                    removed.Dispose();
+                    removedAny = true;
+                }
+            }
+            if (removedAny)
+                NotifyPromptActions();
+        }
+        finally
+        {
+            _restoringDraft = false;
+        }
+
+        var missing = incomingFiles
+            .Where(file => !_attachments.Any(item => s_pathComparer.Equals(item.Path, file.Path)))
+            .ToArray();
+        if (missing.Length > 0)
+        {
+            var cancellation = _draftSyncCancellation = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);
+            _ = SyncMissingAttachmentsAsync(threadId, missing, cancellation);
+        }
+    }
+
+    private async Task SyncMissingAttachmentsAsync(
+        Guid? threadId, AgentAttachedFile[] files, CancellationTokenSource cancellation)
+    {
+        var ct = cancellation.Token;
+        try
+        {
+            foreach (var file in files)
+            {
+                ct.ThrowIfCancellationRequested();
+                var attachment = await Task.Run(() => AgentAttachment.CreateFile(file, RemoveAttachment), ct);
+                if (ct.IsCancellationRequested || _disposed || threadId != _selectedThread?.Id
+                    || _attachments.Any(item => s_pathComparer.Equals(item.Path, attachment.Path)))
+                {
+                    attachment.Dispose();
+                    if (ct.IsCancellationRequested || _disposed || threadId != _selectedThread?.Id)
+                        return;
+                    continue;
+                }
+                _restoringDraft = true;
+                try
+                {
+                    _attachments.Add(attachment);
+                    NotifyPromptActions();
+                }
+                finally
+                {
+                    _restoringDraft = false;
+                }
+            }
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+        }
+        catch (Exception ex)
+        {
+            ReportError(ex);
+        }
+        finally
+        {
+            if (_draftSyncCancellation == cancellation)
+                _draftSyncCancellation = null;
+            cancellation.Dispose();
+        }
+    }
+
+    private void CancelDraftSync()
+    {
+        _draftSyncCancellation?.Cancel();
+        _draftSyncCancellation = null;
+    }
+
     private async Task RestoreDraftAsync(AgentDraft? draft, CancellationToken ct)
     {
+        CancelDraftSync();
         _restoringDraft = true;
         try
         {

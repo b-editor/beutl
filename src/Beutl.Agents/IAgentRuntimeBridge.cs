@@ -16,7 +16,7 @@ public sealed record AgentSessionOpenRequest(
     string? ExternalSessionId = null,
     string? ReasoningEffort = null);
 
-public sealed record AgentSessionInfo(string? ExternalSessionId);
+public sealed record AgentSessionInfo(string? ExternalSessionId, bool IsNewSession = false);
 public enum AgentBackgroundStopResult { Unavailable, Requested, Unsupported }
 public enum AgentCompactionStatus { Completed, Unsupported, Failed, Cancelled }
 public sealed record AgentCompactionResult(AgentCompactionStatus Status, string? Error = null);

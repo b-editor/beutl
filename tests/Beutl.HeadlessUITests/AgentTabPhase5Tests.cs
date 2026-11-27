@@ -308,6 +308,57 @@ public sealed class AgentTabPhase5Tests
     }
 
     [AvaloniaTest]
+    public async Task RetryPreservesSteeredCorrectionsAndAttachments()
+    {
+        using var ui = new JapaneseDock();
+        await using var workspace = new AgentTabTestWorkspace { SteerOnSend = true };
+        using var model = workspace.CreateWorkspace(workspace.Editor);
+        string firstAttachment = Path.Combine(workspace.Root, "first.txt");
+        string steerAttachment = Path.Combine(workspace.Root, "steer.txt");
+        File.WriteAllText(firstAttachment, "first");
+        File.WriteAllText(steerAttachment, "steer");
+
+        var waitSteer = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var finishFirst = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var requests = new List<AgentTurnRequest>();
+        workspace.Bridge.Script = async (request, ct) =>
+        {
+            requests.Add(request);
+            if (requests.Count == 1)
+            {
+                workspace.Bridge.Emit(new AgentAssistantMessageCompleted(request.ThreadId, request.TurnId, DateTimeOffset.UtcNow, "作業中"));
+                waitSteer.TrySetResult();
+                await finishFirst.Task.WaitAsync(ct);
+            }
+            workspace.Bridge.Emit(new AgentAssistantMessageCompleted(request.ThreadId, request.TurnId, DateTimeOffset.UtcNow, "完了しました"));
+        };
+
+        await model.InitializeAsync();
+        model.Prompt = "冒頭を調整して";
+        await model.AddFilesAsync([firstAttachment]);
+        Task firstTurn = model.SendAsync();
+        await waitSteer.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        model.Prompt = "配色は変えないで";
+        await model.AddFilesAsync([steerAttachment]);
+        await model.SendAsync();
+        finishFirst.SetResult();
+        await firstTurn.WaitAsync(TimeSpan.FromSeconds(10));
+
+        var reply = model.DisplayTimeline.OfType<AgentAssistantItem>().Single(item => item.IsFinalTurnResponse);
+        await model.RetryMessageAsync(reply);
+        await HeadlessTestHelpers.WaitUntilAsync(() => requests.Count == 2 && !model.IsRunning);
+
+        var retried = requests[1];
+        Assert.Multiple(() =>
+        {
+            Assert.That(retried.Text, Is.EqualTo("冒頭を調整して\n\n配色は変えないで"));
+            Assert.That(retried.Attachments?.Select(item => item.Path),
+                Is.EqualTo(new[] { firstAttachment, steerAttachment }));
+        });
+    }
+
+    [AvaloniaTest]
     public async Task FailedTurnShowsAuthActionsAndRecheckReadsUpdatedLoginStatus()
     {
         using var ui = new JapaneseDock();
@@ -693,17 +744,23 @@ public sealed class AgentTabPhase5Tests
         private readonly IDisposable _theme = AgentTabViewTests.UseDockTheme(ThemeVariant.Dark);
         private readonly CultureInfo _culture = CultureInfo.CurrentCulture;
         private readonly CultureInfo _uiCulture = CultureInfo.CurrentUICulture;
+        private readonly CultureInfo? _defaultCulture = CultureInfo.DefaultThreadCurrentCulture;
+        private readonly CultureInfo? _defaultUiCulture = CultureInfo.DefaultThreadCurrentUICulture;
         private readonly bool _popups = TestAppBuilder.HeadlessOptions.OverlayPopups;
 
         public JapaneseDock()
         {
-            CultureInfo.CurrentCulture = CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("ja-JP");
+            var ja = CultureInfo.GetCultureInfo("ja-JP");
+            CultureInfo.CurrentCulture = CultureInfo.CurrentUICulture = ja;
+            CultureInfo.DefaultThreadCurrentCulture = CultureInfo.DefaultThreadCurrentUICulture = ja;
             TestAppBuilder.HeadlessOptions.OverlayPopups = true;
         }
 
         public void Dispose()
         {
             TestAppBuilder.HeadlessOptions.OverlayPopups = _popups;
+            CultureInfo.DefaultThreadCurrentCulture = _defaultCulture;
+            CultureInfo.DefaultThreadCurrentUICulture = _defaultUiCulture;
             CultureInfo.CurrentCulture = _culture;
             CultureInfo.CurrentUICulture = _uiCulture;
             _theme.Dispose();

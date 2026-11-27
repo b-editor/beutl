@@ -1,4 +1,4 @@
-namespace Beutl.Editor.Components.AgentTab;
+﻿namespace Beutl.Editor.Components.AgentTab;
 
 internal enum AgentMarkdownLinkKind { Time, Element, Object, Scene, LocalFile }
 

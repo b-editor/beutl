@@ -37,7 +37,7 @@ public sealed class TimelineContextMenuTests
             Strings.BulkSelection, Strings.GroupSelectedElements, Strings.UngroupSelectedElements, null,
             Strings.ChangeColor, Strings.DisableThumbnails, null,
             Strings.TrackMatte, GraphicsStrings.ClipTransition, null,
-            Strings.SaveAsTemplateMenu, null,
+            Strings.SaveAsTemplateMenu, AgentStrings.SendToAgent, null,
             Strings.Animation,
         }));
         FAMenuFlyoutItem duplicate = menu.Items.OfType<FAMenuFlyoutItem>().Single(item => item.Text == Strings.Duplicate);

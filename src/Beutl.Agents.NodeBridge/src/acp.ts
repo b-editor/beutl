@@ -84,8 +84,7 @@ export class AcpAdapter implements Adapter {
         this.legacyModels = (session as { models?: LegacyModels }).models;
         this.initialModel = this.config("model")?.currentValue ?? this.legacyModels?.currentModelId;
         this.rememberEffortDefault(this.initialModel);
-        if (canLoadSession)
-            this.host.saveSessionId(this.sessionId);
+        this.host.saveSessionId(canLoadSession ? this.sessionId : undefined);
         await this.setMode(options.permissionMode);
     }
 
@@ -319,10 +318,10 @@ export class AcpAdapter implements Adapter {
             backgroundTitle: background ? (typeof command === "string" ? command : title ?? undefined) : undefined });
     }
 
-    private updateTool(turn: Turn, tool: ToolCallUpdate, status: ToolCallStatus | null | undefined): void {
+    private updateTool(turn: Turn, tool: ToolCallUpdate, status: ToolCallStatus | "cancelled" | null | undefined): void {
         const { toolCallId, title, content, rawOutput } = tool;
         const parentToolCallId = parentOf(tool);
-        if (status === "completed" || status === "failed")
+        if (status === "completed" || status === "failed" || status === "cancelled")
             turn.emit({ type: "toolCallCompleted", toolCallId, status, outputs: contentOutputs(content ?? rawOutput), parentToolCallId });
         else
             turn.emit({ type: "toolCallUpdated", toolCallId, status: status === "pending" ? status : "running", message: title ?? undefined, parentToolCallId });

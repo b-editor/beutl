@@ -1,4 +1,4 @@
-using Beutl.Editor.Components.AgentTab;
+﻿using Beutl.Editor.Components.AgentTab;
 using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.Editor;

@@ -1,4 +1,4 @@
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Controls.Presenters;
@@ -225,13 +225,17 @@ public sealed class AgentTabPhase2Tests
         scene.Name.Value = "Opening";
         var firstTitle = new Element
         {
-            Name = { Value = "Title overlay" }, Start = { Value = MediaTime.FromSeconds(0.5) },
-            Length = { Value = MediaTime.FromSeconds(1.75) }, ZIndex = { Value = 2 }
+            Name = { Value = "Title overlay" },
+            Start = { Value = MediaTime.FromSeconds(0.5) },
+            Length = { Value = MediaTime.FromSeconds(1.75) },
+            ZIndex = { Value = 2 }
         };
         var secondTitle = new Element
         {
-            Name = { Value = "Title overlay" }, Start = { Value = MediaTime.FromSeconds(3) },
-            Length = { Value = MediaTime.FromSeconds(1) }, ZIndex = { Value = 4 }
+            Name = { Value = "Title overlay" },
+            Start = { Value = MediaTime.FromSeconds(3) },
+            Length = { Value = MediaTime.FromSeconds(1) },
+            ZIndex = { Value = 4 }
         };
         scene.Children.Add(firstTitle);
         scene.Children.Add(secondTitle);
