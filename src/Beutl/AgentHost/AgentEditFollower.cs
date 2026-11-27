@@ -286,7 +286,7 @@ public sealed class AgentEditFollower(EditorService editorService, AiAgentConfig
         return new EditTarget(element, obj, propertyName, KeyFrameTime(obj));
     }
 
-    private static MediaTime? KeyFrameTime(CoreObject obj)
+    internal static MediaTime? KeyFrameTime(CoreObject obj)
     {
         if (obj is not IKeyFrame keyFrame
             || keyFrame.EnumerateAncestors<IKeyFrameAnimation>().FirstOrDefault() is not { } animation)

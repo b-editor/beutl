@@ -679,7 +679,7 @@ public sealed class WorkerAgentRuntimeBridgeTests
     [TestCase(AgentProviderKind.Acp, "acp")]
     [TestCase(AgentProviderKind.Codex, "codex")]
     [TestCase(AgentProviderKind.ClaudeCode, "claude")]
-    public async Task FormatsStructuredMentionsAndPastedTextForTheProvider(AgentProviderKind provider, string mockMode)
+    public async Task FormatsMentionsAttachmentsAndLinkHintsForTheProvider(AgentProviderKind provider, string mockMode)
     {
         await using var bridge = new WorkerAgentRuntimeBridge();
         var session = Session(provider, mockMode);
@@ -688,16 +688,20 @@ public sealed class WorkerAgentRuntimeBridgeTests
         string clip = Path.Combine(_directory.FullName, "media", "clip.mp4");
         string pastedText = Path.Combine(_directory.FullName, "pasted-text.txt");
         string sceneId = Guid.NewGuid().ToString("D");
+        string elementId = Guid.NewGuid().ToString("D");
+        string objectId = Guid.NewGuid().ToString("D");
         var mentions = new AgentContextMention[]
         {
             new(AgentContextMentionKind.Scene, "Opening", sceneId, Detail: "1920 × 1080 · 24 fps · 6 s", Token: "@Opening"),
-            new(AgentContextMentionKind.Element, "Title", Guid.NewGuid().ToString("D"),
-                Detail: "0.5–2.25 s · Layer 2", Token: "@Title", SceneId: sceneId),
-            new(AgentContextMentionKind.File, "clip.mp4", Path: clip, Detail: "media/clip.mp4", Token: "@clip.mp4")
+            new(AgentContextMentionKind.Element, "Title", elementId,
+                Detail: "0.5–2.25 s · Layer 2", Token: "@Title", SceneId: sceneId, StartSeconds: 0.5, EndSeconds: 2.25),
+            new(AgentContextMentionKind.File, "clip.mp4", Path: clip, Detail: "media/clip.mp4", Token: "@clip.mp4"),
+            new(AgentContextMentionKind.Object, "Title text", objectId, Token: "@Title-text", SceneId: sceneId,
+                ElementId: elementId, TypeName: "Beutl.Graphics.Shapes.TextBlock")
         };
         var context = new AgentContextSnapshot("instance", project, "Demo", null, null, null, null, null, null, null,
             [], [new(pastedText, "text/plain")], mentions);
-        var request = Turn(session, "Review @Opening @Title @clip.mp4") with { Context = context };
+        var request = Turn(session, "Review @Opening @Title @clip.mp4 @Title-text") with { Context = context };
         var result = await bridge.RunTurnAsync(request, _timeout.Token);
         Assert.That(result.Status, Is.EqualTo(AgentTurnStatus.Completed), result.Error);
 
@@ -708,9 +712,14 @@ public sealed class WorkerAgentRuntimeBridgeTests
         Assert.Multiple(() =>
         {
             Assert.That(prompt, Does.Contain("[Beutl project context]").And.Contain("Resolve @tokens using mentions")
-                .And.Contain("Read the text/plain files in attachedFiles"));
+                .And.Contain("Read the text/plain files in attachedFiles").And.Contain("For kind: \"object\"")
+                .And.Contain("targetId is the object ID, elementId is its owning element")
+                .And.Contain("beutl://time/<seconds>").And.Contain("beutl://element/<elementId>")
+                .And.Contain("beutl://object/<objectId>").And.Contain("beutl://scene/<sceneId>")
+                .And.Contain("project-relative Markdown links"));
             Assert.That(AgentJson.Read<AgentContextSnapshot>(payload.RootElement).Mentions, Is.EqualTo(mentions));
             Assert.That(payload.RootElement.GetProperty("mentions")[1].GetProperty("kind").GetString(), Is.EqualTo("element"));
+            Assert.That(payload.RootElement.GetProperty("mentions")[3].GetProperty("kind").GetString(), Is.EqualTo("object"));
             Assert.That(payload.RootElement.GetProperty("attachedFiles")[0].GetProperty("path").GetString(), Is.EqualTo(pastedText));
         });
     }

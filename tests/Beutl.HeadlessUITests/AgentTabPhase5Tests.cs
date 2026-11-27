@@ -610,8 +610,12 @@ public sealed class AgentTabPhase5Tests
 
             await HeadlessTestHelpers.WaitUntilAsync(() => !foreground.ShowEscapeStopHint);
             Assert.That(foreground.CanStop, Is.True);
-            Press(window, PhysicalKey.Escape);
-            Press(window, PhysicalKey.Escape);
+            // A render between presses can consume the wall-clock confirmation window on a busy host.
+            for (int press = 0; press < 2; press++)
+            {
+                window.KeyPressQwerty(PhysicalKey.Escape, RawInputModifiers.None);
+                window.KeyReleaseQwerty(PhysicalKey.Escape, RawInputModifiers.None);
+            }
             await foregroundTurn.WaitAsync(TimeSpan.FromSeconds(10));
             Assert.That(foreground.IsRunning || foreground.ShowEscapeStopHint, Is.False);
             background.ActivePermission!.Respond(AgentPermissionDecision.RejectOnce);

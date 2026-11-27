@@ -184,7 +184,7 @@ public static class GotoTimecodeParser
         return true;
     }
 
-    private static bool TryParseAbsolute(string text, out MediaTime result, out GotoTimecodeError error)
+    internal static bool TryParseAbsolute(string text, out MediaTime result, out GotoTimecodeError error)
     {
         result = MediaTime.Zero;
         error = GotoTimecodeError.InvalidFormat;

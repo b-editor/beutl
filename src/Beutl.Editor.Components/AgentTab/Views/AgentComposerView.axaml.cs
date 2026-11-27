@@ -40,10 +40,12 @@ internal sealed partial class AgentComposerView : UserControl
         ComposerCard.AddHandler(DragDrop.DropEvent, OnDrop);
     }
 
-    public void FocusPrompt()
+    public bool FocusPrompt()
     {
-        PromptBox.Focus();
+        if (!PromptBox.Focus() && !PromptBox.IsFocused)
+            return false;
         PromptBox.CaretIndex = PromptBox.Text?.Length ?? 0;
+        return true;
     }
 
     internal bool HasOpenSuggestions => SuggestionsPopup.IsOpen;

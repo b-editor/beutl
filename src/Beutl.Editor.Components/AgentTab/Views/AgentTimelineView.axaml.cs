@@ -18,6 +18,9 @@ internal sealed partial class AgentTimelineView : UserControl
         InitializeComponent();
     }
 
+    internal Task OpenLinkAsync(AgentMarkdownLink link)
+        => (DataContext as AgentTabViewModel)?.OpenMarkdownLinkAsync(link) ?? Task.CompletedTask;
+
     private async void OnCopyMessage(object? sender, RoutedEventArgs e)
     {
         if (sender is Button { DataContext: AgentMessageItem item }

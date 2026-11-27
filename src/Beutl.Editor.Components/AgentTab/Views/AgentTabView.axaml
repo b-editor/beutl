@@ -40,10 +40,8 @@
                     </Border>
                     <TextBlock Text="{x:Static lang:AgentStrings.EmptyTitle}" FontSize="20" FontWeight="SemiBold"
                                TextWrapping="Wrap" TextAlignment="Center" />
-                    <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center">
-                        <Ellipse Classes="agent-provider-dot" Classes.available="{Binding ProviderIsReady}" />
-                        <TextBlock Classes="agent-secondary" Text="{Binding ProviderStatusLabel}" TextTrimming="CharacterEllipsis" />
-                    </StackPanel>
+                    <TextBlock HorizontalAlignment="Center" Classes="agent-secondary"
+                               Text="{Binding ProviderStatusLabel}" TextTrimming="CharacterEllipsis" />
                     <ItemsControl x:Name="StarterPrompts" ItemsSource="{Binding StarterPrompts}"
                                   HorizontalAlignment="Center" Margin="0,8,0,0" IsEnabled="{Binding CanManage}">
                         <ItemsControl.ItemsPanel>

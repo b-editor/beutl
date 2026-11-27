@@ -6,6 +6,7 @@ using Avalonia.Xaml.Interactivity;
 using Beutl.Controls;
 using Beutl.Controls.Behaviors;
 using Beutl.Controls.Converters;
+using Beutl.Editor.Components.AgentTab;
 using Beutl.Editor.Components.ElementPropertyTab.ViewModels;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.Views;
@@ -19,6 +20,21 @@ namespace Beutl.Editor.Components.ElementPropertyTab.Views;
 
 public sealed partial class EngineObjectPropertyView : UserControl
 {
+    private void ObjectMenu_Opening(object? sender, EventArgs e)
+    {
+        sendToAgent.IsEnabled = DataContext is EngineObjectPropertyViewModel { Model: { } obj } viewModel
+            && obj.FindHierarchicalParent<Scene>() is not null
+            && AgentComposerLauncher.IsAvailable(viewModel.GetService<IEditorContext>());
+    }
+
+    private async void SendToAgent_Click(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is EngineObjectPropertyViewModel { Model: { } obj } viewModel
+            && obj.FindHierarchicalParent<Scene>() is not null
+            && viewModel.GetService<IEditorContext>() is { } editor)
+            await AgentComposerLauncher.SendObjectAsync(editor, obj);
+    }
+
     public EngineObjectPropertyView()
     {
         Resources["ViewModelToViewConverter"] = PropertyEditorContextToViewConverter.Instance;

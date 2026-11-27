@@ -16,7 +16,7 @@ public sealed record HttpMcpServerSpec(string Name, Uri Url, IReadOnlyDictionary
 
 public sealed record AgentAttachedFile(string Path, string? MediaType = null);
 
-public enum AgentContextMentionKind { Scene, Element, File }
+public enum AgentContextMentionKind { Scene, Element, File, Object }
 
 public sealed record AgentContextMention(
     AgentContextMentionKind Kind,
@@ -25,7 +25,11 @@ public sealed record AgentContextMention(
     string? Path = null,
     string? Detail = null,
     string? Token = null,
-    string? SceneId = null);
+    string? SceneId = null,
+    string? ElementId = null,
+    string? TypeName = null,
+    double? StartSeconds = null,
+    double? EndSeconds = null);
 
 public sealed record AgentContextSnapshot(
     string InstanceId,

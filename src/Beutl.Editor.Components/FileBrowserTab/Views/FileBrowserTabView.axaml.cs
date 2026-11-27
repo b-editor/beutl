@@ -10,6 +10,7 @@ using Avalonia.LogicalTree;
 using Avalonia.Platform.Storage;
 using Avalonia.VisualTree;
 using Beutl.Controls;
+using Beutl.Editor.Components.AgentTab;
 using Beutl.Editor.Components.FileBrowserTab.Services;
 using Beutl.Editor.Components.FileBrowserTab.ViewModels;
 using Beutl.Services;
@@ -176,6 +177,12 @@ public partial class FileBrowserTabView : UserControl
             await vm.OpenInFileManagerAsync(item);
     }
 
+    private async void OnSendToAgentClick(object? sender, RoutedEventArgs e)
+    {
+        if (GetItemFromMenuItem(sender) is { IsDirectory: false } item && ViewModel is { } viewModel)
+            await AgentComposerLauncher.SendFileAsync(viewModel.EditorContext, item.FullPath);
+    }
+
     private async void OnDeleteClick(object? sender, RoutedEventArgs e)
     {
         if (ViewModel == null)
@@ -215,6 +222,10 @@ public partial class FileBrowserTabView : UserControl
                 else if (menuItem.Tag is "OpenInFileManager")
                 {
                     menuItem.Text = FileManagerLauncher.MenuHeader;
+                }
+                else if (menuItem.Tag is "SendToAgent")
+                {
+                    menuItem.IsVisible = !item.IsDirectory && AgentComposerLauncher.IsAvailable(ViewModel.EditorContext);
                 }
             }
         }

@@ -35,20 +35,12 @@ internal sealed partial class BeutlAgentWorkspaceHost
             candidates.Add(new(new(AgentContextMentionKind.Scene, name, id, path, contextDetail), displayDetail));
         }
 
-        string sceneId = activeScene.Id.Value.ToString("D");
         foreach (var element in activeScene.Children)
         {
-            string name = element.Name.Value;
-            if (string.IsNullOrWhiteSpace(name))
-                name = AgentStrings.MentionElement;
             var range = element.Range;
-            double start = range.Start.ToSeconds();
-            double end = range.End.ToSeconds();
-            int layer = element.ZIndex.Value;
-            string contextDetail = FormattableString.Invariant($"{start:R}–{end:R} s · Layer {layer}");
-            string displayDetail = string.Format(AgentStrings.MentionElementDetail, start, end, layer);
-            candidates.Add(new(new(AgentContextMentionKind.Element, name, element.Id.Value.ToString("D"), GetLocalPath(element),
-                contextDetail, SceneId: sceneId), displayDetail));
+            string displayDetail = string.Format(AgentStrings.MentionElementDetail,
+                range.Start.ToSeconds(), range.End.ToSeconds(), element.ZIndex.Value);
+            candidates.Add(new(AgentComposerLauncher.CreateElementMention(element), displayDetail));
         }
 
         var files = await Task.Run(() => DiscoverAssetMentions(Path.GetDirectoryName(projectPath), cancellationToken), cancellationToken);

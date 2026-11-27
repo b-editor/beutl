@@ -2,7 +2,9 @@ using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using Beutl.Agents;
+using Beutl.Services;
 using FluentIcons.Common;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Editor.Components.AgentTab.ViewModels;
 
@@ -47,6 +49,20 @@ internal sealed partial class AgentTabViewModel
     public bool CanReorderQueuedMessages => CanManageQueue && QueuedMessages.Count > 1;
     public bool CanPromoteQueuedMessage => CanManageQueue && _controller?.IsStopping == false;
     public bool CanEditQueuedMessage => CanManageQueue && ShowComposer && string.IsNullOrWhiteSpace(Prompt) && _attachments.Count == 0;
+
+    internal async Task OpenMarkdownLinkAsync(AgentMarkdownLink link)
+    {
+        if (_disposed) return;
+        var ct = _lifetime.Token;
+        try
+        {
+            if (!await _host.TryOpenMarkdownLinkAsync(_editor, _projectPath, link, ct) && !ct.IsCancellationRequested)
+                _editor.GetService<INotificationService>()?.ShowWarning(AgentStrings.Title, AgentStrings.LinkUnavailable);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+        }
+    }
     public string PromoteQueuedMessageLabel => IsRunning ? AgentStrings.SteerNow : AgentStrings.SendQueuedMessage;
 
     public void PreviousPermission() => _controller?.NavigatePermission(-1);

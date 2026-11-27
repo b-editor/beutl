@@ -44,6 +44,14 @@
                             <icons:FluentIconSource Icon="OpenFolder" />
                         </ui:FAMenuFlyoutItem.IconSource>
                     </ui:FAMenuFlyoutItem>
+                    <ui:FAMenuFlyoutItem Click="OnSendToAgentClick"
+                                         IsVisible="False"
+                                         Tag="SendToAgent"
+                                         Text="{x:Static lang:AgentStrings.SendToAgent}">
+                        <ui:FAMenuFlyoutItem.IconSource>
+                            <icons:FluentIconSource Icon="Bot" />
+                        </ui:FAMenuFlyoutItem.IconSource>
+                    </ui:FAMenuFlyoutItem>
                     <ui:FAMenuFlyoutSeparator />
                     <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="FileBrowser.Rename"
                                          Click="OnRenameClick"

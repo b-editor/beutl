@@ -254,13 +254,14 @@ export function formatPrompt({ text, context, bundledSkills, previousMessages }:
     const mentions = project?.mentions;
     const files = project?.attachedFiles;
     const mentionHint = Array.isArray(mentions) && mentions.length
-        ? "Resolve @tokens using mentions. For elements, use targetId and their own sceneId. For scenes, use targetId as the sceneId. Use the supplied path for files.\n"
+        ? "Resolve @tokens using mentions. For elements, use targetId and their own sceneId. For scenes, use targetId as the sceneId. For kind: \"object\", targetId is the object ID, elementId is its owning element when present, and sceneId is its scene. Use the supplied path for files.\n"
         : "";
     const pastedTextHint = Array.isArray(files) && files.some(file => record(file)?.mediaType === "text/plain")
         ? "Read the text/plain files in attachedFiles at their supplied paths as part of the user's message.\n"
         : "";
     return prompt + "\n\n[Beutl project context]\n"
         + "Use instanceId for live Beutl MCP calls and sceneId for scene operations.\n"
+        + "Link to Beutl targets in Markdown with beutl://time/<seconds> (relative to the scene start), beutl://element/<elementId>, beutl://object/<objectId>, or beutl://scene/<sceneId>. Use project-relative Markdown links for local files.\n"
         + mentionHint + pastedTextHint
         + JSON.stringify(context);
 }

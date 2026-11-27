@@ -514,4 +514,16 @@
   <data name="DiagnosticTechnicalDetails" xml:space="preserve">
     <value>Detalles técnicos</value>
   </data>
+  <data name="SendToAgent" xml:space="preserve">
+    <value>Enviar al agente de IA</value>
+  </data>
+  <data name="SendFrameToAgent" xml:space="preserve">
+    <value>Enviar el fotograma actual al agente de IA</value>
+  </data>
+  <data name="MentionObject" xml:space="preserve">
+    <value>Objeto</value>
+  </data>
+  <data name="LinkUnavailable" xml:space="preserve">
+    <value>No se pudo encontrar o abrir el elemento del enlace.</value>
+  </data>
 </root>

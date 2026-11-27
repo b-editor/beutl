@@ -32,7 +32,7 @@ internal sealed partial class AgentTabViewModel : AgentBindable, IToolContext
     private bool _restoreNewThread;
     private Task? _initialization;
     private AgentThreadController? _controller;
-    private bool _busy;
+    private TaskCompletionSource? _managementCompletion;
     private bool _disposed;
 
     public AgentTabViewModel(IAgentWorkspaceHost host, IEditorContext editor, string projectPath)
@@ -114,7 +114,6 @@ internal sealed partial class AgentTabViewModel : AgentBindable, IToolContext
             Notify(nameof(CanSendAlternate));
             Notify(nameof(ProviderName));
             Notify(nameof(ProviderIsAvailable));
-            Notify(nameof(ProviderIsReady));
             Notify(nameof(ProviderStatusLabel));
             Notify(nameof(ProviderTooltip));
             Notify(nameof(ModelPickerTooltip));
@@ -125,7 +124,6 @@ internal sealed partial class AgentTabViewModel : AgentBindable, IToolContext
 
     public string ProviderName => SelectedProvider?.Name ?? AgentStrings.Provider;
     public bool ProviderIsAvailable => SelectedProvider?.IsAvailable == true;
-    public bool ProviderIsReady => ProviderIsAvailable && SelectedProvider?.Diagnostic?.Kind != AgentDiagnosticKind.OutdatedCli;
     public string ProviderStatusLabel => SelectedProvider is { } provider
         ? $"{provider.Name} · {provider.Availability}" : AgentStrings.NoProvider;
     public string ProviderTooltip => ProviderStatusLabel;
@@ -172,7 +170,7 @@ internal sealed partial class AgentTabViewModel : AgentBindable, IToolContext
     public bool ShowEmptyState => !IsRunning && _timeline.Count == 0;
     public string PromptPlaceholder => IsRunning ? AgentStrings.RunningPrompt : AgentStrings.Prompt;
     public bool CanStop => _controller is { IsRunning: true, IsStopping: false };
-    public bool CanManage => !_disposed && !_busy && !_sessions.Lifetime.IsCancellationRequested;
+    public bool CanManage => !_disposed && _managementCompletion is null && !_sessions.Lifetime.IsCancellationRequested;
     public bool CanManageSelected => CanManage && _selectedThread is not null;
     public bool CanDeleteSelected => CanManageSelected && _controller?.CanConfigure == true;
     public bool CanConfigure => CanManage && (_controller?.CanConfigure ?? true);
@@ -390,11 +388,13 @@ internal sealed partial class AgentTabViewModel : AgentBindable, IToolContext
 
     private void ReplaceThread(AgentThreadMetadata thread) => _sessions.PublishMetadata(thread);
 
-    public Task CaptureFrameAsync() => ManageAsync(async ct =>
+    public Task CaptureFrameAsync() => ManageAsync(CaptureFrameIntoDraftAsync);
+
+    private async Task CaptureFrameIntoDraftAsync(CancellationToken ct)
     {
         var file = await _host.CaptureFrameAsync(_editor, ct);
         await AddAttachmentAsync(file, ct);
-    });
+    }
 
     internal Task PickFilesAsync(Func<Task<IReadOnlyList<string>>> pick) => ManageAsync(async ct =>
         await AddFilesAsync(await pick(), ct));
@@ -576,12 +576,12 @@ internal sealed partial class AgentTabViewModel : AgentBindable, IToolContext
     {
         if (!CanManage)
             return;
-        _busy = true;
-        SetError(null);
-        NotifyAvailability();
+        var completion = _managementCompletion = new(TaskCreationOptions.RunContinuationsAsynchronously);
         var ct = _lifetime.Token;
         try
         {
+            SetError(null);
+            NotifyAvailability();
             await operation(ct);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
@@ -593,7 +593,8 @@ internal sealed partial class AgentTabViewModel : AgentBindable, IToolContext
         }
         finally
         {
-            _busy = false;
+            _managementCompletion = null;
+            completion.SetResult();
             if (!_disposed)
             {
                 NotifyAvailability();

@@ -514,4 +514,16 @@
   <data name="DiagnosticTechnicalDetails" xml:space="preserve">
     <value>기술 세부 정보</value>
   </data>
+  <data name="SendToAgent" xml:space="preserve">
+    <value>AI 에이전트로 보내기</value>
+  </data>
+  <data name="SendFrameToAgent" xml:space="preserve">
+    <value>현재 프레임을 AI 에이전트로 보내기</value>
+  </data>
+  <data name="MentionObject" xml:space="preserve">
+    <value>개체</value>
+  </data>
+  <data name="LinkUnavailable" xml:space="preserve">
+    <value>링크 대상을 찾거나 열 수 없습니다.</value>
+  </data>
 </root>

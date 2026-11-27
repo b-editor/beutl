@@ -36,10 +36,22 @@ internal sealed class AgentMarkdownRenderer : MarkdownRenderer
     private async void OnLinkClick(object? sender, LinkClickedEventArgs e)
     {
         e.Handled = true;
-        if (e.HRef is not { IsAbsoluteUri: true } uri || uri.Scheme is not ("https" or "http"))
-            return;
-        if (TopLevel.GetTopLevel(this) is not { } owner)
-            return;
+        try
+        {
+            if (e.HRef is { IsAbsoluteUri: true } uri && uri.Scheme is "https" or "http")
+                await OpenExternalLinkAsync(uri);
+            else if (AgentMarkdownLink.Parse(e.HRef) is { } link && this.FindAncestorOfType<AgentTimelineView>() is { } timeline)
+                await timeline.OpenLinkAsync(link);
+        }
+        catch (Exception ex) when (!ExceptionHelpers.ContainsFatalFailure(ex))
+        {
+            s_logger.LogWarning(ex, "Could not open an agent Markdown link.");
+        }
+    }
+
+    private async Task OpenExternalLinkAsync(Uri uri)
+    {
+        if (TopLevel.GetTopLevel(this) is not { } owner) return;
 
         string url = uri.AbsoluteUri;
         var dialog = new FAContentDialog
@@ -54,15 +66,8 @@ internal sealed class AgentMarkdownRenderer : MarkdownRenderer
             CloseButtonText = Strings.Cancel
         };
 
-        try
-        {
-            if (await dialog.ShowAsync(owner) is FAContentDialogResult.Primary)
-                LaunchUrl(url);
-        }
-        catch (Exception ex) when (!ExceptionHelpers.ContainsFatalFailure(ex))
-        {
-            s_logger.LogWarning(ex, "Could not open an agent Markdown link.");
-        }
+        if (await dialog.ShowAsync(owner) is FAContentDialogResult.Primary)
+            LaunchUrl(url);
     }
 
     private static void DefaultLaunchUrl(string url)

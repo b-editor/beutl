@@ -537,6 +537,9 @@ internal sealed class AgentTabTestWorkspace : IAgentWorkspaceHost, IAsyncDisposa
     public Task<AgentAttachedFile> CaptureFrameAsync(IEditorContext editor, CancellationToken cancellationToken) =>
         Task.FromResult(new AgentAttachedFile(Path.Combine(Root, "frame.png"), "image/png"));
 
+    public Task<bool> TryOpenMarkdownLinkAsync(IEditorContext editor, string projectPath, AgentMarkdownLink link,
+        CancellationToken cancellationToken) => Task.FromResult(false);
+
     public Task<AgentAttachedFile> SavePastedImageAsync(Avalonia.Media.Imaging.Bitmap image, CancellationToken cancellationToken) =>
         _attachmentStore.SavePastedImageAsync(image, cancellationToken);
 

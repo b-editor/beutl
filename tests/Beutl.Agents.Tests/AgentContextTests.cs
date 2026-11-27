@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 namespace Beutl.Agents.Tests;
 
 public sealed class AgentContextTests
@@ -11,6 +13,19 @@ public sealed class AgentContextTests
 
         Assert.That(json.TryGetProperty("mentions", out _), Is.False);
         Assert.That(AgentJson.Read<AgentContextSnapshot>(json).Mentions, Is.Null);
+    }
+
+    [Test]
+    public void LegacyElementMentionsKeepTheirJsonShape()
+    {
+        using var json = JsonDocument.Parse("""
+            {"kind":"element","name":"Title","targetId":"element-id","token":"@Title","sceneId":"scene-id"}
+            """);
+        var mention = AgentJson.Read<AgentContextMention>(json.RootElement);
+
+        Assert.That(mention, Is.EqualTo(new AgentContextMention(AgentContextMentionKind.Element, "Title",
+            "element-id", Token: "@Title", SceneId: "scene-id")));
+        Assert.That(JsonElement.DeepEquals(AgentJson.ToElement(mention), json.RootElement), Is.True);
     }
 
     [Test]

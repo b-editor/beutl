@@ -5,6 +5,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Beutl.Editor.Components.AgentTab.ViewModels;
 using Beutl.Editor.Components.Helpers;
@@ -15,6 +16,7 @@ internal sealed partial class AgentTabView : UserControl
 {
     private const double WideLayoutThreshold = 550;
     private bool _escapePressed;
+    private AgentTabViewModel? _focusModel;
 
     public AgentTabView()
     {
@@ -22,6 +24,11 @@ internal sealed partial class AgentTabView : UserControl
         AddHandler(KeyDownEvent, OnShortcutKeyDown, RoutingStrategies.Tunnel);
         AddHandler(KeyUpEvent, OnShortcutKeyUp, RoutingStrategies.Tunnel, handledEventsToo: true);
         LostFocus += (_, _) => _escapePressed = false;
+        Composer.PropertyChanged += (_, change) =>
+        {
+            if (change.Property == IsVisibleProperty && Composer.IsVisible)
+                QueueComposerFocus();
+        };
     }
 
     internal void FocusComposer() => Composer.FocusPrompt();
@@ -36,8 +43,47 @@ internal sealed partial class AgentTabView : UserControl
     protected override async void OnLoaded(RoutedEventArgs e)
     {
         base.OnLoaded(e);
+        WatchComposerFocus(DataContext as AgentTabViewModel);
         if (DataContext is AgentTabViewModel viewModel)
             await viewModel.InitializeAsync();
+    }
+
+    protected override void OnUnloaded(RoutedEventArgs e)
+    {
+        WatchComposerFocus(null);
+        base.OnUnloaded(e);
+    }
+
+    protected override void OnDataContextChanged(EventArgs e)
+    {
+        base.OnDataContextChanged(e);
+        if (IsLoaded)
+            WatchComposerFocus(DataContext as AgentTabViewModel);
+    }
+
+    private void WatchComposerFocus(AgentTabViewModel? model)
+    {
+        if (_focusModel is not null)
+            _focusModel.FocusRequested -= QueueComposerFocus;
+        _focusModel = model;
+        if (_focusModel is not null)
+        {
+            _focusModel.FocusRequested += QueueComposerFocus;
+            QueueComposerFocus();
+        }
+    }
+
+    private void QueueComposerFocus()
+    {
+        if (_focusModel is { HasPendingComposerFocus: true } model)
+        {
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (ReferenceEquals(_focusModel, model) && model.HasPendingComposerFocus
+                    && Composer.IsEffectivelyVisible && Composer.FocusPrompt())
+                    model.HasPendingComposerFocus = false;
+            }, DispatcherPriority.Background);
+        }
     }
 
     internal static bool IsComposing(KeyEventArgs e)

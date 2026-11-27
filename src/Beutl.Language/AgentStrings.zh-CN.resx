@@ -514,4 +514,16 @@
   <data name="DiagnosticTechnicalDetails" xml:space="preserve">
     <value>技术详情</value>
   </data>
+  <data name="SendToAgent" xml:space="preserve">
+    <value>发送到 AI 智能体</value>
+  </data>
+  <data name="SendFrameToAgent" xml:space="preserve">
+    <value>将当前帧发送到 AI 智能体</value>
+  </data>
+  <data name="MentionObject" xml:space="preserve">
+    <value>对象</value>
+  </data>
+  <data name="LinkUnavailable" xml:space="preserve">
+    <value>找不到或无法打开链接目标。</value>
+  </data>
 </root>

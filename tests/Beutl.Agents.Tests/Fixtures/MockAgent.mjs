@@ -11,7 +11,7 @@ const send = value => process.stdout.write(JSON.stringify(value) + "\n");
 const mark = value => appendFileSync("mock-agent.log", value + "\n");
 
 function captureMentionPrompt(prompt) {
-    if (typeof prompt !== "string" || !prompt.startsWith("Review @Opening @Title @clip.mp4\n")) return false;
+    if (typeof prompt !== "string" || !prompt.startsWith("Review @Opening @Title @clip.mp4 @Title-text\n")) return false;
     mark("mention-prompt=" + JSON.stringify(prompt));
     return true;
 }

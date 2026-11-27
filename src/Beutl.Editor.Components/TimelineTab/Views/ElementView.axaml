@@ -213,6 +213,13 @@
                         <icons:FluentIconSource Icon="DocumentCopy" />
                     </ui:FAMenuFlyoutItem.IconSource>
                 </ui:FAMenuFlyoutItem>
+                <ui:FAMenuFlyoutItem x:Name="sendToAgent"
+                                     Click="SendToAgent_Click"
+                                     Text="{x:Static lang:AgentStrings.SendToAgent}">
+                    <ui:FAMenuFlyoutItem.IconSource>
+                        <icons:FluentIconSource Icon="Bot" />
+                    </ui:FAMenuFlyoutItem.IconSource>
+                </ui:FAMenuFlyoutItem>
                 <ui:FAMenuFlyoutSeparator />
                 <!--  The properties with keyframes go before these items each time the menu opens; see PopulateAnimationMenu.  -->
                 <ui:FAMenuFlyoutSubItem x:Name="animationMenu" Text="{x:Static lang:Strings.Animation}">

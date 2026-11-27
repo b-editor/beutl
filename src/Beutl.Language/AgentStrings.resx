@@ -732,4 +732,16 @@
   <data name="DiagnosticTechnicalDetails" xml:space="preserve">
     <value>Technical details</value>
   </data>
+  <data name="SendToAgent" xml:space="preserve">
+    <value>Send to AI Agent</value>
+  </data>
+  <data name="SendFrameToAgent" xml:space="preserve">
+    <value>Send current frame to AI Agent</value>
+  </data>
+  <data name="MentionObject" xml:space="preserve">
+    <value>Object</value>
+  </data>
+  <data name="LinkUnavailable" xml:space="preserve">
+    <value>The linked item could not be found or opened.</value>
+  </data>
 </root>

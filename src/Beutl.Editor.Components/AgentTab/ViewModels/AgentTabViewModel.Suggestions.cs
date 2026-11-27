@@ -67,15 +67,22 @@ internal sealed partial class AgentTabViewModel
         if (row.Candidate is not { Mention: var mention })
             return row.Token;
 
-        string token = row.Token;
+        string token = RegisterMention(mention, row.Token);
+        MarkDraftChanged();
+        return token;
+    }
+
+    private string RegisterMention(AgentContextMention mention, string baseToken)
+    {
+        string token = baseToken;
         int suffix = 2;
         while (_acceptedMentions.TryGetValue(token, out var existing)
-            && (existing.Kind != mention.Kind || existing.TargetId != mention.TargetId || existing.Path != mention.Path))
+            && (existing.Kind != mention.Kind || existing.TargetId != mention.TargetId || existing.Path != mention.Path
+                || existing.SceneId != mention.SceneId || existing.ElementId != mention.ElementId))
         {
-            token = FormattableString.Invariant($"{row.Token}-{suffix++}");
+            token = FormattableString.Invariant($"{baseToken}-{suffix++}");
         }
         _acceptedMentions[token] = mention with { Token = token };
-        MarkDraftChanged();
         return token;
     }
 
@@ -224,6 +231,7 @@ internal sealed record AgentComposerSuggestionRow(
         AgentContextMentionKind.Scene => AgentStrings.MentionScene,
         AgentContextMentionKind.Element => AgentStrings.MentionElement,
         AgentContextMentionKind.File => AgentStrings.MentionFile,
+        AgentContextMentionKind.Object => AgentStrings.MentionObject,
         _ => Suggestion?.Kind == AgentComposerSuggestionKind.Skill ? AgentStrings.SuggestionSkill : AgentStrings.SuggestionCommand
     };
 }

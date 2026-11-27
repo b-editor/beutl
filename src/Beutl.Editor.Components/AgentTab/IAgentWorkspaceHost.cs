@@ -45,6 +45,8 @@ internal interface IAgentWorkspaceHost
     Task<AgentAttachedFile> SavePastedImageAsync(Bitmap image, CancellationToken cancellationToken);
     Task<AgentAttachedFile> SavePastedTextAsync(string text, CancellationToken cancellationToken);
     Task<AgentAttachedFile> CaptureFrameAsync(IEditorContext editor, CancellationToken cancellationToken);
+    Task<bool> TryOpenMarkdownLinkAsync(
+        IEditorContext editor, string projectPath, AgentMarkdownLink link, CancellationToken cancellationToken);
     bool CanRevertTurn(IEditorContext editor, Guid turnId);
     Task<AgentTurnRevertResult> RevertTurnAsync(IEditorContext editor, Guid turnId, CancellationToken cancellationToken);
 }

@@ -64,11 +64,11 @@ public partial class EditViewModel : IUndisplayableDataNavigator
             {
                 MediaTime time = marker.Time.Value;
                 if (!Player.IsPlaying.Value) clock.Seek(time);
-                ScrollToIssue(new TimeRange(time, new MediaTime(1)), null);
+                LocateOnTimeline(new TimeRange(time, new MediaTime(1)), null);
             }
             else if (entry.Layer is { } layer && Scene.Layers.Contains(layer))
             {
-                ScrollToIssue(new TimeRange(clock.CurrentTime.Value, new MediaTime(1)), layer.ZIndex.Value);
+                LocateOnTimeline(new TimeRange(clock.CurrentTime.Value, new MediaTime(1)), layer.ZIndex.Value);
             }
             else if (FindToolTab<SceneSettingsTabViewModel>() is { } settings)
             {
@@ -99,7 +99,7 @@ public partial class EditViewModel : IUndisplayableDataNavigator
             }
         }
 
-        ScrollToIssue(element.Range, element.ZIndex.Value, element);
+        LocateOnTimeline(element.Range, element.ZIndex.Value, element);
         Player.QueuePreviewRender();
 
         if (entry.TransitionEdge is { } edge)
@@ -133,20 +133,25 @@ public partial class EditViewModel : IUndisplayableDataNavigator
 
     private void RevealProperties(UndisplayableDataEntry entry, Element element)
     {
+        if ((entry.PropertyOwner ?? entry.TargetObject) is { } target)
+            RevealElementProperty(element, target, entry.PropertyName);
+    }
+
+    internal void RevealElementProperty(Element element, CoreObject target, string? propertyName)
+    {
         // Selecting the element also opens or retargets its property tab, including when it was closed.
-        if ((entry.PropertyOwner ?? entry.TargetObject) is not { } target
-            || FindToolTab<ElementPropertyTabViewModel>(tab => tab.Element.Value == element) is not { } properties)
+        if (FindToolTab<ElementPropertyTabViewModel>(tab => tab.Element.Value == element) is not { } properties)
             return;
 
         OpenToolTab(properties);
         Dispatcher.UIThread.Post(() =>
         {
             if (!IsDisposingOrDisposed && properties.Element.Value == element)
-                properties.Reveal(target, entry.PropertyName);
+                properties.Reveal(target, propertyName);
         }, DispatcherPriority.Loaded);
     }
 
-    private void ScrollToIssue(TimeRange range, int? layer, Element? element = null)
+    internal void LocateOnTimeline(TimeRange range, int? layer, Element? element = null)
     {
         if (FindToolTab<TimelineTabViewModel>() is { } timeline)
             OpenToolTab(timeline);
