@@ -112,6 +112,9 @@
   <data name="FrameDrawingException" xml:space="preserve">
     <value>绘制帧时发生异常。</value>
   </data>
+  <data name="PreviewWorkingScaleClamped" xml:space="preserve">
+    <value>此帧的预览以低于导出时的工作分辨率渲染。导出后的画面可能有所不同。</value>
+  </data>
   <data name="Scene3DBackendUnavailable" xml:space="preserve">
     <value>Vulkan 不可用，无法渲染 3D 内容。</value>
   </data>

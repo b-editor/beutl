@@ -112,6 +112,9 @@
   <data name="FrameDrawingException" xml:space="preserve">
     <value>프레임을 그리는 동안 예외가 발생했습니다.</value>
   </data>
+  <data name="PreviewWorkingScaleClamped" xml:space="preserve">
+    <value>이 프레임은 내보낼 때보다 낮은 작업 해상도로 미리 보기에 렌더링됩니다. 내보낸 결과의 모양이 다를 수 있습니다.</value>
+  </data>
   <data name="Scene3DBackendUnavailable" xml:space="preserve">
     <value>Vulkan을 사용할 수 없어 3D를 렌더링할 수 없습니다.</value>
   </data>

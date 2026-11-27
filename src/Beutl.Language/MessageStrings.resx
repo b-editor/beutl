@@ -112,6 +112,9 @@ because the new name conflicts with an existing folder.</value>
   <data name="FrameDrawingException" xml:space="preserve">
     <value>An exception occurred while drawing the frame.</value>
   </data>
+  <data name="PreviewWorkingScaleClamped" xml:space="preserve">
+    <value>This frame is rendered at a lower working density in the preview than in export. It may look different when exported.</value>
+  </data>
   <data name="Scene3DBackendUnavailable" xml:space="preserve">
     <value>3D could not be rendered because Vulkan is unavailable.</value>
   </data>

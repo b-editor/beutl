@@ -318,6 +318,30 @@
                                TextWrapping="Wrap" />
                 </Border>
 
+                <Border Name="previewWorkingScaleIndicator"
+                        Width="28"
+                        Height="28"
+                        Margin="12"
+                        HorizontalAlignment="Right"
+                        VerticalAlignment="Top"
+                        AutomationProperties.Name="{x:Static lang:MessageStrings.PreviewWorkingScaleClamped}"
+                        Background="{DynamicResource SolidBackgroundFillColorBaseBrush}"
+                        BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
+                        BorderThickness="1"
+                        CornerRadius="{DynamicResource ControlCornerRadius}"
+                        IsVisible="{Binding IsPreviewWorkingScaleClamped.Value, FallbackValue=False}">
+                    <ToolTip.Tip>
+                        <TextBlock MaxWidth="260"
+                                   Text="{x:Static lang:MessageStrings.PreviewWorkingScaleClamped}"
+                                   TextWrapping="Wrap" />
+                    </ToolTip.Tip>
+                    <icons:FluentIcon HorizontalAlignment="Center"
+                                      VerticalAlignment="Center"
+                                      FontSize="16"
+                                      Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                                      Icon="Info" />
+                </Border>
+
                 <!-- Keep the error outside framePanel so preview pan/zoom does not transform it. -->
                 <Border Name="previewRenderErrorOverlay"
                         Padding="24"

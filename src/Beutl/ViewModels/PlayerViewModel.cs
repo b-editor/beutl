@@ -65,6 +65,7 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
     private readonly PlaybackSessionGuard _sessionGuard = new();
     private readonly ReactivePropertySlim<string?> _previewRenderError = new();
     private readonly ReactivePropertySlim<string?> _previewRenderWarning = new();
+    private readonly ReactivePropertySlim<bool> _isPreviewWorkingScaleClamped = new();
     private long _previewRenderStatusIssuedVersion;
     private long _previewRenderStatusAppliedVersion;
     // Serializes RestoreStoppedPreviewState so PlayInternal's finally and Pause()'s timeout path
@@ -399,6 +400,8 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
     public IReadOnlyReactiveProperty<string?> PreviewRenderError => _previewRenderError;
 
     public IReadOnlyReactiveProperty<string?> PreviewRenderWarning => _previewRenderWarning;
+
+    public IReadOnlyReactiveProperty<bool> IsPreviewWorkingScaleClamped => _isPreviewWorkingScaleClamped;
 
     IReadOnlyReactiveProperty<Ref<Bitmap>?> IPreviewPlayer.PreviewImage => PreviewImage;
 

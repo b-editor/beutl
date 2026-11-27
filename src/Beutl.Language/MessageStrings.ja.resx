@@ -107,6 +107,9 @@
   <data name="FrameDrawingException" xml:space="preserve">
     <value>フレームの描画中に例外が発生しました。</value>
   </data>
+  <data name="PreviewWorkingScaleClamped" xml:space="preserve">
+    <value>このフレームは、書き出し時よりも低い処理解像度でプレビューされています。書き出した結果は見え方が異なる場合があります。</value>
+  </data>
   <data name="Scene3DBackendUnavailable" xml:space="preserve">
     <value>Vulkan を利用できないため、3D を描画できません。</value>
   </data>

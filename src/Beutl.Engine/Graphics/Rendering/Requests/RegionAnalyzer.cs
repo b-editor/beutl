@@ -95,6 +95,9 @@ internal sealed partial class RegionAnalyzer
 
         var fragmentRegions = ImmutableDictionary.CreateBuilder<RenderFragmentId, RequiredRegion>();
         var targetAccessRegions = ImmutableDictionary.CreateBuilder<RenderFragmentId, RequiredRegion>();
+        bool checkWorkingScale = options.CanReportPreviewWorkingScaleClamp;
+        bool isWorkingScaleClamped = false;
+        UncappedWorkingScaleResolver? uncapped = null;
         foreach (RenderFragmentReference reference in topologicalOrder)
         {
             RenderFragmentId fragmentId = GetId(reference);
@@ -103,6 +106,16 @@ internal sealed partial class RegionAnalyzer
 
             if (targetRequirements.TryGetValue(reference, out RequiredRegion targetRequirement))
                 targetAccessRegions.Add(fragmentId, targetRequirement);
+
+            // A buffer budget can leave the working scale below the preview ceiling. Check nonempty
+            // requirements before cache lookup so the diagnostic also covers cached contributions.
+            if (checkWorkingScale && !isWorkingScaleClamped && !requirement.IsEmpty
+                && !reference.EffectiveScale.IsUnbounded && reference.EffectiveScale.Value == options.MaxWorkingScale
+                && HasFilterEffectWorkingScale(reference))
+            {
+                uncapped ??= new UncappedWorkingScaleResolver(options.OutputScale);
+                isWorkingScaleClamped = uncapped.IsClamped(reference, requirement.ResolveWithin(reference.Bounds));
+            }
         }
 
         return new RegionAnalysis(
@@ -111,7 +124,8 @@ internal sealed partial class RegionAnalyzer
             fragmentRegions.ToImmutable(),
             targetAccessRegions.ToImmutable(),
             metadata,
-            backingTargetBackdropCaptures);
+            backingTargetBackdropCaptures,
+            isWorkingScaleClamped);
     }
 
     private static MetadataPass ResolveMetadataPass(

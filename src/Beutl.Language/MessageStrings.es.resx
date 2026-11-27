@@ -112,6 +112,9 @@ porque el nuevo nombre entra en conflicto con una carpeta existente.</value>
   <data name="FrameDrawingException" xml:space="preserve">
     <value>Se produjo una excepción al dibujar el fotograma.</value>
   </data>
+  <data name="PreviewWorkingScaleClamped" xml:space="preserve">
+    <value>La vista previa de este fotograma se renderiza con una densidad de trabajo menor que la exportación. El resultado exportado puede verse distinto.</value>
+  </data>
   <data name="Scene3DBackendUnavailable" xml:space="preserve">
     <value>No se puede renderizar en 3D porque Vulkan no está disponible.</value>
   </data>
