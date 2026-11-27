@@ -132,7 +132,7 @@ public sealed class LocalUserPackageViewModel : IUserPackageViewModel
                 throw new Exception("Failed to unload the package. It may still be in use. Uninstallation has been scheduled.");
             }
 
-            if (!_handler.UninstallSinglePackage(Package.InstalledPath, _packageIdentity))
+            if (!await _handler.UninstallSinglePackageAsync(Package.InstalledPath, _packageIdentity))
             {
                 PackageNotifications.ScheduledUninstallation(_handler.Notifications, _packageIdentity.Id);
             }

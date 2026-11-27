@@ -69,10 +69,10 @@ internal class PackageOperationHandler
             catch (PackageApiMismatchException)
             {
                 _packageInstaller.RejectStagedExtensionUpdate(installed, update.Package, host);
-                DeleteVersionFiles([update.Package], s_logger);
+                await DeleteVersionFilesAsync([update.Package], s_logger);
                 throw;
             }
-            DeleteVersionFiles([installed], s_logger);
+            await DeleteVersionFilesAsync([installed], s_logger);
             return true;
         }
         catch (Exception ex) when (!token.IsCancellationRequested)
@@ -136,7 +136,7 @@ internal class PackageOperationHandler
         catch (PackageApiMismatchException)
         {
             // The version would fail the same check again, so neither it nor its download is kept.
-            DeleteVersionFiles([packageId], s_logger);
+            await DeleteVersionFilesAsync([packageId], s_logger);
             DeleteDownload(context.NuGetPackageFile);
             throw;
         }
@@ -250,7 +250,7 @@ internal class PackageOperationHandler
             return;
         }
 
-        DeleteVersionFiles(oldVersions, logger);
+        await DeleteVersionFilesAsync(oldVersions, logger);
         PackageNotifications.Updated(Notifications, packageId.Id);
     }
 
@@ -363,11 +363,11 @@ internal class PackageOperationHandler
             throw new Exception("Failed to unload the package. It may still be in use. Uninstallation has been scheduled.");
         }
 
-        return UninstallWithFallback(packageName);
+        return await UninstallWithFallbackAsync(packageName);
     }
 
     // Removes versions that are no longer used. One that cannot be removed only leaves files behind for a later clean-up.
-    private void DeleteVersionFiles(IEnumerable<PackageIdentity> versions, ILogger logger)
+    private async Task DeleteVersionFilesAsync(IEnumerable<PackageIdentity> versions, ILogger logger)
     {
         foreach (PackageIdentity item in versions)
         {
@@ -377,7 +377,7 @@ internal class PackageOperationHandler
                 if (Directory.Exists(directory))
                 {
                     PackageUninstallContext ctx = _packageInstaller.PrepareForUninstall(directory);
-                    _packageInstaller.Uninstall(ctx, new Progress<double>());
+                    await _packageInstaller.UninstallAsync(ctx, new Progress<double>());
                 }
                 else
                 {
@@ -391,7 +391,7 @@ internal class PackageOperationHandler
         }
     }
 
-    public bool UninstallWithFallback(string packageName)
+    public async Task<bool> UninstallWithFallbackAsync(string packageName)
     {
         bool hasFallback = false;
         foreach (PackageIdentity item in _installedPackageRepository.GetLocalPackages(packageName))
@@ -402,7 +402,7 @@ internal class PackageOperationHandler
                 if (Directory.Exists(directory))
                 {
                     var ctx = _packageInstaller.PrepareForUninstall(directory);
-                    _packageInstaller.Uninstall(ctx, new Progress<double>());
+                    await _packageInstaller.UninstallAsync(ctx, new Progress<double>());
 
                     if (ctx.FailedPackages is { Count: > 0 })
                     {
@@ -436,13 +436,13 @@ internal class PackageOperationHandler
         return !hasFallback;
     }
 
-    public bool UninstallSinglePackage(string? installedPath, PackageIdentity packageIdentity)
+    public async Task<bool> UninstallSinglePackageAsync(string? installedPath, PackageIdentity packageIdentity)
     {
         if (installedPath == null)
             return true;
 
         var ctx = _packageInstaller.PrepareForUninstall(installedPath);
-        _packageInstaller.Uninstall(ctx, new Progress<double>());
+        await _packageInstaller.UninstallAsync(ctx, new Progress<double>());
 
         if (ctx.FailedPackages is { Count: > 0 })
         {

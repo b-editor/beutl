@@ -359,6 +359,40 @@ public sealed class AgentHostExtensionInstallTests
     }
 
     [AvaloniaTest]
+    public async Task Uninstall_acquires_the_package_file_lease_asynchronously()
+    {
+        await TestReset.ResetShellAsync();
+        PackageIdentity package = NewPackage();
+        TestPackages.CreateExtracted(package, data: false);
+        new InstalledPackageRepository().UpgradePackagesAndDeferNotifications(package)();
+        using var store = new PackageStore(package, []);
+        await using var app = CreateApplication(store, out _);
+        var installer = app.GetResource<PackageInstaller>();
+        string directory = Helper.ResolveInstalledDirectory(package);
+        PackageUninstallContext context = installer.PrepareForUninstall(directory);
+        var held = new FileStream(Path.Combine(Helper.AppRoot, ".package-file-changes.lock"),
+            FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+        try
+        {
+            Task release = Task.Run(async () =>
+            {
+                await Task.Delay(500);
+                held.Dispose();
+            });
+            Task uninstall = installer.UninstallAsync(context, new Progress<double>());
+
+            Assert.That(uninstall.IsCompleted, Is.False);
+            await uninstall.WaitAsync(TimeSpan.FromSeconds(10));
+            await release;
+            Assert.That(Directory.Exists(directory), Is.False);
+        }
+        finally
+        {
+            held.Dispose();
+        }
+    }
+
+    [AvaloniaTest]
     public async Task Insecure_redirect_of_a_url_archive_is_rejected()
     {
         await TestReset.ResetShellAsync();

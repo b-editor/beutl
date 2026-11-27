@@ -159,6 +159,30 @@ public partial class PackageInstaller
         }
     }
 
+    // The asynchronous counterpart of TrackSyncOperation: nested synchronous phases stay allowed
+    // while this installer drains, and the caller observes failures through the returned task.
+    private async Task TrackSyncOperationAsync(Func<Task> operation)
+    {
+        TaskCompletionSource proxy = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        lock (_gate)
+        {
+            ObjectDisposedException.ThrowIf(RejectsNewWork_NoLock(), this);
+            _operations.Add(proxy.Task);
+        }
+
+        PackageInstaller? previous = s_transactionOwner.Value;
+        s_transactionOwner.Value = this;
+        try
+        {
+            await operation().ConfigureAwait(false);
+        }
+        finally
+        {
+            proxy.TrySetResult();
+            s_transactionOwner.Value = previous;
+        }
+    }
+
     private void PublishShutdownFallbacks()
     {
         ShutdownFallback[] fallbacks;
