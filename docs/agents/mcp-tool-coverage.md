@@ -50,11 +50,23 @@ For `split_on_silence`, pass either `elementIds` or `layers` (timeline ZIndex va
 | Editor feature | Built-in MCP tools | Coverage |
 | --- | --- | --- |
 | Author or inspect text, shapes, transforms, audio, and effects | `get_schema`, `read_document`, `apply_edit`, `duplicate_object`, `measure_object_bounds` | Inspect registered types and modify serialized objects and properties. |
+| Save or reuse an object template | `list_templates`, `save_object_template`, `apply_object_template` | Browse templates in the Beutl profile, save an object by its document ID, and replace an object property or insert a list item in one undo step. |
 | Browse fonts, effects, recipes, and examples | `list_fonts`, `list_effects`, `list_effect_recipes`, `get_effect_recipe`, `list_examples`, `get_examples` | Provides authoring references for use in scene edits. |
 | Edit clip transitions, keyframes, and easing | `get_schema`, `read_document`, `apply_edit` | Covers serialized transition and animation settings. |
 | Edit a shader or node graph | `validate_shader`, `get_node_graph_guide`, `list_node_types`, `read_node_graph`, `edit_node_graph` | Covers shader validation, graph inspection, and graph operations. Add the graph's owning object or effect with `apply_edit`. |
 | Generate a composition from a built-in recipe | `list_compositions`, `get_composition`, `plan_composition`, `render_composition_patch`, `apply_composition` | Covers the MCP composition catalog and preview workflow. |
 | Authoring workflow and conventions | `get_started` | Summarizes the API workflow and links to installed agent skills. |
+
+`list_templates` returns each template's `templateId`, `name`, `baseType`, and concrete `type`. Filter by the
+returned `baseType` or a base type name such as `Brush` or `FilterEffect`. With `save_object_template`, pass
+the `objectId` from `read_document` and a `name` to save a template to the profile.
+
+`apply_object_template` takes a `templateId`, the `objectId` of the property owner, and the `propertyName`
+as written in `read_document`. Omit `index` to replace an object value, such as `Fill` on a shape. Pass a
+zero-based `index` to insert into an object list, such as `Children` on a filter effect group. Use the
+list length to append. The template's concrete type must fit the property or list item type. The tool
+returns the new object's `objectId` and uses the same locks as `apply_edit`.
+Pass `sceneId` for live saves and applications. For a file-backed session, use `save_project` to persist the scene edit.
 
 ## Media, captions, and output
 

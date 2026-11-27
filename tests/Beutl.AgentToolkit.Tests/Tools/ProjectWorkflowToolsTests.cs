@@ -14,7 +14,7 @@ using ModelContextProtocol.Client;
 
 namespace Beutl.AgentToolkit.Tests.Tools;
 
-public sealed class ProjectWorkflowToolsTests
+public sealed partial class ProjectWorkflowToolsTests
 {
     [Test]
     public async Task Stdio_advertises_project_workflow_inputs_and_routes()
@@ -24,6 +24,9 @@ public sealed class ProjectWorkflowToolsTests
             ("list_element_templates", [], ["instanceId"], true),
             ("save_element_template", ["name"], ["elementIds", "instanceId", "sceneId"], false),
             ("add_element_from_template", ["templateId", "timeSeconds", "layer"], ["instanceId", "sceneId"], false),
+            ("list_templates", [], ["baseType", "instanceId"], true),
+            ("save_object_template", ["objectId", "name"], ["instanceId", "sceneId"], false),
+            ("apply_object_template", ["templateId", "objectId", "propertyName"], ["index", "instanceId", "sceneId"], false),
             ("remove_scene", ["sceneId"], ["instanceId"], false),
             ("read_version_control_status", [], ["instanceId", "sceneId"], true),
             ("read_version_control_history", [], ["skip", "take", "instanceId", "sceneId"], true),

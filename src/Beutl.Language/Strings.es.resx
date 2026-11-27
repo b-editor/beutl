@@ -1562,6 +1562,36 @@ Ejemplo: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="EnterTemplateName" xml:space="preserve">
     <value>Introduce el nombre de la plantilla</value>
   </data>
+  <data name="TemplateInvalidName" xml:space="preserve">
+    <value>Indica un nombre de archivo válido para la plantilla.</value>
+  </data>
+  <data name="TemplateInvalidId" xml:space="preserve">
+    <value>Indica un ID válido.</value>
+  </data>
+  <data name="TemplateObjectSaveFailed" xml:space="preserve">
+    <value>Beutl no pudo guardar el objeto como plantilla.</value>
+  </data>
+  <data name="TemplateNotFound" xml:space="preserve">
+    <value>No se encontró la plantilla «{0}».</value>
+  </data>
+  <data name="TemplateInstantiationFailed" xml:space="preserve">
+    <value>No se pudo crear un objeto a partir de la plantilla «{0}».</value>
+  </data>
+  <data name="TemplateObjectAmbiguous" xml:space="preserve">
+    <value>Varios objetos del documento de escena tienen el ID «{0}».</value>
+  </data>
+  <data name="TemplateObjectNotFound" xml:space="preserve">
+    <value>El documento de escena no contiene ningún objeto con el ID «{0}».</value>
+  </data>
+  <data name="TemplateTypeMismatch" xml:space="preserve">
+    <value>El tipo de plantilla «{0}» no es compatible con la propiedad «{1}», que requiere «{2}».</value>
+  </data>
+  <data name="TemplateIndexOutOfRange" xml:space="preserve">
+    <value>Indica un índice entre 0 y {0} para «{1}».</value>
+  </data>
+  <data name="TemplateInvalidProperty" xml:space="preserve">
+    <value>Para aplicar una plantilla en «{0}», indica una propiedad de objeto que quieras reemplazar o una lista de objetos y su índice de inserción.</value>
+  </data>
   <data name="Preset_YouTube_1080p60" xml:space="preserve">
     <value>YouTube 1080p 60fps</value>
   </data>
