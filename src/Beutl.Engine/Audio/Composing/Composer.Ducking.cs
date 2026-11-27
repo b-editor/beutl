@@ -9,9 +9,16 @@ public partial class Composer
     {
         public Guid Id { get; } = id;
         public List<int> EntryIndices { get; } = [];
+
+        // The top-level layers this layer detects on. A source that a SoundGroup mixes is replaced by the
+        // group's layer, which owns the tap that reads it.
         public HashSet<Guid> Sources { get; } = [];
+
+        // For each source layer, the ids the ducking nodes selected: the layer itself, or a child it mixes.
+        public Dictionary<Guid, HashSet<Guid>> SourceRoutes { get; } = [];
         public List<DuckingLayer> Dependents { get; } = [];
         public Dictionary<Guid, AudioBuffer> SourcePeaks { get; } = [];
+        public Dictionary<Guid, AudioBuffer> TapPeaks { get; } = [];
         public AudioBuffer? Peaks { get; set; }
         public int PendingSources { get; set; }
     }
@@ -36,7 +43,50 @@ public partial class Composer
 
             foreach (DuckingNode node in entry.DuckingNodes)
                 layer.Sources.UnionWith(node.SourceLayerIds);
-            layer.Sources.Remove(id);
+        }
+
+        // A selected source that a SoundGroup mixes has no entry of its own, so the group's entry holds its tap.
+        var providers = new Dictionary<Guid, DuckingLayer>();
+        foreach (AudioNodeEntry entry in entries)
+        {
+            if (entry.LevelTaps.Length == 0) continue;
+
+            DuckingLayer layer = layers[layerId(entry.Sound.ZIndex.Value)];
+            foreach (LevelTapNode tap in entry.LevelTaps)
+            {
+                Guid sourceId = layerId(tap.ZIndex);
+                if (sourceId != Guid.Empty)
+                    providers.TryAdd(sourceId, layer);
+            }
+        }
+
+        // Resolve every selected layer to the top-level layer that renders it.
+        foreach (DuckingLayer layer in layers.Values)
+        {
+            var resolved = new HashSet<Guid>();
+            var routes = new Dictionary<Guid, HashSet<Guid>>();
+            foreach (Guid sourceId in layer.Sources)
+            {
+                Guid target;
+                if (sourceId == layer.Id)
+                    continue;
+                if (layers.ContainsKey(sourceId))
+                    target = sourceId;
+                else if (providers.TryGetValue(sourceId, out DuckingLayer? provider) && provider.Id != layer.Id)
+                    target = provider.Id;
+                else
+                    continue;
+
+                resolved.Add(target);
+                if (!routes.TryGetValue(target, out HashSet<Guid>? ids))
+                    routes.Add(target, ids = []);
+                ids.Add(sourceId);
+            }
+
+            layer.Sources.Clear();
+            layer.Sources.UnionWith(resolved);
+            foreach ((Guid target, HashSet<Guid> ids) in routes)
+                layer.SourceRoutes.Add(target, ids);
         }
 
         var ready = new Queue<DuckingLayer>();
@@ -44,7 +94,8 @@ public partial class Composer
         {
             foreach (Guid sourceId in layer.Sources)
             {
-                if (!layers.TryGetValue(sourceId, out DuckingLayer? source) || ReachesLayer(source, layer.Id, layers))
+                DuckingLayer source = layers[sourceId];
+                if (ReachesLayer(source, layer.Id, layers))
                     continue;
 
                 layer.PendingSources++;
@@ -91,8 +142,18 @@ public partial class Composer
                 layer.Peaks = GetLayerPeaks(layerBuffers);
                 foreach (DuckingLayer dependent in layer.Dependents)
                 {
-                    if (layer.Peaks is { } peaks)
-                        dependent.SourcePeaks.Add(layer.Id, peaks);
+                    if (dependent.SourceRoutes.TryGetValue(layer.Id, out HashSet<Guid>? sourceIds))
+                    {
+                        foreach (Guid sourceId in sourceIds)
+                        {
+                            AudioBuffer? peaks = sourceId == layer.Id
+                                ? layer.Peaks
+                                : GetTapPeaks(layer, entries, layerId, sourceId, context, sampleCount);
+                            if (peaks is not null)
+                                dependent.SourcePeaks.Add(sourceId, peaks);
+                        }
+                    }
+
                     if (--dependent.PendingSources == 0)
                         ready.Enqueue(dependent);
                 }
@@ -109,7 +170,11 @@ public partial class Composer
         finally
         {
             foreach (DuckingLayer layer in layers.Values)
+            {
                 layer.Peaks?.Dispose();
+                foreach (AudioBuffer peaks in layer.TapPeaks.Values)
+                    peaks.Dispose();
+            }
 
             foreach (List<MixInput>? output in outputs)
             {
@@ -148,6 +213,55 @@ public partial class Composer
         catch
         {
             buffer.Dispose();
+            throw;
+        }
+    }
+
+    // Builds the peaks of a layer that a SoundGroup mixes, from the taps placed on its child branches.
+    private AudioBuffer? GetTapPeaks(
+        DuckingLayer layer, AudioNodeEntry[] entries, Func<int, Guid> layerId, Guid sourceId,
+        AudioProcessContext context, int sampleCount)
+    {
+        if (layer.TapPeaks.TryGetValue(sourceId, out AudioBuffer? cached))
+            return cached;
+        if (sampleCount == 0) return null;
+
+        AudioBuffer? peaks = null;
+        try
+        {
+            foreach (int index in layer.EntryIndices)
+            {
+                foreach (LevelTapNode tap in entries[index].LevelTaps)
+                {
+                    if (layerId(tap.ZIndex) != sourceId) continue;
+
+                    ReadOnlySpan<float> tapped = tap.Peaks;
+                    if (tapped.IsEmpty) continue;
+
+                    peaks ??= new AudioBuffer(context.SampleRate, 1, sampleCount);
+                    Span<float> target = peaks.GetChannelData(0);
+                    // The tap may have read a shifted window, so place its samples by time rather than by index.
+                    long firstSample = (context.TimeRange.Start - tap.BlockStart)
+                        .ToSamples(tap.BlockSampleRate, MidpointRounding.ToZero);
+                    double step = (double)tap.BlockSampleRate / context.SampleRate;
+                    for (int i = 0; i < target.Length; i++)
+                    {
+                        long sample = firstSample + (long)(i * step);
+                        if ((ulong)sample < (ulong)tapped.Length)
+                        {
+                            target[i] = Math.Max(target[i], tapped[(int)sample]);
+                        }
+                    }
+                }
+            }
+
+            if (peaks is not null)
+                layer.TapPeaks.Add(sourceId, peaks);
+            return peaks;
+        }
+        catch
+        {
+            peaks?.Dispose();
             throw;
         }
     }

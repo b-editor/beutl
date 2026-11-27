@@ -333,6 +333,19 @@ public sealed class AudioContext : IDisposable
         return AddNode(node);
     }
 
+    // A pass-through that records the level of one SoundGroup child, keyed by the row of the child's sound.
+    internal LevelTapNode CreateLevelTapNode(int zIndex)
+    {
+        ThrowIfDisposed();
+
+        if (_previousNodes?.OfType<LevelTapNode>().FirstOrDefault(n => n.ZIndex == zIndex) is { } existing)
+        {
+            return AddNode(Reclaim(existing));
+        }
+
+        return AddNode(new LevelTapNode { ZIndex = zIndex });
+    }
+
     // A shift node for a sound's offset. A fixed offset makes a node per value, as editing it composes the sound
     // again; one under an expression is read for each window so that the expression takes effect.
     internal ShiftNode CreateShiftNode(IExpressionProperty<MediaTime> offset)

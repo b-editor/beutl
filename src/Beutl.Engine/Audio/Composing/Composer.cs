@@ -26,6 +26,7 @@ public partial class Composer : IComposer
     {
         public List<AudioNode> Nodes { get; set; } = new();
         public DuckingNode[] DuckingNodes { get; set; } = [];
+        public LevelTapNode[] LevelTaps { get; set; } = [];
         public AudioNode[]? OutputNodes { get; set; }
         public bool IsDirty { get; set; } = true;
         public int Version { get; set; }
@@ -560,6 +561,7 @@ public partial class Composer : IComposer
             entry.Nodes.Clear();
             entry.Nodes.AddRange(context.Nodes);
             entry.DuckingNodes = [.. entry.Nodes.OfType<DuckingNode>()];
+            entry.LevelTaps = [.. entry.Nodes.OfType<LevelTapNode>()];
 
             entry.FixedLatencies = null;
             if (entry.IsDirty)
