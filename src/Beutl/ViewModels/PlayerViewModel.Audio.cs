@@ -32,6 +32,35 @@ public partial class PlayerViewModel
         });
     }
 
+    private void PublishPlaybackAudio(AudioBuffer audio, MediaTime start, MediaTime playbackStart, LoopPlayback? loop)
+    {
+        if (loop == null)
+        {
+            PublishAudioSnapshot(audio, start);
+            return;
+        }
+
+        if (_isDisposing) return;
+        long sample = (start - playbackStart).ToSamples(audio.SampleRate, MidpointRounding.AwayFromZero);
+        int channels = audio.ChannelCount;
+        var interleaved = new float[audio.SampleCount * channels];
+        AudioConversion.Interleave(audio, interleaved);
+        int offset = 0;
+        while (offset < audio.SampleCount && loop.TryGetAudioSlice(sample + offset, audio.SampleCount - offset,
+                   out TimeRange range, out int length))
+        {
+            float[] samples = offset == 0 && length == audio.SampleCount
+                ? interleaved
+                : interleaved[(offset * channels)..((offset + length) * channels)];
+            _audioFramePushed.OnNext(new AudioFrameSnapshot(samples, audio.SampleRate, channels, range.Start)
+            {
+                PlaybackId = Interlocked.Read(ref _previewPlaybackId),
+                OutputTime = playbackStart + MediaTime.FromSamples(sample + offset, audio.SampleRate)
+            });
+            offset += length;
+        }
+    }
+
     async Task<AudioFrameSnapshot?> IPreviewPlayer.ComposeAudioAsync(MediaTime start, MediaTime duration, CancellationToken ct)
     {
         // Admit idle composition on the UI thread, like history mutations. A background visualizer
@@ -97,7 +126,8 @@ public partial class PlayerViewModel
         MediaTime startTime,
         int sampleRate,
         int generation,
-        CancellationToken playbackToken)
+        CancellationToken playbackToken,
+        LoopPlayback? loop)
     {
         try
         {
@@ -108,7 +138,7 @@ public partial class PlayerViewModel
             {
                 using var audioContext = new XAudioContext(useDeviceDefaults: useMultichannelBackend);
                 await PlayWithXA2(audioContext, projectLayout, useMultichannelBackend,
-                    scene, clock, startTime, sampleRate, generation, playbackToken).ConfigureAwait(false);
+                    scene, clock, startTime, sampleRate, generation, playbackToken, loop).ConfigureAwait(false);
             }
             else
             {
@@ -127,7 +157,7 @@ public partial class PlayerViewModel
                             try
                             {
                                 await PlayWithAVSampleBufferRenderer(renderer, scene, clock, startTime,
-                                    sampleRate, generation, playbackToken).ConfigureAwait(false);
+                                    sampleRate, projectLayout.ChannelCount, generation, playbackToken, loop).ConfigureAwait(false);
                                 return;
                             }
                             catch (AVSampleBufferAudioRendererException ex) when (!clock.StartedTask.IsCompleted)
@@ -143,7 +173,7 @@ public partial class PlayerViewModel
 
                     using var audioContext = new AudioContext(soft: useMultichannelBackend);
                     await PlayWithOpenAL(audioContext, projectLayout,
-                        scene, clock, startTime, sampleRate, generation, playbackToken);
+                        scene, clock, startTime, sampleRate, generation, playbackToken, loop);
                 }, playbackToken);
             }
         }
@@ -163,6 +193,7 @@ public partial class PlayerViewModel
         }
         finally
         {
+            loop?.FinishAudio();
             clock.Pause();
         }
     }
@@ -202,6 +233,28 @@ public partial class PlayerViewModel
         });
     }
 
+    private (AudioBuffer? Audio, MediaTime SceneEnd) FillPlaybackAudio(
+        MediaTime time, Scene scene, MediaTime startTime, int channels, int generation,
+        CancellationToken playbackToken, LoopPlayback? loop)
+    {
+        if (loop == null) return FillAudioData(time, scene, generation, playbackToken);
+
+        // Plan cuts on the audio worker. A selection read must never dispatch to the UI from
+        // the compose thread, which the UI can be waiting to drain during Pause.
+        AudioBuffer buffer = loop.ComposeAudio(time - startTime, channels, range =>
+            ComposeThread.Dispatcher.Invoke(() =>
+            {
+                if (_isPausing || playbackToken.IsCancellationRequested || !_sessionGuard.Owns(generation))
+                    return null;
+
+                AudioBuffer? audio = EditViewModel.Composer.Value.Compose(range);
+                if (audio != null)
+                    SilenceTailBeyondSceneEnd(audio, range.Start, scene.Start.Value + scene.Duration.Value);
+                return audio;
+            }));
+        return (buffer, loop.EndTime is { } end ? startTime + end : MediaTime.MaxValue);
+    }
+
     // Scene.Start + Duration を超えた末尾サンプルをゼロ埋めする。
     // 編集中に Duration が縮んでバッファ全体が範囲外になるケースもありうる。
     internal static void SilenceTailBeyondSceneEnd(
@@ -229,22 +282,24 @@ public partial class PlayerViewModel
     [SupportedOSPlatform("windows")]
     private async Task PlayWithXA2(XAudioContext audioContext, AudioChannelLayout projectLayout,
         bool useMultichannelBackend, Scene scene,
-        AudioPlaybackClock clock, MediaTime startTime, int sampleRate, int generation, CancellationToken playbackToken)
+        AudioPlaybackClock clock, MediaTime startTime, int sampleRate, int generation, CancellationToken playbackToken,
+        LoopPlayback? loop)
     {
         playbackToken.ThrowIfCancellationRequested();
         using var sink = new XAudio2AudioSink(audioContext, projectLayout, useMultichannelBackend);
-        AudioSinkRefillLoop loop = CreateRefillLoop(sink, scene, clock, startTime, sampleRate, generation,
-            playbackToken,
+        AudioSinkRefillLoop refill = CreateRefillLoop(sink, scene, clock, startTime, sampleRate, projectLayout.ChannelCount,
+            generation, playbackToken, loop,
             () => _logger.LogWarning(
                 "XAudio2 backend did not advance SamplesPlayed within the startup deadline; falling back to wall-clock timing."));
         // XAudio2 can stop the voice from any thread, so cancellation silences it at once
         // instead of waiting for a synchronous buffer composition to return.
-        await RunAudioPlaybackWithImmediateStopAsync(playbackToken, sink.Stop, () => loop.RunAsync(playbackToken))
+        await RunAudioPlaybackWithImmediateStopAsync(playbackToken, sink.Stop, () => refill.RunAsync(playbackToken))
             .ConfigureAwait(false);
     }
 
     private AudioSinkRefillLoop CreateRefillLoop(IAudioSink sink, Scene scene, AudioPlaybackClock clock,
-        MediaTime startTime, int sampleRate, int generation, CancellationToken playbackToken, Action onStartupStalled)
+        MediaTime startTime, int sampleRate, int channels, int generation, CancellationToken playbackToken,
+        LoopPlayback? loop, Action onStartupStalled)
     {
         return new AudioSinkRefillLoop
         {
@@ -252,9 +307,11 @@ public partial class PlayerViewModel
             Clock = clock,
             StartTime = startTime,
             SampleRate = sampleRate,
-            Compose = time => FillAudioData(time, scene, generation, playbackToken),
+            BufferDuration = loop == null ? s_second : LoopPlayback.BufferDuration,
+            RefillInterval = loop == null ? AudioSinkRefillLoop.PollInterval : LoopPlayback.PollInterval,
+            Compose = time => FillPlaybackAudio(time, scene, startTime, channels, generation, playbackToken, loop),
             Publish = (audio, bufferStartTime) =>
-                _sessionGuard.TryApply(generation, () => PublishAudioSnapshot(audio, bufferStartTime)),
+                _sessionGuard.TryApply(generation, () => PublishPlaybackAudio(audio, bufferStartTime, startTime, loop)),
             IsPlaying = () => IsPlaying.Value,
             OnStartupStalled = onStartupStalled,
         };
@@ -269,8 +326,12 @@ public partial class PlayerViewModel
 
     [SupportedOSPlatform("macos")]
     private async Task PlayWithAVSampleBufferRenderer(AVSampleBufferAudioRenderer renderer, Scene scene,
-        AudioPlaybackClock clock, MediaTime startTime, int sampleRate, int generation, CancellationToken playbackToken)
+        AudioPlaybackClock clock, MediaTime startTime, int sampleRate, int channels, int generation,
+        CancellationToken playbackToken, LoopPlayback? loop)
     {
+        MediaTime bufferDuration = loop == null ? s_second : LoopPlayback.BufferDuration;
+        TimeSpan refillInterval = loop == null ? AudioSinkRefillLoop.PollInterval : LoopPlayback.PollInterval;
+        long bufferSamples = bufferDuration.ToSamples(sampleRate, MidpointRounding.AwayFromZero);
         MediaTime cur = startTime;
         MediaTime sceneEndTime = default;
         long nextSample = 0;
@@ -295,7 +356,7 @@ public partial class PlayerViewModel
         {
             CheckPlayback();
             MediaTime bufferStartTime = cur;
-            var bufferData = FillAudioData(cur, scene, generation, playbackToken);
+            var bufferData = FillPlaybackAudio(cur, scene, startTime, channels, generation, playbackToken, loop);
             sceneEndTime = bufferData.SceneEnd;
             using AudioBuffer? audio = bufferData.Audio;
             CheckPlayback();
@@ -315,13 +376,13 @@ public partial class PlayerViewModel
 
                 nextSample += audio.SampleCount;
                 hasAudio = true;
-                _sessionGuard.TryApply(generation, () => PublishAudioSnapshot(audio, bufferStartTime));
+                _sessionGuard.TryApply(generation, () => PublishPlaybackAudio(audio, bufferStartTime, startTime, loop));
             }
             else
             {
-                nextSample += sampleRate;
+                nextSample += bufferSamples;
             }
-            cur += s_second;
+            cur += bufferDuration;
         }
 
         async Task PlaybackLoop()
@@ -344,22 +405,21 @@ public partial class PlayerViewModel
 
             while (IsActive() && cur < sceneEndTime)
             {
-                // FillAudioData composes one second. Only append when it fits in a two-second
-                // window ahead of the native playhead, and keep the project's channels unchanged.
-                if (nextSample - renderer.PositionSeconds * sampleRate <= sampleRate
+                // Keep at most two buffers ahead of the native playhead.
+                if (nextSample - renderer.PositionSeconds * sampleRate <= bufferSamples
                     && renderer.IsReadyForMoreMediaData)
                 {
                     await FillAndQueue().ConfigureAwait(false);
                 }
                 AnchorClock();
-                await Task.Delay(100, playbackToken).ConfigureAwait(false);
+                await Task.Delay(refillInterval, playbackToken).ConfigureAwait(false);
             }
 
             // The final chunk is silence-padded at the scene boundary, just like OpenAL's buffers.
             while (IsActive() && hasAudio && renderer.PositionSeconds < (double)nextSample / sampleRate)
             {
                 AnchorClock();
-                await Task.Delay(100, playbackToken).ConfigureAwait(false);
+                await Task.Delay(refillInterval, playbackToken).ConfigureAwait(false);
             }
         }
 
@@ -378,14 +438,15 @@ public partial class PlayerViewModel
     }
 
     private async Task PlayWithOpenAL(AudioContext audioContext, AudioChannelLayout projectLayout, Scene scene,
-        AudioPlaybackClock clock, MediaTime startTime, int sampleRate, int generation, CancellationToken playbackToken)
+        AudioPlaybackClock clock, MediaTime startTime, int sampleRate, int generation, CancellationToken playbackToken,
+        LoopPlayback? loop)
     {
         playbackToken.ThrowIfCancellationRequested();
         using var sink = new OpenALAudioSink(audioContext, projectLayout);
-        AudioSinkRefillLoop loop = CreateRefillLoop(sink, scene, clock, startTime, sampleRate, generation,
-            playbackToken,
+        AudioSinkRefillLoop refill = CreateRefillLoop(sink, scene, clock, startTime, sampleRate, projectLayout.ChannelCount,
+            generation, playbackToken, loop,
             () => _logger.LogWarning(
                 "OpenAL backend did not advance SampleOffset within the startup deadline; falling back to wall-clock timing."));
-        await loop.RunAsync(playbackToken).ConfigureAwait(false);
+        await refill.RunAsync(playbackToken).ConfigureAwait(false);
     }
 }

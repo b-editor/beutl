@@ -17,6 +17,7 @@ public partial class PlayerViewModel
         private readonly BufferedPlayer _playerImpl;
         private readonly AudioPlaybackClock _clock;
         private readonly Rational _rate;
+        private readonly LoopPlayback? _loop;
         private readonly int _startFrame;
         private readonly int _endFrame;
         private readonly MediaTime _startTime;
@@ -29,6 +30,7 @@ public partial class PlayerViewModel
         // The newest frame waiting for the UI thread, and whether a post that shows it is queued.
         private PendingFrame? _pendingFrame;
         private int _framePostQueued;
+        private int _boundaryPostPending;
         // Set on the UI thread once the run has ended; whatever the run posts after that changes nothing.
         private bool _retired;
 
@@ -41,25 +43,37 @@ public partial class PlayerViewModel
             int startFrame,
             int endFrame,
             MediaTime startTime,
-            DateTime startDateTime)
+            DateTime startDateTime,
+            LoopPlayback? loop,
+            bool firstFrameShown)
         {
             _owner = owner;
             _generation = generation;
             _playerImpl = playerImpl;
             _clock = clock;
             _rate = rate;
+            _loop = loop;
             _startFrame = startFrame;
             _endFrame = endFrame;
             _startTime = startTime;
             _startDateTime = startDateTime;
-            _nextExpectedFrame = startFrame + 1;
+            _nextExpectedFrame = loop == null ? startFrame + 1 : firstFrameShown ? 1 : 0;
         }
 
         public Task Completion => _tcs.Task;
 
         // Where playback is now: from the audio once it has started, and otherwise from the wall clock.
-        public MediaTime CurrentTime
+        private MediaTime ClockTime
             => _clock.GetTime() ?? _startTime + MediaTime.FromTimeSpan(DateTime.UtcNow - _startDateTime);
+
+        public MediaTime CurrentTime
+        {
+            get
+            {
+                MediaTime time = ClockTime;
+                return _loop?.GetSceneTime(time - _startTime) ?? time;
+            }
+        }
 
         // Set when the run stopped at the end of the scene with looping enabled.
         public bool ReachedNaturalEnd { get; private set; }
@@ -74,9 +88,10 @@ public partial class PlayerViewModel
 
         private int ComputeExpectFrame()
         {
-            MediaTime elapsed = CurrentTime - _startTime;
+            MediaTime elapsed = ClockTime - _startTime;
             if (elapsed < MediaTime.Zero) elapsed = MediaTime.Zero;
-            return (int)elapsed.ToFrame(_rate, MidpointRounding.ToNegativeInfinity) + _startFrame;
+            return _loop?.GetPosition(elapsed)
+                ?? (int)elapsed.ToFrame(_rate, MidpointRounding.ToNegativeInfinity) + _startFrame;
         }
 
         private bool StopForRenderFailure()
@@ -130,19 +145,23 @@ public partial class PlayerViewModel
                 }
 
                 var expectFrame = ComputeExpectFrame();
-                if (_owner._stopRequested || !_owner.IsPlaying.Value || expectFrame >= _endFrame)
+                bool reachedEnd = _loop == null
+                    ? expectFrame >= _endFrame
+                    : _loop.EndPosition is int end && expectFrame >= end && _nextExpectedFrame >= end;
+                if (_owner._stopRequested || !_owner.IsPlaying.Value || reachedEnd)
                 {
                     bool clearIsPlaying = false;
                     _owner._sessionGuard.TryApply(_generation, () =>
                     {
                         // ループ用に endFrame で打ち切る場合、音声側にも停止を伝える。
                         // ただし停止要求中はループの自然終端とみなさず、再開させない。
-                        if (!_owner._stopRequested && _owner.IsLoopEnabled.Value && expectFrame >= _endFrame)
+                        if (!_owner._stopRequested && _owner.IsLoopEnabled.Value && reachedEnd
+                            && (_loop == null || _loop.ReachedNaturalEnd))
                         {
                             ReachedNaturalEnd = true;
                             clearIsPlaying = true;
                         }
-                        else if (_owner._stopRequested)
+                        else if (_owner._stopRequested || _loop != null)
                         {
                             // A pause that raced the loop re-arm leaves IsPlaying=true; clear it so the
                             // audio task stops here instead of running to the scene's natural end.
@@ -157,13 +176,23 @@ public partial class PlayerViewModel
                     return;
                 }
 
-                if (expectFrame < _nextExpectedFrame)
+                if (expectFrame < _nextExpectedFrame || Volatile.Read(ref _boundaryPostPending) != 0)
                 {
                     return;
                 }
 
+                if (_loop?.TryGetPass(_nextExpectedFrame, out LoopPlayback.Pass pass) == true)
+                {
+                    // Give the first frame its own tick and stop a catch-up tick at the last
+                    // frame, so neither endpoint is skipped while catching up within a pass.
+                    expectFrame = _nextExpectedFrame == pass.Position
+                        ? _nextExpectedFrame
+                        : Math.Min(expectFrame, pass.EndPosition - 1);
+                }
+
+                int maxPosition = _loop == null ? int.MaxValue : expectFrame;
                 bool dequeued = false;
-                while (_playerImpl.TryDequeue(out BufferedPlayer.Frame frame))
+                while (_playerImpl.TryDequeue(maxPosition, out BufferedPlayer.Frame frame))
                 {
                     dequeued = true;
                     if (!_owner._sessionGuard.Owns(_generation))
@@ -177,9 +206,9 @@ public partial class PlayerViewModel
                     // タイマーが正確じゃないから、だんだんとフレームがずれてくる
                     // そのため、フレームを消費しすぎたら、そのフレーム番号とexpectFrameが一致するまでスキップする
                     // 逆に、フレームを消費しすぎない場合は、そのまま次のフレームを取得する
-                    if (expectFrame <= frame.Time)
+                    _nextExpectedFrame = frame.Position + 1;
+                    if (expectFrame <= frame.Position)
                     {
-                        _nextExpectedFrame = frame.Time + 1;
                         break;
                     }
                 }
@@ -207,6 +236,7 @@ public partial class PlayerViewModel
                 }
 
                 _playerImpl.Skipped(ComputeExpectFrame() + 1);
+                _loop?.DiscardBefore(_nextExpectedFrame - 1);
             }
             catch (Exception ex)
             {
@@ -224,7 +254,17 @@ public partial class PlayerViewModel
         // Takes ownership of the dequeued frame until it is displayed or superseded.
         private void Show(BufferedPlayer.Frame frame)
         {
-            Interlocked.Exchange(ref _pendingFrame, new PendingFrame(frame))?.Frame.Dispose();
+            MediaTime time = MediaTime.FromFrames(frame.Time, _rate);
+            MediaTime outputTime = time;
+            bool boundary = false;
+            if (_loop?.TryGetPass(frame.Position, out LoopPlayback.Pass pass) == true)
+            {
+                outputTime = _startTime + _loop.GetOutputTime(pass, frame.Time);
+                boundary = frame.Position == pass.Position || frame.Position == pass.EndPosition - 1;
+                if (boundary) Volatile.Write(ref _boundaryPostPending, 1);
+            }
+
+            Interlocked.Exchange(ref _pendingFrame, new PendingFrame(frame, outputTime, boundary))?.Frame.Dispose();
             if (Interlocked.Exchange(ref _framePostQueued, 1) == 0)
                 Dispatcher.UIThread.Post(ShowPendingFrame, DispatcherPriority.Normal);
         }
@@ -243,23 +283,16 @@ public partial class PlayerViewModel
                     return;
 
                 _owner._sessionGuard.TryApply(_generation, () =>
-                {
-                    _owner.UpdateImage(frame.Bitmap, frame.CleanBitmap,
-                        MediaTime.FromFrames(frame.Time, _rate), _owner._previewPlaybackId);
-                    _owner.UpdatePreviewRenderStatus(error: null, frame.PreviewWarning,
-                        () => _owner._sessionGuard.Owns(_generation));
-
-                    if (_owner.Scene != null)
-                    {
-                        _owner._editorClock.Seek(MediaTime.FromFrames(frame.Time, _rate));
-                        _owner.EditViewModel.FrameCacheManager.Value.CurrentFrame = frame.Time;
-                    }
-                });
+                    _owner.PresentPlaybackFrame(frame, pending.OutputTime, _rate, _generation));
             }
             catch (Exception ex)
             {
                 // An exception that escapes a UI dispatcher job ends the process too.
                 Stop(ex);
+            }
+            finally
+            {
+                if (pending.Boundary) Volatile.Write(ref _boundaryPostPending, 0);
             }
         }
 
@@ -310,6 +343,6 @@ public partial class PlayerViewModel
         }
 
         // Interlocked.Exchange requires a reference type; the frame retains both bitmap owners.
-        private sealed record PendingFrame(BufferedPlayer.Frame Frame);
+        private sealed record PendingFrame(BufferedPlayer.Frame Frame, MediaTime OutputTime, bool Boundary);
     }
 }

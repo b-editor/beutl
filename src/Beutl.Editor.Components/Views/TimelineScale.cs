@@ -7,6 +7,7 @@ using Avalonia.Media.TextFormatting;
 using Beutl.Configuration;
 using Beutl.Controls;
 using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Components.TimelineTab.Models;
 using Beutl.Editor.Models;
 using Beutl.Editor.Services;
 using Beutl.ProjectSystem;
@@ -21,6 +22,7 @@ public sealed partial class TimelineScale : TimelineBarsControl
     private static readonly Geometry _rangeMarker;
     private static readonly Geometry _pointMarker;
     private INotifyCollectionChanged? _trackedMarkers;
+    private FrameSelectionRange? _frameSelection;
     private readonly Dictionary<SceneMarker, IDisposable> _markerSubscriptions = new();
     // The ruler is drawn again on every frame of playback, since it draws the seek bar, while its texts stay the same.
     private readonly TextLayoutCache _tickLabels = new(13);
@@ -102,6 +104,12 @@ public sealed partial class TimelineScale : TimelineBarsControl
 
     // The layouts made for the ruler's texts so far; tests check that a render that only moves the seek bar makes none.
     internal int LabelLayoutsMade => _tickLabels.Made + _markerLabels.Made;
+
+    internal void SetFrameSelection(FrameSelectionRange? selection)
+    {
+        _frameSelection = selection;
+        InvalidateVisual();
+    }
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
@@ -231,6 +239,13 @@ public sealed partial class TimelineScale : TimelineBarsControl
         using (context.PushTransform(Matrix.CreateTranslation(-viewport.X, 0)))
         {
             context.FillRectangle(Brushes.Transparent, viewport);
+            if (_frameSelection is { } selection)
+            {
+                double left = selection.Start.TimeToPixel(Scale);
+                double right = selection.End.TimeToPixel(Scale);
+                var bounds = new Rect(left, 0, right - left, height);
+                context.DrawRectangle(TimelineSharedObject.SelectionFillBrush, TimelineSharedObject.SelectionPen, bounds);
+            }
             DrawTimeTicks(context, _pen, viewport, height, originX, l);
             DrawBufferAndCacheBlocks(context, originX, l);
             DrawBars(context, height);

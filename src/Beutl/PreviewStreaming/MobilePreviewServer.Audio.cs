@@ -20,7 +20,8 @@ internal sealed partial class MobilePreviewServer
             if (_stop.IsCancellationRequested || audio.PlaybackId == 0) return;
             _audio.RemoveAll(a => a.PlaybackId != audio.PlaybackId);
             _audio.Add(audio);
-            while (_audio.Count > 4) _audio.RemoveAt(0);
+            int maxBlocks = audio.OutputTime.HasValue ? 32 : 4;
+            while (_audio.Count > maxBlocks) _audio.RemoveAt(0);
         }
     }
 
@@ -100,7 +101,7 @@ internal sealed partial class MobilePreviewServer
             foreach (var block in blocks)
             {
                 if (block.PlaybackId != playbackId || block.ChannelCount < 1 || block.SampleRate < 1) continue;
-                double offset = (position - block.StartTime.ToTimeSpan().TotalSeconds) * block.SampleRate;
+                double offset = (position - (block.OutputTime ?? block.StartTime).ToSeconds()) * block.SampleRate;
                 int count = block.Interleaved.Length / block.ChannelCount;
                 if (offset < 0 || offset >= count) continue;
                 int first = (int)offset, second = Math.Min(first + 1, count - 1);

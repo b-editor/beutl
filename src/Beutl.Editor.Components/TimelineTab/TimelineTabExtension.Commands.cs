@@ -80,7 +80,8 @@ public sealed partial class TimelineTabExtension : IContextCommandEditorStateNot
         Command("timeline.selectAll", Strings.SelectAll, "",
             [new("Ctrl+A"), new("Cmd+A", OSPlatform.OSX)], timeline => timeline.SelectAll()),
         Command("timeline.deselectAll", Strings.DeselectAll, "",
-            [new("Ctrl+Shift+A"), new("Cmd+Shift+A", OSPlatform.OSX)], timeline => timeline.ClearSelected(), HasSelection),
+            [new("Ctrl+Shift+A"), new("Cmd+Shift+A", OSPlatform.OSX)], timeline => timeline.ClearSelected(),
+            timeline => timeline.FrameSelection.Value is not null || HasSelection(timeline)),
         // Both Cmd+= and Cmd++ zoom in. Each reports OemPlus for its character, with Shift for + on a US or JIS layout.
         Command("timeline.zoomIn", Strings.TimelineZoomIn, "",
             [new("Ctrl+OemPlus"), new("Ctrl+Shift+OemPlus"), new("Cmd+OemPlus", OSPlatform.OSX), new("Cmd+Shift+OemPlus", OSPlatform.OSX)],

@@ -4,6 +4,7 @@ using Beutl.Collections.Pooled;
 using Beutl.Configuration;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.PropertyEditors.ViewModels;
+using Beutl.Editor.Components.TimelineTab.Models;
 using Beutl.Editor.Models;
 using Beutl.Editor.Services;
 using Beutl.Logging;
@@ -116,6 +117,8 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
             .AddTo(_disposables);
 
         FitAll = new ReactiveCommandSlim().WithSubscribe(FitScene).DisposeWith(_disposables);
+        FrameSelection.Skip(1).Subscribe(_ => RaiseCanExecuteChanged()).DisposeWith(_disposables);
+
         // Like the graph editor's, it waits for a selection. A selection change raises CanExecuteChanged.
         FitSelection = CanExecuteChanged.Select(_ => SelectedElements.Count > 0)
             .ToReactiveCommandSlim(SelectedElements.Count > 0)
@@ -399,6 +402,8 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
 
     public ReactiveProperty<bool> IsRippleEnabled { get; }
 
+    internal ReactivePropertySlim<FrameSelectionRange?> FrameSelection { get; } = new();
+
     public ReactivePropertySlim<double?> SnapBarPosition { get; } = new();
 
     public ReactivePropertySlim<CacheBlock?> HoveredCacheBlock { get; } = new();
@@ -479,6 +484,7 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
         _layerHeightChanged.Dispose();
         _canExecuteChangedSubject.Dispose();
         PendingLocate.Dispose();
+        FrameSelection.Dispose();
 
         Inlines.Clear();
         LayerHeaders.Clear();
@@ -700,8 +706,11 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
 
     public void ClearSelected()
     {
-        _selection.SelectedElements.Clear();
+        ClearSelectedElements();
+        FrameSelection.Value = null;
     }
+
+    internal void ClearSelectedElements() => _selection.SelectedElements.Clear();
 
     internal void SelectAll() => _selection.SelectAll(Scene);
 
