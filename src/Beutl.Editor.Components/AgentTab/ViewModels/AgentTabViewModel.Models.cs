@@ -180,10 +180,7 @@ internal sealed partial class AgentTabViewModel
 
     private void RefreshModelSelection()
     {
-        Notify(nameof(ProviderKind));
-        Notify(nameof(ShortModelName));
-        Notify(nameof(ReasoningEffortLabel));
-        Notify(nameof(ModelButtonLabel));
+        Notify(nameof(ProviderKind), nameof(ShortModelName), nameof(ReasoningEffortLabel), nameof(ModelButtonLabel));
         NotifyContextMeter();
 
         string? activeProviderId = _pickerProviderId ?? SelectedProvider?.Descriptor.Id;

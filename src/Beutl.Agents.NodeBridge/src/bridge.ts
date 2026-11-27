@@ -63,13 +63,11 @@ export async function handleCommand(commandJson: string): Promise<string> {
             break;
         }
         case "turn/run": {
-            const session = sessions.get(command.params.threadId);
-            if (!session) throw new Error("The agent session is closed.");
+            const session = requireSession(command.params.threadId);
             return JSON.stringify({ turnId: command.params.turnId, ...await session.run(command.params) });
         }
         case "turn/compact": {
-            const session = sessions.get(command.params.threadId);
-            if (!session) throw new Error("The agent session is closed.");
+            const session = requireSession(command.params.threadId);
             return JSON.stringify(await session.run({ ...command.params, text: "/compact" }, true));
         }
         case "turn/steer":
@@ -90,45 +88,61 @@ export async function handleCommand(commandJson: string): Promise<string> {
     return "null";
 }
 
-async function listModels({ providerId, threadId, ...provider }: ModelListOptions): Promise<ModelDescriptor[]> {
-    if (!isAbsolute(provider.executablePath) || !isAbsolute(provider.workingDirectory))
+function assertAbsolutePaths(executablePath: string, workingDirectory: string): void {
+    if (!isAbsolute(executablePath) || !isAbsolute(workingDirectory))
         throw new Error("Agent executable and working directory must be absolute.");
+}
 
-    const session = threadId ? sessions.get(threadId) : undefined;
-    if (provider.provider === "acp" && session?.adapter instanceof AcpAdapter && !session.closing) {
-        await session.ready;
-        return session.adapter.listModels(providerId);
-    }
+function requireSession(threadId: string): Session {
+    const session = sessions.get(threadId);
+    if (!session) throw new Error("The agent session is closed.");
+    return session;
+}
 
+async function terminateProcess(pid: number): Promise<void> {
+    await requestHost("process/terminate", { pid });
+}
+
+async function withDiscoveryAdapter<T>(
+    provider: Omit<SuggestionListOptions, "threadId">,
+    timeoutMs: number,
+    timeoutMessage: string,
+    action: (adapter: Adapter) => T | Promise<T>,
+): Promise<T> {
     const adapter = discoveryAdapter(provider);
     try {
-        const discovery = adapter instanceof AcpAdapter
-            ? adapter.open().then(() => adapter.listModels(providerId))
-            : adapter.listModels(providerId);
-        return await withTimeout(discovery, 6000, "The agent did not report its models.");
+        return await withTimeout((async () => {
+            if (adapter instanceof AcpAdapter) await adapter.open();
+            return await action(adapter);
+        })(), timeoutMs, timeoutMessage);
     } finally {
         await adapter.close();
     }
 }
 
+async function listModels({ providerId, threadId, ...provider }: ModelListOptions): Promise<ModelDescriptor[]> {
+    assertAbsolutePaths(provider.executablePath, provider.workingDirectory);
+
+    const session = threadId ? sessions.get(threadId) : undefined;
+    if (provider.provider === "acp" && session?.adapter instanceof AcpAdapter && !session.closing) {
+        return await withTimeout(session.ready.then(() => session.adapter.listModels(providerId)), 6000,
+            "The agent did not report its models.");
+    }
+
+    return await withDiscoveryAdapter(provider, 6000, "The agent did not report its models.",
+        adapter => adapter.listModels(providerId));
+}
+
 async function listSuggestions({ threadId, ...provider }: SuggestionListOptions): Promise<ComposerSuggestion[]> {
-    if (!isAbsolute(provider.executablePath) || !isAbsolute(provider.workingDirectory))
-        throw new Error("Agent executable and working directory must be absolute.");
+    assertAbsolutePaths(provider.executablePath, provider.workingDirectory);
 
     const session = threadId ? sessions.get(threadId) : undefined;
     if (session && !session.closing && !(session.adapter instanceof ClaudeAdapter))
         return await withTimeout(session.ready.then(() => session.adapter.listSuggestions()), 6000,
             "The agent did not report its commands and skills.");
 
-    const adapter = discoveryAdapter(provider);
-    try {
-        return await withTimeout((async () => {
-            if (adapter instanceof AcpAdapter) await adapter.open();
-            return await adapter.listSuggestions();
-        })(), 6000, "The agent did not report its commands and skills.");
-    } finally {
-        await adapter.close();
-    }
+    return await withDiscoveryAdapter(provider, 6000, "The agent did not report its commands and skills.",
+        adapter => adapter.listSuggestions());
 }
 
 function discoveryAdapter(provider: Omit<SuggestionListOptions, "threadId">) {
@@ -137,7 +151,7 @@ function discoveryAdapter(provider: Omit<SuggestionListOptions, "threadId">) {
         saveSessionId: () => {},
         publishSuggestions: () => {},
         disconnected: () => {},
-        terminateProcess: async pid => { await requestHost("process/terminate", { pid }); },
+        terminateProcess,
     };
     return new Adapters[provider.provider](host);
 }
@@ -145,8 +159,7 @@ function discoveryAdapter(provider: Omit<SuggestionListOptions, "threadId">) {
 const Adapters = { acp: AcpAdapter, codex: CodexAdapter, claudeCode: ClaudeAdapter };
 
 async function openSession(options: SessionOptions): Promise<Session> {
-    if (!isAbsolute(options.executablePath) || !isAbsolute(options.workingDirectory))
-        throw new Error("Agent executable and working directory must be absolute.");
+    assertAbsolutePaths(options.executablePath, options.workingDirectory);
     const names = new Set(options.mcpServers.map(server => server.name));
     if (names.size !== options.mcpServers.length) throw new Error("MCP server names must be unique.");
 
@@ -194,7 +207,7 @@ class Session {
 
     constructor(private readonly options: SessionOptions) {
         this.externalId = options.externalSessionId;
-        const host = {
+        const host: AdapterHost = {
             options,
             saveSessionId: (id: string) => {
                 const changed = id !== this.externalId;
@@ -204,7 +217,7 @@ class Session {
             publishSuggestions: (suggestions: ComposerSuggestion[]) => {
                 if (!this.closing) this.emit({ type: "composerSuggestionsChanged", suggestions });
             },
-            terminateProcess: async (pid: number) => { await requestHost("process/terminate", { pid }); },
+            terminateProcess,
             disconnected: (message: string) => {
                 if (!this.opened || this.closing) return;
                 this.emit({ type: "errorNotice", message }, this.active?.turn.request.turnId);
@@ -282,11 +295,13 @@ class Session {
         await active.steering?.catch(() => {});
         if (active.cancellation) result = { status: "cancelled" };
 
-        switch (result.status) {
-            case "completed": turn.emit({ type: "turnCompleted", durationMs: turn.durationMs,
-                contextUsage: turn.contextUsage, ...turn.usage }); break;
-            case "failed": turn.emit({ type: "turnFailed", error: result.error }); break;
-            case "cancelled": turn.emit({ type: "turnCancelled" }); break;
+        if (!compact) {
+            switch (result.status) {
+                case "completed": turn.emit({ type: "turnCompleted", durationMs: turn.durationMs,
+                    contextUsage: turn.contextUsage, ...turn.usage }); break;
+                case "failed": turn.emit({ type: "turnFailed", error: result.error }); break;
+                case "cancelled": turn.emit({ type: "turnCancelled" }); break;
+            }
         }
         turn.controller.abort();
         this.active = undefined;

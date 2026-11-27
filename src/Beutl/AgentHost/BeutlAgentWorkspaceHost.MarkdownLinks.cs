@@ -60,28 +60,7 @@ internal sealed partial class BeutlAgentWorkspaceHost
         editors.SelectedTabItem.Value = tab;
 
         IEditorClock clock = editor.GetRequiredService<IEditorClock>();
-        MediaTime start = scene.Start.Value;
-        MediaTime end = start + scene.Duration.Value;
-        Rational rate = editor.Player.GetFrameRate();
-        MediaTime? seek = null;
-        if (link.Time is { } windowTime)
-        {
-            // Links use the same scene-relative times as render_still.
-            MediaTime offset = ClampTime(windowTime, MediaTime.Zero, scene.Duration.Value);
-            seek = ClampToFrames(start + offset, start, end, rate);
-        }
-        else if (target.Object is { } obj && AgentEditFollower.KeyFrameTime(obj) is { } keyFrameTime)
-        {
-            seek = ClampToFrames(keyFrameTime, start, end, rate);
-        }
-        else if (target.Element is { } clip)
-        {
-            MediaTime first = ClampTime(clip.Range.Start, start, end);
-            MediaTime last = ClampTime(clip.Range.End, first, end);
-            MediaTime current = clock.CurrentTime.Value;
-            if (current < first || current >= last)
-                seek = first < last ? ClampToFrames(current, first, last, rate) : ClampToFrames(first, start, end, rate);
-        }
+        MediaTime? seek = ResolveSeekTime(scene, editor.Player.GetFrameRate(), clock.CurrentTime.Value, link, target);
 
         if (seek is { } time)
         {
@@ -157,16 +136,36 @@ internal sealed partial class BeutlAgentWorkspaceHost
         return null;
     }
 
+    private static MediaTime? ResolveSeekTime(
+        Scene scene, Rational rate, MediaTime currentTime, AgentMarkdownLink link, MarkdownTarget target)
+    {
+        MediaTime start = scene.Start.Value;
+        MediaTime end = start + scene.Duration.Value;
+        if (link.Time is { } windowTime)
+        {
+            // Links use the same scene-relative times as render_still.
+            MediaTime offset = AgentEditFollower.Clamp(windowTime, MediaTime.Zero, scene.Duration.Value);
+            return ClampToFrames(start + offset, start, end, rate);
+        }
+        if (target.Object is { } obj && AgentEditFollower.KeyFrameTime(obj) is { } keyFrameTime)
+            return ClampToFrames(keyFrameTime, start, end, rate);
+        if (target.Element is { } clip)
+        {
+            MediaTime first = AgentEditFollower.Clamp(clip.Range.Start, start, end);
+            MediaTime last = AgentEditFollower.Clamp(clip.Range.End, first, end);
+            if (currentTime < first || currentTime >= last)
+                return first < last ? ClampToFrames(currentTime, first, last, rate) : ClampToFrames(first, start, end, rate);
+        }
+        return null;
+    }
+
     private static MediaTime ClampToFrames(MediaTime time, MediaTime start, MediaTime end, Rational rate)
     {
         if (end <= start) return start;
         var first = start.ToFrame(rate, MidpointRounding.ToPositiveInfinity);
         var last = (end - new MediaTime(1)).ToFrame(rate, MidpointRounding.ToNegativeInfinity);
         if (last < first) return start;
-        var frame = ClampTime(time, start, end).ToFrame(rate, MidpointRounding.AwayFromZero);
+        var frame = AgentEditFollower.Clamp(time, start, end).ToFrame(rate, MidpointRounding.AwayFromZero);
         return MediaTime.FromFrames(Math.Clamp(frame, first, last), rate);
     }
-
-    private static MediaTime ClampTime(MediaTime time, MediaTime min, MediaTime max)
-        => max < min || time < min ? min : time > max ? max : time;
 }

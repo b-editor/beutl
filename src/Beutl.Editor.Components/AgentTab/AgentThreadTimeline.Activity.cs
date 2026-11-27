@@ -75,12 +75,7 @@ internal sealed partial class AgentThreadTimeline
         NotifyPhase();
     }
 
-    private void NotifyPhase()
-    {
-        Notify(nameof(LiveStatus));
-        Notify(nameof(LiveStatusIcon));
-        Notify(nameof(IsCompacting));
-    }
+    private void NotifyPhase() => Notify(nameof(LiveStatus), nameof(LiveStatusIcon), nameof(IsCompacting));
 
     private void RecordReasoning(AgentReasoningDelta entry, AgentToolItem? parent)
     {

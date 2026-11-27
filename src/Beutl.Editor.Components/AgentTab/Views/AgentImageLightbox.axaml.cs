@@ -9,13 +9,13 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Beutl.Editor.Components.AgentTab.ViewModels;
 using Beutl.Logging;
-using Beutl.Utilities;
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.Editor.Components.AgentTab.Views;
 
 internal sealed partial class AgentImageLightbox : UserControl
 {
+    private const double ZoomStep = 1.25;
     private static readonly ILogger s_logger = Log.CreateLogger<AgentImageLightbox>();
     private readonly TaskCompletionSource _closed = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private Bitmap? _image;
@@ -165,8 +165,8 @@ internal sealed partial class AgentImageLightbox : UserControl
             ApplyZoom();
     }
 
-    private void OnZoomIn(object? sender, RoutedEventArgs e) => SetZoom(_zoom * 1.25);
-    private void OnZoomOut(object? sender, RoutedEventArgs e) => SetZoom(_zoom / 1.25);
+    private void OnZoomIn(object? sender, RoutedEventArgs e) => SetZoom(_zoom * ZoomStep);
+    private void OnZoomOut(object? sender, RoutedEventArgs e) => SetZoom(_zoom / ZoomStep);
     private void OnActualSize(object? sender, RoutedEventArgs e) => SetZoom(1);
 
     private void OnFit(object? sender, RoutedEventArgs e)
@@ -211,33 +211,22 @@ internal sealed partial class AgentImageLightbox : UserControl
 
     private async void OnCopyImage(object? sender, RoutedEventArgs e)
     {
-        if ((_topLevel ?? TopLevel.GetTopLevel(this))?.Clipboard is not { } clipboard || _image is not { } image)
+        if (_image is not { } image)
             return;
-        try
+        await AgentClipboardHelper.TryCopyAsync(_topLevel ?? TopLevel.GetTopLevel(this), async clipboard =>
         {
             // Clipboard formats can be requested by another application after this overlay closes.
             _imageOnClipboard = true;
             await clipboard.SetBitmapAsync(image);
             await clipboard.FlushAsync();
-        }
-        catch (Exception ex) when (!ExceptionHelpers.ContainsFatalFailure(ex))
-        {
-            s_logger.LogWarning(ex, "Could not copy the agent image.");
-        }
+        }, s_logger, "Could not copy the agent image.");
     }
 
     private async void OnCopyPath(object? sender, RoutedEventArgs e)
     {
-        if ((_topLevel ?? TopLevel.GetTopLevel(this))?.Clipboard is not { } clipboard || _path is not { } path)
+        if (_path is not { } path)
             return;
-        try
-        {
-            await clipboard.SetTextAsync(path);
-        }
-        catch (Exception ex) when (!ExceptionHelpers.ContainsFatalFailure(ex))
-        {
-            s_logger.LogWarning(ex, "Could not copy the agent image path.");
-        }
+        await AgentClipboardHelper.TryCopyTextAsync(_topLevel ?? TopLevel.GetTopLevel(this), path, s_logger, "Could not copy the agent image path.");
     }
 
     private void OnClose(object? sender, RoutedEventArgs e) => Close();
@@ -260,11 +249,11 @@ internal sealed partial class AgentImageLightbox : UserControl
                 e.Handled = true;
                 return;
             case Key.Add or Key.OemPlus:
-                SetZoom(_zoom * 1.25);
+                SetZoom(_zoom * ZoomStep);
                 e.Handled = true;
                 return;
             case Key.Subtract or Key.OemMinus:
-                SetZoom(_zoom / 1.25);
+                SetZoom(_zoom / ZoomStep);
                 e.Handled = true;
                 return;
         }

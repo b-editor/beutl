@@ -35,7 +35,6 @@ internal sealed partial class AgentThreadController : AgentBindable
         ThreadId = threadId;
         QueuedMessages = new(_queue);
         PendingPermissions = new(_permissions);
-        PendingQuestions = new(_questions);
     }
 
     public Guid ThreadId { get; }
@@ -67,25 +66,27 @@ internal sealed partial class AgentThreadController : AgentBindable
         var draft = await _project.LoadDraftAsync(ThreadId, _project.Lifetime);
         _project.Lifetime.ThrowIfCancellationRequested();
         PromptHistory = draft.History;
-        if (PromptHistory.Count == 0)
+        if (PromptHistory.Count == 0 && ExtractPromptHistory(entries) is { Count: > 0 } history)
         {
             // Threads saved before draft persistence already have their prompts in JSONL.
-            var history = new List<string>();
-            for (int i = entries.Count - 1; i >= 0 && history.Count < AgentDraftStore.HistoryLimit; i--)
-            {
-                if (entries[i] is AgentUserMessage user && (history.Count == 0 || history[^1] != user.Text))
-                    history.Add(user.Text);
-            }
-            if (history.Count > 0)
-            {
-                history.Reverse();
-                PromptHistory = history;
-                _project.SeedHistory(ThreadId, history);
-            }
+            PromptHistory = history;
+            _project.SeedHistory(ThreadId, history);
         }
         _transcript.Restore(entries);
         if (thread.RestorePreviousMessages && thread.ExternalSessionId is null)
             _transcript.ResetContextUsage();
+    }
+
+    private static List<string> ExtractPromptHistory(IReadOnlyList<AgentTimelineEvent> entries)
+    {
+        var history = new List<string>();
+        for (int i = entries.Count - 1; i >= 0 && history.Count < AgentDraftStore.HistoryLimit; i--)
+        {
+            if (entries[i] is AgentUserMessage user && (history.Count == 0 || history[^1] != user.Text))
+                history.Add(user.Text);
+        }
+        history.Reverse();
+        return history;
     }
 
     public bool TryBeginConfiguration()
@@ -338,40 +339,45 @@ internal sealed partial class AgentThreadController : AgentBindable
                 await steering;
             FinishInteractions();
 
-            var notices = Timeline.OfType<AgentNoticeItem>().Where(item => item.TurnId == turn.Id);
-            if (failure is not null && !notices.Any(item => item.Message == failure.Message))
-            {
-                s_logger.LogWarning(failure, "Agent thread {ThreadId} could not complete a turn.", ThreadId);
-                Diagnostic = AgentDiagnosticClassifier.FromFailure(failure.Message, message.Provider);
-            }
-            else if (outcome is { Status: AgentTurnStatus.Failed } && !notices.Any(item => item.Severity == FAInfoBarSeverity.Error))
-            {
-                string error = outcome.Error ?? AgentStrings.TurnFailed;
-                Diagnostic = AgentDiagnosticClassifier.FromFailure(error, message.Provider);
-                _transcript.AddNotice(turn.Id, error, FAInfoBarSeverity.Error);
-            }
-
-            if (!turn.StopRequested && !_project.Lifetime.IsCancellationRequested)
-            {
-                if (failure is not null || outcome is { Status: AgentTurnStatus.Failed })
-                    NotifyTurnFinished(turn, DateTimeOffset.UtcNow, AgentThreadNotificationKind.Failed);
-                else if (outcome is { Status: AgentTurnStatus.Completed })
-                    NotifyTurnFinished(turn, DateTimeOffset.UtcNow, AgentThreadNotificationKind.Completed);
-            }
-
-            if (!turn.PromptPublished)
-            {
-                _queue.Insert(0, message);
-                UpdateQueue();
-            }
-
-            next = turn.StopRequested || _project.Lifetime.IsCancellationRequested ? null :
-                turn.Promoted ?? (outcome is { Status: AgentTurnStatus.Completed } && failure is null && turn.PromptPublished
-                    ? _queue.FirstOrDefault() : null);
+            next = CompleteTurn(turn, outcome, failure);
         }
         _active = null;
         _run = null;
         PublishState();
+    }
+
+    private AgentQueuedMessage? CompleteTurn(ActiveTurn turn, AgentTurnSummary? outcome, Exception? failure)
+    {
+        var notices = Timeline.OfType<AgentNoticeItem>().Where(item => item.TurnId == turn.Id);
+        if (failure is not null && !notices.Any(item => item.Message == failure.Message))
+        {
+            s_logger.LogWarning(failure, "Agent thread {ThreadId} could not complete a turn.", ThreadId);
+            Diagnostic = AgentDiagnosticClassifier.FromFailure(failure.Message, turn.Message.Provider);
+        }
+        else if (outcome is { Status: AgentTurnStatus.Failed } && !notices.Any(item => item.Severity == FAInfoBarSeverity.Error))
+        {
+            string error = outcome.Error ?? AgentStrings.TurnFailed;
+            Diagnostic = AgentDiagnosticClassifier.FromFailure(error, turn.Message.Provider);
+            _transcript.AddNotice(turn.Id, error, FAInfoBarSeverity.Error);
+        }
+
+        if (!turn.StopRequested && !_project.Lifetime.IsCancellationRequested)
+        {
+            if (failure is not null || outcome is { Status: AgentTurnStatus.Failed })
+                NotifyTurnFinished(turn, DateTimeOffset.UtcNow, AgentThreadNotificationKind.Failed);
+            else if (outcome is { Status: AgentTurnStatus.Completed })
+                NotifyTurnFinished(turn, DateTimeOffset.UtcNow, AgentThreadNotificationKind.Completed);
+        }
+
+        if (!turn.PromptPublished)
+        {
+            _queue.Insert(0, turn.Message);
+            UpdateQueue();
+        }
+
+        return turn.StopRequested || _project.Lifetime.IsCancellationRequested ? null :
+            turn.Promoted ?? (outcome is { Status: AgentTurnStatus.Completed } && failure is null && turn.PromptPublished
+                ? _queue.FirstOrDefault() : null);
     }
 
     private void EnqueueTimeline(ActiveTurn turn, AgentTimelineEvent entry)
@@ -395,46 +401,48 @@ internal sealed partial class AgentThreadController : AgentBindable
         for (int i = 0; i < batch.Count; i++)
         {
             var (turn, entry) = batch[i];
-            if (entry is AgentAssistantTextDelta firstText)
+            entry = entry switch
             {
-                StringBuilder? merged = null;
-                while (i + 1 < batch.Count
-                    && batch[i + 1].Turn == turn
-                    && batch[i + 1].Entry is AgentAssistantTextDelta nextText
-                    && nextText.ThreadId == firstText.ThreadId
-                    && nextText.TurnId == firstText.TurnId
-                    && nextText.ParentToolCallId == firstText.ParentToolCallId
-                    && nextText.MessageId == firstText.MessageId)
-                {
-                    merged ??= new StringBuilder(firstText.Text);
-                    merged.Append(nextText.Text);
-                    i++;
-                }
-                if (merged is not null)
-                    entry = firstText with { Text = merged.ToString() };
-            }
-            else if (entry is AgentReasoningDelta firstReasoning)
-            {
-                StringBuilder? merged = null;
-                while (i + 1 < batch.Count
-                    && batch[i + 1].Turn == turn
-                    && batch[i + 1].Entry is AgentReasoningDelta nextReasoning
-                    && nextReasoning.ThreadId == firstReasoning.ThreadId
-                    && nextReasoning.TurnId == firstReasoning.TurnId
-                    && nextReasoning.ParentToolCallId == firstReasoning.ParentToolCallId)
-                {
-                    merged ??= new StringBuilder(firstReasoning.Text);
-                    merged.Append(nextReasoning.Text);
-                    i++;
-                }
-                if (merged is not null)
-                    entry = firstReasoning with { Text = merged.ToString() };
-            }
+                AgentAssistantTextDelta first => CoalesceDeltas(batch, ref i, turn, first,
+                    static (a, b) => b.ThreadId == a.ThreadId && b.TurnId == a.TurnId
+                        && b.ParentToolCallId == a.ParentToolCallId && b.MessageId == a.MessageId,
+                    static item => item.Text,
+                    static (item, text) => item with { Text = text }),
+                AgentReasoningDelta first => CoalesceDeltas(batch, ref i, turn, first,
+                    static (a, b) => b.ThreadId == a.ThreadId && b.TurnId == a.TurnId
+                        && b.ParentToolCallId == a.ParentToolCallId,
+                    static item => item.Text,
+                    static (item, text) => item with { Text = text }),
+                _ => entry
+            };
             Receive(turn, entry);
         }
 
         if (!_pendingTimeline.IsEmpty && Interlocked.Exchange(ref _drainScheduled, 1) == 0)
             Dispatcher.UIThread.Post(DrainPendingTimeline, DispatcherPriority.Normal);
+    }
+
+    private static TDelta CoalesceDeltas<TDelta>(
+        List<(ActiveTurn Turn, AgentTimelineEvent Entry)> batch,
+        ref int index,
+        ActiveTurn turn,
+        TDelta first,
+        Func<TDelta, TDelta, bool> canMerge,
+        Func<TDelta, string> getText,
+        Func<TDelta, string, TDelta> withText)
+        where TDelta : AgentTimelineEvent
+    {
+        StringBuilder? merged = null;
+        while (index + 1 < batch.Count
+            && batch[index + 1].Turn == turn
+            && batch[index + 1].Entry is TDelta next
+            && canMerge(first, next))
+        {
+            merged ??= new StringBuilder(getText(first));
+            merged.Append(getText(next));
+            index++;
+        }
+        return merged is not null ? withText(first, merged.ToString()) : first;
     }
 
     private void Receive(ActiveTurn turn, AgentTimelineEvent entry)

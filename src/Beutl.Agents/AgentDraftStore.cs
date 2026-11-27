@@ -1,5 +1,4 @@
 using System.Text.Json;
-using Beutl.IO;
 
 namespace Beutl.Agents;
 
@@ -18,7 +17,7 @@ public sealed class AgentDraftStore(string? beutlHome = null)
         string projectPath, Guid? threadId, CancellationToken cancellationToken = default)
     {
         string directory = _threads.ProjectDirectory(projectPath);
-        using var projectLock = await AgentThreadStore.LockAsync(directory, cancellationToken).ConfigureAwait(false);
+        await using var projectLock = await AgentThreadStore.LockAsync(directory, cancellationToken).ConfigureAwait(false);
         var entries = await ReadAsync(Path.Combine(directory, "drafts.json"), cancellationToken).ConfigureAwait(false);
         return entries.GetValueOrDefault(Key(threadId)) ?? new(null, []);
     }
@@ -45,7 +44,7 @@ public sealed class AgentDraftStore(string? beutlHome = null)
         string projectPath, Guid? threadId, Func<AgentDraftEntry, AgentDraftEntry> update, CancellationToken cancellationToken)
     {
         string directory = _threads.ProjectDirectory(projectPath);
-        using var projectLock = await AgentThreadStore.LockAsync(directory, cancellationToken).ConfigureAwait(false);
+        await using var projectLock = await AgentThreadStore.LockAsync(directory, cancellationToken).ConfigureAwait(false);
         string path = Path.Combine(directory, "drafts.json");
         var entries = await ReadAsync(path, cancellationToken).ConfigureAwait(false);
         string key = Key(threadId);
@@ -63,13 +62,7 @@ public sealed class AgentDraftStore(string? beutlHome = null)
             entries[key] = entry;
         }
 
-        using var output = new StagedOutputFile(path);
-        var options = new FileStreamOptions { Mode = FileMode.CreateNew, Access = FileAccess.Write, Options = FileOptions.Asynchronous };
-        if (!OperatingSystem.IsWindows())
-            options.UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
-        await using (var stream = new FileStream(output.TemporaryPath, options))
-            await JsonSerializer.SerializeAsync(stream, entries, AgentJson.Options, cancellationToken).ConfigureAwait(false);
-        output.Commit(cancellationToken);
+        await AgentThreadStore.WriteJsonAtomicAsync(path, entries, cancellationToken).ConfigureAwait(false);
     }
 
     private static async Task<Dictionary<string, AgentDraftEntry>> ReadAsync(string path, CancellationToken cancellationToken)

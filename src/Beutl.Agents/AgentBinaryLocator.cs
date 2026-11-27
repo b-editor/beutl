@@ -61,7 +61,7 @@ public sealed partial class AgentBinaryLocator(bool probeVersions = true)
         string? searchPath, CancellationToken cancellationToken)
     {
         DateTime lastWrite = File.GetLastWriteTimeUtc(executable);
-        var probe = s_versions.AddOrUpdate(executable, CreateProbe(), (_, previous) =>
+        var probe = s_versions.AddOrUpdate(executable, _ => CreateProbe(), (_, previous) =>
             previous.LastWrite == lastWrite ? previous : CreateProbe());
         return await probe.Version.Value.WaitAsync(cancellationToken).ConfigureAwait(false);
 
@@ -79,8 +79,6 @@ public sealed partial class AgentBinaryLocator(bool probeVersions = true)
     private static async Task<(int ExitCode, string Output)?> RunCliProbeAsync(string executable,
         AgentProviderDescriptor provider, string? searchPath, string[] arguments, CancellationToken cancellationToken)
     {
-        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        timeout.CancelAfter(TimeSpan.FromSeconds(2));
         var start = new ProcessStartInfo(executable)
         {
             UseShellExecute = false,
@@ -112,6 +110,16 @@ public sealed partial class AgentBinaryLocator(bool probeVersions = true)
                 start.ArgumentList.Add(argument);
         }
 
+        var result = await RunProcessAsync(start, TimeSpan.FromSeconds(2), boundedOutput: true, cancellationToken)
+            .ConfigureAwait(false);
+        return result is { } completed ? (completed.ExitCode, completed.Stdout + "\n" + completed.Stderr) : null;
+    }
+
+    private static async Task<(int ExitCode, string Stdout, string Stderr)?> RunProcessAsync(
+        ProcessStartInfo start, TimeSpan timeoutDuration, bool boundedOutput, CancellationToken cancellationToken)
+    {
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(timeoutDuration);
         try
         {
             timeout.Token.ThrowIfCancellationRequested();
@@ -121,22 +129,38 @@ public sealed partial class AgentBinaryLocator(bool probeVersions = true)
 
             try
             {
-                process.StandardInput.Close();
-                var stdout = ReadProbeOutputAsync(process.StandardOutput, timeout.Token);
-                var stderr = ReadProbeOutputAsync(process.StandardError, timeout.Token);
-                await Task.WhenAll(process.WaitForExitAsync(timeout.Token), stdout, stderr).WaitAsync(timeout.Token).ConfigureAwait(false);
-                return (process.ExitCode, await stdout.ConfigureAwait(false) + "\n" + await stderr.ConfigureAwait(false));
+                if (start.RedirectStandardInput)
+                    process.StandardInput.Close();
+                var stdout = ReadOutputAsync(process.StandardOutput, boundedOutput, timeout.Token);
+                var stderr = ReadOutputAsync(process.StandardError, boundedOutput, timeout.Token);
+                await Task.WhenAll(process.WaitForExitAsync(timeout.Token), stdout, stderr).ConfigureAwait(false);
+                return (process.ExitCode, await stdout.ConfigureAwait(false), await stderr.ConfigureAwait(false));
             }
             finally
             {
-                if (!process.HasExited)
-                    process.Kill(entireProcessTree: true);
+                TryKillProcessTree(process);
             }
         }
         catch (Exception ex) when (ex is InvalidOperationException or Win32Exception or IOException or OperationCanceledException)
         {
             cancellationToken.ThrowIfCancellationRequested();
             return null;
+        }
+    }
+
+    private static Task<string> ReadOutputAsync(StreamReader reader, bool bounded, CancellationToken cancellationToken)
+        => bounded ? ReadProbeOutputAsync(reader, cancellationToken) : reader.ReadToEndAsync(cancellationToken);
+
+    private static void TryKillProcessTree(Process process)
+    {
+        try
+        {
+            if (!process.HasExited)
+                process.Kill(entireProcessTree: true);
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or Win32Exception)
+        {
+            // The process exited while it was being terminated.
         }
     }
 
@@ -223,32 +247,13 @@ public sealed partial class AgentBinaryLocator(bool probeVersions = true)
             ArgumentList = { "-lc", "printf '\\036'; printenv PATH; printf '\\036'" }
         };
 
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(3));
-        try
-        {
-            using var process = Process.Start(start);
-            if (process == null)
-                return null;
-
-            try
-            {
-                var output = process.StandardOutput.ReadToEndAsync(timeout.Token);
-                var errors = process.StandardError.ReadToEndAsync(timeout.Token);
-                await Task.WhenAll(process.WaitForExitAsync(timeout.Token), output, errors).ConfigureAwait(false);
-                string text = await output.ConfigureAwait(false);
-                int end = text.LastIndexOf('\u001e');
-                int begin = end > 0 ? text.LastIndexOf('\u001e', end - 1) : -1;
-                return begin >= 0 ? text[(begin + 1)..end].TrimEnd('\r', '\n') : null;
-            }
-            finally
-            {
-                if (!process.HasExited)
-                    process.Kill(entireProcessTree: true);
-            }
-        }
-        catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception or IOException or OperationCanceledException)
-        {
+        var result = await RunProcessAsync(start, TimeSpan.FromSeconds(3), boundedOutput: false, CancellationToken.None)
+            .ConfigureAwait(false);
+        if (result is not { Stdout: var text })
             return null;
-        }
+
+        int end = text.LastIndexOf('\u001e');
+        int begin = end > 0 ? text.LastIndexOf('\u001e', end - 1) : -1;
+        return begin >= 0 ? text[(begin + 1)..end].TrimEnd('\r', '\n') : null;
     }
 }

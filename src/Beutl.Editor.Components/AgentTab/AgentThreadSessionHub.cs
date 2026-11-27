@@ -170,7 +170,25 @@ internal sealed class AgentProjectThreadSessions(string path, AgentDraftStore dr
     }
 
     public void TrackMetadataWork(Task work)
-        => _metadataWork = _metadataWork.IsCompletedSuccessfully ? work : Task.WhenAll(_metadataWork, work);
+    {
+        var observed = ObserveMetadataWorkAsync(work);
+        _metadataWork = _metadataWork.IsCompletedSuccessfully ? observed : Task.WhenAll(_metadataWork, observed);
+    }
+
+    private static async Task ObserveMetadataWorkAsync(Task pending)
+    {
+        try
+        {
+            await pending.ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception ex) when (!ExceptionHelpers.ContainsFatalFailure(ex))
+        {
+            s_logger.LogWarning(ex, "An agent thread metadata operation failed.");
+        }
+    }
 
     private async Task MarkReadCoreAsync(
         AgentRuntimeManager runtime, Guid threadId, CancellationToken cancellationToken, DateTimeOffset? observedThrough)

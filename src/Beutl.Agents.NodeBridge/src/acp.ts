@@ -5,7 +5,7 @@ import {
 } from "@agentclientprotocol/sdk";
 import { Readable, Writable } from "node:stream";
 import { ProviderProcess } from "./process.js";
-import { type Adapter, type AdapterHost, type ComposerSuggestion, type Decision, type ModelDescriptor, type PermissionMode, type Turn, type TurnResult, contentOutputs, planStatus, record, withTimeout } from "./protocol.js";
+import { type Adapter, type AdapterHost, type ComposerSuggestion, type Decision, type ModelDescriptor, type PermissionMode, type Turn, type TurnResult, CLIENT_INFO, contentOutputs, findMcpServerName, planStatus, record, withTimeout } from "./protocol.js";
 
 const decisions: Record<PermissionOptionKind, Decision> = {
     allow_once: "allowOnce", allow_always: "allowAlways", reject_once: "rejectOnce", reject_always: "rejectAlways",
@@ -56,7 +56,7 @@ export class AcpAdapter implements Adapter {
         const initialized = await Promise.race([
             client.initialize({
                 protocolVersion: PROTOCOL_VERSION,
-                clientInfo: { name: "beutl", title: "Beutl", version: "1" },
+                clientInfo: CLIENT_INFO,
                 clientCapabilities: {},
             }),
             child.closed.then(message => { throw new Error(message); }),
@@ -65,17 +65,7 @@ export class AcpAdapter implements Adapter {
             throw new Error("Unsupported ACP protocol version " + initialized.protocolVersion + ".");
         this.canCloseSession = !!initialized.agentCapabilities?.sessionCapabilities?.close;
 
-        const mcpServers: McpServer[] = options.mcpServers.map(server => {
-            const { name } = server;
-            if (server.type === "http") {
-                if (!initialized.agentCapabilities?.mcpCapabilities?.http)
-                    throw new Error("This ACP agent does not support HTTP MCP servers.");
-                const headers = Object.entries(server.headers ?? {}).map(([name, value]) => ({ name, value }));
-                return { type: "http", name, url: server.url, headers };
-            }
-            const env = Object.entries(server.env ?? {}).map(([name, value]) => ({ name, value }));
-            return { name, command: server.command, args: server.args ?? [], env };
-        });
+        const mcpServers = this.buildMcpServers(Boolean(initialized.agentCapabilities?.mcpCapabilities?.http));
         const request = { cwd: options.workingDirectory, mcpServers };
         let session;
         if (options.externalSessionId) {
@@ -235,7 +225,7 @@ export class AcpAdapter implements Adapter {
         const name = tool.name ?? tool.title ?? "ACP tool";
         const decision = await turn.permission({
             toolName: name,
-            mcpServerName: this.serverFor(tool.name),
+            mcpServerName: findMcpServerName(this.host.options.mcpServers, tool.name),
             isReadOnly: tool.kind === "read" || tool.kind === "search" || tool.kind === "think",
             description: tool.title ?? undefined,
             options: params.options.map(option => ({ decision: decisions[option.kind], label: option.name })),
@@ -248,9 +238,18 @@ export class AcpAdapter implements Adapter {
         return { outcome: option ? { outcome: "selected", optionId: option.optionId } : { outcome: "cancelled" } };
     }
 
-    private serverFor(name: string | null | undefined): string | undefined {
-        if (!name) return undefined;
-        return this.host.options.mcpServers.find(server => name.startsWith("mcp__" + server.name + "__"))?.name;
+    private buildMcpServers(supportsHttp: boolean): McpServer[] {
+        return this.host.options.mcpServers.map(server => {
+            const { name } = server;
+            if (server.type === "http") {
+                if (!supportsHttp)
+                    throw new Error("This ACP agent does not support HTTP MCP servers.");
+                const headers = Object.entries(server.headers ?? {}).map(([name, value]) => ({ name, value }));
+                return { type: "http", name, url: server.url, headers };
+            }
+            const env = Object.entries(server.env ?? {}).map(([name, value]) => ({ name, value }));
+            return { name, command: server.command, args: server.args ?? [], env };
+        });
     }
 
     private update({ sessionId, update }: SessionNotification): void {
@@ -316,7 +315,7 @@ export class AcpAdapter implements Adapter {
         const background = isBackground(tool);
         const command = record(rawInput)?.command;
         turn.emit({ type: "toolCallStarted", toolCallId, toolName: name ?? title ?? "ACP tool", input: rawInput,
-            mcpServerName: this.serverFor(name), parentToolCallId: parentOf(tool), isBackground: background,
+            mcpServerName: findMcpServerName(this.host.options.mcpServers, name), parentToolCallId: parentOf(tool), isBackground: background,
             backgroundTitle: background ? (typeof command === "string" ? command : title ?? undefined) : undefined });
     }
 

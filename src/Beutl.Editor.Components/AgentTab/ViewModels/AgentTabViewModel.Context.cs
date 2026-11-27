@@ -44,16 +44,14 @@ internal sealed partial class AgentTabViewModel
     private static string FormatMeterLine(string format, long? count)
         => string.Format(CultureInfo.CurrentCulture, format, FormatTokenCount(count));
 
-    private void NotifyContextMeter()
-    {
-        Notify(nameof(ShowContextMeter));
-        Notify(nameof(ContextMeterProgress));
-        Notify(nameof(ContextMeterLabel));
-        Notify(nameof(IsContextCritical));
-        Notify(nameof(IsContextWarning));
-        Notify(nameof(ContextMeterSummary));
-        Notify(nameof(ContextMeterInput));
-        Notify(nameof(ContextMeterOutput));
-        Notify(nameof(ContextMeterCache));
-    }
+    private void NotifyContextMeter() => Notify(
+        nameof(ShowContextMeter),
+        nameof(ContextMeterProgress),
+        nameof(ContextMeterLabel),
+        nameof(IsContextCritical),
+        nameof(IsContextWarning),
+        nameof(ContextMeterSummary),
+        nameof(ContextMeterInput),
+        nameof(ContextMeterOutput),
+        nameof(ContextMeterCache));
 }

@@ -24,7 +24,7 @@ public sealed partial class AgentThreadStore
             }
 
             // Release the project lock between transcripts so active threads can keep writing.
-            using var projectLock = await LockAsync(directory, cancellationToken).ConfigureAwait(false);
+            await using var projectLock = await LockAsync(directory, cancellationToken).ConfigureAwait(false);
             string? snippet = await FindSnippetAsync(TimelinePath(directory, thread.Id), term, cancellationToken).ConfigureAwait(false);
             if (snippet is not null || thread.Title.Contains(term, StringComparison.OrdinalIgnoreCase))
                 matches.Add(new(thread, snippet));
@@ -72,8 +72,20 @@ public sealed partial class AgentThreadStore
     private static string? Property(JsonElement element, string name)
         => element.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String ? value.GetString() : null;
 
-    private static string OneLine(string text)
+    internal static string OneLine(string text)
         => string.Join(' ', text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+
+    internal static string TruncateOneLine(string text, int maxLength)
+    {
+        string line = OneLine(text);
+        if (line.Length <= maxLength)
+            return line;
+        int end = AdjustEndForSurrogate(line, maxLength - 1);
+        return line[..end] + "…";
+    }
+
+    private static int AdjustEndForSurrogate(string text, int end)
+        => end > 0 && char.IsHighSurrogate(text[end - 1]) ? end - 1 : end;
 
     private static string? MakeSnippet(string? text, string term)
     {
@@ -85,11 +97,9 @@ public sealed partial class AgentThreadStore
             return null;
 
         int start = Math.Max(0, match - 40);
-        if (char.IsLowSurrogate(line[start]))
+        if (start > 0 && char.IsLowSurrogate(line[start]))
             start--;
-        int end = Math.Min(line.Length, start + 128);
-        if (char.IsHighSurrogate(line[end - 1]))
-            end--;
+        int end = AdjustEndForSurrogate(line, Math.Min(line.Length, start + 128));
         return (start > 0 ? "…" : "") + line[start..end].Trim() + (end < line.Length ? "…" : "");
     }
 }

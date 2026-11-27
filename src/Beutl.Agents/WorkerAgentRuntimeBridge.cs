@@ -22,23 +22,26 @@ public sealed class WorkerAgentRuntimeBridge(string? workerDirectory = null, ILo
     public Func<AgentPermissionRequest, CancellationToken, Task<AgentPermissionDecision>>? PermissionHandler { get; set; }
     public Func<AgentUserQuestionRequest, CancellationToken, Task<IReadOnlyDictionary<string, string[]>>>? QuestionHandler { get; set; }
 
-    public async Task<AgentWorkerHealth> PingAsync(CancellationToken cancellationToken = default)
-        => AgentJson.Read<AgentWorkerHealth>(
-            await GetWorker(cancellationToken).Rpc.RequestAsync("ping", null, cancellationToken).ConfigureAwait(false));
+    public Task<AgentWorkerHealth> PingAsync(CancellationToken cancellationToken = default)
+        => RequestAsync<AgentWorkerHealth>("ping", null, cancellationToken);
 
     public async Task<IReadOnlyList<AgentModelDescriptor>> ListModelsAsync(
         AgentModelListRequest request, CancellationToken cancellationToken = default)
-        => AgentJson.Read<AgentModelDescriptor[]>(
-            await GetWorker(cancellationToken).Rpc.RequestAsync("models/list", AgentJson.ToElement(request), cancellationToken).ConfigureAwait(false));
+        => await RequestAsync<AgentModelDescriptor[]>("models/list", request, cancellationToken).ConfigureAwait(false);
 
     public async Task<IReadOnlyList<AgentComposerSuggestion>> ListComposerSuggestionsAsync(
         AgentComposerSuggestionRequest request, CancellationToken cancellationToken = default)
-        => AgentJson.Read<AgentComposerSuggestion[]>(
-            await GetWorker(cancellationToken).Rpc.RequestAsync("suggestions/list", AgentJson.ToElement(request), cancellationToken).ConfigureAwait(false));
+        => await RequestAsync<AgentComposerSuggestion[]>("suggestions/list", request, cancellationToken).ConfigureAwait(false);
 
-    public async Task<AgentSessionInfo> OpenSessionAsync(AgentSessionOpenRequest request, CancellationToken cancellationToken = default)
-        => AgentJson.Read<AgentSessionInfo>(
-            await GetWorker(cancellationToken).Rpc.RequestAsync("session/open", AgentJson.ToElement(request), cancellationToken).ConfigureAwait(false));
+    public Task<AgentSessionInfo> OpenSessionAsync(AgentSessionOpenRequest request, CancellationToken cancellationToken = default)
+        => RequestAsync<AgentSessionInfo>("session/open", request, cancellationToken);
+
+    private async Task<TResult> RequestAsync<TResult>(string method, object? request, CancellationToken cancellationToken)
+    {
+        JsonElement? parameters = request is null ? null : AgentJson.ToElement(request);
+        return AgentJson.Read<TResult>(
+            await GetWorker(cancellationToken).Rpc.RequestAsync(method, parameters, cancellationToken).ConfigureAwait(false));
+    }
 
     public Task<AgentTurnSummary> RunTurnAsync(AgentTurnRequest request, CancellationToken cancellationToken = default)
         => RunTurnOperationAsync<AgentTurnSummary>("turn/run", AgentJson.ToElement(request), request.ThreadId, request.TurnId, cancellationToken);
@@ -139,9 +142,9 @@ public sealed class WorkerAgentRuntimeBridge(string? workerDirectory = null, ILo
 
                 var rpc = new AgentJsonRpc(process.StandardOutput, process.StandardInput, HandleRequestAsync, OnNotification);
                 var worker = new WorkerConnection(process, job, rpc);
-                _worker = worker;
                 rpc.Start();
                 worker.Completion = ObserveAsync(worker);
+                _worker = worker;
                 return worker;
             }
             catch

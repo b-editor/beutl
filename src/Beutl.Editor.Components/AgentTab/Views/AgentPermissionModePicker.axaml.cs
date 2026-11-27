@@ -13,6 +13,7 @@ internal sealed partial class AgentPermissionModePicker : UserControl
         AvaloniaProperty.Register<AgentPermissionModePicker, bool>(nameof(IsCompact));
 
     private AgentTabViewModel? _viewModel;
+    private bool _attached;
     private bool _syncingSelection;
 
     public AgentPermissionModePicker()
@@ -56,9 +57,31 @@ internal sealed partial class AgentPermissionModePicker : UserControl
     protected override void OnDataContextChanged(EventArgs e)
     {
         base.OnDataContextChanged(e);
+        if (_attached)
+            AttachViewModel(DataContext as AgentTabViewModel);
+    }
+
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        _attached = true;
+        AttachViewModel(DataContext as AgentTabViewModel);
+    }
+
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        _attached = false;
+        AttachViewModel(null);
+        base.OnDetachedFromVisualTree(e);
+    }
+
+    private void AttachViewModel(AgentTabViewModel? viewModel)
+    {
+        if (ReferenceEquals(_viewModel, viewModel))
+            return;
         if (_viewModel is not null)
             _viewModel.PropertyChanged -= OnViewModelPropertyChanged;
-        _viewModel = DataContext as AgentTabViewModel;
+        _viewModel = viewModel;
         if (_viewModel is not null)
             _viewModel.PropertyChanged += OnViewModelPropertyChanged;
         SyncSelection();
@@ -66,7 +89,7 @@ internal sealed partial class AgentPermissionModePicker : UserControl
 
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName is nameof(AgentTabViewModel.SelectedPermissionMode) or nameof(AgentTabViewModel.PermissionModes) or null)
+        if (e.PropertyName is nameof(AgentTabViewModel.SelectedPermissionMode) or nameof(AgentTabViewModel.PermissionModes) or null or "")
             SyncSelection();
     }
 

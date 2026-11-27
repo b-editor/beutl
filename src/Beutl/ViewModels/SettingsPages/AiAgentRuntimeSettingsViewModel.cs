@@ -31,9 +31,9 @@ public sealed class AiAgentRuntimeSettingsViewModel : IDisposable
         CodexExecutablePath = BindText(config.CodexExecutablePath);
         ProviderChoices = new ReactivePropertySlim<IReadOnlyList<AgentRuntimeProviderOption>>([]).DisposeWith(_disposables);
         DefaultProvider = new ReactivePropertySlim<AgentRuntimeProviderOption?>().DisposeWith(_disposables);
-        DefaultPermission = new ReactivePropertySlim<AgentRuntimePermissionOption?>(ReadDefaultPermission()).DisposeWith(_disposables);
-        SendAction = new ReactivePropertySlim<AgentRuntimeSendOption?>(ReadSendAction()).DisposeWith(_disposables);
-        ComposerSendKey = new ReactivePropertySlim<AgentComposerSendKeyOption?>(ReadComposerSendKey()).DisposeWith(_disposables);
+        DefaultPermission = BindChoice(ReadDefaultPermission(), value => config.DefaultPermissionMode.Value = value.Mode.ToString());
+        SendAction = BindChoice(ReadSendAction(), value => config.SteerOnSend.Value = value.Steer);
+        ComposerSendKey = BindChoice(ReadComposerSendKey(), value => config.ComposerSendKey.Value = value.Key);
         ClaudeCodeStatus = new ReactivePropertySlim<string>().DisposeWith(_disposables);
         CodexStatus = new ReactivePropertySlim<string>().DisposeWith(_disposables);
         CustomProviders = new ReactivePropertySlim<IReadOnlyList<AgentCustomProviderItem>>([]).DisposeWith(_disposables);
@@ -49,12 +49,6 @@ public sealed class AiAgentRuntimeSettingsViewModel : IDisposable
         ReloadProviders(updateChoices: true);
         DefaultProvider.Skip(1).OfType<AgentRuntimeProviderOption>()
             .Subscribe(value => config.DefaultRuntimeProviderId.Value = value.Id).DisposeWith(_disposables);
-        DefaultPermission.Skip(1).OfType<AgentRuntimePermissionOption>()
-            .Subscribe(value => config.DefaultPermissionMode.Value = value.Mode.ToString()).DisposeWith(_disposables);
-        SendAction.Skip(1).OfType<AgentRuntimeSendOption>()
-            .Subscribe(value => config.SteerOnSend.Value = value.Steer).DisposeWith(_disposables);
-        ComposerSendKey.Skip(1).OfType<AgentComposerSendKeyOption>()
-            .Subscribe(value => config.ComposerSendKey.Value = value.Key).DisposeWith(_disposables);
         config.RuntimeSettingsChanged += OnRuntimeSettingsChanged;
         Disposable.Create(() => config.RuntimeSettingsChanged -= OnRuntimeSettingsChanged).DisposeWith(_disposables);
     }
@@ -110,6 +104,14 @@ public sealed class AiAgentRuntimeSettingsViewModel : IDisposable
         return input;
     }
 
+    private ReactivePropertySlim<TOption?> BindChoice<TOption>(TOption initial, Action<TOption> write)
+        where TOption : class
+    {
+        var choice = new ReactivePropertySlim<TOption?>(initial).DisposeWith(_disposables);
+        choice.Skip(1).OfType<TOption>().Subscribe(write).DisposeWith(_disposables);
+        return choice;
+    }
+
     private void OnRuntimeSettingsChanged(object? sender, PropertyChangedEventArgs args)
     {
         if (!Dispatcher.UIThread.CheckAccess())
@@ -134,11 +136,10 @@ public sealed class AiAgentRuntimeSettingsViewModel : IDisposable
             case nameof(AiAgentConfig.ComposerSendKey):
                 ComposerSendKey.Value = ReadComposerSendKey();
                 break;
-            case nameof(AiAgentConfig.DefaultModel):
-            case nameof(AiAgentConfig.EnableNotifications):
-            case nameof(AiAgentConfig.EnableNotificationSound):
-                break;
-            default:
+            case nameof(AiAgentConfig.ClaudeCodeExecutablePath):
+            case nameof(AiAgentConfig.CodexExecutablePath):
+            case nameof(AiAgentConfig.CustomRuntimeProvidersJson):
+            case null or "":
                 ReloadProviders(updateChoices: args.PropertyName == nameof(AiAgentConfig.CustomRuntimeProvidersJson));
                 break;
         }

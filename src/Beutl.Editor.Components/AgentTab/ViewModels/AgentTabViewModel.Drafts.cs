@@ -29,10 +29,7 @@ internal sealed partial class AgentTabViewModel
     private void MarkAttachmentsChanged()
     {
         MarkDraftChanged();
-        Notify(nameof(CanEditQueuedMessage));
-        Notify(nameof(CanSend));
-        Notify(nameof(CanSendAlternate));
-        Notify(nameof(ShowSendButton));
+        NotifyPromptActions();
     }
 
     private async void OnDraftTimerTick(object? sender, EventArgs e) => await SaveDraftAsync();
@@ -68,26 +65,40 @@ internal sealed partial class AgentTabViewModel
         _restoringDraft = true;
         try
         {
-            ClearAttachments();
-            ResetPromptHistory();
-            Prompt = draft?.Prompt;
-            RestoreAcceptedMentions(draft?.Mentions);
-            IncludeSceneContext = draft?.IncludeSceneContext ?? true;
-            if (draft is not null)
-            {
-                for (int index = 0; index < draft.AttachmentPaths.Length; index++)
-                {
-                    string path = draft.AttachmentPaths[index];
-                    if (!string.IsNullOrWhiteSpace(path))
-                        await AddAttachmentAsync(new AgentAttachedFile(path, draft.AttachmentMediaTypes?.ElementAtOrDefault(index)), ct);
-                }
-            }
+            var files = draft is null
+                ? []
+                : draft.AttachmentPaths.Select((path, index) =>
+                    new AgentAttachedFile(path, draft.AttachmentMediaTypes?.ElementAtOrDefault(index)));
+            await ApplyComposerDraftAsync(draft?.Prompt, draft?.Mentions, draft?.IncludeSceneContext ?? true, files, ct, clearExisting: true);
             _draftLoaded = true;
             _draftDirty = false;
         }
         finally
         {
             _restoringDraft = false;
+        }
+    }
+
+    private async Task ApplyComposerDraftAsync(
+        string? prompt,
+        IReadOnlyList<AgentContextMention>? mentions,
+        bool includeSceneContext,
+        IEnumerable<AgentAttachedFile> attachments,
+        CancellationToken ct,
+        bool clearExisting = false)
+    {
+        if (clearExisting)
+        {
+            ClearAttachments();
+            ResetPromptHistory();
+        }
+        Prompt = prompt;
+        RestoreAcceptedMentions(mentions);
+        IncludeSceneContext = includeSceneContext;
+        foreach (var attachment in attachments)
+        {
+            if (!string.IsNullOrWhiteSpace(attachment.Path))
+                await AddAttachmentAsync(attachment, ct);
         }
     }
 

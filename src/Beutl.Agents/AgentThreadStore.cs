@@ -1,9 +1,4 @@
-﻿using System.Security.Cryptography;
-using System.Text;
-using System.Text.Json;
-using System.Runtime.CompilerServices;
-
-namespace Beutl.Agents;
+﻿namespace Beutl.Agents;
 
 public sealed partial class AgentThreadStore(string? beutlHome = null)
 {
@@ -12,35 +7,26 @@ public sealed partial class AgentThreadStore(string? beutlHome = null)
             ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".beutl")),
         "agent-threads");
 
-    public async Task<IReadOnlyList<AgentThreadMetadata>> ListAsync(string projectPath, CancellationToken cancellationToken = default)
-    {
-        string directory = ProjectDirectory(projectPath);
-        using var projectLock = await LockAsync(directory, cancellationToken).ConfigureAwait(false);
-        var threads = await ReadIndexAsync(directory, cancellationToken).ConfigureAwait(false);
-        return threads.OrderByDescending(thread => thread.IsPinned).ThenByDescending(thread => thread.UpdatedAt).ToArray();
-    }
+    public Task<IReadOnlyList<AgentThreadMetadata>> ListAsync(string projectPath, CancellationToken cancellationToken = default)
+        => WithIndexLockAsync<IReadOnlyList<AgentThreadMetadata>>(projectPath, (_, threads) =>
+            Task.FromResult<IReadOnlyList<AgentThreadMetadata>>(
+                threads.OrderByDescending(thread => thread.IsPinned).ThenByDescending(thread => thread.UpdatedAt).ToArray()),
+            cancellationToken);
 
-    public async Task<AgentThreadMetadata?> GetAsync(string projectPath, Guid id, CancellationToken cancellationToken = default)
-    {
-        string directory = ProjectDirectory(projectPath);
-        using var projectLock = await LockAsync(directory, cancellationToken).ConfigureAwait(false);
-        var threads = await ReadIndexAsync(directory, cancellationToken).ConfigureAwait(false);
-        return threads.Find(thread => thread.Id == id);
-    }
+    public Task<AgentThreadMetadata?> GetAsync(string projectPath, Guid id, CancellationToken cancellationToken = default)
+        => WithIndexLockAsync(projectPath, (_, threads) => Task.FromResult(threads.Find(thread => thread.Id == id)), cancellationToken);
 
-    public async Task<AgentThreadMetadata> CreateAsync(
+    public Task<AgentThreadMetadata> CreateAsync(
         string projectPath, string providerId, string title, AgentPermissionMode mode, string? model = null,
         CancellationToken cancellationToken = default, string? reasoningEffort = null)
-    {
-        string directory = ProjectDirectory(projectPath);
-        using var projectLock = await LockAsync(directory, cancellationToken).ConfigureAwait(false);
-        var threads = await ReadIndexAsync(directory, cancellationToken).ConfigureAwait(false);
-        var now = DateTimeOffset.UtcNow;
-        var thread = new AgentThreadMetadata(Guid.NewGuid(), providerId, title, now, now, mode, model, ReasoningEffort: reasoningEffort);
-        threads.Add(thread);
-        await WriteIndexAsync(directory, threads, cancellationToken).ConfigureAwait(false);
-        return thread;
-    }
+        => WithIndexLockAsync(projectPath, async (directory, threads) =>
+        {
+            var now = DateTimeOffset.UtcNow;
+            var thread = new AgentThreadMetadata(Guid.NewGuid(), providerId, title, now, now, mode, model, ReasoningEffort: reasoningEffort);
+            threads.Add(thread);
+            await WriteIndexAsync(directory, threads, cancellationToken).ConfigureAwait(false);
+            return thread;
+        }, cancellationToken);
 
     public Task<AgentThreadMetadata> RenameAsync(string projectPath, Guid id, string title, CancellationToken cancellationToken = default)
         => UpdateAsync(projectPath, id, thread => thread with { Title = title }, cancellationToken);
@@ -68,64 +54,55 @@ public sealed partial class AgentThreadStore(string? beutlHome = null)
     internal async Task<(AgentThreadMetadata Thread, AgentThreadModelChanged? Change)> SetModelAsync(
         string projectPath, Guid id, string? model, string? effort, CancellationToken cancellationToken)
     {
-        string directory = ProjectDirectory(projectPath);
-        using var projectLock = await LockAsync(directory, cancellationToken).ConfigureAwait(false);
-        var threads = await ReadIndexAsync(directory, cancellationToken).ConfigureAwait(false);
-        int index = FindThread(threads, id);
-        var previous = threads[index];
-        if (previous.Model == model && previous.ReasoningEffort == effort)
-            return (previous, null);
-
-        var now = DateTimeOffset.UtcNow;
-        var thread = previous with { Model = model, ReasoningEffort = effort, UpdatedAt = now };
-        var change = new AgentThreadModelChanged(id, null, now, thread.ProviderId, previous.Model, model, previous.ReasoningEffort, effort);
-        await SaveWithMarkerAsync(directory, threads, index, thread, change, cancellationToken).ConfigureAwait(false);
-        return (thread, change);
+        var (thread, change) = await SetProviderOrModelAsync(projectPath, id, providerId: null, model, effort, cancellationToken)
+            .ConfigureAwait(false);
+        return (thread, (AgentThreadModelChanged?)change);
     }
 
-    public async Task<(AgentThreadMetadata Thread, AgentTimelineEvent? Change)> SetProviderAsync(
+    public Task<(AgentThreadMetadata Thread, AgentTimelineEvent? Change)> SetProviderAsync(
         string projectPath, Guid id, string providerId, string? model, string? effort, CancellationToken cancellationToken = default)
-    {
-        string directory = ProjectDirectory(projectPath);
-        using var projectLock = await LockAsync(directory, cancellationToken).ConfigureAwait(false);
-        var threads = await ReadIndexAsync(directory, cancellationToken).ConfigureAwait(false);
-        int index = FindThread(threads, id);
-        var previous = threads[index];
-        bool providerChanged = previous.ProviderId != providerId;
-        if (!providerChanged && previous.Model == model && previous.ReasoningEffort == effort)
-            return (previous, null);
+        => SetProviderOrModelAsync(projectPath, id, providerId, model, effort, cancellationToken);
 
-        var now = DateTimeOffset.UtcNow;
-        var thread = previous with { ProviderId = providerId, Model = model, ReasoningEffort = effort, UpdatedAt = now };
-        AgentTimelineEvent change;
-        if (providerChanged)
+    private Task<(AgentThreadMetadata Thread, AgentTimelineEvent? Change)> SetProviderOrModelAsync(
+        string projectPath, Guid id, string? providerId, string? model, string? effort, CancellationToken cancellationToken)
+        => WithIndexLockAsync<(AgentThreadMetadata, AgentTimelineEvent?)>(projectPath, async (directory, threads) =>
         {
-            thread = thread with { ExternalSessionId = null, RestorePreviousMessages = true };
-            change = new AgentThreadProviderChanged(id, null, now, previous.ProviderId, providerId);
-        }
-        else
-        {
-            change = new AgentThreadModelChanged(id, null, now, providerId, previous.Model, model, previous.ReasoningEffort, effort);
-        }
-        await SaveWithMarkerAsync(directory, threads, index, thread, change, cancellationToken).ConfigureAwait(false);
-        return (thread, change);
-    }
+            int index = FindThread(threads, id);
+            var previous = threads[index];
+            string effectiveProviderId = providerId ?? previous.ProviderId;
+            bool providerChanged = previous.ProviderId != effectiveProviderId;
+            if (!providerChanged && previous.Model == model && previous.ReasoningEffort == effort)
+                return (previous, null);
 
-    internal async Task<AgentThreadMetadata> ResetContextAsync(
+            var now = DateTimeOffset.UtcNow;
+            var thread = previous with { ProviderId = effectiveProviderId, Model = model, ReasoningEffort = effort, UpdatedAt = now };
+            AgentTimelineEvent change;
+            if (providerChanged)
+            {
+                thread = thread with { ExternalSessionId = null, RestorePreviousMessages = true };
+                change = new AgentThreadProviderChanged(id, null, now, previous.ProviderId, effectiveProviderId);
+            }
+            else
+            {
+                change = new AgentThreadModelChanged(id, null, now, effectiveProviderId, previous.Model, model, previous.ReasoningEffort, effort);
+            }
+            await SaveWithMarkerAsync(directory, threads, index, thread, change, cancellationToken).ConfigureAwait(false);
+            return (thread, change);
+        }, cancellationToken);
+
+    internal Task<AgentThreadMetadata> ResetContextAsync(
         string projectPath, AgentTimelineEvent marker, bool restorePreviousMessages, CancellationToken cancellationToken)
-    {
-        string directory = ProjectDirectory(projectPath);
-        using var projectLock = await LockAsync(directory, cancellationToken).ConfigureAwait(false);
-        var threads = await ReadIndexAsync(directory, cancellationToken).ConfigureAwait(false);
-        int index = FindThread(threads, marker.ThreadId);
-        var thread = threads[index] with
+        => WithIndexLockAsync(projectPath, async (directory, threads) =>
         {
-            ExternalSessionId = null, RestorePreviousMessages = restorePreviousMessages,
-            UpdatedAt = LaterOf(threads[index].UpdatedAt, marker.Timestamp)
-        };
-        await SaveWithMarkerAsync(directory, threads, index, thread, marker, cancellationToken).ConfigureAwait(false);
-        return thread;
-    }
+            int index = FindThread(threads, marker.ThreadId);
+            var thread = threads[index] with
+            {
+                ExternalSessionId = null, RestorePreviousMessages = restorePreviousMessages,
+                UpdatedAt = LaterOf(threads[index].UpdatedAt, marker.Timestamp)
+            };
+            await SaveWithMarkerAsync(directory, threads, index, thread, marker, cancellationToken).ConfigureAwait(false);
+            return thread;
+        }, cancellationToken);
 
     private static async Task SaveWithMarkerAsync(string directory, List<AgentThreadMetadata> threads, int index,
         AgentThreadMetadata thread, AgentTimelineEvent marker, CancellationToken cancellationToken)
@@ -145,69 +122,65 @@ public sealed partial class AgentThreadStore(string? beutlHome = null)
         }
     }
 
-    public async Task<AgentThreadMetadata> ForkThreadAsync(
+    public Task<AgentThreadMetadata> ForkThreadAsync(
         string projectPath, Guid id, Guid? turnId, string title, bool includeTurn = true, CancellationToken cancellationToken = default)
-    {
-        string directory = ProjectDirectory(projectPath);
-        using var projectLock = await LockAsync(directory, cancellationToken).ConfigureAwait(false);
-        var threads = await ReadIndexAsync(directory, cancellationToken).ConfigureAwait(false);
-        var source = threads[FindThread(threads, id)];
-        var entries = await ReadTimelinePrefixAsync(directory, id, turnId, includeTurn, cancellationToken).ConfigureAwait(false);
-        var now = DateTimeOffset.UtcNow;
-        var fork = source with
+        => WithIndexLockAsync(projectPath, async (directory, threads) =>
         {
-            Id = Guid.NewGuid(), Title = title, CreatedAt = now, UpdatedAt = now,
-            ExternalSessionId = null, RestorePreviousMessages = HasConversation(entries),
-            IsPinned = false, IsArchived = false, LastReadAt = null, LastActivityAt = null
-        };
+            var source = threads[FindThread(threads, id)];
+            var entries = await ReadTimelinePrefixAsync(directory, id, turnId, includeTurn, cancellationToken).ConfigureAwait(false);
+            var now = DateTimeOffset.UtcNow;
+            var fork = source with
+            {
+                Id = Guid.NewGuid(), Title = title, CreatedAt = now, UpdatedAt = now,
+                ExternalSessionId = null, RestorePreviousMessages = HasConversation(entries),
+                IsPinned = false, IsArchived = false, LastReadAt = null, LastActivityAt = null
+            };
 
-        string path = TimelinePath(directory, fork.Id);
-        try
-        {
-            await WriteTimelineAsync(path, entries.Select(entry => ReassignThread(entry, fork.Id)), cancellationToken)
-                .ConfigureAwait(false);
-            threads.Add(fork);
-            await WriteIndexAsync(directory, threads, cancellationToken).ConfigureAwait(false);
-            return fork;
-        }
-        catch
-        {
-            File.Delete(path);
-            throw;
-        }
-    }
+            string path = TimelinePath(directory, fork.Id);
+            try
+            {
+                await WriteTimelineAsync(path, entries.Select(entry => ReassignThread(entry, fork.Id)), cancellationToken)
+                    .ConfigureAwait(false);
+                threads.Add(fork);
+                await WriteIndexAsync(directory, threads, cancellationToken).ConfigureAwait(false);
+                return fork;
+            }
+            catch
+            {
+                File.Delete(path);
+                throw;
+            }
+        }, cancellationToken);
 
-    public async Task<(AgentThreadMetadata Thread, IReadOnlyList<AgentTimelineEvent> Timeline)> RewindTurnAsync(
+    public Task<(AgentThreadMetadata Thread, IReadOnlyList<AgentTimelineEvent> Timeline)> RewindTurnAsync(
         string projectPath, Guid id, Guid turnId, CancellationToken cancellationToken = default)
-    {
-        string directory = ProjectDirectory(projectPath);
-        using var projectLock = await LockAsync(directory, cancellationToken).ConfigureAwait(false);
-        var threads = await ReadIndexAsync(directory, cancellationToken).ConfigureAwait(false);
-        int index = FindThread(threads, id);
-        var entries = await ReadTimelinePrefixAsync(directory, id, turnId, includeTurn: false, cancellationToken)
-            .ConfigureAwait(false);
-        var thread = threads[index] with
+        => WithIndexLockAsync<(AgentThreadMetadata, IReadOnlyList<AgentTimelineEvent>)>(projectPath, async (directory, threads) =>
         {
-            UpdatedAt = DateTimeOffset.UtcNow, ExternalSessionId = null,
-            RestorePreviousMessages = HasConversation(entries)
-        };
-        string path = TimelinePath(directory, id);
-        string pending = path + ".rewinding";
-        try
-        {
-            await WriteTimelineAsync(pending, entries, cancellationToken).ConfigureAwait(false);
-            threads[index] = thread;
-            // A crash between these moves can leave the old transcript, but never
-            // a shortened transcript that still resumes the old provider session.
-            await WriteIndexAsync(directory, threads, cancellationToken).ConfigureAwait(false);
-            File.Move(pending, path, overwrite: true);
-            return (thread, entries);
-        }
-        finally
-        {
-            File.Delete(pending);
-        }
-    }
+            int index = FindThread(threads, id);
+            var entries = await ReadTimelinePrefixAsync(directory, id, turnId, includeTurn: false, cancellationToken)
+                .ConfigureAwait(false);
+            var thread = threads[index] with
+            {
+                UpdatedAt = DateTimeOffset.UtcNow, ExternalSessionId = null,
+                RestorePreviousMessages = HasConversation(entries)
+            };
+            string path = TimelinePath(directory, id);
+            string pending = path + ".rewinding";
+            try
+            {
+                await WriteTimelineAsync(pending, entries, cancellationToken).ConfigureAwait(false);
+                threads[index] = thread;
+                // A crash between these moves can leave the old transcript, but never
+                // a shortened transcript that still resumes the old provider session.
+                await WriteIndexAsync(directory, threads, cancellationToken).ConfigureAwait(false);
+                File.Move(pending, path, overwrite: true);
+                return (thread, entries);
+            }
+            finally
+            {
+                File.Delete(pending);
+            }
+        }, cancellationToken);
 
     private static async Task<AgentTimelineEvent[]> ReadTimelinePrefixAsync(
         string directory, Guid id, Guid? turnId, bool includeTurn, CancellationToken cancellationToken)
@@ -235,153 +208,87 @@ public sealed partial class AgentThreadStore(string? beutlHome = null)
         _ => entry with { ThreadId = id }
     };
 
-    private static async Task WriteTimelineAsync(
-        string path, IEnumerable<AgentTimelineEvent> entries, CancellationToken cancellationToken)
-    {
-        await using var stream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.None);
-        foreach (var entry in entries)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            await JsonSerializer.SerializeAsync<AgentTimelineEvent>(stream, entry, AgentJson.Options, cancellationToken)
-                .ConfigureAwait(false);
-            stream.WriteByte((byte)'\n');
-        }
-    }
-
-    private async Task<AgentThreadMetadata> UpdateAsync(
+    private Task<AgentThreadMetadata> UpdateAsync(
         string projectPath, Guid id, Func<AgentThreadMetadata, AgentThreadMetadata> update,
         CancellationToken cancellationToken, bool touch = true)
-    {
-        string directory = ProjectDirectory(projectPath);
-        using var projectLock = await LockAsync(directory, cancellationToken).ConfigureAwait(false);
-        var threads = await ReadIndexAsync(directory, cancellationToken).ConfigureAwait(false);
-        int index = FindThread(threads, id);
-        var thread = update(threads[index]);
-        if (!touch && thread == threads[index])
-            return thread;
-        if (touch)
-            thread = thread with { UpdatedAt = DateTimeOffset.UtcNow };
-        threads[index] = thread;
-        await WriteIndexAsync(directory, threads, cancellationToken).ConfigureAwait(false);
-        return thread;
-    }
-
-    public async Task<bool> DeleteAsync(string projectPath, Guid id, CancellationToken cancellationToken = default)
-    {
-        string directory = ProjectDirectory(projectPath);
-        using var projectLock = await LockAsync(directory, cancellationToken).ConfigureAwait(false);
-        var threads = await ReadIndexAsync(directory, cancellationToken).ConfigureAwait(false);
-        if (threads.RemoveAll(thread => thread.Id == id) == 0)
-            return false;
-
-        await WriteIndexAsync(directory, threads, cancellationToken).ConfigureAwait(false);
-        File.Delete(TimelinePath(directory, id));
-        return true;
-    }
-
-    public async Task AppendAsync(string projectPath, AgentTimelineEvent entry, CancellationToken cancellationToken = default)
-    {
-        string directory = ProjectDirectory(projectPath);
-        using var projectLock = await LockAsync(directory, cancellationToken).ConfigureAwait(false);
-        var threads = await ReadIndexAsync(directory, cancellationToken).ConfigureAwait(false);
-        int index = FindThread(threads, entry.ThreadId);
-        var thread = threads[index];
-
-        // Persist the resume ID before acknowledging the first event for a provider session.
-        string? sessionId = (entry as AgentSessionStateChanged)?.ExternalSessionId;
-        if (!string.IsNullOrEmpty(sessionId) && sessionId != thread.ExternalSessionId)
+        => WithIndexLockAsync(projectPath, async (directory, threads) =>
         {
-            thread = thread with { ExternalSessionId = sessionId, UpdatedAt = LaterOf(thread.UpdatedAt, entry.Timestamp) };
+            int index = FindThread(threads, id);
+            var thread = update(threads[index]);
+            if (!touch && thread == threads[index])
+                return thread;
+            if (touch)
+                thread = thread with { UpdatedAt = DateTimeOffset.UtcNow };
             threads[index] = thread;
             await WriteIndexAsync(directory, threads, cancellationToken).ConfigureAwait(false);
-        }
+            return thread;
+        }, cancellationToken);
 
-        await AppendTimelineFileAsync(directory, entry, cancellationToken).ConfigureAwait(false);
-
-        bool activity = entry is AgentTurnCompleted or AgentTurnFailed or AgentPermissionRequested or AgentUserQuestionRequested;
-        if (activity || entry is AgentUserMessage or AgentTurnCancelled)
+    public Task<bool> DeleteAsync(string projectPath, Guid id, CancellationToken cancellationToken = default)
+        => WithIndexLockAsync(projectPath, async (directory, threads) =>
         {
-            threads[index] = thread with
+            if (threads.RemoveAll(thread => thread.Id == id) == 0)
+                return false;
+
+            await WriteIndexAsync(directory, threads, cancellationToken).ConfigureAwait(false);
+            File.Delete(TimelinePath(directory, id));
+            return true;
+        }, cancellationToken);
+
+    public Task AppendAsync(string projectPath, AgentTimelineEvent entry, CancellationToken cancellationToken = default)
+        => WithIndexLockAsync(projectPath, async (directory, threads) =>
+        {
+            int index = FindThread(threads, entry.ThreadId);
+            var thread = threads[index];
+
+            // Persist the resume ID before acknowledging the first event for a provider session.
+            string? sessionId = (entry as AgentSessionStateChanged)?.ExternalSessionId;
+            if (!string.IsNullOrEmpty(sessionId) && sessionId != thread.ExternalSessionId)
             {
-                UpdatedAt = LaterOf(thread.UpdatedAt, entry.Timestamp),
-                RestorePreviousMessages = thread.RestorePreviousMessages && entry is not AgentTurnCompleted,
-                LastActivityAt = activity ? LaterOf(thread.LastActivityAt ?? entry.Timestamp, entry.Timestamp) : thread.LastActivityAt
-            };
-            await WriteIndexAsync(directory, threads, CancellationToken.None).ConfigureAwait(false);
-        }
-    }
+                thread = thread with { ExternalSessionId = sessionId, UpdatedAt = LaterOf(thread.UpdatedAt, entry.Timestamp) };
+                threads[index] = thread;
+                await WriteIndexAsync(directory, threads, cancellationToken).ConfigureAwait(false);
+            }
 
-    private static async Task AppendTimelineFileAsync(string directory, AgentTimelineEvent entry, CancellationToken cancellationToken)
-    {
-        using var stream = new FileStream(TimelinePath(directory, entry.ThreadId), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.Read);
-        RepairIncompleteLine(stream);
-        byte[] json = JsonSerializer.SerializeToUtf8Bytes(entry, AgentJson.Options);
-        cancellationToken.ThrowIfCancellationRequested();
-        long start = stream.Position;
-        try
-        {
-            await stream.WriteAsync(json).ConfigureAwait(false);
-            stream.WriteByte((byte)'\n');
-            await stream.FlushAsync().ConfigureAwait(false);
-        }
-        catch
-        {
-            stream.SetLength(start);
-            throw;
-        }
-    }
+            await AppendTimelineFileAsync(directory, entry, cancellationToken).ConfigureAwait(false);
+
+            bool activity = entry is AgentTurnCompleted or AgentTurnFailed or AgentPermissionRequested or AgentUserQuestionRequested;
+            if (activity || entry is AgentUserMessage or AgentTurnCancelled)
+            {
+                threads[index] = thread with
+                {
+                    UpdatedAt = LaterOf(thread.UpdatedAt, entry.Timestamp),
+                    RestorePreviousMessages = thread.RestorePreviousMessages && entry is not AgentTurnCompleted,
+                    LastActivityAt = activity ? LaterOf(thread.LastActivityAt ?? entry.Timestamp, entry.Timestamp) : thread.LastActivityAt
+                };
+                await WriteIndexAsync(directory, threads, CancellationToken.None).ConfigureAwait(false);
+            }
+        }, cancellationToken);
 
     public async Task<IReadOnlyList<AgentTimelineEvent>> ReadTimelineAsync(
         string projectPath, Guid id, CancellationToken cancellationToken = default)
     {
         string directory = ProjectDirectory(projectPath);
-        using var projectLock = await LockAsync(directory, cancellationToken).ConfigureAwait(false);
+        await using var projectLock = await LockAsync(directory, cancellationToken).ConfigureAwait(false);
         return await ReadTimelineFileAsync(TimelinePath(directory, id), cancellationToken).ConfigureAwait(false);
     }
 
-    private static async Task<List<AgentTimelineEvent>> ReadTimelineFileAsync(string path, CancellationToken cancellationToken)
+    private async Task<T> WithIndexLockAsync<T>(
+        string projectPath, Func<string, List<AgentThreadMetadata>, Task<T>> action, CancellationToken cancellationToken)
     {
-        var entries = new List<AgentTimelineEvent>();
-        await foreach (var line in ReadTimelineLinesAsync(path, cancellationToken).ConfigureAwait(false))
+        string directory = ProjectDirectory(projectPath);
+        await using var projectLock = await LockAsync(directory, cancellationToken).ConfigureAwait(false);
+        var threads = await ReadIndexAsync(directory, cancellationToken).ConfigureAwait(false);
+        return await action(directory, threads).ConfigureAwait(false);
+    }
+
+    private Task WithIndexLockAsync(
+        string projectPath, Func<string, List<AgentThreadMetadata>, Task> action, CancellationToken cancellationToken)
+        => WithIndexLockAsync<bool>(projectPath, async (directory, threads) =>
         {
-            entries.Add(JsonSerializer.Deserialize<AgentTimelineEvent>(line, AgentJson.Options)
-                ?? throw new JsonException("Expected a timeline event."));
-        }
-        return entries;
-    }
-
-    private static async IAsyncEnumerable<string> ReadTimelineLinesAsync(
-        string path, [EnumeratorCancellation] CancellationToken cancellationToken)
-    {
-        if (!File.Exists(path))
-            yield break;
-
-        using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
-        bool complete = stream.Length == 0 || stream.ReadByteAtEnd() == '\n';
-        stream.Position = 0;
-        using var reader = new StreamReader(stream, Encoding.UTF8);
-        string? line = await reader.ReadLineAsync(cancellationToken).ConfigureAwait(false);
-        while (line != null)
-        {
-            string? next = await reader.ReadLineAsync(cancellationToken).ConfigureAwait(false);
-            if (!complete && next == null)
-                yield break;
-            yield return line;
-            line = next;
-        }
-    }
-
-    internal string ProjectDirectory(string projectPath)
-    {
-        string canonicalPath = Path.TrimEndingDirectorySeparator(Path.GetFullPath(projectPath));
-        if (OperatingSystem.IsWindows())
-            canonicalPath = canonicalPath.ToUpperInvariant();
-
-        string hash = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(canonicalPath)));
-        return Path.Combine(_root, hash);
-    }
-
-    private static string TimelinePath(string directory, Guid id) => Path.Combine(directory, $"{id:N}.jsonl");
+            await action(directory, threads).ConfigureAwait(false);
+            return true;
+        }, cancellationToken);
 
     private static DateTimeOffset LaterOf(DateTimeOffset a, DateTimeOffset b) => a >= b ? a : b;
 
@@ -389,88 +296,5 @@ public sealed partial class AgentThreadStore(string? beutlHome = null)
     {
         int index = threads.FindIndex(thread => thread.Id == id);
         return index >= 0 ? index : throw new KeyNotFoundException($"Agent thread {id} does not exist.");
-    }
-
-    internal static async Task<FileStream> LockAsync(string directory, CancellationToken cancellationToken)
-    {
-        Directory.CreateDirectory(directory);
-        string path = Path.Combine(directory, ".lock");
-        var deadline = DateTime.UtcNow.AddSeconds(10);
-        while (true)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            try
-            {
-                return new FileStream(path, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
-            }
-            catch (IOException) when (DateTime.UtcNow < deadline)
-            {
-                await Task.Delay(30, cancellationToken).ConfigureAwait(false);
-            }
-        }
-    }
-
-    private static async Task<List<AgentThreadMetadata>> ReadIndexAsync(string directory, CancellationToken cancellationToken)
-    {
-        string path = Path.Combine(directory, "index.json");
-        if (!File.Exists(path))
-            return [];
-        using var stream = File.OpenRead(path);
-        return await JsonSerializer.DeserializeAsync<List<AgentThreadMetadata>>(stream, AgentJson.Options, cancellationToken)
-            .ConfigureAwait(false) ?? throw new JsonException("Expected an agent thread index.");
-    }
-
-    private static async Task WriteIndexAsync(
-        string directory, List<AgentThreadMetadata> threads, CancellationToken cancellationToken)
-    {
-        string path = Path.Combine(directory, "index.json");
-        string pending = Path.Combine(directory, "index.pending");
-        try
-        {
-            using (var stream = File.Create(pending))
-            {
-                await JsonSerializer.SerializeAsync(stream, threads, AgentJson.Options, cancellationToken).ConfigureAwait(false);
-            }
-            File.Move(pending, path, overwrite: true);
-        }
-        finally
-        {
-            File.Delete(pending);
-        }
-    }
-
-    private static void RepairIncompleteLine(FileStream stream)
-    {
-        if (stream.Length == 0 || stream.ReadByteAtEnd() == '\n')
-            return;
-
-        Span<byte> buffer = stackalloc byte[4096];
-        long end = stream.Length;
-        while (end > 0)
-        {
-            int count = (int)Math.Min(end, buffer.Length);
-            long offset = end - count;
-            stream.Position = offset;
-            stream.ReadExactly(buffer[..count]);
-            int lastNewline = buffer[..count].LastIndexOf((byte)'\n');
-            if (lastNewline >= 0)
-            {
-                stream.Position = offset + lastNewline + 1;
-                stream.SetLength(stream.Position);
-                return;
-            }
-            end = offset;
-        }
-        stream.SetLength(0);
-        stream.Position = 0;
-    }
-}
-
-file static class TimelineStreamExtensions
-{
-    internal static int ReadByteAtEnd(this FileStream stream)
-    {
-        stream.Seek(-1, SeekOrigin.End);
-        return stream.ReadByte();
     }
 }

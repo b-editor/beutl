@@ -26,7 +26,6 @@ internal sealed partial class BeutlAgentWorkspaceHost(
     Func<SettingsDialogViewModel>? createDialog = null, IAgentNotificationSoundPlayer? soundPlayer = null) : IAgentWorkspaceHost
 {
     private static readonly ILogger s_logger = Log.CreateLogger<BeutlAgentWorkspaceHost>();
-    private static readonly Lazy<BundledSkill[]> s_bundledSkills = new(LoadBundledSkills);
     private readonly AgentAttachmentStore _attachmentStore = new(beutlHome);
     private SettingsDialog? _dialog;
     private SettingsDialogViewModel? _settingsViewModel;
@@ -42,7 +41,6 @@ internal sealed partial class BeutlAgentWorkspaceHost(
     public AgentComposerSendKey ComposerSendKey => config.ComposerSendKey.Value;
     public bool EnableNotifications => config.EnableNotifications.Value;
     public bool EnableNotificationSound => config.EnableNotificationSound.Value;
-    public IReadOnlyList<AgentComposerSuggestion> BundledSkills => s_bundledSkills.Value.Select(skill => skill.Suggestion).ToArray();
 
     public event EventHandler<PropertyChangedEventArgs>? RuntimeSettingsChanged
     {
@@ -107,9 +105,7 @@ internal sealed partial class BeutlAgentWorkspaceHost(
         CancellationToken cancellationToken)
     {
         var edit = (EditViewModel)editor;
-        var context = await Dispatcher.UIThread.InvokeAsync(
-            () => CaptureContext(edit, projectPath, includeSceneContext, attachments, mentions),
-            DispatcherPriority.Normal, cancellationToken);
+        var prepared = await PrepareRequestAsync(edit, projectPath, request, includeSceneContext, attachments, mentions, cancellationToken);
         IReadOnlyList<McpServerSpec> servers = await GetMcpServersAsync(request.ThreadId,
             message => callbacks.Timeline(new AgentErrorNotice(request.ThreadId, request.TurnId, DateTimeOffset.UtcNow, message,
                 AgentDiagnosticKind.McpUnavailable)),
@@ -122,11 +118,7 @@ internal sealed partial class BeutlAgentWorkspaceHost(
 
         try
         {
-            return await runtime.RunTurnAsync(projectPath, provider, request with
-            {
-                Context = context,
-                BundledSkills = ResolveBundledSkills(request.Text)
-            }, servers, callbacks, cancellationToken);
+            return await runtime.RunTurnAsync(projectPath, provider, prepared, servers, callbacks, cancellationToken);
         }
         finally
         {
@@ -153,14 +145,23 @@ internal sealed partial class BeutlAgentWorkspaceHost(
         IEditorContext editor, string projectPath, AgentTurnRequest request, bool includeSceneContext,
         IReadOnlyList<AgentAttachedFile> attachments, IReadOnlyList<AgentContextMention>? mentions, CancellationToken cancellationToken)
     {
+        var prepared = await PrepareRequestAsync((EditViewModel)editor, projectPath, request, includeSceneContext, attachments, mentions, cancellationToken);
+        return await runtime.SteerTurnAsync(prepared, cancellationToken);
+    }
+
+    private async Task<AgentTurnRequest> PrepareRequestAsync(
+        EditViewModel edit, string projectPath, AgentTurnRequest request, bool includeSceneContext,
+        IReadOnlyList<AgentAttachedFile> attachments, IReadOnlyList<AgentContextMention>? mentions,
+        CancellationToken cancellationToken)
+    {
         var context = await Dispatcher.UIThread.InvokeAsync(
-            () => CaptureContext((EditViewModel)editor, projectPath, includeSceneContext, attachments, mentions),
+            () => CaptureContext(edit, projectPath, includeSceneContext, attachments, mentions),
             DispatcherPriority.Normal, cancellationToken);
-        return await runtime.SteerTurnAsync(request with
+        return request with
         {
             Context = context,
             BundledSkills = ResolveBundledSkills(request.Text)
-        }, cancellationToken);
+        };
     }
 
     public async Task<AgentThreadMetadata> CompactContextAsync(
@@ -169,33 +170,6 @@ internal sealed partial class BeutlAgentWorkspaceHost(
         var servers = await GetMcpServersAsync(threadId, null, cancellationToken);
         return await runtime.CompactContextAsync(projectPath, threadId, provider, servers, callbacks, cancellationToken);
     }
-
-    internal static IReadOnlyList<AgentSkillInstruction>? ResolveBundledSkills(string text)
-    {
-        var names = AgentComposerToken.InvokedNames(text).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        if (names.Count == 0)
-            return null;
-        var skills = s_bundledSkills.Value.Where(skill => names.Contains(skill.Suggestion.Name))
-            .Select(skill => new AgentSkillInstruction(skill.Suggestion.Name, skill.Instructions)).ToArray();
-        return skills.Length == 0 ? null : skills;
-    }
-
-    private static BundledSkill[] LoadBundledSkills()
-        => BundledAgentToolkitAssets.Load()
-            .Where(asset => asset.Kind == AgentToolkitAssetKind.Skill && asset.RelativePath.EndsWith("/SKILL.md", StringComparison.Ordinal))
-            .Select(asset =>
-            {
-                string name = asset.RelativePath[..asset.RelativePath.IndexOf('/')];
-                var lines = asset.Content.ReplaceLineEndings("\n").Split('\n');
-                int end = Array.IndexOf(lines, "---", 1);
-                const string prefix = "description:";
-                string? description = end > 0 ? lines[1..end]
-                    .FirstOrDefault(line => line.StartsWith(prefix, StringComparison.Ordinal))?[prefix.Length..].Trim() : null;
-                string instructions = end > 0 ? string.Join('\n', lines[(end + 1)..]).Trim() : asset.Content;
-                return new BundledSkill(new(name, description, AgentComposerSuggestionKind.Skill, Source: "Beutl"), instructions);
-            }).ToArray();
-
-    private sealed record BundledSkill(AgentComposerSuggestion Suggestion, string Instructions);
 
     public Task<AgentAttachedFile> SavePastedImageAsync(AvaloniaBitmap image, CancellationToken cancellationToken)
         => _attachmentStore.SavePastedImageAsync(image, cancellationToken);

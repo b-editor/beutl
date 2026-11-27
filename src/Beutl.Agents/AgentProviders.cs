@@ -1,7 +1,7 @@
-﻿namespace Beutl.Agents;
-
-using System.Text.Json;
+﻿using System.Text.Json;
 using System.Text.Json.Serialization;
+
+namespace Beutl.Agents;
 
 public enum AgentProviderKind { ClaudeCode, Codex, Acp }
 

@@ -148,7 +148,7 @@ export class CodexRpc {
                         const { id, method, params } = frame;
                         void onRequest({ method, params } as CodexRequest)
                             .then(result => this.send({ id, result }), error => {
-                                this.send({ id, error: { code: -32601, message: errorMessage(error) } });
+                                this.send({ id, error: { code: error instanceof CodexRpcError ? error.code : -32603, message: errorMessage(error) } });
                             });
                     } else {
                         notify({ method: frame.method, params: frame.params } as CodexNotification);
@@ -193,6 +193,8 @@ export class CodexRpc {
         if (this.terminalError) return;
         this.terminalError = new Error(message);
         for (const promise of this.pending.values()) promise.reject(this.terminalError);
+        this.pending.clear();
+        this.lines.close();
         onDisconnect(message);
     }
 }

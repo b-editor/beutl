@@ -70,12 +70,12 @@ public sealed class AgentTabPhase5Tests
             await HeadlessTestHelpers.WaitUntilAsync(() => Visible<AgentShimmerTextBlock>(view, "LiveTurnStatus") is { IsLive: true });
             HeadlessTestHelpers.Render(4);
 
-            // 1. Shimmer uses pixel-space Absolute coordinates so Latin + Japanese runs share one continuous sweep.
+            // 1. Shimmer renders highlight text through a single control-wide opacity mask so Latin + Japanese runs share one sweep.
             var liveStatus = Visible<AgentShimmerTextBlock>(view, "LiveTurnStatus")!;
-            Assert.That(liveStatus.Foreground, Is.InstanceOf<LinearGradientBrush>());
-            var gradient = (LinearGradientBrush)liveStatus.Foreground!;
-            Assert.That(gradient.StartPoint.Unit, Is.EqualTo(RelativeUnit.Absolute));
-            Assert.That(gradient.EndPoint.Unit, Is.EqualTo(RelativeUnit.Absolute));
+            Assert.That(liveStatus.Foreground, Is.Not.InstanceOf<LinearGradientBrush>());
+            Assert.That(liveStatus.ShimmerMaskBrush, Is.Not.Null);
+            Assert.That(liveStatus.ShimmerMaskBrush!.StartPoint.Unit, Is.EqualTo(RelativeUnit.Relative));
+            Assert.That(liveStatus.ShimmerMaskBrush!.EndPoint.Unit, Is.EqualTo(RelativeUnit.Relative));
             Capture(view, "polish-shimmer-mixed");
 
             // 2. Collapsed tool details are lazily omitted from the visual tree; expanding constrains height and scrolls.

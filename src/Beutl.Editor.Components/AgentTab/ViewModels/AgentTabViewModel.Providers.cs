@@ -27,11 +27,7 @@ internal sealed partial class AgentTabViewModel
             {
                 UpdateProviderSelection();
                 if (_useDefaultPermission)
-                {
-                    _permissionMode = PermissionModes.First(item => item.Mode == _host.DefaultPermissionMode);
-                    Notify(nameof(SelectedPermissionMode));
-                    Notify(nameof(PermissionModeTooltip));
-                }
+                    SetPermissionMode(PermissionModes.First(item => item.Mode == _host.DefaultPermissionMode));
             }
         }
         else if (args.PropertyName is not (nameof(AiAgentConfig.EnableNotifications) or nameof(AiAgentConfig.EnableNotificationSound)))

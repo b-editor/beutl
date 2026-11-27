@@ -1,7 +1,6 @@
 using System.Text;
 using Avalonia.Media.Imaging;
 using Beutl.Agents;
-using Beutl.Editor.Services.AI;
 using FluentIcons.Common;
 
 namespace Beutl.Editor.Components.AgentTab.ViewModels;
@@ -125,20 +124,5 @@ internal sealed class AgentAttachment : AgentBindable, IDisposable
         return count;
     }
 
-    internal static Bitmap? DecodeThumbnail(string path)
-    {
-        try
-        {
-            using var stream = System.IO.File.OpenRead(path);
-            var (width, height) = AiImageDecodeValidator.ValidateEncoded(stream, MaxImageBytes);
-            if (Math.Max(width, height) <= ThumbnailExtent)
-                return new Bitmap(stream);
-            return width >= height ? Bitmap.DecodeToWidth(stream, ThumbnailExtent) : Bitmap.DecodeToHeight(stream, ThumbnailExtent);
-        }
-        catch (Exception ex) when (ex is IOException or InvalidDataException or ArgumentException or UnauthorizedAccessException
-            or InvalidOperationException or NotSupportedException)
-        {
-            return null;
-        }
-    }
+    internal static Bitmap? DecodeThumbnail(string path) => AgentImagePreview.DecodeFile(path, ThumbnailExtent, ThumbnailExtent);
 }

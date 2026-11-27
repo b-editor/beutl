@@ -25,8 +25,9 @@ internal sealed class AgentJsonRpc(
     private readonly ConcurrentDictionary<string, CancellationTokenSource> _incoming = new();
     private readonly Channel<string> _outgoing = Channel.CreateUnbounded<string>(new UnboundedChannelOptions { SingleReader = true });
     private long _nextId;
+    private volatile bool _closed;
 
-    internal bool IsConnected => !_lifetime.IsCancellationRequested;
+    internal bool IsConnected => !_closed;
     internal Task Completion { get; private set; } = Task.CompletedTask;
     internal AgentWorkerDisconnectedException DisconnectError { get; private set; } = new("The agent worker connection closed.");
 
@@ -76,6 +77,7 @@ internal sealed class AgentJsonRpc(
         }
         finally
         {
+            _closed = true;
             _outgoing.Writer.TryComplete();
             Task cancellation = _lifetime.CancelAsync();
             foreach (var request in _pending.Values)
@@ -91,6 +93,7 @@ internal sealed class AgentJsonRpc(
             {
                 // The first I/O failure is available through DisconnectError.
             }
+            _lifetime.Dispose();
         }
     }
 

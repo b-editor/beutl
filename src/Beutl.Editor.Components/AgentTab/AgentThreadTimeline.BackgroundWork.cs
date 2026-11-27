@@ -40,12 +40,7 @@ internal sealed partial class AgentThreadTimeline
             NotifyBackgroundWork();
     }
 
-    private void NotifyBackgroundWork()
-    {
-        Notify(nameof(HasSubagents));
-        Notify(nameof(HasBackgroundWork));
-        Notify(nameof(BackgroundWorkCount));
-    }
+    private void NotifyBackgroundWork() => Notify(nameof(HasSubagents), nameof(HasBackgroundWork), nameof(BackgroundWorkCount));
 }
 
 internal sealed class AgentBackgroundWorkGroup(string label, Icon icon) : AgentBindable
@@ -105,10 +100,5 @@ internal sealed class AgentBackgroundWorkGroup(string label, Icon icon) : AgentB
             NotifySummary();
     }
 
-    private void NotifySummary()
-    {
-        Notify(nameof(IsRunning));
-        Notify(nameof(Counter));
-        Notify(nameof(Summary));
-    }
+    private void NotifySummary() => Notify(nameof(IsRunning), nameof(Counter), nameof(Summary));
 }

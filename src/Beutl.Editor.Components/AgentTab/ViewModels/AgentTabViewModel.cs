@@ -1,9 +1,7 @@
 ﻿using System.Collections.ObjectModel;
 using System.Text.Json.Nodes;
-using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using Beutl.Agents;
-using Beutl.Configuration;
 using Beutl.Logging;
 using Beutl.ProjectSystem;
 using FluentIcons.Common;
@@ -15,7 +13,6 @@ namespace Beutl.Editor.Components.AgentTab.ViewModels;
 internal sealed partial class AgentTabViewModel : AgentBindable, IToolContext
 {
     private static readonly ILogger s_logger = Log.CreateLogger<AgentTabViewModel>();
-    private static readonly StringComparer s_pathComparer = OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
     private readonly IAgentWorkspaceHost _host;
     private readonly IEditorContext _editor;
     private readonly string _projectPath;
@@ -81,10 +78,10 @@ internal sealed partial class AgentTabViewModel : AgentBindable, IToolContext
 
     public IReadOnlyList<AgentPermissionChoiceItem> PermissionModes { get; } =
     [
-        new(AgentPermissionMode.Supervised, AgentStrings.Supervised, AgentStrings.Supervised, AgentStrings.SupervisedDescription, Icon.ShieldLock),
-        new(AgentPermissionMode.AutoAcceptEdits, AgentStrings.AutoAcceptEdits, AgentStrings.AutoAcceptEdits, AgentStrings.AutoAcceptEditsDescription, Icon.ShieldTask),
-        new(AgentPermissionMode.Auto, AgentStrings.Auto, AgentStrings.Auto, AgentStrings.AutoDescription, Icon.ShieldCheckmark),
-        new(AgentPermissionMode.FullAccess, AgentStrings.FullAccess, AgentStrings.FullAccess, AgentStrings.FullAccessDescription, Icon.ShieldProhibited)
+        new(AgentPermissionMode.Supervised, AgentStrings.Supervised, AgentStrings.SupervisedDescription, Icon.ShieldLock),
+        new(AgentPermissionMode.AutoAcceptEdits, AgentStrings.AutoAcceptEdits, AgentStrings.AutoAcceptEditsDescription, Icon.ShieldTask),
+        new(AgentPermissionMode.Auto, AgentStrings.Auto, AgentStrings.AutoDescription, Icon.ShieldCheckmark),
+        new(AgentPermissionMode.FullAccess, AgentStrings.FullAccess, AgentStrings.FullAccessDescription, Icon.ShieldProhibited)
     ];
 
     public IReadOnlyList<AgentStarterPrompt> StarterPrompts { get; } =
@@ -110,13 +107,12 @@ internal sealed partial class AgentTabViewModel : AgentBindable, IToolContext
         {
             if (!Set(ref field, value))
                 return;
-            Notify(nameof(CanSend));
-            Notify(nameof(CanSendAlternate));
-            Notify(nameof(ProviderName));
-            Notify(nameof(ProviderIsAvailable));
-            Notify(nameof(ProviderStatusLabel));
-            Notify(nameof(ProviderTooltip));
-            Notify(nameof(ModelPickerTooltip));
+            Notify(
+                nameof(CanSend),
+                nameof(ProviderName),
+                nameof(ProviderIsAvailable),
+                nameof(ProviderStatusLabel),
+                nameof(ModelPickerTooltip));
             UpdateDiagnostic();
             ResetComposerSuggestions();
         }
@@ -126,7 +122,6 @@ internal sealed partial class AgentTabViewModel : AgentBindable, IToolContext
     public bool ProviderIsAvailable => SelectedProvider?.IsAvailable == true;
     public string ProviderStatusLabel => SelectedProvider is { } provider
         ? $"{provider.Name} · {provider.Availability}" : AgentStrings.NoProvider;
-    public string ProviderTooltip => ProviderStatusLabel;
 
     public AgentPermissionChoiceItem SelectedPermissionMode => _permissionMode;
 
@@ -136,74 +131,14 @@ internal sealed partial class AgentTabViewModel : AgentBindable, IToolContext
         set => _host.FollowLiveMcpEdits.Value = value;
     }
 
-    public bool IncludeSceneContext
-    {
-        get;
-        set
-        {
-            if (Set(ref field, value))
-                MarkDraftChanged();
-        }
-    } = true;
-
-    public string? Prompt
-    {
-        get;
-        set
-        {
-            if (!Set(ref field, value))
-                return;
-            if (!_recallingPrompt)
-            {
-                ResetPromptHistory();
-                MarkDraftChanged();
-            }
-            Notify(nameof(CanSend));
-            Notify(nameof(CanSendAlternate));
-            Notify(nameof(ShowSendButton));
-            Notify(nameof(CanEditQueuedMessage));
-        }
-    }
-
     internal AgentThreadController? Controller => _controller;
     public bool IsRunning => _controller?.IsRunning == true;
     public bool ShowEmptyState => !IsRunning && _timeline.Count == 0;
-    public string PromptPlaceholder => IsRunning ? AgentStrings.RunningPrompt : AgentStrings.Prompt;
-    public bool CanStop => _controller is { IsRunning: true, IsStopping: false };
     public bool CanManage => !_disposed && _managementCompletion is null && !_sessions.Lifetime.IsCancellationRequested;
     public bool CanManageSelected => CanManage && _selectedThread is not null;
     public bool CanDeleteSelected => CanManageSelected && _controller?.CanConfigure == true;
     public bool CanConfigure => CanManage && (_controller?.CanConfigure ?? true);
     public bool CanChooseModel => CanConfigure && SelectedProvider is not null;
-    public AgentComposerSendKey ComposerSendKey => _host.ComposerSendKey;
-    private bool HasPromptContent => !string.IsNullOrWhiteSpace(Prompt) || _attachments.Any(item => item.IsPastedText);
-    private bool HasContextCommand => ContextCommand(Prompt) is not null;
-    private bool CanSubmitPrompt => CanManage && ShowComposer && (_controller?.CanSubmit ?? true)
-        && (HasContextCommand ? CanManageContext : SelectedProvider?.IsAvailable == true && HasPromptContent);
-    private bool SendSteers => IsRunning && _host.SteerOnSend;
-    public bool CanSend => CanSubmitPrompt && (!SendSteers || CanPromoteQueuedMessage);
-    public bool CanSendAlternate => IsRunning && CanSubmitPrompt && (SendSteers || CanPromoteQueuedMessage);
-    public bool ShowSendButton => !IsRunning || HasPromptContent;
-    public string SendLabel => SendSteers ? AgentStrings.SteerNow : IsRunning ? AgentStrings.QueueMessage : AgentStrings.Send;
-    public string SendTooltip
-    {
-        get
-        {
-            if (!IsRunning)
-                return SendLabel;
-
-            string modifier = OperatingSystem.IsMacOS() ? "⌘" : "Ctrl";
-            string shortcut = ComposerSendKey == AgentComposerSendKey.CtrlEnter ? $"{modifier}+Shift+Enter" : $"{modifier}+Enter";
-            return $"{SendLabel}\n{string.Format(SendSteers ? AgentStrings.QueuePromptShortcut : AgentStrings.SteerPromptShortcut, shortcut)}";
-        }
-    }
-    public Icon SendIcon => Icon.ArrowUp;
-
-    internal void ApplyStarterPrompt(AgentStarterPrompt starter)
-    {
-        if (CanManage)
-            Prompt = starter.Prompt;
-    }
 
     public Task InitializeAsync() => _initialization ??= ManageAsync(async ct =>
     {
@@ -303,7 +238,7 @@ internal sealed partial class AgentTabViewModel : AgentBindable, IToolContext
             if (providerChanged)
                 _pickerProviderId = thread.ProviderId;
             UpdateProviderSelection();
-            _permissionMode = PermissionModes.First(item => item.Mode == thread.PermissionMode);
+            SetPermissionMode(PermissionModes.First(item => item.Mode == thread.PermissionMode));
         }
         else if (!preserveDraft)
         {
@@ -311,7 +246,7 @@ internal sealed partial class AgentTabViewModel : AgentBindable, IToolContext
             _draftModel = null;
             _useDefaultPermission = true;
             UpdateProviderSelection();
-            _permissionMode = PermissionModes.First(item => item.Mode == _host.DefaultPermissionMode);
+            SetPermissionMode(PermissionModes.First(item => item.Mode == _host.DefaultPermissionMode));
         }
 
         if (selectionChanged)
@@ -320,14 +255,12 @@ internal sealed partial class AgentTabViewModel : AgentBindable, IToolContext
             ResetComposerSuggestions();
             UpdateThreadRows();
         }
-        Notify(nameof(SelectedThread));
-        Notify(nameof(ThreadTitle));
-        Notify(nameof(ThreadPickerTooltip));
-        Notify(nameof(ThreadPinLabel));
-        Notify(nameof(ThreadArchiveLabel));
-        Notify(nameof(ProviderTooltip));
-        Notify(nameof(SelectedPermissionMode));
-        Notify(nameof(PermissionModeTooltip));
+        Notify(
+            nameof(SelectedThread),
+            nameof(ThreadTitle),
+            nameof(ThreadPickerTooltip),
+            nameof(ThreadPinLabel),
+            nameof(ThreadArchiveLabel));
         NotifyAvailability();
     }
 
@@ -364,12 +297,16 @@ internal sealed partial class AgentTabViewModel : AgentBindable, IToolContext
         if (_selectedThread is null)
         {
             _useDefaultPermission = false;
-            _permissionMode = choice;
-            Notify(nameof(SelectedPermissionMode));
-            Notify(nameof(PermissionModeTooltip));
+            SetPermissionMode(choice);
             return Task.CompletedTask;
         }
         return ConfigureThreadAsync((controller, ct) => _host.Runtime.SetPermissionModeAsync(_projectPath, controller.ThreadId, choice.Mode, ct));
+    }
+
+    private void SetPermissionMode(AgentPermissionChoiceItem mode)
+    {
+        _permissionMode = mode;
+        Notify(nameof(SelectedPermissionMode), nameof(PermissionModeTooltip));
     }
 
     private Task ConfigureThreadAsync(Func<AgentThreadController, CancellationToken, Task<AgentThreadMetadata>> configure) => ManageAsync(async ct =>
@@ -387,125 +324,6 @@ internal sealed partial class AgentTabViewModel : AgentBindable, IToolContext
     });
 
     private void ReplaceThread(AgentThreadMetadata thread) => _sessions.PublishMetadata(thread);
-
-    public Task CaptureFrameAsync() => ManageAsync(CaptureFrameIntoDraftAsync);
-
-    private async Task CaptureFrameIntoDraftAsync(CancellationToken ct)
-    {
-        var file = await _host.CaptureFrameAsync(_editor, ct);
-        await AddAttachmentAsync(file, ct);
-    }
-
-    internal Task PickFilesAsync(Func<Task<IReadOnlyList<string>>> pick) => ManageAsync(async ct =>
-        await AddFilesAsync(await pick(), ct));
-
-    internal Task AddFilesAsync(IReadOnlyList<string> paths) => ManageAsync(ct => AddFilesAsync(paths, ct));
-
-    private async Task AddFilesAsync(IReadOnlyList<string> paths, CancellationToken ct)
-    {
-        foreach (string path in paths)
-        {
-            ct.ThrowIfCancellationRequested();
-            await AddAttachmentAsync(new AgentAttachedFile(Path.GetFullPath(path)), ct);
-        }
-    }
-
-    internal Task PasteImageAsync(Bitmap image) => ManageAsync(async ct =>
-        await AddAttachmentAsync(await _host.SavePastedImageAsync(image, ct), ct));
-
-    internal Task PasteTextAsync(string text) => ManageAsync(async ct =>
-        await AddAttachmentAsync(await _host.SavePastedTextAsync(text, ct), ct));
-
-    internal void ReportPasteError(Exception ex)
-    {
-        s_logger.LogWarning(ex, "Could not read the agent composer clipboard.");
-        if (!_disposed)
-            SetError(AgentStrings.PasteFailed);
-    }
-
-    private async Task AddAttachmentAsync(AgentAttachedFile file, CancellationToken ct)
-    {
-        if (_disposed || _attachments.Any(item => s_pathComparer.Equals(item.Path, file.Path)))
-            return;
-        var attachment = await Task.Run(() => AgentAttachment.CreateFile(file, RemoveAttachment), ct);
-        if (ct.IsCancellationRequested)
-        {
-            attachment.Dispose();
-            ct.ThrowIfCancellationRequested();
-        }
-        _attachments.Add(attachment);
-        MarkAttachmentsChanged();
-    }
-
-    private void RemoveAttachment(AgentAttachment item)
-    {
-        if (_attachments.Remove(item))
-        {
-            item.Dispose();
-            MarkAttachmentsChanged();
-        }
-    }
-
-    private void ClearAttachments()
-    {
-        var attachments = _attachments.ToArray();
-        _attachments.Clear();
-        foreach (var attachment in attachments)
-            attachment.Dispose();
-        if (attachments.Length > 0)
-            MarkAttachmentsChanged();
-    }
-
-    public Task SendAsync() => CanSend ? SubmitAsync(SendSteers) : Task.CompletedTask;
-
-    public Task SendAlternateAsync() => CanSendAlternate ? SubmitAsync(!SendSteers) : Task.CompletedTask;
-
-    private async Task SubmitAsync(bool steer)
-    {
-        if (ContextCommand(Prompt) is { } command)
-        {
-            Prompt = null;
-            await (command == "/compact" ? CompactContextAsync() : ClearContextAsync());
-            return;
-        }
-        if (SelectedProvider is not { } selected)
-            return;
-
-        string text = Prompt?.Trim() is { Length: > 0 } prompt ? prompt : AgentStrings.PastedText;
-        var message = new AgentQueuedMessage(_editor, selected.Descriptor, text, IncludeSceneContext,
-            _attachments.Select(attachment => attachment.Snapshot()).ToArray(), GetInvokedProviderSkills(text), GetAcceptedMentions(text));
-        SetError(null);
-        if (_controller is null)
-        {
-            await ManageAsync(async ct =>
-            {
-                var model = EffectiveModel;
-                var thread = await _host.Runtime.CreateThreadAsync(_projectPath, selected.Descriptor, MakeTitle(text) ?? AgentStrings.NewThread,
-                    _permissionMode.Mode, model.Id, ct, model.Effort);
-                ReplaceThread(thread);
-                await LoadThreadAsync(thread, ct, sendingDraft: true);
-                IncludeSceneContext = message.IncludeSceneContext;
-            });
-        }
-        else if (_selectedThread is { } thread && IsPlaceholderTitle(thread.Title) && MakeTitle(text) is { } title)
-        {
-            await RenameThreadAsync(thread, title);
-        }
-
-        if (_disposed || _controller is not { CanSubmit: true } controller || SelectedProvider is not { IsAvailable: true } currentProvider)
-            return;
-        message.SetProvider(currentProvider.Descriptor);
-        Prompt = null;
-        RestoreAcceptedMentions(null);
-        ResetPromptHistory();
-        ClearAttachments();
-        if (steer)
-            await controller.SteerAsync(message);
-        else
-            await controller.SubmitAsync(message);
-    }
-
-    public Task StopAsync() => _controller?.StopAsync() ?? Task.CompletedTask;
 
     public object? GetService(Type serviceType) => _editor.GetService(serviceType);
 
@@ -556,6 +374,7 @@ internal sealed partial class AgentTabViewModel : AgentBindable, IToolContext
         _disposed = true;
         ClearEscapeStopHint();
         _draftTimer.Stop();
+        _draftTimer.Tick -= OnDraftTimerTick;
         _ = SaveDraftAsync();
         _sessions.StateChanged -= OnThreadStateChanged;
         _sessions.MetadataChanged -= OnThreadMetadataChanged;
@@ -618,30 +437,21 @@ internal sealed partial class AgentTabViewModel : AgentBindable, IToolContext
     {
         if (_escapeStopTurn.HasValue && (!CanStop || _escapeStopTurn != _controller?.ActiveTurnId))
             ClearEscapeStopHint();
-        Notify(nameof(CanManage));
-        Notify(nameof(CanManageSelected));
-        Notify(nameof(CanDeleteSelected));
-        Notify(nameof(CanConfigure));
-        Notify(nameof(CanActOnMessages));
-        Notify(nameof(CanChooseModel));
-        Notify(nameof(CanManageContext));
+        Notify(
+            nameof(CanManage),
+            nameof(CanManageSelected),
+            nameof(CanDeleteSelected),
+            nameof(CanConfigure),
+            nameof(CanActOnMessages),
+            nameof(CanChooseModel),
+            nameof(CanManageContext),
+            nameof(IsRunning),
+            nameof(ShowEmptyState),
+            nameof(PromptPlaceholder),
+            nameof(CanStop));
         NotifySendActions();
-        Notify(nameof(IsRunning));
-        Notify(nameof(ShowEmptyState));
-        Notify(nameof(PromptPlaceholder));
-        Notify(nameof(CanStop));
         NotifyQueue();
         UpdateRevertButtons();
-    }
-
-    private void NotifySendActions()
-    {
-        Notify(nameof(CanSend));
-        Notify(nameof(CanSendAlternate));
-        Notify(nameof(ShowSendButton));
-        Notify(nameof(SendLabel));
-        Notify(nameof(SendTooltip));
-        Notify(nameof(SendIcon));
     }
 
     private void Post(Action callback) => Dispatcher.UIThread.Post(() =>
@@ -649,7 +459,6 @@ internal sealed partial class AgentTabViewModel : AgentBindable, IToolContext
         if (!_disposed)
             callback();
     }, DispatcherPriority.Normal);
-
 }
 
 internal sealed record AgentProviderChoice(AgentProviderDescriptor Descriptor, bool IsAvailable, string? CliVersion, AgentDiagnostic? Diagnostic)
@@ -661,6 +470,5 @@ internal sealed record AgentProviderChoice(AgentProviderDescriptor Descriptor, b
         : IsAvailable ? AgentStrings.ProviderAvailable : AgentStrings.ProviderUnavailable;
 }
 
-internal sealed record AgentPermissionChoiceItem(AgentPermissionMode Mode, string Label, string ShortLabel, string Description, Icon Icon);
+internal sealed record AgentPermissionChoiceItem(AgentPermissionMode Mode, string Label, string Description, Icon Icon);
 internal sealed record AgentStarterPrompt(string Label, string Prompt, Icon Icon);
-

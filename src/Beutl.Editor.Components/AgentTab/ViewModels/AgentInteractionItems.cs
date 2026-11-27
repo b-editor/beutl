@@ -131,10 +131,7 @@ internal sealed class AgentQuestionItem : AgentInteractionItem
         if (!CanSkip || CurrentQuestion is not { } current)
             return;
         current.IsSkipped = true;
-        if (_step + 1 < Questions.Count)
-            GoTo(_step + 1);
-        else
-            Submit();
+        MoveNext();
     }
 
     public void Advance()
@@ -142,6 +139,11 @@ internal sealed class AgentQuestionItem : AgentInteractionItem
         if (!CanAdvance || CurrentQuestion is not { } current)
             return;
         current.IsSkipped = false;
+        MoveNext();
+    }
+
+    private void MoveNext()
+    {
         if (_step + 1 < Questions.Count)
             GoTo(_step + 1);
         else
@@ -151,12 +153,13 @@ internal sealed class AgentQuestionItem : AgentInteractionItem
     private void GoTo(int step)
     {
         _step = step;
-        Notify(nameof(CurrentQuestion));
-        Notify(nameof(StepLabel));
-        Notify(nameof(CanGoBack));
-        Notify(nameof(CanSkip));
-        Notify(nameof(CanAdvance));
-        Notify(nameof(AdvanceLabel));
+        Notify(
+            nameof(CurrentQuestion),
+            nameof(StepLabel),
+            nameof(CanGoBack),
+            nameof(CanSkip),
+            nameof(CanAdvance),
+            nameof(AdvanceLabel));
     }
 
     private void Submit()
@@ -182,8 +185,7 @@ internal sealed class AgentQuestionItem : AgentInteractionItem
                     .SelectMany(question => answers[question.Id]).Select(answer => answer.Split(['\r', '\n'], 2)[0].Trim()));
                 Resolve(AgentStrings.Answered, Icon.Checkmark, summary);
             }
-            Notify(nameof(CanSkip));
-            Notify(nameof(CanAdvance));
+            Notify(nameof(CanSkip), nameof(CanAdvance));
             ClearSecrets();
         }
     }
@@ -227,10 +229,10 @@ internal sealed class AgentQuestionAnswer : AgentBindable
     public bool IsSkipped { get; set => Set(ref field, value); }
     public IReadOnlyList<AgentQuestionChoice> Options { get; }
     public IReadOnlyList<AgentQuestionChoice> SingleOptions { get; }
-    public bool HasTextOnly => Options.Count == 0;
+    private bool HasTextOnly => Options.Count == 0;
     public bool HasSingleOptions => !HasTextOnly && !_question.MultiSelect;
     public bool HasMultiOptions => !HasTextOnly && _question.MultiSelect;
-    public bool AllowOther => !HasTextOnly && _question.IsOther;
+    private bool AllowOther => !HasTextOnly && _question.IsOther;
     public bool ShowMultiOther => HasMultiOptions && AllowOther;
     public bool ShowAnswerBox => HasTextOnly || (AllowOther && (HasMultiOptions ? OtherChecked : SelectedIndex == Options.Count));
     public char PasswordChar => IsSecret ? '•' : '\0';
@@ -285,8 +287,7 @@ internal sealed class AgentQuestionAnswer : AgentBindable
     private void AnswerChanged()
     {
         IsSkipped = false;
-        Notify(nameof(ShowAnswerBox));
-        Notify(nameof(HasAnswer));
+        Notify(nameof(ShowAnswerBox), nameof(HasAnswer));
     }
 }
 

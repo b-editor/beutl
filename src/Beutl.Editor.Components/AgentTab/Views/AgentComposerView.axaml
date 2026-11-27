@@ -37,7 +37,7 @@
                                         </Button>
                                         <StackPanel Orientation="Vertical" Spacing="3" Margin="6,0"
                                                     HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding !HasThumbnail}">
-                                            <icons:FluentIcon Classes="agent-attachment-icon" Icon="{Binding Icon}" FontSize="23" HorizontalAlignment="Center"
+                                            <icons:FluentIcon Icon="{Binding Icon}" FontSize="23" HorizontalAlignment="Center"
                                                               Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
                                             <TextBlock Text="{Binding Detail}" Classes="agent-caption" FontSize="10" TextTrimming="CharacterEllipsis"
                                                        TextAlignment="Center"
@@ -156,7 +156,7 @@
                     <Button x:Name="SendButton" Classes="accent" Width="30" Height="30" Padding="0"
                             Command="{Binding SendAsync}" IsEnabled="{Binding CanSend}" IsVisible="{Binding ShowSendButton}"
                             ToolTip.Tip="{Binding SendTooltip}" AutomationProperties.Name="{Binding SendLabel}">
-                        <icons:FluentIcon Icon="{Binding SendIcon}" FontSize="16" />
+                        <icons:FluentIcon Icon="ArrowUp" FontSize="16" />
                     </Button>
                 </Panel>
             </Grid>

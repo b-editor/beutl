@@ -11,6 +11,7 @@ namespace Beutl.Editor.Components.AgentTab.Views;
 internal sealed partial class AgentModelPickerView : UserControl
 {
     private AgentTabViewModel? _viewModel;
+    private bool _attached;
     private bool _syncingSelection;
 
     public AgentModelPickerView()
@@ -37,9 +38,31 @@ internal sealed partial class AgentModelPickerView : UserControl
     protected override void OnDataContextChanged(EventArgs e)
     {
         base.OnDataContextChanged(e);
+        if (_attached)
+            AttachViewModel(DataContext as AgentTabViewModel);
+    }
+
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        _attached = true;
+        AttachViewModel(DataContext as AgentTabViewModel);
+    }
+
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        _attached = false;
+        AttachViewModel(null);
+        base.OnDetachedFromVisualTree(e);
+    }
+
+    private void AttachViewModel(AgentTabViewModel? viewModel)
+    {
+        if (ReferenceEquals(_viewModel, viewModel))
+            return;
         if (_viewModel is not null)
             _viewModel.PropertyChanged -= OnViewModelPropertyChanged;
-        _viewModel = DataContext as AgentTabViewModel;
+        _viewModel = viewModel;
         if (_viewModel is not null)
             _viewModel.PropertyChanged += OnViewModelPropertyChanged;
         SyncSelections();
@@ -49,7 +72,7 @@ internal sealed partial class AgentModelPickerView : UserControl
     {
         if (e.PropertyName is nameof(AgentTabViewModel.ModelRows) or nameof(AgentTabViewModel.SelectedModelRow)
             or nameof(AgentTabViewModel.ModelEfforts) or nameof(AgentTabViewModel.SelectedEffortRow)
-            or null)
+            or null or "")
         {
             SyncSelections();
         }

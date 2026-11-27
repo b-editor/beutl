@@ -135,6 +135,8 @@ export type TimelineEvent = ScopedEvent
     | { type: "sessionStateChanged"; state: "open" | "closed"; externalSessionId?: string }
     | { type: "errorNotice"; message: string };
 
+export const CLIENT_INFO = { name: "beutl", title: "Beutl", version: "1" };
+
 export interface AdapterHost {
     readonly options: SessionOptions;
     saveSessionId(id: string): void;
@@ -145,6 +147,7 @@ export interface AdapterHost {
 
 export interface Adapter {
     open(): Promise<void>;
+    listModels(providerId: string): ModelDescriptor[] | Promise<ModelDescriptor[]>;
     listSuggestions(): Promise<ComposerSuggestion[]>;
     run(turn: Turn): Promise<TurnResult>;
     compact?(turn: Turn): Promise<CompactionResult>;
@@ -311,6 +314,15 @@ export function contentOutputs(value: unknown): ToolOutput[] | undefined {
         }
     }
     return outputs.length ? outputs : undefined;
+}
+
+export function findMcpServerName(servers: readonly McpSpec[], toolName?: string | null): string | undefined {
+    if (!toolName) return undefined;
+    return servers.find(server => toolName.startsWith("mcp__" + server.name + "__"))?.name;
+}
+
+export function isAllowed(decision: Decision): boolean {
+    return decision === "allowOnce" || decision === "allowAlways";
 }
 
 export function planStatus(status: string): "pending" | "inProgress" | "completed" {

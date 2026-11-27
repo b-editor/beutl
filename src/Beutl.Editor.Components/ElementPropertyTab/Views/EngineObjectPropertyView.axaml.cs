@@ -1,4 +1,5 @@
-﻿using Avalonia;
+﻿using System.Diagnostics.CodeAnalysis;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
@@ -20,18 +21,31 @@ namespace Beutl.Editor.Components.ElementPropertyTab.Views;
 
 public sealed partial class EngineObjectPropertyView : UserControl
 {
+    private bool TryGetAgentTarget([NotNullWhen(true)] out IEditorContext? editor, [NotNullWhen(true)] out EngineObject? obj)
+    {
+        if (DataContext is EngineObjectPropertyViewModel { Model: { } model } viewModel
+            && model.FindHierarchicalParent<Scene>() is not null
+            && viewModel.GetService<IEditorContext>() is { } context)
+        {
+            editor = context;
+            obj = model;
+            return true;
+        }
+
+        editor = null;
+        obj = null;
+        return false;
+    }
+
     private void ObjectMenu_Opening(object? sender, EventArgs e)
     {
-        sendToAgent.IsEnabled = DataContext is EngineObjectPropertyViewModel { Model: { } obj } viewModel
-            && obj.FindHierarchicalParent<Scene>() is not null
-            && AgentComposerLauncher.IsAvailable(viewModel.GetService<IEditorContext>());
+        sendToAgent.IsEnabled = TryGetAgentTarget(out var editor, out _)
+            && AgentComposerLauncher.IsAvailable(editor);
     }
 
     private async void SendToAgent_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is EngineObjectPropertyViewModel { Model: { } obj } viewModel
-            && obj.FindHierarchicalParent<Scene>() is not null
-            && viewModel.GetService<IEditorContext>() is { } editor)
+        if (TryGetAgentTarget(out var editor, out var obj))
             await AgentComposerLauncher.SendObjectAsync(editor, obj);
     }
 

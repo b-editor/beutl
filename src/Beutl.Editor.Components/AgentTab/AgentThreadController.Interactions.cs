@@ -13,7 +13,6 @@ internal sealed partial class AgentThreadController
     private readonly Dictionary<string, int> _requestOrder = new(StringComparer.Ordinal);
 
     public ReadOnlyObservableCollection<AgentPermissionItem> PendingPermissions { get; }
-    public ReadOnlyObservableCollection<AgentQuestionItem> PendingQuestions { get; }
     public int ActivePermissionIndex { get; private set; }
     public AgentPermissionItem? ActivePermission => _permissions.ElementAtOrDefault(ActivePermissionIndex);
     public AgentQuestionItem? ActiveQuestion => _questions.FirstOrDefault();

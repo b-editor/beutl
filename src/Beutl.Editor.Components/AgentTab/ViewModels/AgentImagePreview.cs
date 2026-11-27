@@ -7,6 +7,8 @@ namespace Beutl.Editor.Components.AgentTab.ViewModels;
 internal sealed class AgentImagePreview(Bitmap thumbnail, string caption, string? path, Func<Bitmap?> load) : IDisposable
 {
     private const long MaxToolImageBytes = 16 * 1024 * 1024;
+    private const int MaxToolThumbnailWidth = 320;
+    private const int MaxToolThumbnailHeight = 240;
 
     public Bitmap Thumbnail { get; } = thumbnail;
     public string Caption { get; } = caption;
@@ -21,7 +23,10 @@ internal sealed class AgentImagePreview(Bitmap thumbnail, string caption, string
             ? new(bitmap, caption, path, () => canOpen?.Invoke(path) != false ? LoadFile(path) : null)
             : null;
 
-    public static Bitmap? LoadFile(string path) => Decode(() => File.OpenRead(path), AgentAttachment.MaxImageBytes);
+    public static Bitmap? LoadFile(string path) => DecodeFile(path);
+
+    internal static Bitmap? DecodeFile(string path, int? maxWidth = null, int? maxHeight = null)
+        => Decode(() => File.OpenRead(path), AgentAttachment.MaxImageBytes, maxWidth, maxHeight);
 
     public static AgentImagePreview? FromToolOutput(AgentToolOutput output, string caption)
     {
@@ -35,12 +40,12 @@ internal sealed class AgentImagePreview(Bitmap thumbnail, string caption, string
                 ? new MemoryStream(Convert.FromBase64String(data), writable: false) : null;
         }
 
-        return Decode(Open, MaxToolImageBytes, thumbnail: true) is { } bitmap
+        return Decode(Open, MaxToolImageBytes, MaxToolThumbnailWidth, MaxToolThumbnailHeight) is { } bitmap
             ? new AgentImagePreview(bitmap, caption, path, () => Decode(Open, MaxToolImageBytes))
             : null;
     }
 
-    private static Bitmap? Decode(Func<Stream?> open, long maxBytes, bool thumbnail = false)
+    private static Bitmap? Decode(Func<Stream?> open, long maxBytes, int? maxWidth = null, int? maxHeight = null)
     {
         try
         {
@@ -48,12 +53,14 @@ internal sealed class AgentImagePreview(Bitmap thumbnail, string caption, string
             if (stream is null)
                 return null;
             var (width, height) = AiImageDecodeValidator.ValidateEncoded(stream, maxBytes);
-            const int maxWidth = 320;
-            const int maxHeight = 240;
-            if (!thumbnail || (width <= maxWidth && height <= maxHeight))
+            if (maxWidth is null && maxHeight is null)
                 return new Bitmap(stream);
-            return (double)width / maxWidth >= (double)height / maxHeight
-                ? Bitmap.DecodeToWidth(stream, maxWidth) : Bitmap.DecodeToHeight(stream, maxHeight);
+            int limitWidth = maxWidth ?? int.MaxValue;
+            int limitHeight = maxHeight ?? int.MaxValue;
+            if (width <= limitWidth && height <= limitHeight)
+                return new Bitmap(stream);
+            return (double)width / limitWidth >= (double)height / limitHeight
+                ? Bitmap.DecodeToWidth(stream, limitWidth) : Bitmap.DecodeToHeight(stream, limitHeight);
         }
         catch (Exception ex) when (ex is IOException or InvalidDataException or FormatException or ArgumentException
             or UnauthorizedAccessException or InvalidOperationException or NotSupportedException)

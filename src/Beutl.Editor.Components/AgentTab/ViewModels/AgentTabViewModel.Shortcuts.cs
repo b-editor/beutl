@@ -15,7 +15,7 @@ internal sealed partial class AgentTabViewModel
     public string ThreadPickerTooltip => HasBackgroundThreadActivity
         ? $"{FormatPrimaryShortcut(ThreadTitle, "K")}\n{AgentStrings.BackgroundThreadActivity}"
         : FormatPrimaryShortcut(ThreadTitle, "K");
-    public string ModelPickerTooltip => FormatPrimaryShortcut(ProviderTooltip, "M");
+    public string ModelPickerTooltip => FormatPrimaryShortcut(ProviderStatusLabel, "M");
     public string PermissionModeTooltip => string.Format(AgentStrings.ShortcutTooltip, SelectedPermissionMode.Label, "Shift+Tab");
     public string StopTooltip => string.Format(AgentStrings.ShortcutTooltip, AgentStrings.Stop, AgentStrings.StopShortcutKeys);
 

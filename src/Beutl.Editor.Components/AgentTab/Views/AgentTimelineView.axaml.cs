@@ -1,10 +1,8 @@
 ﻿using Avalonia.Controls;
-using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
 using Beutl.Editor.Components.AgentTab.ViewModels;
 using Beutl.Logging;
-using Beutl.Utilities;
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.Editor.Components.AgentTab.Views;
@@ -23,18 +21,8 @@ internal sealed partial class AgentTimelineView : UserControl
 
     private async void OnCopyMessage(object? sender, RoutedEventArgs e)
     {
-        if (sender is Button { DataContext: AgentMessageItem item }
-            && TopLevel.GetTopLevel(this)?.Clipboard is { } clipboard)
-        {
-            try
-            {
-                await clipboard.SetTextAsync(item.Text);
-            }
-            catch (Exception ex) when (!ExceptionHelpers.ContainsFatalFailure(ex))
-            {
-                s_logger.LogWarning(ex, "Could not copy the agent message to the clipboard.");
-            }
-        }
+        if (sender is Button { DataContext: AgentMessageItem item })
+            await AgentClipboardHelper.TryCopyTextAsync(this, item.Text, s_logger, "Could not copy the agent message to the clipboard.");
     }
 
     private async void OnEditMessage(object? sender, RoutedEventArgs e)

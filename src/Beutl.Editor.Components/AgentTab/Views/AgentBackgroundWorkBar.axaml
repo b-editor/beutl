@@ -9,7 +9,7 @@
              x:DataType="vm:AgentTabViewModel">
     <UserControl.Resources>
         <DataTemplate x:Key="WorkBarSection" x:DataType="agent:AgentBackgroundWorkGroup">
-            <Button Classes="agent-work-section" Theme="{StaticResource TransparentButton}" Click="OnOpenWork"
+            <Button Theme="{StaticResource TransparentButton}" Click="OnOpenWork"
                     HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Padding="7,0" MinHeight="32"
                     AutomationProperties.Name="{Binding Label}" ToolTip.Tip="{Binding Summary}">
                 <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="4">

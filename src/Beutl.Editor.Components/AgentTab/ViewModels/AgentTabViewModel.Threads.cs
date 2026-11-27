@@ -1,13 +1,10 @@
-﻿using System.Text.RegularExpressions;
-using Beutl.Agents;
+﻿using Beutl.Agents;
 using Microsoft.Extensions.Logging;
-using System.Resources;
 
 namespace Beutl.Editor.Components.AgentTab.ViewModels;
 
 internal sealed partial class AgentTabViewModel
 {
-    private static readonly ResourceManager s_agentResources = new("Beutl.Language.AgentStrings", typeof(AgentStrings).Assembly);
     private AgentThreadRow[] _threadRows = [];
     private Guid? _deletedSelection;
     private CancellationTokenSource? _threadSearchCancellation;
@@ -53,9 +50,9 @@ internal sealed partial class AgentTabViewModel
         if (_selectedThread is not { } thread)
             return;
         var entries = await _host.Runtime.LoadTimelineAsync(_projectPath, thread.Id, ct);
-        var title = entries.OfType<AgentUserMessage>().Select(message => MakeTitle(message.Text)).FirstOrDefault(title => title is not null)
+        var title = entries.OfType<AgentUserMessage>().Select(message => AgentThreadTitleGenerator.MakeTitle(message.Text)).FirstOrDefault(title => title is not null)
             ?? entries.OfType<AgentAssistantMessageCompleted>().Where(message => message.ParentToolCallId is null)
-                .Select(message => MakeTitle(message.Text)).FirstOrDefault(title => title is not null);
+                .Select(message => AgentThreadTitleGenerator.MakeTitle(message.Text)).FirstOrDefault(title => title is not null);
         if (title is not null && title != thread.Title)
             ReplaceThread(await _host.Runtime.RenameThreadAsync(_projectPath, thread.Id, title, ct));
     });
@@ -63,7 +60,7 @@ internal sealed partial class AgentTabViewModel
     public Task ForkThreadAsync() => ManageAsync(async ct =>
     {
         if (_controller is { } controller && _selectedThread is { } source
-            && await controller.ForkThreadAsync(null, ForkTitle(source.Title), true, ct) is { } fork)
+            && await controller.ForkThreadAsync(null, AgentThreadTitleGenerator.ForkTitle(source.Title), true, ct) is { } fork)
             await LoadThreadAsync(fork, ct);
     });
 
@@ -83,8 +80,7 @@ internal sealed partial class AgentTabViewModel
         if (!RecentThreads.SequenceEqual(recent))
             RecentThreads = recent;
         FilterThreadRows();
-        Notify(nameof(HasBackgroundThreadActivity));
-        Notify(nameof(ThreadPickerTooltip));
+        Notify(nameof(HasBackgroundThreadActivity), nameof(ThreadPickerTooltip));
     }
 
     private string ProviderDisplayName(string id)
@@ -159,8 +155,7 @@ internal sealed partial class AgentTabViewModel
     private void OnThreadStateChanged(Guid threadId)
     {
         _threadRows.FirstOrDefault(row => row.Thread.Id == threadId)?.UpdateState(_sessions.Find(threadId));
-        Notify(nameof(HasBackgroundThreadActivity));
-        Notify(nameof(ThreadPickerTooltip));
+        Notify(nameof(HasBackgroundThreadActivity), nameof(ThreadPickerTooltip));
         UpdateNotificationHeader();
     }
 
@@ -240,42 +235,6 @@ internal sealed partial class AgentTabViewModel
                 _ = ManageAsync(ct => LoadThreadAsync(RecentThreads.FirstOrDefault()?.Thread, ct));
         }
     }
-
-    private static bool IsPlaceholderTitle(string text)
-    {
-        if (string.IsNullOrWhiteSpace(text) || text == AgentStrings.PastedText)
-            return true;
-        return new[] { "", "ja", "es", "ko-KR", "zh-CN" }.Any(locale =>
-            string.Equals(text, s_agentResources.GetString(nameof(AgentStrings.NewThread), CultureInfo.GetCultureInfo(locale)),
-                StringComparison.OrdinalIgnoreCase));
-    }
-
-    private static string? MakeTitle(string text)
-    {
-        bool inFence = false;
-        foreach (string raw in text.ReplaceLineEndings("\n").Split('\n'))
-        {
-            string line = raw.Trim();
-            if (line.StartsWith("```", StringComparison.Ordinal) || line.StartsWith("~~~", StringComparison.Ordinal))
-            {
-                inFence = !inFence;
-                continue;
-            }
-            if (inFence || line.StartsWith('/') || line.StartsWith('$') || line.StartsWith('@') && !line.Contains(' '))
-                continue;
-            line = Regex.Replace(line, @"^\s*(?:#{1,6}\s+|>\s*|[-+*]\s+|\d+[.)]\s+)+", "");
-            line = Regex.Replace(line, @"!?\[([^\]]*)\]\([^\r\n)]*\)", "$1");
-            line = Regex.Replace(line, @"(?<!\S)(?:https?://\S+|[$@][\p{L}\p{N}_.:-]+)(?=\s|$)", "");
-            line = Regex.Replace(line.Replace("`", "").Replace("**", "").Replace("__", "").Replace("~~", ""), @"\s+", " ")
-                .Trim(' ', '*', '_', '-', '.', '!', '?', '。', '！', '？');
-            if (IsPlaceholderTitle(line) || Regex.IsMatch(line, @"^(?:hi|hello|hey|test|hola|prueba|こんにちは|テスト|안녕하세요|你好|测试)$",
-                RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))
-                continue;
-            int[] characters = StringInfo.ParseCombiningCharacters(line);
-            return characters.Length > 60 ? line[..characters[59]].TrimEnd() + "…" : line;
-        }
-        return null;
-    }
 }
 
 internal sealed class AgentThreadRow(AgentThreadMetadata thread, string providerName, bool selected) : AgentBindable
@@ -301,11 +260,7 @@ internal sealed class AgentThreadRow(AgentThreadMetadata thread, string provider
         ProviderName = provider;
         IsSelected = isSelected;
         if (threadChanged)
-        {
-            Notify(nameof(PinLabel));
-            Notify(nameof(ArchiveLabel));
-            Notify(nameof(UpdatedAt));
-        }
+            Notify(nameof(PinLabel), nameof(ArchiveLabel), nameof(UpdatedAt));
         if (threadChanged || selectionChanged)
             Notify(nameof(IsUnread));
     }

@@ -29,7 +29,7 @@ internal sealed partial class AgentTabViewModel
     public bool ShowStandaloneLiveStatus => ShowLiveStatus && !_workSections.Values.Any(section => section.Header.IsRunning);
     public bool CanActOnMessages => CanManage && _controller?.CanConfigure == true;
     public AgentPermissionItem? ActivePermission => _controller?.ActivePermission;
-    public int ActivePermissionIndex => _controller?.ActivePermissionIndex ?? 0;
+    private int ActivePermissionIndex => _controller?.ActivePermissionIndex ?? 0;
     public IReadOnlyList<AgentPermissionItem> PendingPermissions => _controller is { } controller ? controller.PendingPermissions : [];
     public bool HasActivePermission => ActivePermission is not null;
     public bool HasMultiplePermissions => PendingPermissions.Count > 1;
@@ -38,7 +38,6 @@ internal sealed partial class AgentTabViewModel
     public bool CanShowPreviousPermission => ActivePermissionIndex > 0;
     public bool CanShowNextPermission => ActivePermissionIndex + 1 < PendingPermissions.Count;
     public AgentQuestionItem? ActiveQuestion => _controller?.ActiveQuestion;
-    public IReadOnlyList<AgentQuestionItem> PendingQuestions => _controller is { } controller ? controller.PendingQuestions : [];
     public bool HasActiveQuestion => ActiveQuestion is not null;
     public bool ShowQuestionCard => !HasActivePermission && HasActiveQuestion;
     public bool ShowComposer => !HasActivePermission && !HasActiveQuestion;
@@ -49,20 +48,6 @@ internal sealed partial class AgentTabViewModel
     public bool CanReorderQueuedMessages => CanManageQueue && QueuedMessages.Count > 1;
     public bool CanPromoteQueuedMessage => CanManageQueue && _controller?.IsStopping == false;
     public bool CanEditQueuedMessage => CanManageQueue && ShowComposer && string.IsNullOrWhiteSpace(Prompt) && _attachments.Count == 0;
-
-    internal async Task OpenMarkdownLinkAsync(AgentMarkdownLink link)
-    {
-        if (_disposed) return;
-        var ct = _lifetime.Token;
-        try
-        {
-            if (!await _host.TryOpenMarkdownLinkAsync(_editor, _projectPath, link, ct) && !ct.IsCancellationRequested)
-                _editor.GetService<INotificationService>()?.ShowWarning(AgentStrings.Title, AgentStrings.LinkUnavailable);
-        }
-        catch (OperationCanceledException) when (ct.IsCancellationRequested)
-        {
-        }
-    }
     public string PromoteQueuedMessageLabel => IsRunning ? AgentStrings.SteerNow : AgentStrings.SendQueuedMessage;
 
     public void PreviousPermission() => _controller?.NavigatePermission(-1);
@@ -89,11 +74,7 @@ internal sealed partial class AgentTabViewModel
         {
             if (!controller.RemoveQueuedMessage(message))
                 return;
-            Prompt = message.Text;
-            RestoreAcceptedMentions(message.Mentions);
-            IncludeSceneContext = message.IncludeSceneContext;
-            foreach (var attachment in message.Attachments)
-                await AddAttachmentAsync(attachment, ct);
+            await ApplyComposerDraftAsync(message.Text, message.Mentions, message.IncludeSceneContext, message.Attachments, ct);
         });
     }
 
@@ -111,17 +92,15 @@ internal sealed partial class AgentTabViewModel
             return Task.CompletedTask;
         return ManageAsync(async ct =>
         {
-            var fork = await controller.ForkThreadAsync(turnId, ForkTitle(source.Title), includeTurn, ct);
+            var fork = await controller.ForkThreadAsync(turnId, AgentThreadTitleGenerator.ForkTitle(source.Title), includeTurn, ct);
             if (fork is null)
                 return;
             await LoadThreadAsync(fork, ct);
             if (!includeTurn && item is AgentUserItem user)
             {
-                Prompt = user.Text;
-                RestoreAcceptedMentions(user.Entry.Mentions);
-                IncludeSceneContext = user.Entry.IncludeSceneContext ?? true;
-                foreach (var attachment in user.Entry.Attachments ?? [])
-                    await AddAttachmentAsync(new AgentAttachedFile(attachment.Path, attachment.MediaType), ct);
+                var files = (user.Entry.Attachments ?? [])
+                    .Select(attachment => new AgentAttachedFile(attachment.Path, attachment.MediaType));
+                await ApplyComposerDraftAsync(user.Text, user.Entry.Mentions, user.Entry.IncludeSceneContext ?? true, files, ct);
                 await SaveDraftAsync();
             }
         });
@@ -142,7 +121,7 @@ internal sealed partial class AgentTabViewModel
             {
                 await controller.RewindTurnAsync(turnId, ct, retry);
             }
-            else if (await controller.ForkThreadAsync(turnId, ForkTitle(source.Title), includeTurn: false, ct) is { } fork)
+            else if (await controller.ForkThreadAsync(turnId, AgentThreadTitleGenerator.ForkTitle(source.Title), includeTurn: false, ct) is { } fork)
             {
                 await LoadThreadAsync(fork, ct);
                 _ = _controller?.SubmitAsync(retry);
@@ -150,7 +129,19 @@ internal sealed partial class AgentTabViewModel
         });
     }
 
-    private static string ForkTitle(string title) => string.Format(CultureInfo.CurrentCulture, AgentStrings.ForkedThreadTitle, title);
+    internal async Task OpenMarkdownLinkAsync(AgentMarkdownLink link)
+    {
+        if (_disposed) return;
+        var ct = _lifetime.Token;
+        try
+        {
+            if (!await _host.TryOpenMarkdownLinkAsync(_editor, _projectPath, link, ct) && !ct.IsCancellationRequested)
+                _editor.GetService<INotificationService>()?.ShowWarning(AgentStrings.Title, AgentStrings.LinkUnavailable);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+        }
+    }
 
     private void AttachController(AgentThreadController? controller)
     {
@@ -165,6 +156,8 @@ internal sealed partial class AgentTabViewModel
         UpdateThreadViewer();
         _timeline.Clear();
         _workSections.Clear();
+        if (_disposed)
+            return;
         if (controller is not null)
         {
             foreach (var item in controller.Timeline)
@@ -178,8 +171,7 @@ internal sealed partial class AgentTabViewModel
             controller.PropertyChanged += OnControllerChanged;
         }
         SyncDisplayTimeline();
-        Notify(nameof(BackgroundCommands));
-        Notify(nameof(Subagents));
+        Notify(nameof(BackgroundCommands), nameof(Subagents));
         OnTranscriptChanged(null, new PropertyChangedEventArgs(null));
         OnControllerChanged(null, new PropertyChangedEventArgs(null));
     }
@@ -307,20 +299,20 @@ internal sealed partial class AgentTabViewModel
             return;
         }
         UpdateDiagnostic();
-        Notify(nameof(ShowLiveStatus));
-        Notify(nameof(ShowStandaloneLiveStatus));
-        Notify(nameof(ActivePermission));
-        Notify(nameof(PendingPermissions));
-        Notify(nameof(HasActivePermission));
-        Notify(nameof(HasMultiplePermissions));
-        Notify(nameof(PermissionQueuePosition));
-        Notify(nameof(CanShowPreviousPermission));
-        Notify(nameof(CanShowNextPermission));
-        Notify(nameof(ActiveQuestion));
-        Notify(nameof(PendingQuestions));
-        Notify(nameof(HasActiveQuestion));
-        Notify(nameof(ShowQuestionCard));
-        Notify(nameof(ShowComposer));
+        Notify(
+            nameof(ShowLiveStatus),
+            nameof(ShowStandaloneLiveStatus),
+            nameof(ActivePermission),
+            nameof(PendingPermissions),
+            nameof(HasActivePermission),
+            nameof(HasMultiplePermissions),
+            nameof(PermissionQueuePosition),
+            nameof(CanShowPreviousPermission),
+            nameof(CanShowNextPermission),
+            nameof(ActiveQuestion),
+            nameof(HasActiveQuestion),
+            nameof(ShowQuestionCard),
+            nameof(ShowComposer));
         NotifyAvailability();
     }
 
@@ -332,35 +324,31 @@ internal sealed partial class AgentTabViewModel
         {
             Notify(name);
             if (name == nameof(IsCompacting))
-            {
-                Notify(nameof(ShowLiveStatus));
-                Notify(nameof(ShowStandaloneLiveStatus));
-            }
+                Notify(nameof(ShowLiveStatus), nameof(ShowStandaloneLiveStatus));
         }
         else
         {
-            Notify(nameof(HasSubagents));
-            Notify(nameof(HasBackgroundWork));
-            Notify(nameof(BackgroundWorkCount));
-            Notify(nameof(LiveStatus));
-            Notify(nameof(LiveStatusIcon));
-            Notify(nameof(IsCompacting));
-            Notify(nameof(ShowLiveStatus));
-            Notify(nameof(ShowStandaloneLiveStatus));
+            Notify(
+                nameof(HasSubagents),
+                nameof(HasBackgroundWork),
+                nameof(BackgroundWorkCount),
+                nameof(LiveStatus),
+                nameof(LiveStatusIcon),
+                nameof(IsCompacting),
+                nameof(ShowLiveStatus),
+                nameof(ShowStandaloneLiveStatus));
             NotifyContextMeter();
         }
     }
 
-    private void NotifyQueue()
-    {
-        Notify(nameof(QueuedMessages));
-        Notify(nameof(HasQueuedMessages));
-        Notify(nameof(CanManageQueue));
-        Notify(nameof(CanReorderQueuedMessages));
-        Notify(nameof(CanPromoteQueuedMessage));
-        Notify(nameof(CanEditQueuedMessage));
-        Notify(nameof(PromoteQueuedMessageLabel));
-    }
+    private void NotifyQueue() => Notify(
+        nameof(QueuedMessages),
+        nameof(HasQueuedMessages),
+        nameof(CanManageQueue),
+        nameof(CanReorderQueuedMessages),
+        nameof(CanPromoteQueuedMessage),
+        nameof(CanEditQueuedMessage),
+        nameof(PromoteQueuedMessageLabel));
 
     private void UpdateRevertButtons()
     {

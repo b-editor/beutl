@@ -64,8 +64,15 @@ internal sealed class AgentWorkerHost
         catch (OperationCanceledException) when (method == "session/open")
         {
             var threadId = parameters!.Value.GetProperty("threadId");
-            await node.InvokeAsync(AgentJson.ToElement(new { method = "session/close", @params = new { threadId } }))
-                .ConfigureAwait(false);
+            try
+            {
+                await node.InvokeAsync(AgentJson.ToElement(new { method = "session/close", @params = new { threadId } }))
+                    .ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine(ex.Message);
+            }
             try
             {
                 await running.ConfigureAwait(false);

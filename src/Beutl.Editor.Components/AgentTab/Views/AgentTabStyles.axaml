@@ -198,12 +198,6 @@
         <Setter Property="Height" Value="1" />
         <Setter Property="Background" Value="{DynamicResource DividerStrokeColorDefaultBrush}" />
     </Style>
-    <Style Selector="TextBlock.agent-request-label">
-        <Setter Property="FontSize" Value="10.5" />
-        <Setter Property="FontWeight" Value="SemiBold" />
-        <Setter Property="LetterSpacing" Value="0.7" />
-        <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
-    </Style>
     <Style Selector="icons|FluentIcon.agent-status">
         <Setter Property="FontSize" Value="13" />
         <Setter Property="Foreground" Value="{DynamicResource TextFillColorTertiaryBrush}" />
