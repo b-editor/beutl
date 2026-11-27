@@ -152,6 +152,27 @@ public sealed class DuckingAudioTests
     }
 
     [AvaloniaTest]
+    public void Ducking_before_pitch_shift_keeps_the_music_lowered_across_composition_blocks()
+    {
+        using var fixture = new WaveScene(first: _ => 0.40f, second: _ => 0f);
+        var effects = new AudioEffectGroup();
+        fixture.Music.Effect.Value = effects;
+        effects.Children.Add(fixture.Ducking);
+        effects.Children.Add(new PitchShiftEffect { Semitones = { Value = 12f } });
+
+        var (chunked, _) = RenderPreview(fixture.Scene);
+        var (whole, _) = RenderPreview(fixture.Scene, blockSize: Frames(DurationMs));
+
+        var steadyMusic = chunked[Frames(MusicStartMs + AttackMs)..Frames(900)];
+        Assert.Multiple(() =>
+        {
+            Assert.That(steadyMusic.Min(), Is.EqualTo(s_duckedLevel).Within(1e-6f));
+            Assert.That(steadyMusic.Max(), Is.EqualTo(s_duckedLevel).Within(1e-6f));
+            AssertBits(chunked, whole);
+        });
+    }
+
+    [AvaloniaTest]
     [TestCase(SampleRate, null)]
     [TestCase(44100, null)]
     [TestCase(SampleRate, 200f)]

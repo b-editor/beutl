@@ -150,6 +150,7 @@ public sealed class AudioContext : IDisposable
         IAudioSampleRateConversionNode converter => converter.SourceSampleRate != sampleRate,
         ShiftNode shift => shift.ShiftsTime,
         ClipNode clip => clip.Start != MediaTime.Zero,
+        PitchShiftNode pitchShift => pitchShift.ReadsAhead,
         NoiseReductionNode => true,
         _ => false,
     };
