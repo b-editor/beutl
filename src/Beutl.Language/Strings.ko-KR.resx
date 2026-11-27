@@ -1565,6 +1565,36 @@ GetProperty&lt;T&gt;("path", time) 또는 GetProperty&lt;T&gt;(guid, "propertyNa
   <data name="EnterTemplateName" xml:space="preserve">
     <value>템플릿 이름 입력</value>
   </data>
+  <data name="TemplateInvalidName" xml:space="preserve">
+    <value>템플릿에 유효한 파일 이름을 지정하세요.</value>
+  </data>
+  <data name="TemplateInvalidId" xml:space="preserve">
+    <value>유효한 ID를 지정하세요.</value>
+  </data>
+  <data name="TemplateObjectSaveFailed" xml:space="preserve">
+    <value>Beutl에서 개체를 템플릿으로 저장할 수 없습니다.</value>
+  </data>
+  <data name="TemplateNotFound" xml:space="preserve">
+    <value>템플릿 '{0}'을 찾을 수 없습니다.</value>
+  </data>
+  <data name="TemplateInstantiationFailed" xml:space="preserve">
+    <value>템플릿 '{0}'에서 개체를 만들 수 없습니다.</value>
+  </data>
+  <data name="TemplateObjectAmbiguous" xml:space="preserve">
+    <value>장면 문서에 ID가 '{0}'인 개체가 여러 개 있습니다.</value>
+  </data>
+  <data name="TemplateObjectNotFound" xml:space="preserve">
+    <value>장면 문서에 ID가 '{0}'인 개체가 없습니다.</value>
+  </data>
+  <data name="TemplateTypeMismatch" xml:space="preserve">
+    <value>템플릿 형식 '{0}'은 속성 '{1}'에 맞지 않습니다. 이 속성에는 '{2}' 형식이 필요합니다.</value>
+  </data>
+  <data name="TemplateIndexOutOfRange" xml:space="preserve">
+    <value>'{1}'에는 0부터 {0}까지의 인덱스를 지정하세요.</value>
+  </data>
+  <data name="TemplateInvalidProperty" xml:space="preserve">
+    <value>'{0}'에 템플릿을 적용하려면 교체할 개체 속성 또는 개체 목록과 삽입 인덱스를 지정하세요.</value>
+  </data>
   <data name="Preset_YouTube_1080p60" xml:space="preserve">
     <value>YouTube 1080p 60fps</value>
   </data>

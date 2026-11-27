@@ -1565,6 +1565,36 @@ GetProperty&lt;T&gt;("path", time) 或 GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="EnterTemplateName" xml:space="preserve">
     <value>输入模板名称</value>
   </data>
+  <data name="TemplateInvalidName" xml:space="preserve">
+    <value>请为模板指定有效的文件名。</value>
+  </data>
+  <data name="TemplateInvalidId" xml:space="preserve">
+    <value>请指定有效的 ID。</value>
+  </data>
+  <data name="TemplateObjectSaveFailed" xml:space="preserve">
+    <value>Beutl 无法将此对象保存为模板。</value>
+  </data>
+  <data name="TemplateNotFound" xml:space="preserve">
+    <value>找不到模板“{0}”。</value>
+  </data>
+  <data name="TemplateInstantiationFailed" xml:space="preserve">
+    <value>无法从模板“{0}”创建对象。</value>
+  </data>
+  <data name="TemplateObjectAmbiguous" xml:space="preserve">
+    <value>场景文档中有多个对象使用 ID“{0}”。</value>
+  </data>
+  <data name="TemplateObjectNotFound" xml:space="preserve">
+    <value>场景文档中没有 ID 为“{0}”的对象。</value>
+  </data>
+  <data name="TemplateTypeMismatch" xml:space="preserve">
+    <value>模板类型“{0}”与属性“{1}”不兼容。该属性需要类型“{2}”。</value>
+  </data>
+  <data name="TemplateIndexOutOfRange" xml:space="preserve">
+    <value>请为“{1}”指定 0 到 {0} 之间的索引。</value>
+  </data>
+  <data name="TemplateInvalidProperty" xml:space="preserve">
+    <value>要在“{0}”应用模板，请指定要替换的对象属性，或指定对象列表及其插入索引。</value>
+  </data>
   <data name="Preset_YouTube_1080p60" xml:space="preserve">
     <value>YouTube 1080p 60fps</value>
   </data>

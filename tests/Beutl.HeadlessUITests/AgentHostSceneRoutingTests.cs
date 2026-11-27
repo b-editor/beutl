@@ -49,7 +49,7 @@ public sealed class AgentHostSceneRoutingTests
                 "apply_edit", "read_document", "undo", "render_still", "add_scene", "save_project",
                 "split_elements", "slip_elements", "ripple_delete", "ripple_trim", "close_gap",
                 "duplicate_elements", "roll_elements", "slide_elements",
-                "split_on_silence", "find_gaps", "close_all_gaps"
+                "split_on_silence", "find_gaps", "close_all_gaps", "save_object_template", "apply_object_template"
             ];
             foreach (string name in sceneTools)
             {
@@ -152,6 +152,52 @@ public sealed class AgentHostSceneRoutingTests
         JsonObject status = Success(await client.CallToolAsync("read_operation_status"));
         Assert.That(status["hasActiveSession"]!.GetValue<bool>(), Is.False,
             "A new request must not inherit a previous call's scene binding.");
+    }
+
+    [AvaloniaTest]
+    public async Task Object_templates_can_be_saved_and_applied_in_a_background_scene()
+    {
+        (Scene first, Scene second, _) = await CreateScenesAsync();
+        var sourceBrush = new SolidColorBrush(Colors.Lime);
+        var originalBrush = new SolidColorBrush(Colors.Red);
+        AddRectangle(first, new SolidColorBrush(Colors.Blue));
+        AddRectangle(second, sourceBrush);
+        RectShape source = second.Children.Single().Objects.OfType<RectShape>().Single();
+        var target = new RectShape { Fill = { Value = originalBrush } };
+        second.Children.Single().AddObject(target);
+
+        await using var host = CreateHost();
+        await host.StartAsync();
+        await using McpClient client = await ConnectAsync(host);
+
+        var save = Target(first.Id.Value);
+        save["objectId"] = sourceBrush.Id.Value.ToString();
+        save["name"] = "Background brush";
+        AssertError(await client.CallToolAsync("save_object_template", save), ErrorCode.StaleHandle);
+
+        save["sceneId"] = second.Id.Value.ToString();
+        string templateId = Success(await client.CallToolAsync("save_object_template", save))["templateId"]!.GetValue<string>();
+        JsonObject listed = Success(await client.CallToolAsync("list_templates",
+            new Dictionary<string, object?> { ["baseType"] = "Brush" }));
+        Assert.That(listed["templates"]!.AsArray().Any(item => item!["templateId"]!.GetValue<string>() == templateId), Is.True);
+
+        var apply = Target(second.Id.Value);
+        apply["templateId"] = templateId;
+        apply["objectId"] = target.Id.Value.ToString();
+        apply["propertyName"] = nameof(target.Fill);
+        JsonObject applied = Success(await client.CallToolAsync("apply_object_template", apply));
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied["objectId"]!.GetValue<string>(), Is.EqualTo(target.Fill.Value!.Id.Value.ToString()));
+            Assert.That(((SolidColorBrush)target.Fill.Value!).Color.Value, Is.EqualTo(Colors.Lime));
+            Assert.That(source.Fill.Value, Is.SameAs(sourceBrush));
+            Assert.That(SelectedScene(), Is.SameAs(first));
+        });
+
+        JsonObject undone = Success(await client.CallToolAsync("undo", Target(second.Id.Value)));
+        Assert.That(undone["applied"]!.AsArray(), Has.Count.EqualTo(1));
+        Assert.That(target.Fill.Value, Is.SameAs(originalBrush));
+        Assert.That(SelectedScene(), Is.SameAs(first));
     }
 
     [AvaloniaTest]

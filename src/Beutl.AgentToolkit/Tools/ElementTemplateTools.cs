@@ -18,7 +18,7 @@ public sealed record ListElementTemplatesResponse(IReadOnlyList<ElementTemplateS
 public sealed record AddElementFromTemplateResponse(IReadOnlyList<string> CreatedElementIds);
 
 [McpServerToolType]
-public sealed class ElementTemplateTools(
+public sealed partial class ElementTemplateTools(
     AgentSessionManager sessions, ObjectTemplateService templates, GlobalConfiguration configuration) : ToolBase
 {
     [McpServerTool(Name = "list_element_templates", ReadOnly = true)]
@@ -37,32 +37,16 @@ public sealed class ElementTemplateTools(
         CancellationToken cancellationToken = default)
         => ExecuteAsync(async () =>
         {
-            string templateName = name?.Trim() ?? string.Empty;
-            if (templateName.Length == 0 || !ObjectTemplateService.IsValidTemplateName(templateName))
-                throw Invalid("Supply a valid file name for the template.", nameof(name));
-
+            string templateName = ReadTemplateName(name);
             IEditingSession session = sessions.RequireSession();
-            ObjectTemplateItem? saved;
-            if (session is LiveEditingSession live)
-            {
-                ValueTask<ObjectTemplateItem?> pending = await live.ExecuteHistoryMutationAsync(
-                    static _ => true, history => !history.IsEditing ? Save() : throw new UserEditingException(),
-                    cancellationToken, waitForEditSession: true).ConfigureAwait(false);
-                saved = await pending.ConfigureAwait(false);
-            }
-            else
-            {
-                saved = await session.ReadOnSession(Save).ConfigureAwait(false);
-            }
-
+            ObjectTemplateItem? saved = await SaveTemplateAsync(session, templateName, ResolveContent, cancellationToken)
+                .ConfigureAwait(false);
             return saved is not null
                 ? Summarize(saved)
                 : throw Invalid("Beutl could not save the element template.", nameof(name));
 
-            ValueTask<ObjectTemplateItem?> Save()
+            ICoreSerializable ResolveContent(Scene scene)
             {
-                cancellationToken.ThrowIfCancellationRequested();
-                Scene scene = RequireSceneRoot(session);
                 IReadOnlyList<Element> elements = elementIds is null && session is LiveEditingSession liveSession
                     ? liveSession.ElementTemplates.GetSelectedElements()
                     : ResolveElements(scene, elementIds);
@@ -75,8 +59,7 @@ public sealed class ElementTemplateTools(
                         protectedElement.Id.Value.ToString());
                 }
 
-                ICoreSerializable content = ElementTemplateResolver.CreateTemplateContent(scene, elements);
-                return templates.AddFromInstanceAsync(content, templateName, cancellationToken, session.Fonts);
+                return ElementTemplateResolver.CreateTemplateContent(scene, elements);
             }
         });
 
@@ -223,8 +206,36 @@ public sealed class ElementTemplateTools(
         };
     }
 
+    private async ValueTask<ObjectTemplateItem?> SaveTemplateAsync(
+        IEditingSession session, string name, Func<Scene, ICoreSerializable> resolveContent, CancellationToken cancellationToken)
+    {
+        if (session is LiveEditingSession live)
+        {
+            ValueTask<ObjectTemplateItem?> pending = await live.ExecuteHistoryMutationAsync(
+                static _ => true, history => !history.IsEditing ? Save() : throw new UserEditingException(),
+                cancellationToken, waitForEditSession: true).ConfigureAwait(false);
+            return await pending.ConfigureAwait(false);
+        }
+
+        return await session.ReadOnSession(Save).ConfigureAwait(false);
+
+        ValueTask<ObjectTemplateItem?> Save()
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return templates.AddFromInstanceAsync(resolveContent(RequireSceneRoot(session)), name, cancellationToken, session.Fonts);
+        }
+    }
+
+    private static string ReadTemplateName(string name)
+    {
+        string templateName = name?.Trim() ?? string.Empty;
+        return templateName.Length != 0 && ObjectTemplateService.IsValidTemplateName(templateName)
+            ? templateName
+            : throw Invalid(Strings.TemplateInvalidName, nameof(name));
+    }
+
     private static Guid ReadId(string value, string target)
-        => Guid.TryParse(value, out Guid id) && id != Guid.Empty ? id : throw Invalid("Supply a valid ID.", target);
+        => Guid.TryParse(value, out Guid id) && id != Guid.Empty ? id : throw Invalid(Strings.TemplateInvalidId, target);
 
     private static ReconcileException Invalid(string message, string target)
         => new(new ToolError(ErrorCode.ValidationRejected, message, target));

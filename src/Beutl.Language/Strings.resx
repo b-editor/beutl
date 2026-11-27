@@ -1646,6 +1646,36 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="EnterTemplateName" xml:space="preserve">
     <value>Enter template name</value>
   </data>
+  <data name="TemplateInvalidName" xml:space="preserve">
+    <value>Supply a valid file name for the template.</value>
+  </data>
+  <data name="TemplateInvalidId" xml:space="preserve">
+    <value>Supply a valid ID.</value>
+  </data>
+  <data name="TemplateObjectSaveFailed" xml:space="preserve">
+    <value>Beutl could not save the object as a template.</value>
+  </data>
+  <data name="TemplateNotFound" xml:space="preserve">
+    <value>Template '{0}' was not found.</value>
+  </data>
+  <data name="TemplateInstantiationFailed" xml:space="preserve">
+    <value>Template '{0}' could not create an object.</value>
+  </data>
+  <data name="TemplateObjectAmbiguous" xml:space="preserve">
+    <value>More than one object in the scene document has ID '{0}'.</value>
+  </data>
+  <data name="TemplateObjectNotFound" xml:space="preserve">
+    <value>The scene document has no object with ID '{0}'.</value>
+  </data>
+  <data name="TemplateTypeMismatch" xml:space="preserve">
+    <value>Template type '{0}' does not fit property '{1}', which requires '{2}'.</value>
+  </data>
+  <data name="TemplateIndexOutOfRange" xml:space="preserve">
+    <value>Supply a zero-based index from 0 to {0} for '{1}'.</value>
+  </data>
+  <data name="TemplateInvalidProperty" xml:space="preserve">
+    <value>To apply a template at '{0}', specify an object property for replacement or an object list with its insertion index.</value>
+  </data>
   <data name="Preset_YouTube_1080p60" xml:space="preserve">
     <value>YouTube 1080p 60fps</value>
   </data>

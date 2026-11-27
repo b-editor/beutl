@@ -11,6 +11,8 @@ namespace Beutl.AgentToolkit.Reconciliation;
 
 public sealed partial class Reconciler(Media.FontManager fonts)
 {
+    private const string DefaultHistoryName = "Agent edit";
+
     private static readonly HashSet<string> s_typedIdentityArrayNames = new(StringComparer.Ordinal)
     {
         "Elements",
@@ -140,10 +142,19 @@ public sealed partial class Reconciler(Media.FontManager fonts)
         ArgumentNullException.ThrowIfNull(session);
         ArgumentNullException.ThrowIfNull(resolve);
 
+        return ApplyFromCurrent(session, () => resolve(session.Documents.Read(session.Root)), DefaultHistoryName, cancellationToken);
+    }
+
+    internal ReconcileResult ApplyFromCurrent(
+        IEditingSession session,
+        Func<(JsonObject Desired, IReadOnlySet<Guid>? KnownNewIds)> resolve,
+        string historyName,
+        CancellationToken cancellationToken)
+    {
         return session.EditOnSession(() =>
         {
-            (JsonObject desired, IReadOnlySet<Guid>? knownNewIds) = resolve(session.Documents.Read(session.Root));
-            return ApplyCore(session, desired, knownNewIds);
+            (JsonObject desired, IReadOnlySet<Guid>? knownNewIds) = resolve();
+            return ApplyCore(session, desired, knownNewIds, historyName: historyName);
         }, cancellationToken);
     }
 
@@ -170,7 +181,8 @@ public sealed partial class Reconciler(Media.FontManager fonts)
         IEditingSession session,
         JsonObject desired,
         IReadOnlySet<Guid>? knownNewIds,
-        Func<ReconcilePlan, ToolError?>? validate = null)
+        Func<ReconcilePlan, ToolError?>? validate = null,
+        string historyName = DefaultHistoryName)
     {
         JsonObject desiredDocument = PrepareDesired(session, desired);
         ReconcilePlan plan = PlanPrepared(session, desiredDocument, knownNewIds);
@@ -194,7 +206,7 @@ public sealed partial class Reconciler(Media.FontManager fonts)
                     Beutl.Editor.Services.ElementRecoveryService.TryCompleteRepair(element, session.History);
                 }
             },
-            "Agent edit");
+            historyName);
 
         session.MarkDirtyIfFileSession();
 
