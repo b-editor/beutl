@@ -85,7 +85,7 @@ Pass `sceneId` for live saves and applications. For a file-backed session, use `
 | Analyze audio rhythm | `analyze_audio_rhythm` | Reports estimated beats and onsets. |
 | Generate or edit media with AI and follow jobs | `list_ai_models`, `generate_image`, `edit_image`, `generate_video`, `edit_video`, `list_ai_jobs`, `read_ai_job`, `cancel_ai_job` | Live editor tools. |
 | Transcribe speech | `transcribe_audio`, `read_ai_job` | Live tool that produces a timed transcript. |
-| Import, edit, or export a caption document | — | No tool for the editor's subtitle file and cue workflow, including subtitle export. |
+| Import, inspect, edit, or export subtitles | `import_subtitles`, `list_subtitles`, `apply_edit`, `export_subtitles` | Imports SRT, ASS, and WebVTT as editable text clips. Lists cues with timing and element IDs. Exports clips or layers to a subtitle file. |
 | Preview frames or compare rendered frames | `render_still`, `render_storyboard`, `measure_frame_differences` | Covers frame output and measurement. |
 | Control preview playback and playhead | — | No tool for interactive preview transport. |
 | Export video and manage render jobs | `export_video`, `read_render_job`, `cancel_render_job` | File-backed and live export. |
@@ -93,5 +93,11 @@ Pass `sceneId` for live saves and applications. For a file-backed session, use `
 Proxy tools use the running editor's queue and cache. Pass `sceneId` and, from the installed stdio server, `instanceId`. Pass `elementIds`, `mediaPaths`, or both to generate or remove proxies. Generation uses the configured preset unless you pass `half`, `quarter`, or `eighth`. Poll `read_proxy_status` with the returned `jobIds` for progress and recent outcomes. With no selectors, status lists the scene's video sources. Removing proxies cancels matching jobs and removes all presets for the selected sources unless you specify a preset.
 
 `relink_missing_media` takes `replacements` (objects with `missingPath` and `newPath`) or `searchFolder`. Folder search follows the Missing Media tab's saved-fingerprint and unique-name matching rules. The tool validates replacements, saves the repaired scene, and reports `relinked` and `remainingMissing`. Repairs leave the edit history intact, as in the Missing Media tab. File-backed calls have the same save conflict check as `save_project`.
+
+`import_subtitles` takes an absolute `path` ending in `.srt`, `.ass`, `.ssa`, or `.vtt`. It keeps the file's cue times and places the clips above the scene on unlocked layers, separating overlapping cues. Pass a saved text object, element, or element-set `templateId` from `list_templates` or `list_element_templates` to use it in place of Beutl's default subtitle styling. The import returns the created element IDs, the number of cues imported, and whether any cues were skipped. One undo removes the batch. Use `save_project` to persist a file-session import.
+
+`list_subtitles` returns each text clip's `elementId`, `layer`, `startSeconds`, `endSeconds`, and extracted `text`. Pass `layers` to filter by timeline ZIndex. Use `read_document` with the clip ID as `rootId` to identify its text object. Use `apply_edit` to change `Text`, `Start`, or `Length`, or use the timeline tools for timing edits. These edits honor clip and layer locks.
+
+`export_subtitles` takes a nonempty `elementIds` or `layers` list and an absolute `outputPath` ending in `.srt`, `.ass`, or `.vtt`. The editor's subtitle exporter extracts the text, sorts the cues, and counts clips without readable text in `skippedClipCount`. Replacing an existing file requires `confirmOverwrite: true`. Pass `sceneId` to target a live scene for any subtitle tool and `instanceId` to reach it from stdio.
 
 The tool registrations are in the [shared AgentToolkit server](../../src/Beutl.AgentToolkit/AgentToolkitMcpServer.cs) and the [in-app host](../../src/Beutl/AgentHost/AgentHostEndpoint.cs).

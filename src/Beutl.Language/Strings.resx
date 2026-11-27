@@ -1534,6 +1534,9 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="ExportSubtitles_Format" xml:space="preserve">
     <value>File format</value>
   </data>
+  <data name="ExportSubtitles_SelectSource" xml:space="preserve">
+    <value>Choose clips or layers to export.</value>
+  </data>
   <data name="ExportSubtitles_NoText" xml:space="preserve">
     <value>No text clips were found.</value>
   </data>
@@ -3032,6 +3035,12 @@ Resolve the conflicts with an external Git tool before editing. The project may 
   </data>
   <data name="AiSubtitle_CaptionsFile" xml:space="preserve">
     <value>Captions file</value>
+  </data>
+  <data name="SubtitleFile_UnsupportedFormat" xml:space="preserve">
+    <value>Choose an SRT, ASS, or WebVTT file.</value>
+  </data>
+  <data name="SubtitleFile_UnsupportedTemplate" xml:space="preserve">
+    <value>The template must contain a text object.</value>
   </data>
   <data name="SubtitleFile_CouldNotRead" xml:space="preserve">
     <value>Could not read any subtitles from {0}.</value>

@@ -86,7 +86,7 @@ public sealed class CaptionCatalog
     private static CaptionTemplate[] CreateObjectTemplates(IEnumerable<ObjectTemplateItem> objectTemplates)
     {
         return objectTemplates
-            .Select(item => TextBlockCaptionTemplateAdapter.TryCreate(item) ?? ElementCaptionTemplateAdapter.TryCreate(item))
+            .Select(TryCreateTemplate)
             .OfType<CaptionTemplate>()
             .OrderBy(item => item.Descriptor.Name, StringComparer.OrdinalIgnoreCase)
             .ThenBy(item => item.Descriptor.Id.Value, StringComparer.OrdinalIgnoreCase)
@@ -100,4 +100,7 @@ public sealed class CaptionCatalog
                 item.PlacementPolicy))
             .ToArray();
     }
+
+    internal static CaptionTemplate? TryCreateTemplate(ObjectTemplateItem template)
+        => TextBlockCaptionTemplateAdapter.TryCreate(template) ?? ElementCaptionTemplateAdapter.TryCreate(template);
 }

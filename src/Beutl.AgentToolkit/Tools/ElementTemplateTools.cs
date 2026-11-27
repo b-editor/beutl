@@ -48,7 +48,7 @@ public sealed partial class ElementTemplateTools(
             ICoreSerializable ResolveContent(Scene scene)
             {
                 IReadOnlyList<Element> elements = elementIds is null && session is LiveEditingSession liveSession
-                    ? liveSession.ElementTemplates.GetSelectedElements()
+                    ? liveSession.Elements.GetSelectedElements()
                     : ResolveElements(scene, elementIds);
                 if (elements.Count == 0)
                     throw Invalid("Select at least one element in the target editor or pass elementIds.", nameof(elementIds));
@@ -88,9 +88,13 @@ public sealed partial class ElementTemplateTools(
             IEditingSession session = sessions.RequireSession();
             if (session is LiveEditingSession live)
             {
-                ElementDescription description = live.ReadOnSession(() => Describe(RequireSceneRoot(live)));
-                ElementAddResult result = await live.ElementTemplates.AddTemplateAsync(
-                    description, CaptureLockedTransitionValidation, cancellationToken).ConfigureAwait(false);
+                var (targetScene, liveDescription) = live.ReadOnSession(() =>
+                {
+                    Scene scene = RequireSceneRoot(live);
+                    return (scene, Describe(scene));
+                });
+                ElementAddResult result = await live.Elements.AddElementsAsync(
+                    targetScene, [liveDescription], CaptureLockedTransitionValidation, cancellationToken).ConfigureAwait(false);
                 if (result.Failure is { } failure)
                 {
                     if (failure.Exception is ReconcileException protectedEdit) throw protectedEdit;
@@ -191,19 +195,6 @@ public sealed partial class ElementTemplateTools(
         {
             throw Invalid("The time is outside the supported timeline range.", "timeSeconds");
         }
-    }
-
-    private static Action? CaptureLockedTransitionValidation(Scene scene)
-    {
-        Func<Scene, ToolError?>? check = Reconciler.CaptureLockedTransitionCheck(
-            scene, [.. scene.Children.Where(scene.IsElementLockedByUser)]);
-        if (check is null) return null;
-
-        return () =>
-        {
-            if (check(scene) is { } error)
-                throw new ReconcileException(error);
-        };
     }
 
     private async ValueTask<ObjectTemplateItem?> SaveTemplateAsync(
