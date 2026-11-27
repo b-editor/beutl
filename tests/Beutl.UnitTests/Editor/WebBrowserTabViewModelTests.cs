@@ -212,6 +212,26 @@ public class WebBrowserTabViewModelTests
     }
 
     [Test]
+    public void StopMarkedBeforeTheAdapterCompletion_DoesNotReportALoadFailure()
+    {
+        var editorContext = Beutl.UnitTests.TestInfrastructure.TestEditorContext.CreateMock();
+        using var viewModel = new WebBrowserTabViewModel(editorContext.Object);
+        var uri = new Uri("https://example.com/slow");
+
+        // WebView2 can raise NavigationCompleted inside Stop(), before OnStopClick can run its
+        // usual state changes.
+        viewModel.BeginNavigation(uri);
+        viewModel.PrepareNavigationStop();
+        viewModel.CompleteNavigation(uri, isSuccess: false, canGoBack: false, canGoForward: false);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.IsLoading.Value, Is.False);
+            Assert.That(viewModel.ErrorMessage.Value, Is.Null);
+        });
+    }
+
+    [Test]
     public void ReportActionFailure_UsesTheLocalizedBrowserMessage()
     {
         var editorContext = Beutl.UnitTests.TestInfrastructure.TestEditorContext.CreateMock();

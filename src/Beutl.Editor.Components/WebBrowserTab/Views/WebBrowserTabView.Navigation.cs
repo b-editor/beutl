@@ -465,12 +465,24 @@ internal partial class WebBrowserTabView
 
     private void OnStopClick(object? sender, RoutedEventArgs e)
     {
-        if (_webView?.Stop() == true) OnNavigationStopped();
+        if (_webView is not { } webView || _viewModel is not { } viewModel) return;
+
+        // WebView2 can complete the canceled navigation inside Stop. Mark the stop before the call
+        // so that completion does not show the cancellation as a page failure.
+        viewModel.PrepareNavigationStop();
+        if (webView.Stop() != true)
+        {
+            viewModel.CancelNavigationStop();
+            return;
+        }
+
+        OnNavigationStopped(markStopped: false);
     }
 
-    internal void OnNavigationStopped()
+    internal void OnNavigationStopped(bool markStopped = true)
     {
-        _viewModel?.StopNavigation();
+        if (markStopped) _viewModel?.StopNavigation();
+        else _viewModel?.EndLoading();
         SettleAbortedPageNavigation();
     }
 

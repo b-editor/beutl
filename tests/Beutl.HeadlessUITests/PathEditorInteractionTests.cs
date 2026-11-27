@@ -1714,6 +1714,7 @@ public class PathEditorInteractionTests
         Assert.That(anchor.ControlPoint2.Value, Is.EqualTo(anchor.EndPoint.Value));
         Assert.That(editor.Editor.HistoryManager.UndoCount, Is.Zero);
         overlay.Tool = PathEditorTool.Bend;
+        editor.WaitForCanvasHit(anchorThumb, position);
         editor.Click(position.X, position.Y);
         Assert.That(anchor.ControlPoint2.Value, Is.Not.EqualTo(anchor.EndPoint.Value));
         Assert.That(thumb.IsVisible, Is.True);
@@ -2148,6 +2149,11 @@ public class PathEditorInteractionTests
                 .Single(t => ReferenceEquals(t.DataContext, segment) && !t.Classes.Contains("control"));
 
         private Point WindowPoint(Point point) => ((Control)Window.Content!).FindControl<Canvas>("canvas")!.TranslatePoint(point, Window)!.Value;
+
+        // The headless hit test answers nothing until the window has rendered a frame. Wait for the
+        // exact canvas point to reach the control before pressing there.
+        public void WaitForCanvasHit(Control target, Point point)
+            => TimelineTestHost.WaitForHitTest(Window, target, WindowPoint(point));
 
         public void MouseDown(Point point, MouseButton button, RawInputModifiers modifiers = RawInputModifiers.None)
             => Window.MouseDown(WindowPoint(point), button, modifiers);

@@ -6,6 +6,7 @@ using System.Reactive.Threading.Tasks;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.Marshalling;
+using System.Text;
 using System.Text.Json;
 using Avalonia;
 using Avalonia.Controls;
@@ -1619,16 +1620,60 @@ public class NativeBrowserFrameTests
         start.ArgumentList.Add(typeof(NativeBrowserFrameTestHost).Assembly.Location);
         start.ArgumentList.Add(scenario);
         using Process process = Process.Start(start)!;
-        Task<string> output = process.StandardOutput.ReadToEndAsync();
-        Task<string> error = process.StandardError.ReadToEndAsync();
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(scenario is "--native-browser-referrers" or "--native-browser-download-referrers" or "--native-browser-download-methods" ? 90 : 60));
+        var outputBuffer = new StringBuilder();
+        var errorBuffer = new StringBuilder();
+        Task output = CaptureAsync(process.StandardOutput, outputBuffer);
+        Task error = CaptureAsync(process.StandardError, errorBuffer);
+        int timeoutSeconds = scenario is "--native-browser-referrers" or "--native-browser-download-referrers" or "--native-browser-download-methods" ? 120 : 90;
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSeconds));
+        void Kill() { try { process.Kill(entireProcessTree: true); } catch (InvalidOperationException) { } }
         try { await process.WaitForExitAsync(timeout.Token); }
+        catch (OperationCanceledException) when (timeout.IsCancellationRequested)
+        {
+            Kill();
+            // A killed host can leave WebView2 processes holding the pipes. Snapshot what the child
+            // printed instead of waiting for EOF.
+            await Task.WhenAny(Task.WhenAll(output, error), Task.Delay(TimeSpan.FromSeconds(5)));
+            throw new TimeoutException(
+                $"The {scenario} browser host did not exit within {timeoutSeconds} seconds.{Environment.NewLine}" +
+                $"stdout ({State(output)}):{Environment.NewLine}{Snapshot(outputBuffer)}{Environment.NewLine}" +
+                $"stderr ({State(error)}):{Environment.NewLine}{Snapshot(errorBuffer)}");
+        }
         catch
         {
-            process.Kill(entireProcessTree: true);
+            Kill();
             throw;
         }
-        if (process.ExitCode == NativeBrowserFrameTestHost.SkippedExitCode) Assert.Ignore(await output);
-        Assert.That(process.ExitCode, Is.Zero, await output + "\n" + await error);
+        if (process.ExitCode != 0)
+        {
+            // A failing host can leave WebView2 processes holding the pipes. Keep whatever it printed.
+            await Task.WhenAny(Task.WhenAll(output, error), Task.Delay(TimeSpan.FromSeconds(5)));
+        }
+        if (process.ExitCode == NativeBrowserFrameTestHost.SkippedExitCode) Assert.Ignore(Snapshot(outputBuffer));
+        Assert.That(process.ExitCode, Is.Zero, Snapshot(outputBuffer) + "\n" + Snapshot(errorBuffer));
+
+        static async Task CaptureAsync(StreamReader reader, StringBuilder buffer)
+        {
+            char[] chunk = new char[4096];
+            try
+            {
+                int read;
+                while ((read = await reader.ReadAsync(chunk, 0, chunk.Length)) > 0)
+                {
+                    lock (buffer) buffer.Append(chunk, 0, read);
+                }
+            }
+            catch (Exception ex) when (ex is IOException or ObjectDisposedException)
+            {
+            }
+        }
+
+        static string Snapshot(StringBuilder buffer)
+        {
+            lock (buffer) return buffer.ToString();
+        }
+
+        static string State(Task task)
+            => task.IsCompletedSuccessfully ? "complete" : task.IsFaulted ? "interrupted" : "still running";
     }
 }
