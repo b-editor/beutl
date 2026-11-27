@@ -1,4 +1,5 @@
-﻿using Beutl.ProjectSystem;
+﻿using Beutl.Media;
+using Beutl.ProjectSystem;
 
 namespace Beutl.Editor.Services;
 
@@ -11,6 +12,27 @@ namespace Beutl.Editor.Services;
 /// </summary>
 public static class TrimGroupCollector
 {
+    internal static IEnumerable<Element> CollectResizeMembers(
+        IEnumerable<Element> members, Element anchor, bool leftEdge)
+    {
+        MediaTime boundary = GetEdge(anchor, leftEdge);
+        return members.Where(element => GetEdge(element, leftEdge) == boundary);
+    }
+
+    internal static MediaTime GetEdge(Element element, bool leftEdge)
+        => leftEdge ? element.Start.Value : element.Range.End;
+
+    internal static TimeRange GetResizeRange(MediaTime start, MediaTime end, MediaTime edge, bool leftEdge)
+        => leftEdge ? TimeRange.FromRange(edge, end) : TimeRange.FromRange(start, edge);
+
+    internal static IReadOnlyList<ElementTrimPair>? CollectRollPairs(
+        Scene scene, IReadOnlyList<Element> members, Element anchor, bool leftEdge, out Element? locked)
+    {
+        var pairs = CollectRollPairs(scene, members, GetEdge(anchor, leftEdge), out locked);
+        // The anchor's own cut must participate for the edit to follow its edge.
+        return pairs?.Any(pair => pair.Front == anchor || pair.Back == anchor) == true ? pairs : null;
+    }
+
     /// <summary>
     /// The rollable pairs among <paramref name="members"/> whose cut sits exactly at
     /// <paramref name="boundary"/>: for each member ending there, the clip starting there
@@ -25,10 +47,15 @@ public static class TrimGroupCollector
     /// </summary>
     public static IReadOnlyList<ElementTrimPair>? CollectRollPairs(
         Scene scene, IReadOnlyList<Element> members, MediaTime boundary)
+        => CollectRollPairs(scene, members, boundary, out _);
+
+    private static IReadOnlyList<ElementTrimPair>? CollectRollPairs(
+        Scene scene, IReadOnlyList<Element> members, MediaTime boundary, out Element? locked)
     {
         ArgumentNullException.ThrowIfNull(scene);
         ArgumentNullException.ThrowIfNull(members);
 
+        locked = null;
         var pairs = new List<ElementTrimPair>();
         var seenFronts = new HashSet<Element>();
         var seenMembers = new HashSet<Element>();
@@ -49,7 +76,9 @@ public static class TrimGroupCollector
             }
 
             if (front is null || back is null) continue;
-            if (scene.IsElementLocked(front) || scene.IsElementLocked(back)) return null;
+            if (scene.IsElementLocked(front)) locked = front;
+            else if (scene.IsElementLocked(back)) locked = back;
+            if (locked is not null) return null;
             if (!seenFronts.Add(front)) continue;
 
             pairs.Add(new ElementTrimPair(front, back));
@@ -69,10 +98,15 @@ public static class TrimGroupCollector
     /// </summary>
     public static IReadOnlyList<ElementSlideLane>? CollectSlideLanes(
         Scene scene, IReadOnlyList<Element> members)
+        => CollectSlideLanes(scene, members, out _);
+
+    internal static IReadOnlyList<ElementSlideLane>? CollectSlideLanes(
+        Scene scene, IReadOnlyList<Element> members, out Element? locked)
     {
         ArgumentNullException.ThrowIfNull(scene);
         ArgumentNullException.ThrowIfNull(members);
 
+        locked = null;
         var lanes = new List<ElementSlideLane>();
         foreach (IGrouping<int, Element> lane in members.Distinct()
                      .GroupBy(m => m.ZIndex.Value)
@@ -82,7 +116,11 @@ public static class TrimGroupCollector
             foreach (Element middle in middles)
             {
                 if (!scene.Children.Contains(middle)) return null;
-                if (scene.IsElementLocked(middle)) return null;
+                if (scene.IsElementLocked(middle))
+                {
+                    locked = middle;
+                    return null;
+                }
             }
 
             for (int i = 1; i < middles.Length; i++)
@@ -93,7 +131,9 @@ public static class TrimGroupCollector
             Element? front = FindEndingAt(scene, lane.Key, middles[0].Start.Value, middles[0]);
             Element? back = FindStartingAt(scene, lane.Key, middles[^1].Range.End, middles[^1]);
             if (front is null || back is null) return null;
-            if (scene.IsElementLocked(front) || scene.IsElementLocked(back)) return null;
+            if (scene.IsElementLocked(front)) locked = front;
+            else if (scene.IsElementLocked(back)) locked = back;
+            if (locked is not null) return null;
 
             lanes.Add(new ElementSlideLane(front, middles, back));
         }

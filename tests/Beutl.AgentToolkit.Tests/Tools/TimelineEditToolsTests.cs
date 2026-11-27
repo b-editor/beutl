@@ -27,7 +27,10 @@ public sealed partial class TimelineEditToolsTests
             ["split_elements"] = (["elementIds", "timeSeconds"], []),
             ["slip_elements"] = (["elementIds", "deltaSeconds"], []),
             ["ripple_delete"] = (["elementIds"], []),
-            ["ripple_trim"] = (["elementId", "edge", "timeSeconds"], []),
+            ["duplicate_elements"] = (["elementIds", "timeSeconds", "layer"], []),
+            ["ripple_trim"] = (["elementId", "edge", "timeSeconds"], ["includeLinked"]),
+            ["roll_elements"] = (["elementId", "edge", "deltaSeconds"], []),
+            ["slide_elements"] = (["elementIds", "deltaSeconds"], []),
             ["close_gap"] = (["elementId"], []),
             ["find_gaps"] = ([], ["layers"]),
             ["close_all_gaps"] = ([], ["layers"]),
@@ -217,6 +220,8 @@ public sealed partial class TimelineEditToolsTests
         Element preceding = AddElement(scene, 0, 2);
         Element target = AddElement(scene, 2, 2);
         Element following = AddElement(scene, 4, 2);
+        Element groupMember = AddElement(scene, 2, 2, layer: 1);
+        scene.Groups.Add(ImmutableHashSet.Create(target.Id.Value, groupMember.Id.Value));
         var original = target.Range;
         using var session = new AgentToolkitTestSession(scene);
         await using InProcessAgentToolkitServer server = await StartAsync(session);
@@ -228,10 +233,13 @@ public sealed partial class TimelineEditToolsTests
         Assert.Multiple(() =>
         {
             Assert.That(result.Value!.Changed, Is.True);
+            Assert.That(result.Value.ChangedElementIds,
+                Is.EquivalentTo(new[] { Id(target), Id(edge == "start" ? preceding : following) }));
             Assert.That(target.Start.Value, Is.EqualTo(MediaTime.FromSeconds(edge == "start" ? 3 : 2)));
             Assert.That(target.Length.Value, Is.EqualTo(MediaTime.FromSeconds(1)));
             Assert.That(preceding.Start.Value, Is.EqualTo(MediaTime.FromSeconds(precedingStart)));
             Assert.That(following.Start.Value, Is.EqualTo(MediaTime.FromSeconds(followingStart)));
+            Assert.That(groupMember.Range, Is.EqualTo(original));
         });
         await UndoOnlyEditAsync(server.Client);
         Assert.Multiple(() =>
@@ -272,7 +280,8 @@ public sealed partial class TimelineEditToolsTests
 
     [Test]
     public async Task Timeline_tools_never_modify_a_user_locked_element_or_layer(
-        [Values("split_elements", "slip_elements", "ripple_delete", "ripple_trim", "close_gap", "split_on_silence", "close_all_gaps")] string tool,
+        [Values("split_elements", "slip_elements", "ripple_delete", "duplicate_elements", "ripple_trim",
+            "roll_elements", "slide_elements", "close_gap", "split_on_silence", "close_all_gaps")] string tool,
         [Values] bool layerLocked)
     {
         Scene scene = TestWorkspace.CreateScene();
@@ -331,7 +340,10 @@ public sealed partial class TimelineEditToolsTests
         using var session = new AgentToolkitTestSession(scene);
         await using InProcessAgentToolkitServer server = await StartAsync(session);
 
-        foreach (string tool in new[] { "split_elements", "slip_elements", "ripple_trim", "split_on_silence" })
+        foreach (string tool in new[]
+        {
+            "split_elements", "slip_elements", "duplicate_elements", "ripple_trim", "roll_elements", "slide_elements", "split_on_silence"
+        })
         {
             var result = await CallAsync(server.Client, tool, EditArguments(tool, target, anchor));
             Assert.That(result.Error?.Code, Is.EqualTo(ErrorCode.ValidationRejected), tool);
@@ -393,7 +405,10 @@ public sealed partial class TimelineEditToolsTests
             "split_elements" => [("elementIds", new[] { Id(target) }), ("timeSeconds", 3)],
             "slip_elements" => [("elementIds", new[] { Id(target) }), ("deltaSeconds", 1)],
             "ripple_delete" => [("elementIds", new[] { Id(target) })],
+            "duplicate_elements" => [("elementIds", new[] { Id(target) }), ("timeSeconds", 5), ("layer", 1)],
             "ripple_trim" => [("elementId", Id(target)), ("edge", "end"), ("timeSeconds", 3)],
+            "roll_elements" => [("elementId", Id(target)), ("edge", "end"), ("deltaSeconds", 1)],
+            "slide_elements" => [("elementIds", new[] { Id(target) }), ("deltaSeconds", 1)],
             "close_gap" => [("elementId", Id(anchor))],
             "close_all_gaps" => [],
             "split_on_silence" => [("elementIds", new[] { Id(target) })],

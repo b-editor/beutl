@@ -1196,6 +1196,9 @@
   <data name="Duplicate_ProjectNotSaved" xml:space="preserve">
     <value>Guarda el proyecto antes de duplicar clips.</value>
   </data>
+  <data name="Duplicate_InvalidLayer" xml:space="preserve">
+    <value>Elige una capa de destino con índice cero o superior donde quepan todas las copias.</value>
+  </data>
   <data name="Duplicate_IOFailed" xml:space="preserve">
     <value>No se pudo escribir el elemento duplicado en el disco.</value>
   </data>

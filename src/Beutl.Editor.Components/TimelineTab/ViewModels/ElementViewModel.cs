@@ -417,24 +417,8 @@ public sealed partial class ElementViewModel : IDisposable
 
     // The same clips, for what only reads them: a clip that is not on screen has no view model until it needs one.
     internal Element[] GetGroupOrSelectedModels()
-    {
-        HashSet<Guid> ids = DuplicateHelper.ExpandWithGroupSiblings(
-            Timeline.SelectedElements.Select(item => item.Model.Id.Value), Scene.Groups);
-
-        // Group membership is only needed for an interaction. Per-element subscriptions make
-        // bulk split groups notify every timeline element for every newly created group.
-        if (Scene.Groups.FirstOrDefault(g => g.Contains(Model.Id.Value)) is { } group)
-        {
-            ids.UnionWith(group);
-        }
-
-        if (ids.Count == 0)
-        {
-            return [];
-        }
-
-        return [.. Scene.Children.Where(x => ids.Contains(x.Id.Value))];
-    }
+        => DuplicateHelper.FindWithGroupSiblings(
+            Scene, Timeline.SelectedElements.Select(item => item.Model.Id.Value), Model.Id.Value);
 
     internal Element[] GetGroupOrSelectedModelsOrSelf()
     {
