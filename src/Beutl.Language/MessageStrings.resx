@@ -118,6 +118,9 @@ because the new name conflicts with an existing folder.</value>
   <data name="FrameDrawingException" xml:space="preserve">
     <value>An exception occurred while drawing the frame.</value>
   </data>
+  <data name="PreviewWorkingScaleClamped" xml:space="preserve">
+    <value>This frame is rendered at a lower working density in the preview than in export. It may look different when exported.</value>
+  </data>
   <data name="RenderTargetLiveByteBudgetExceeded" xml:space="preserve">
     <value>Adding a {0} × {1} pixel render target would exceed this render request's memory limit of {2:N0} bytes. Active targets already use {3:N0} bytes.</value>
   </data>

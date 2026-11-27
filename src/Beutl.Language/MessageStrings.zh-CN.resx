@@ -118,6 +118,9 @@
   <data name="FrameDrawingException" xml:space="preserve">
     <value>绘制帧时发生异常。</value>
   </data>
+  <data name="PreviewWorkingScaleClamped" xml:space="preserve">
+    <value>此帧的预览以低于导出时的工作分辨率渲染。导出后的画面可能有所不同。</value>
+  </data>
   <data name="RenderTargetLiveByteBudgetExceeded" xml:space="preserve">
     <value>添加 {0} × {1} 像素的渲染目标会超出本次渲染请求的内存上限（{2:N0} 字节）。当前活动的渲染目标已占用 {3:N0} 字节。</value>
   </data>

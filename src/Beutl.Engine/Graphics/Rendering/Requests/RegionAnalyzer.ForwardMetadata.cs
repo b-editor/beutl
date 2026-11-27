@@ -167,7 +167,8 @@ internal sealed partial class RegionAnalyzer
             EffectiveScale resolvedScale;
             if (reference.HasSymbolicBoundsDependency)
             {
-                resolvedScale = ResolveForwardScale(reference, resolvedBounds, options);
+                resolvedScale = ResolveForwardScale(reference, resolvedBounds, options.OutputScale,
+                    options.MaxWorkingScale, static input => input.EffectiveScale);
                 // The density contract is held to its recorded answer the same way, and for the same reason.
                 SymbolicMetadataCrossCheck.VerifyForwardScale(reference, options);
             }
@@ -275,7 +276,9 @@ internal sealed partial class RegionAnalyzer
     private static EffectiveScale ResolveForwardScale(
         RenderFragmentReference reference,
         Rect resolvedBounds,
-        RenderRequestOptions options)
+        float outputScale,
+        float maxWorkingScale,
+        Func<RenderFragmentReference, EffectiveScale> resolveSupply)
     {
         // Only the arms reading more than the first input build a projection array, as this runs per fragment twice.
         switch (reference.Kind)
@@ -284,7 +287,7 @@ internal sealed partial class RegionAnalyzer
             case RenderFragmentKind.Opacity:
             case RenderFragmentKind.Blend:
             case RenderFragmentKind.OpacityMask:
-                return reference.Inputs[0].EffectiveScale;
+                return resolveSupply(reference.Inputs[0]);
             case RenderFragmentKind.Shader:
                 {
                     var payload = (ShaderRenderFragmentPayload)reference.Payload!;
@@ -292,33 +295,37 @@ internal sealed partial class RegionAnalyzer
                     if (payload.WorkingScalePolicy is { } policy)
                     {
                         return policy.Resolve(
-                            reference.Inputs,
+                            reference.Inputs.SelectToArray(resolveSupply),
+                            reference.Inputs.SelectToArray(static input => input.Bounds),
                             resolvedBounds,
-                            options.OutputScale,
-                            options.MaxWorkingScale);
+                            outputScale,
+                            maxWorkingScale);
                     }
 
                     if (!materializes)
-                        return reference.Inputs[0].EffectiveScale;
+                        return resolveSupply(reference.Inputs[0]);
 
-                    return ResolveMaterializedScale(InputScales(reference), resolvedBounds, options);
+                    return ResolveMaterializedScale(reference.Inputs.SelectToArray(resolveSupply), resolvedBounds,
+                        outputScale, maxWorkingScale);
                 }
             case RenderFragmentKind.ShaderGraph:
                 {
                     var payload = (ShaderGraphRenderFragmentPayload)reference.Payload!;
                     return ShaderGraphRenderFragmentPayload.ResolvePlannedScale(payload.Description, payload.WorkingScalePolicy,
-                        reference.Inputs, options.OutputScale, options.MaxWorkingScale);
+                        reference.Inputs, outputScale, maxWorkingScale, resolveSupply);
                 }
             case RenderFragmentKind.Geometry:
                 {
                     var payload = (GeometryRenderFragmentPayload)reference.Payload!;
                     return payload.WorkingScalePolicy is { } policy
                         ? policy.Resolve(
-                            reference.Inputs,
+                            reference.Inputs.SelectToArray(resolveSupply),
+                            reference.Inputs.SelectToArray(static input => input.Bounds),
                             resolvedBounds,
-                            options.OutputScale,
-                            options.MaxWorkingScale)
-                        : ResolveMaterializedScale(InputScales(reference), resolvedBounds, options);
+                            outputScale,
+                            maxWorkingScale)
+                        : ResolveMaterializedScale(reference.Inputs.SelectToArray(resolveSupply), resolvedBounds,
+                            outputScale, maxWorkingScale);
                 }
             case RenderFragmentKind.FilterEffectSegment:
                 {
@@ -326,7 +333,7 @@ internal sealed partial class RegionAnalyzer
                     Rect[] inputBounds = reference.Inputs
                         .SelectToArray(payload.StreamInputCount, static input => input.Bounds);
                     EffectiveScale[] streamScales = reference.Inputs
-                        .SelectToArray(payload.StreamInputCount, static input => input.EffectiveScale);
+                        .SelectToArray(payload.StreamInputCount, resolveSupply);
                     Rect[] bufferBounds = FilterEffectWorkingScalePolicy.CalculateEffectItemBufferBounds(
                         inputBounds,
                         payload.BoundsItems,
@@ -336,23 +343,23 @@ internal sealed partial class RegionAnalyzer
                             streamScales,
                             inputBounds,
                             bufferBounds,
-                            options.OutputScale,
-                            options.MaxWorkingScale)
+                            outputScale,
+                            maxWorkingScale)
                         : FilterEffectWorkingScalePolicy.ResolveMaterialized(
                             streamScales,
                             bufferBounds,
-                            options.OutputScale,
-                            options.MaxWorkingScale);
+                            outputScale,
+                            maxWorkingScale);
                 }
             case RenderFragmentKind.OpaqueSource:
             case RenderFragmentKind.OpaqueMap:
             case RenderFragmentKind.OpaqueCombine:
             case RenderFragmentKind.OpaqueExpand:
                 return ((OpaqueRenderFragmentPayload)reference.Payload!).Description.Scale.Resolve(
-                    InputScales(reference),
+                    reference.Inputs.SelectToArray(resolveSupply),
                     resolvedBounds,
-                    options.OutputScale,
-                    options.MaxWorkingScale);
+                    outputScale,
+                    maxWorkingScale);
             case RenderFragmentKind.TargetCapture:
                 {
                     TargetCaptureScaleContract scale =
@@ -361,21 +368,21 @@ internal sealed partial class RegionAnalyzer
                         ? EffectiveScale.Unbounded
                         : scale.ResolveDeclared(
                             resolvedBounds,
-                            options.OutputScale,
-                            options.MaxWorkingScale);
+                            outputScale,
+                            maxWorkingScale);
                 }
             case RenderFragmentKind.TargetScope:
                 return ((TargetScopeRenderFragmentPayload)reference.Payload!).Description.Scale.Resolve(
-                    InputScales(reference),
+                    reference.Inputs.SelectToArray(resolveSupply),
                     resolvedBounds,
-                    options.OutputScale,
-                    options.MaxWorkingScale);
+                    outputScale,
+                    maxWorkingScale);
             case RenderFragmentKind.RawTargetScope:
                 return ((RawTargetScopeRenderFragmentPayload)reference.Payload!).Description.Scale.Resolve(
-                    InputScales(reference),
+                    reference.Inputs.SelectToArray(resolveSupply),
                     resolvedBounds,
-                    options.OutputScale,
-                    options.MaxWorkingScale);
+                    outputScale,
+                    maxWorkingScale);
             case RenderFragmentKind.MaterializedInput:
             case RenderFragmentKind.BuiltInBackdropCapture:
             case RenderFragmentKind.Layer:
@@ -388,9 +395,6 @@ internal sealed partial class RegionAnalyzer
                     $"Fragment kind '{reference.Kind}' has no forward scale rule.");
         }
     }
-
-    private static EffectiveScale[] InputScales(RenderFragmentReference reference)
-        => reference.Inputs.SelectToArray(static input => input.EffectiveScale);
 
     /// <summary>
     /// The rule a symbolic fragment answers with once its own bounds and its inputs' are known.
@@ -469,12 +473,13 @@ internal sealed partial class RegionAnalyzer
     private static EffectiveScale ResolveMaterializedScale(
         EffectiveScale[] inputScales,
         Rect resolvedBounds,
-        RenderRequestOptions options)
+        float outputScale,
+        float maxWorkingScale)
     {
         float workingScale = RenderScaleUtilities.ResolveWorkingScale(
             inputScales,
-            options.OutputScale,
-            options.MaxWorkingScale);
+            outputScale,
+            maxWorkingScale);
         workingScale = BufferDimensionBudget.EngineCeiling.ClampWorkingScaleToExactFootprint(
             resolvedBounds,
             workingScale);

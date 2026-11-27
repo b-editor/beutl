@@ -10,7 +10,8 @@ internal sealed class RegionAnalysis
         ImmutableDictionary<RenderFragmentId, RequiredRegion> fragmentRequirements,
         ImmutableDictionary<RenderFragmentId, RequiredRegion> targetAccessRequirements,
         ImmutableDictionary<RenderFragmentId, ResolvedFragmentMetadata> metadata,
-        ImmutableHashSet<RenderFragmentId> backingTargetBackdropCaptures)
+        ImmutableHashSet<RenderFragmentId> backingTargetBackdropCaptures,
+        bool isPreviewWorkingScaleClamped)
     {
         Measurement = measurement;
         FinalCommitBounds = finalCommitBounds;
@@ -18,6 +19,7 @@ internal sealed class RegionAnalysis
         TargetAccessRequirements = targetAccessRequirements;
         Metadata = metadata;
         BackingTargetBackdropCaptures = backingTargetBackdropCaptures;
+        IsPreviewWorkingScaleClamped = isPreviewWorkingScaleClamped;
     }
 
     public RenderNodeMeasurement Measurement { get; }
@@ -31,6 +33,7 @@ internal sealed class RegionAnalysis
     public ImmutableDictionary<RenderFragmentId, ResolvedFragmentMetadata> Metadata { get; }
 
     public ImmutableHashSet<RenderFragmentId> BackingTargetBackdropCaptures { get; }
+    public bool IsPreviewWorkingScaleClamped { get; }
 
     public RequiredRegion GetFragmentRequirement(RenderFragmentReference reference)
         => FragmentRequirements[GetId(reference)];

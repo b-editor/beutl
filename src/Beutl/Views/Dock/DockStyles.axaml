@@ -361,6 +361,11 @@
         </ControlTheme>
     </Styles.Resources>
 
+    <!-- A retained splitter can overflow its zero-width or zero-height presenter when its dock is empty. -->
+    <Style Selector="ProportionalDockControl /template/ ItemsControl.ProportionalStackPanel > ContentPresenter">
+        <Setter Property="ClipToBounds" Value="True" />
+    </Style>
+
     <!--
         The stock splitter template is fully transparent, so adjacent panels show no boundary. The
         pseudo-class reflects the parent panel's orientation (:horizontal panel => vertical divider bar).

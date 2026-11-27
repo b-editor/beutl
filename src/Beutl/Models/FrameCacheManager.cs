@@ -1,5 +1,6 @@
 ﻿using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
+using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using Beutl.Media.Source;
 using Reactive.Bindings;
@@ -58,9 +59,9 @@ public sealed partial class FrameCacheManager : IDisposable
     public PixelSize FrameSize { get; }
 
     public void Add(int frame, Ref<Bitmap> bitmap)
-        => Add(frame, bitmap, previewWarning: null);
+        => Add(frame, bitmap, default);
 
-    internal void Add(int frame, Ref<Bitmap> bitmap, string? previewWarning)
+    internal void Add(int frame, Ref<Bitmap> bitmap, PreviewRenderDiagnostics diagnostics)
     {
         if (!IsEnabled) return;
 
@@ -72,18 +73,18 @@ public sealed partial class FrameCacheManager : IDisposable
                 {
                     // Locked pins an entry against eviction and deletion; it does not freeze the
                     // picture. Locked entries are excluded from _size (see Lock).
-                    old.SetBitmap(bitmap, Options, previewWarning);
+                    old.SetBitmap(bitmap, Options, diagnostics);
                 }
                 else
                 {
                     _size -= old.ByteCount;
-                    old.SetBitmap(bitmap, Options, previewWarning);
+                    old.SetBitmap(bitmap, Options, diagnostics);
                     _size += old.ByteCount;
                 }
             }
             else
             {
-                var entry = new CacheEntry(bitmap, Options, previewWarning);
+                var entry = new CacheEntry(bitmap, Options, diagnostics);
                 _size += entry.ByteCount;
                 _entries.Add(frame, entry);
             }
@@ -96,11 +97,19 @@ public sealed partial class FrameCacheManager : IDisposable
     }
 
     public bool TryGet(int frame, [MaybeNullWhen(false)] out Ref<Bitmap> bitmap)
-        => TryGet(frame, out bitmap, out _);
+        => TryGetWithDiagnostics(frame, out bitmap, out _);
 
     internal bool TryGet(int frame, [MaybeNullWhen(false)] out Ref<Bitmap> bitmap, out string? previewWarning)
     {
-        previewWarning = null;
+        bool found = TryGetWithDiagnostics(frame, out bitmap, out PreviewRenderDiagnostics diagnostics);
+        previewWarning = diagnostics.Warning;
+        return found;
+    }
+
+    internal bool TryGetWithDiagnostics(
+        int frame, [MaybeNullWhen(false)] out Ref<Bitmap> bitmap, out PreviewRenderDiagnostics diagnostics)
+    {
+        diagnostics = default;
         if (!IsEnabled)
         {
             bitmap = null;
@@ -112,7 +121,7 @@ public sealed partial class FrameCacheManager : IDisposable
             if (_entries.TryGetValue(frame, out CacheEntry? e))
             {
                 bitmap = e.GetBitmap();
-                previewWarning = e.PreviewWarning;
+                diagnostics = e.Diagnostics;
                 return true;
             }
             else
