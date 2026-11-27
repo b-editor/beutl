@@ -145,6 +145,8 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
 
     public string InstanceId => _instanceId;
 
+    internal AgentTurnHistoryTracker TurnHistory { get; } = new();
+
     private AgentHostInstanceRouter InstanceRouter => _instanceRouter
         ?? throw new InvalidOperationException("The live MCP credentials have not been initialized.");
 
@@ -564,7 +566,10 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
             return;
         }
 
-        await next(context).ConfigureAwait(false);
+        if (Guid.TryParse(context.Request.Headers[AgentHostPeerClient.AgentThreadHeader].ToString(), out Guid threadId))
+            await TurnHistory.RunRequestAsync(threadId, () => next(context)).ConfigureAwait(false);
+        else
+            await next(context).ConfigureAwait(false);
     }
 
     // Constant-time compare: the token drives the editing surface even on loopback.

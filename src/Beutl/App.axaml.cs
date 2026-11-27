@@ -2,6 +2,8 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
+using Beutl.AgentHost;
+using Beutl.Editor.Components.AgentTab;
 #if DEBUG
 using Avalonia.Diagnostics;
 #endif
@@ -84,6 +86,7 @@ public sealed class App : Application
             .Add(() => _fonts)
             .Add(() => _decoders)
             .Add(() => _notifications)
+            .AddOwned<IAgentNotificationSoundPlayer>(() => new AgentNotificationSoundPlayer())
             .Add(() => _appUpdateController)
             .Add(() => _libraryService)
             .Add(() => _objectTemplateService)

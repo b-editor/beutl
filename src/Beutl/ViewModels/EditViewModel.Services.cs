@@ -46,6 +46,7 @@ public partial class EditViewModel
         .Add<Beutl.Editor.Components.FileBrowserTab.FileBrowserStorageProviderRegistry>(() => EditorService.StorageProviders)
         .Add<Beutl.Editor.Components.FileBrowserTab.IProjectAssetHost>(() => EditorService.ProjectAssets)
         .Add<Beutl.Editor.Components.AiWorkspaceTab.IAiWorkspaceHost>(() => EditorService.AiWorkspaceHost)
+        .Add<Beutl.Editor.Components.AgentTab.IAgentWorkspaceHost>(() => EditorService.AgentWorkspaceHost)
         .Add<Scene>(() => Scene)
         .Add<EditViewModel>(() => this)
         .Add<IEditorContext>(() => this)

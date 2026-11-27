@@ -5,11 +5,13 @@ using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Threading;
 using Beutl.AgentHost;
+using Beutl.Agents;
 using Beutl.Api;
 using Beutl.Api.Objects;
 using Beutl.Api.Services;
 using Beutl.Configuration;
 using Beutl.Editor;
+using Beutl.Editor.Components.AgentTab;
 using Beutl.Editor.Components.AiWorkspaceTab.Services;
 using Beutl.Editor.Components.VersionControl.ViewModels;
 using Beutl.Editor.Services.AI;
@@ -46,6 +48,7 @@ public sealed partial class MainViewModel : BasePageViewModel
     internal CaptionDocumentSerializer CaptionSerializer => _captionCatalog.Serializer;
     private readonly AiJobResultRegistry _aiJobResultHandlers;
     private readonly AgentHostEndpoint _agentHostEndpoint;
+    private readonly AgentRuntimeManager _agentRuntimeManager;
     private readonly IAiPlanCoordinator _aiPlanCoordinator;
     private readonly AiRequestRecoveryContext _aiRequestRecoveryContext;
     private readonly ILogger _logger = Log.CreateLogger<MainViewModel>();
@@ -130,6 +133,14 @@ public sealed partial class MainViewModel : BasePageViewModel
         _editorService.StorageProviders = new Beutl.Editor.Components.FileBrowserTab.FileBrowserStorageProviderRegistry(
             new BeutlStorageProvider(AppServices.GetRequiredService<INotificationService>(), _beutlClients, CreateSettingsDialog));
         _editorService.AiWorkspaceHost = this;
+        string beutlHome = Path.GetFullPath(BeutlEnvironment.GetHomeDirectoryPath());
+        var agentLogger = Log.CreateLogger<AgentRuntimeManager>();
+        _agentRuntimeManager = new AgentRuntimeManager(new WorkerAgentRuntimeBridge(logger: agentLogger),
+            new AgentThreadStore(beutlHome), logger: agentLogger);
+        var agentWorkspaceHost = new BeutlAgentWorkspaceHost(
+            _agentRuntimeManager, _agentHostEndpoint, Configuration.AiAgentConfig, beutlHome, CreateSettingsDialog,
+            appServices.GetService<IAgentNotificationSoundPlayer>());
+        _editorService.AgentWorkspaceHost = agentWorkspaceHost;
         ContextCommandManager = _beutlClients.GetResource<ContextCommandManager>();
         _aiJobCompletionNotifier = new AiJobCompletionNotifier(
             _beutlClients.GetResource<IAiJobMonitor>().Snapshot,
@@ -163,7 +174,8 @@ public sealed partial class MainViewModel : BasePageViewModel
             _beutlClients.GetResource<IAiJobKindRegistry>(),
             OpenAiJobCenter,
             AppServices.GetRequiredService<AppUpdateController>().Status,
-            AppServices.GetRequiredService<AppUpdateController>().ShowDialog);
+            AppServices.GetRequiredService<AppUpdateController>().ShowDialog,
+            agentWorkspaceHost.ThreadSessions.RunningCount);
 
         EditorHost = new EditorHostViewModel(_projectService, _editorService);
 

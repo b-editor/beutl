@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Beutl.Agents/Beutl.Agents.csproj" />
+    <ProjectReference Include="../Beutl.Agents.NodeBridge/Beutl.Agents.NodeBridge.csproj" ReferenceOutputAssembly="false" />
+    <PackageReference Include="Microsoft.JavaScript.NodeApi" />
+    <PackageReference Include="Microsoft.JavaScript.LibNode" GeneratePathProperty="true" />
+    <None Include="../Beutl.Agents.NodeBridge/dist/bridge.mjs" Link="bridge.mjs"
+          CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <None Include="$(PkgMicrosoft_JavaScript_LibNode)/LICENSE" Link="NODEJS-LICENSE.txt"
+          CopyToPublishDirectory="PreserveNewest" Condition="'$(PkgMicrosoft_JavaScript_LibNode)' != ''" />
+    <None Include="$(PkgMicrosoft_JavaScript_LibNode)/NOTICE.txt" Link="LIBNODE-NOTICE.txt"
+          CopyToPublishDirectory="PreserveNewest" Condition="'$(PkgMicrosoft_JavaScript_LibNode)' != ''" />
+  </ItemGroup>
+</Project>

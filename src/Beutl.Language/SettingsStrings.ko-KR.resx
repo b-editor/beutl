@@ -860,4 +860,63 @@
   <data name="ExtensionUpdates_Always" xml:space="preserve">
     <value>항상 자동 업데이트</value>
   </data>
+  <data name="AiAgents_Runtime" xml:space="preserve"><value>기본 제공 에이전트 런타임</value></data>
+  <data name="AiAgents_RuntimeDefaultProvider" xml:space="preserve"><value>기본 제공자</value></data>
+  <data name="AiAgents_RuntimeDefaultPermission" xml:space="preserve"><value>기본 권한 모드</value></data>
+  <data name="AiAgents_RuntimeDefaultModel" xml:space="preserve"><value>기본 모델</value></data>
+  <data name="AiAgents_RuntimeProviderDefault" xml:space="preserve"><value>제공자 기본값</value></data>
+  <data name="AiAgents_RuntimeAuto" xml:space="preserve"><value>자동</value></data>
+  <data name="AiAgents_RuntimeDetectedProviders" xml:space="preserve"><value>감지된 기본 제공자</value></data>
+  <data name="AiAgents_RuntimeRecheck" xml:space="preserve"><value>다시 확인</value></data>
+  <data name="AiAgents_RuntimeExecutableOverride" xml:space="preserve"><value>실행 파일 경로 재정의</value></data>
+  <data name="AiAgents_RuntimeClaudePath" xml:space="preserve"><value>Claude Code 실행 파일</value></data>
+  <data name="AiAgents_RuntimeCodexPath" xml:space="preserve"><value>Codex 실행 파일</value></data>
+  <data name="AiAgents_RuntimeSelectExecutable" xml:space="preserve"><value>에이전트 실행 파일 선택</value></data>
+  <data name="AiAgents_RuntimeChecking" xml:space="preserve"><value>확인 중…</value></data>
+  <data name="AiAgents_RuntimeAvailable" xml:space="preserve"><value>사용 가능 · {0}</value></data>
+  <data name="AiAgents_RuntimeNotFound" xml:space="preserve"><value>찾을 수 없음</value></data>
+  <data name="AiAgents_RuntimeProbeFailed" xml:space="preserve"><value>실행 파일을 확인할 수 없습니다</value></data>
+  <data name="AiAgents_RuntimeCustomProviders" xml:space="preserve"><value>사용자 지정 ACP 제공자</value></data>
+  <data name="AiAgents_RuntimeAddProvider" xml:space="preserve"><value>제공자 추가</value></data>
+  <data name="AiAgents_RuntimeRemove" xml:space="preserve"><value>제거</value></data>
+  <data name="AiAgents_RuntimeId" xml:space="preserve"><value>ID</value></data>
+  <data name="AiAgents_RuntimeDisplayName" xml:space="preserve"><value>표시 이름</value></data>
+  <data name="AiAgents_RuntimeCommand" xml:space="preserve"><value>명령</value></data>
+  <data name="AiAgents_RuntimeArgumentsPlaceholder" xml:space="preserve"><value>한 줄에 인수 하나</value></data>
+  <data name="AiAgents_RuntimeRequiredFields" xml:space="preserve"><value>ID, 표시 이름, 명령을 입력하세요.</value></data>
+  <data name="AiAgents_RuntimeDuplicateId" xml:space="preserve"><value>이 ID를 사용하는 제공자가 이미 있습니다.</value></data>
+  <data name="AiAgents_RuntimeInvalidProviders" xml:space="preserve"><value>저장된 사용자 지정 제공자를 읽을 수 없습니다. 여기서 편집하려면 Beutl 설정의 CustomRuntimeProvidersJson을 수정하세요.</value></data>
+  <data name="AiAgents_RuntimeComposerSendKey" xml:space="preserve">
+    <value>메시지 전송 키</value>
+  </data>
+  <data name="AiAgents_RuntimeComposerSendKeyEnter" xml:space="preserve">
+    <value>Enter</value>
+  </data>
+  <data name="AiAgents_RuntimeComposerSendKeyCtrlEnter" xml:space="preserve">
+    <value>Ctrl+Enter</value>
+  </data>
+  <data name="AiAgents_RuntimeComposerSendKeyCommandEnter" xml:space="preserve">
+    <value>⌘+Enter</value>
+  </data>
+  <data name="AiAgents_Notifications" xml:space="preserve">
+    <value>알림</value>
+  </data>
+  <data name="AiAgents_EnableNotifications" xml:space="preserve">
+    <value>앱 내 알림</value>
+  </data>
+  <data name="AiAgents_EnableNotifications_Description" xml:space="preserve">
+    <value>백그라운드 스레드의 승인 요청, 질문 및 작업 결과를 표시합니다.</value>
+  </data>
+  <data name="AiAgents_EnableNotificationSound" xml:space="preserve">
+    <value>알림음</value>
+  </data>
+  <data name="AiAgents_EnableNotificationSound_Description" xml:space="preserve">
+    <value>알림이 표시될 때 소리를 재생합니다.</value>
+  </data>
+  <data name="AiAgents_RuntimeAvailableVersion" xml:space="preserve">
+    <value>v{0} · {1}</value>
+  </data>
+  <data name="AiAgents_RuntimeOutdated" xml:space="preserve">
+    <value>v{0} · 업데이트 필요(v{1} 이상)&#10;{2}</value>
+  </data>
 </root>

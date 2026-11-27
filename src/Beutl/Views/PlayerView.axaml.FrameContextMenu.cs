@@ -1,6 +1,7 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
+using Beutl.Editor.Components.AgentTab;
 using Beutl.Graphics;
 using Beutl.Helpers;
 using Beutl.IO;
@@ -22,6 +23,8 @@ namespace Beutl.Views;
 public partial class PlayerView
 {
     private FAMenuFlyoutItem _saveElementAsImage = null!;
+    private FAMenuFlyoutItem _sendFrameToAgent = null!;
+
     private void ConfigureFrameContextMenu(Control control)
     {
         _saveElementAsImage = new FAMenuFlyoutItem
@@ -39,6 +42,12 @@ public partial class PlayerView
             },
         };
         saveFrameAsImage.Click += OnSaveFrameAsImageClick;
+        _sendFrameToAgent = new FAMenuFlyoutItem
+        {
+            Text = AgentStrings.SendFrameToAgent,
+            IconSource = new FluentIconSource { Icon = Icon.Bot }
+        };
+        _sendFrameToAgent.Click += OnSendFrameToAgentClick;
         var fitPreview = new FAMenuFlyoutItem
         {
             Text = Strings.PreviewZoomFit
@@ -51,6 +60,7 @@ public partial class PlayerView
             {
                 saveFrameAsImage,
                 _saveElementAsImage,
+                _sendFrameToAgent,
                 fitPreview
             }
         };
@@ -63,6 +73,7 @@ public partial class PlayerView
             }
 
             _saveElementAsImage.IsEnabled = _lastSelected.TryGetTarget(out _);
+            _sendFrameToAgent.IsEnabled = AgentComposerLauncher.IsAvailable((DataContext as PlayerViewModel)?.EditViewModel);
             fitPreview.InputGesture = GetPreviewCommandGesture(SceneEditorExtension.PreviewZoomFitCommandId);
         };
         control.ContextFlyout = menu;
@@ -77,6 +88,11 @@ public partial class PlayerView
         }
     }
 
+    private async void OnSendFrameToAgentClick(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is PlayerViewModel viewModel)
+            await AgentComposerLauncher.SendFrameAsync(viewModel.EditViewModel);
+    }
     internal static async Task<IStorageFile?> SaveImageFilePicker(string name, IStorageProvider storage)
     {
         FilePickerSaveOptions options = SharedFilePickerOptions.SaveImage();

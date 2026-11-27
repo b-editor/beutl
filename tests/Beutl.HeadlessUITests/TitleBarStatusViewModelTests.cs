@@ -165,6 +165,49 @@ public sealed class TitleBarStatusViewModelTests
     }
 
     [AvaloniaTest]
+    public async Task Busy_uses_ai_activity_indicator_while_agents_are_running()
+    {
+        var runningAgents = new ReactivePropertySlim<int>(0);
+        var editorService = new EditorService(new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), (_, _) => { }, TestShell.CreateEditorServices().Add<Beutl.Configuration.GlobalConfiguration>(() => TestShell.Configuration));
+        await using var endpoint = new AgentHostEndpoint(
+            new ProjectService(new Beutl.Configuration.ViewConfig(), TestShell.FontManager, TestShell.Notifications), editorService, UnavailableAgentAiBackend.Instance, AgentHostEndpoint.DefaultPort, "test-token");
+        using var status = new TitleBarStatusViewModel(
+            Observable.Return(false),
+            editorService,
+            endpoint,
+            Observable.Return<AuthenticatedUser?>(null),
+            Observable.Return(AiJobMonitorSnapshot.Empty),
+            CreateJobKinds(),
+            () => { },
+            runningAgentCount: runningAgents);
+        Dispatcher.UIThread.RunJobs();
+        Assert.Multiple(() =>
+        {
+            Assert.That(status.Activities.Value, Is.EqualTo(TitleBarActivities.None));
+            Assert.That(status.AgentsText.Value, Is.EqualTo(StatusStrings.None));
+        });
+
+        runningAgents.Value = 2;
+        Dispatcher.UIThread.RunJobs();
+        Assert.Multiple(() =>
+        {
+            Assert.That(status.RunningAgentCount.Value, Is.EqualTo(2));
+            Assert.That(status.Activities.Value, Is.EqualTo(TitleBarActivities.AiJob));
+            Assert.That(status.AgentsText.Value, Is.EqualTo(string.Format(StatusStrings.RunningCount, 2)));
+            Assert.That(status.ToolTip.Value, Does.Contain(AgentStrings.Title));
+        });
+
+        runningAgents.Value = 0;
+        Dispatcher.UIThread.RunJobs();
+        Assert.Multiple(() =>
+        {
+            Assert.That(status.Activities.Value, Is.EqualTo(TitleBarActivities.None));
+            Assert.That(status.AgentsText.Value, Is.EqualTo(StatusStrings.None));
+            Assert.That(status.ToolTip.Value, Is.EqualTo(StatusStrings.Title));
+        });
+    }
+
+    [AvaloniaTest]
     public async Task Opening_the_popup_samples_resources_and_services()
     {
         var editorService = new EditorService(new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), (_, _) => { }, TestShell.CreateEditorServices().Add<Beutl.Configuration.GlobalConfiguration>(() => TestShell.Configuration));

@@ -80,6 +80,7 @@ public sealed class SettingsDialogViewModel : IDisposable
     public BrowserSettingsPageViewModel Browser => _browser.Value;
 
     public void GoToBrowserSettingsPage() => _navigateRequested.OnNext(Browser);
+    public void GoToAiAgentSettingsPage() => _navigateRequested.OnNext(AiAgent);
 
     public IObservable<object> NavigateRequested => _navigateRequested;
 

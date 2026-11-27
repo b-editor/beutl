@@ -1,0 +1,66 @@
+<UserControl x:Class="Beutl.Editor.Components.AgentTab.Views.AgentImageLightbox"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:icons="using:FluentIcons.Avalonia.Fluent"
+             xmlns:lang="using:Beutl.Language"
+             Focusable="True" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+             KeyboardNavigation.TabNavigation="Cycle"
+             AutomationProperties.Name="{x:Static lang:AgentStrings.ImagePreview}">
+    <ThemeVariantScope RequestedThemeVariant="Dark">
+        <Panel>
+            <Border x:Name="Backdrop" Background="#BE000000" PointerReleased="OnBackdropReleased" />
+            <Border x:Name="LightboxCard" HorizontalAlignment="Center" VerticalAlignment="Center"
+                    CornerRadius="{DynamicResource OverlayCornerRadius}" ClipToBounds="True"
+                    Background="{DynamicResource SolidBackgroundFillColorSecondaryBrush}"
+                    BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" BorderThickness="1">
+                <Grid RowDefinitions="Auto,*,Auto">
+                    <Grid Margin="12,9,9,9" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                        <StackPanel Spacing="2" VerticalAlignment="Center">
+                            <TextBlock x:Name="ImageCaption" FontSize="14" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                            <TextBlock x:Name="ImageDimensions" FontSize="11" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                        </StackPanel>
+                        <Button x:Name="CloseImageButton" Grid.Column="1" Width="32" Height="30" Padding="0"
+                                Theme="{StaticResource ToolTabBarIconButtonTheme}" Click="OnClose"
+                                ToolTip.Tip="{x:Static lang:AgentStrings.CloseImagePreview}"
+                                AutomationProperties.Name="{x:Static lang:AgentStrings.CloseImagePreview}">
+                            <icons:FluentIcon Icon="Dismiss" FontSize="16" />
+                        </Button>
+                    </Grid>
+                    <Border Grid.Row="1" Background="#121214" BorderThickness="0,1"
+                            BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}">
+                        <ScrollViewer x:Name="ImageScroll" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                                      ScrollChanged="OnImageScrollChanged">
+                            <Image x:Name="FullImage" Stretch="Fill" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </ScrollViewer>
+                    </Border>
+                    <Grid Grid.Row="2" Margin="9,8" ColumnDefinitions="*,Auto" ColumnSpacing="6">
+                        <StackPanel Orientation="Horizontal" Spacing="3" VerticalAlignment="Center">
+                            <Button x:Name="ZoomOutButton" Content="−" Click="OnZoomOut" Width="28" Padding="0"
+                                    ToolTip.Tip="{x:Static lang:AgentStrings.ZoomImageOut}" AutomationProperties.Name="{x:Static lang:AgentStrings.ZoomImageOut}" />
+                            <TextBlock x:Name="ZoomLabel" MinWidth="40" TextAlignment="Center" FontSize="11" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                            <Button x:Name="ZoomInButton" Content="+" Click="OnZoomIn" Width="28" Padding="0"
+                                    ToolTip.Tip="{x:Static lang:AgentStrings.ZoomImageIn}" AutomationProperties.Name="{x:Static lang:AgentStrings.ZoomImageIn}" />
+                            <Button x:Name="FitImageButton" Content="{x:Static lang:AgentStrings.FitImage}" Click="OnFit" Padding="6,3"
+                                    ToolTip.Tip="{x:Static lang:AgentStrings.FitImageTooltip}" AutomationProperties.Name="{x:Static lang:AgentStrings.FitImageTooltip}" />
+                            <Button x:Name="ActualSizeButton" Content="100%" Click="OnActualSize" Padding="6,3"
+                                    ToolTip.Tip="{x:Static lang:AgentStrings.ActualImageSize}" AutomationProperties.Name="{x:Static lang:AgentStrings.ActualImageSize}" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="3" VerticalAlignment="Center">
+                            <Button x:Name="CopyImageButton" Width="28" Height="28" Padding="0" Click="OnCopyImage"
+                                    Theme="{StaticResource ToolTabBarIconButtonTheme}"
+                                    ToolTip.Tip="{x:Static lang:AgentStrings.CopyImage}" AutomationProperties.Name="{x:Static lang:AgentStrings.CopyImage}">
+                                <icons:FluentIcon Icon="Copy" FontSize="15" />
+                            </Button>
+                            <Button x:Name="CopyImagePathButton" Width="28" Height="28" Padding="0" Click="OnCopyPath"
+                                    Theme="{StaticResource ToolTabBarIconButtonTheme}"
+                                    ToolTip.Tip="{x:Static lang:AgentStrings.CopyImagePath}" AutomationProperties.Name="{x:Static lang:AgentStrings.CopyImagePath}">
+                                <icons:FluentIcon Icon="Link" FontSize="15" />
+                            </Button>
+                        </StackPanel>
+                    </Grid>
+                </Grid>
+            </Border>
+        </Panel>
+    </ThemeVariantScope>
+</UserControl>

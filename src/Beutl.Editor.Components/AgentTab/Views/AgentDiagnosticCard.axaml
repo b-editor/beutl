@@ -1,0 +1,63 @@
+<UserControl x:Class="Beutl.Editor.Components.AgentTab.Views.AgentDiagnosticCard"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:icons="using:FluentIcons.Avalonia.Fluent"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:views="using:Beutl.Editor.Components.AgentTab.Views"
+             xmlns:vm="using:Beutl.Editor.Components.AgentTab.ViewModels"
+             x:DataType="vm:AgentDiagnosticItem">
+    <Border Classes="agent-card">
+        <StackPanel Spacing="7">
+            <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8" RowSpacing="3">
+                <icons:FluentIcon Icon="{Binding StatusIcon}" Classes="agent-status"
+                                  Margin="0,3,0,0" VerticalAlignment="Top" />
+                <TextBlock Grid.Column="1" Text="{Binding Title}" FontSize="13" FontWeight="SemiBold"
+                           TextWrapping="Wrap" VerticalAlignment="Center" />
+                <TextBlock Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2" Text="{Binding Description}"
+                           Classes="agent-secondary" TextWrapping="Wrap" />
+                <Button Grid.Column="2" x:Name="DismissDiagnostic" Theme="{StaticResource ToolTabBarIconButtonTheme}"
+                        Command="{Binding $parent[views:AgentTabView].((vm:AgentTabViewModel)DataContext).DismissDiagnostic}"
+                        Width="23" Height="23" Padding="0"
+                        VerticalAlignment="Top" ToolTip.Tip="{x:Static lang:AgentStrings.DiagnosticDismiss}"
+                        AutomationProperties.Name="{x:Static lang:AgentStrings.DiagnosticDismiss}">
+                    <icons:FluentIcon Icon="Dismiss" FontSize="12" />
+                </Button>
+            </Grid>
+            <WrapPanel ItemSpacing="5" LineSpacing="5" IsVisible="{Binding ShowSettings}">
+                <Button x:Name="CopyDiagnosticCommand" IsVisible="{Binding HasCommand}" Click="OnCopyCommand"
+                        Padding="7,3" AutomationProperties.Name="{x:Static lang:AgentStrings.DiagnosticCopyCommand}">
+                    <StackPanel Orientation="Horizontal" Spacing="5">
+                        <icons:FluentIcon x:Name="CopyDiagnosticIcon" Icon="{Binding CopyIcon}" FontSize="12" VerticalAlignment="Center" />
+                        <TextBlock Text="{x:Static lang:AgentStrings.DiagnosticCopyCommand}" FontSize="11" />
+                    </StackPanel>
+                </Button>
+                <Button x:Name="OpenDiagnosticSettings" Click="OnOpenSettings" Padding="7,3"
+                        Content="{x:Static lang:AgentStrings.DiagnosticOpenSettings}" FontSize="11"
+                        ToolTip.Tip="{x:Static lang:AgentStrings.DiagnosticOpenAiAgentSettings}"
+                        AutomationProperties.Name="{x:Static lang:AgentStrings.DiagnosticOpenAiAgentSettings}" />
+                <Button x:Name="RecheckDiagnostic" IsVisible="{Binding CanRecheck}" Padding="7,3"
+                        IsEnabled="{Binding $parent[views:AgentTabView].((vm:AgentTabViewModel)DataContext).CanManage}"
+                        Command="{Binding $parent[views:AgentTabView].((vm:AgentTabViewModel)DataContext).RecheckDiagnosticAsync}"
+                        Content="{x:Static lang:AgentStrings.DiagnosticRecheck}" FontSize="11" />
+            </WrapPanel>
+            <StackPanel Spacing="3" IsVisible="{Binding HasDetails}">
+                <ToggleButton x:Name="DiagnosticDetailsToggle" Classes="agent-disclosure" HorizontalAlignment="Left"
+                              IsChecked="{Binding IsDetailExpanded, Mode=TwoWay}" Padding="0,2" MinHeight="22"
+                              AutomationProperties.Name="{x:Static lang:AgentStrings.DiagnosticTechnicalDetails}">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <icons:FluentIcon Classes="agent-status agent-chevron agent-disclosure-glyph" />
+                        <TextBlock Text="{x:Static lang:AgentStrings.DiagnosticTechnicalDetails}"
+                                   Classes="agent-caption agent-disclosure-label" />
+                    </StackPanel>
+                </ToggleButton>
+                <Border IsVisible="{Binding IsDetailExpanded}" CornerRadius="{DynamicResource ControlCornerRadius}"
+                        Background="{DynamicResource ControlAltFillColorSecondaryBrush}" Padding="7,5">
+                    <ScrollViewer MaxHeight="96" HorizontalScrollBarVisibility="Disabled">
+                        <SelectableTextBlock x:Name="DiagnosticRawDetail" Text="{Binding Issue.RawMessage}"
+                                             Classes="agent-secondary" TextWrapping="Wrap" />
+                    </ScrollViewer>
+                </Border>
+            </StackPanel>
+        </StackPanel>
+    </Border>
+</UserControl>

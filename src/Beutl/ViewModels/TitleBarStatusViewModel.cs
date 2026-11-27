@@ -40,7 +40,8 @@ public sealed class TitleBarStatusViewModel : IDisposable
         IAiJobKindRegistry aiJobKinds,
         Action openAiJobCenter,
         IObservable<AppUpdateStatus>? appUpdateStatus = null,
-        Action? openAppUpdate = null)
+        Action? openAppUpdate = null,
+        IObservable<int>? runningAgentCount = null)
     {
         _openAppUpdate = openAppUpdate;
         _editorService = editorService;
@@ -59,6 +60,11 @@ public sealed class TitleBarStatusViewModel : IDisposable
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
+        RunningAgentCount = (runningAgentCount ?? Observable.Return(0))
+            .ObserveOnUIDispatcher()
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposables);
+
         RunningOutputs = editorService.RunningOutputs
             .Select(items => items.Select(DescribeOutput).ToArray())
             .ObserveOnUIDispatcher()
@@ -71,7 +77,7 @@ public sealed class TitleBarStatusViewModel : IDisposable
             .DisposeWith(_disposables);
 
         Activities = IsRunningStartupTasks
-            .CombineLatest(RunningAiJobCount, RunningOutputs, AppUpdate, ListActivities)
+            .CombineLatest(RunningAiJobCount, RunningAgentCount, RunningOutputs, AppUpdate, ListActivities)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
@@ -87,7 +93,7 @@ public sealed class TitleBarStatusViewModel : IDisposable
             .DisposeWith(_disposables);
 
         ToolTip = IsRunningStartupTasks
-            .CombineLatest(RunningAiJobCount, RunningOutputs, AppUpdate, BuildToolTip)
+            .CombineLatest(RunningAiJobCount, RunningAgentCount, RunningOutputs, AppUpdate, BuildToolTip)
             .ToReadOnlyReactivePropertySlim(StatusStrings.Title)
             .DisposeWith(_disposables);
 
@@ -97,6 +103,11 @@ public sealed class TitleBarStatusViewModel : IDisposable
             .DisposeWith(_disposables);
 
         AiJobsText = RunningAiJobCount
+            .Select(count => count > 0 ? string.Format(StatusStrings.RunningCount, count) : StatusStrings.None)
+            .ToReadOnlyReactivePropertySlim(StatusStrings.None)
+            .DisposeWith(_disposables);
+
+        AgentsText = RunningAgentCount
             .Select(count => count > 0 ? string.Format(StatusStrings.RunningCount, count) : StatusStrings.None)
             .ToReadOnlyReactivePropertySlim(StatusStrings.None)
             .DisposeWith(_disposables);
@@ -131,6 +142,8 @@ public sealed class TitleBarStatusViewModel : IDisposable
 
     public ReadOnlyReactivePropertySlim<int> RunningAiJobCount { get; }
 
+    public ReadOnlyReactivePropertySlim<int> RunningAgentCount { get; }
+
     public ReadOnlyReactivePropertySlim<string[]> RunningOutputs { get; }
 
     public ReadOnlyReactivePropertySlim<bool> HasRunningOutputs { get; }
@@ -138,6 +151,8 @@ public sealed class TitleBarStatusViewModel : IDisposable
     public ReadOnlyReactivePropertySlim<string> StartupText { get; }
 
     public ReadOnlyReactivePropertySlim<string> AiJobsText { get; }
+
+    public ReadOnlyReactivePropertySlim<string> AgentsText { get; }
 
     public ReadOnlyReactivePropertySlim<string> AccountText { get; }
 
@@ -308,7 +323,7 @@ public sealed class TitleBarStatusViewModel : IDisposable
     }
 
     private static string BuildToolTip(
-        bool runningStartupTasks, int runningAiJobs, string[] runningOutputs, AppUpdateStatus update)
+        bool runningStartupTasks, int runningAiJobs, int runningAgents, string[] runningOutputs, AppUpdateStatus update)
     {
         List<string> lines = [StatusStrings.Title];
         if (runningStartupTasks)
@@ -317,6 +332,8 @@ public sealed class TitleBarStatusViewModel : IDisposable
             lines.Add($"{Strings.Output}: {string.Format(StatusStrings.RunningCount, runningOutputs.Length)}");
         if (runningAiJobs > 0)
             lines.Add($"{Strings.AiJobCenter}: {string.Format(StatusStrings.RunningCount, runningAiJobs)}");
+        if (runningAgents > 0)
+            lines.Add($"{AgentStrings.Title}: {string.Format(StatusStrings.RunningCount, runningAgents)}");
         if (update.IsActive)
             lines.Add($"{Strings.Update}: {update.Text}");
 
@@ -324,14 +341,14 @@ public sealed class TitleBarStatusViewModel : IDisposable
     }
 
     private static TitleBarActivities ListActivities(
-        bool runningStartupTasks, int runningAiJobs, string[] runningOutputs, AppUpdateStatus update)
+        bool runningStartupTasks, int runningAiJobs, int runningAgents, string[] runningOutputs, AppUpdateStatus update)
     {
         var activities = TitleBarActivities.None;
         if (runningStartupTasks)
             activities |= TitleBarActivities.Startup;
         if (runningOutputs.Length > 0)
             activities |= TitleBarActivities.Output;
-        if (runningAiJobs > 0)
+        if (runningAiJobs > 0 || runningAgents > 0)
             activities |= TitleBarActivities.AiJob;
         if (update.IsBusy)
             activities |= TitleBarActivities.Update;

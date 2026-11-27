@@ -23,7 +23,7 @@ namespace Beutl.AgentToolkit;
 public static class AgentToolkitMcpServer
 {
     public static IServiceCollection AddAgentToolkitServer(
-        this IServiceCollection services, string profileDirectory)
+        this IServiceCollection services, string profileDirectory, Guid? agentThreadId = null)
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentException.ThrowIfNullOrWhiteSpace(profileDirectory);
@@ -56,7 +56,7 @@ public static class AgentToolkitMcpServer
             .AddSingleton<AgentSessionManager>();
 
         services.AddSingleton(provider => LiveMcpBroker.CreateForProfile(
-            profileDirectory, provider.GetService<ILoggerFactory>()?.CreateLogger<LiveMcpBroker>()));
+            profileDirectory, provider.GetService<ILoggerFactory>()?.CreateLogger<LiveMcpBroker>(), agentThreadId));
         services.AddOptions<McpServerOptions>()
             .Configure<LiveMcpBroker>((options, broker) => broker.ConfigureServer(options));
         return services;

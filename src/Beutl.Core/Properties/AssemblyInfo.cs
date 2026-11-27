@@ -18,3 +18,4 @@
 [assembly: InternalsVisibleTo("Beutl.AgentToolkit.Mcp")]
 [assembly: InternalsVisibleTo("Beutl.AgentToolkit")]
 [assembly: InternalsVisibleTo("Beutl.AgentToolkit.Tests")]
+[assembly: InternalsVisibleTo("Beutl.Agents")]

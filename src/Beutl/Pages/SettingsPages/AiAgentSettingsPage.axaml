@@ -23,7 +23,217 @@
                         VerticalAlignment="Stretch"
                         Orientation="Vertical"
                         Spacing="4">
-                <SelectableTextBlock Text="{x:Static lang:SettingsStrings.AiAgents_PageDescription}" TextWrapping="Wrap" />
+                <TextBlock Text="{x:Static lang:SettingsStrings.AiAgents_Runtime}"
+                           Theme="{StaticResource BodyStrongTextBlockStyle}" />
+                <Border Classes="options-group">
+                    <ctrls:OptionsGroupPanel>
+                        <ctrls:OptionsDisplayItem Header="{x:Static lang:SettingsStrings.AiAgents_RuntimeDefaultProvider}">
+                            <ctrls:OptionsDisplayItem.ActionButton>
+                                <ComboBox x:Name="RuntimeDefaultProvider"
+                                          MinWidth="200" MaxWidth="240"
+                                          AutomationProperties.Name="{x:Static lang:SettingsStrings.AiAgents_RuntimeDefaultProvider}"
+                                          ItemsSource="{Binding RuntimeSettings.ProviderChoices.Value}"
+                                          SelectedItem="{Binding RuntimeSettings.DefaultProvider.Value}">
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:AgentRuntimeProviderOption">
+                                            <TextBlock Text="{Binding DisplayName}" TextTrimming="CharacterEllipsis" />
+                                        </DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>
+                            </ctrls:OptionsDisplayItem.ActionButton>
+                        </ctrls:OptionsDisplayItem>
+                        <ctrls:OptionsDisplayItem Header="{x:Static lang:SettingsStrings.AiAgents_RuntimeDefaultPermission}">
+                            <ctrls:OptionsDisplayItem.ActionButton>
+                                <ComboBox x:Name="RuntimeDefaultPermission"
+                                          MinWidth="200" MaxWidth="240"
+                                          AutomationProperties.Name="{x:Static lang:SettingsStrings.AiAgents_RuntimeDefaultPermission}"
+                                          ItemsSource="{Binding RuntimeSettings.PermissionChoices}"
+                                          SelectedItem="{Binding RuntimeSettings.DefaultPermission.Value}">
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:AgentRuntimePermissionOption">
+                                            <TextBlock Text="{Binding Label}" TextTrimming="CharacterEllipsis" />
+                                        </DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>
+                            </ctrls:OptionsDisplayItem.ActionButton>
+                        </ctrls:OptionsDisplayItem>
+                        <ctrls:OptionsDisplayItem Header="{x:Static lang:SettingsStrings.AiAgents_RuntimeDefaultModel}">
+                            <ctrls:OptionsDisplayItem.ActionButton>
+                                <TextBox x:Name="RuntimeDefaultModel"
+                                         MinWidth="200" MaxWidth="240"
+                                         AutomationProperties.Name="{x:Static lang:SettingsStrings.AiAgents_RuntimeDefaultModel}"
+                                         Text="{Binding RuntimeSettings.DefaultModel.Value}"
+                                         PlaceholderText="{x:Static lang:SettingsStrings.AiAgents_RuntimeProviderDefault}" />
+                            </ctrls:OptionsDisplayItem.ActionButton>
+                        </ctrls:OptionsDisplayItem>
+                        <ctrls:OptionsDisplayItem Header="{x:Static lang:SettingsStrings.AiAgents_RuntimeComposerSendKey}">
+                            <ctrls:OptionsDisplayItem.ActionButton>
+                                <ComboBox x:Name="RuntimeComposerSendKey" MinWidth="200" MaxWidth="240"
+                                          AutomationProperties.Name="{x:Static lang:SettingsStrings.AiAgents_RuntimeComposerSendKey}"
+                                          ItemsSource="{Binding RuntimeSettings.ComposerSendKeys}"
+                                          SelectedItem="{Binding RuntimeSettings.ComposerSendKey.Value}">
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:AgentComposerSendKeyOption">
+                                            <TextBlock Text="{Binding Label}" />
+                                        </DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>
+                            </ctrls:OptionsDisplayItem.ActionButton>
+                        </ctrls:OptionsDisplayItem>
+                        <ctrls:OptionsDisplayItem Header="{x:Static lang:AgentStrings.ActiveRunSendAction}">
+                            <ctrls:OptionsDisplayItem.ActionButton>
+                                <ComboBox x:Name="RuntimeSendAction" MinWidth="200" MaxWidth="240"
+                                          AutomationProperties.Name="{x:Static lang:AgentStrings.ActiveRunSendAction}"
+                                          ItemsSource="{Binding RuntimeSettings.SendActions}"
+                                          SelectedItem="{Binding RuntimeSettings.SendAction.Value}">
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:AgentRuntimeSendOption">
+                                            <TextBlock Text="{Binding Label}" TextTrimming="CharacterEllipsis" />
+                                        </DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>
+                            </ctrls:OptionsDisplayItem.ActionButton>
+                        </ctrls:OptionsDisplayItem>
+                    </ctrls:OptionsGroupPanel>
+                </Border>
+
+                <TextBlock Margin="0,12,0,0"
+                           Text="{x:Static lang:SettingsStrings.AiAgents_Notifications}"
+                           Theme="{StaticResource BodyStrongTextBlockStyle}" />
+                <Border Classes="options-group">
+                    <ctrls:OptionsGroupPanel>
+                        <ctrls:OptionsDisplayItem Header="{x:Static lang:SettingsStrings.AiAgents_EnableNotifications}"
+                                                  Description="{x:Static lang:SettingsStrings.AiAgents_EnableNotifications_Description}">
+                            <ctrls:OptionsDisplayItem.ActionButton>
+                                <ToggleSwitch x:Name="EnableAgentNotifications" Classes="left" Theme="{StaticResource CompactToggleSwitchStyle}"
+                                              AutomationProperties.Name="{x:Static lang:SettingsStrings.AiAgents_EnableNotifications}"
+                                              IsChecked="{Binding RuntimeSettings.EnableNotifications.Value, Mode=TwoWay}" />
+                            </ctrls:OptionsDisplayItem.ActionButton>
+                        </ctrls:OptionsDisplayItem>
+                        <ctrls:OptionsDisplayItem Header="{x:Static lang:SettingsStrings.AiAgents_EnableNotificationSound}"
+                                                  Description="{x:Static lang:SettingsStrings.AiAgents_EnableNotificationSound_Description}"
+                                                  IsEnabled="{Binding RuntimeSettings.EnableNotifications.Value}">
+                            <ctrls:OptionsDisplayItem.ActionButton>
+                                <ToggleSwitch x:Name="EnableAgentNotificationSound" Classes="left" Theme="{StaticResource CompactToggleSwitchStyle}"
+                                              AutomationProperties.Name="{x:Static lang:SettingsStrings.AiAgents_EnableNotificationSound}"
+                                              IsChecked="{Binding RuntimeSettings.EnableNotificationSound.Value, Mode=TwoWay}" />
+                            </ctrls:OptionsDisplayItem.ActionButton>
+                        </ctrls:OptionsDisplayItem>
+                    </ctrls:OptionsGroupPanel>
+                </Border>
+
+                <DockPanel Margin="0,12,0,0">
+                    <Button x:Name="RuntimeRecheck" DockPanel.Dock="Right"
+                            Command="{Binding RuntimeSettings.RecheckProviders}"
+                            Content="{x:Static lang:SettingsStrings.AiAgents_RuntimeRecheck}" />
+                    <TextBlock VerticalAlignment="Center"
+                               Text="{x:Static lang:SettingsStrings.AiAgents_RuntimeDetectedProviders}"
+                               Theme="{StaticResource BodyStrongTextBlockStyle}" />
+                </DockPanel>
+                <Border Classes="options-group">
+                    <ctrls:OptionsGroupPanel>
+                        <ctrls:OptionsDisplayItem Description="{Binding RuntimeSettings.ClaudeCodeStatus.Value}" Header="Claude Code">
+                            <ctrls:OptionsDisplayItem.ActionButton>
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Spacing="4">
+                                    <TextBox x:Name="RuntimeClaudePath"
+                                             Width="166"
+                                             AutomationProperties.Name="{x:Static lang:SettingsStrings.AiAgents_RuntimeClaudePath}"
+                                             Text="{Binding RuntimeSettings.ClaudeCodeExecutablePath.Value}"
+                                             PlaceholderText="{x:Static lang:SettingsStrings.AiAgents_RuntimeExecutableOverride}" />
+                                    <Button AutomationProperties.Name="{x:Static lang:SettingsStrings.AiAgents_RuntimeClaudePath}"
+                                            Click="BrowseClaudeExecutable_Click" Content="…" />
+                                </StackPanel>
+                            </ctrls:OptionsDisplayItem.ActionButton>
+                        </ctrls:OptionsDisplayItem>
+                        <ctrls:OptionsDisplayItem Description="{Binding RuntimeSettings.CodexStatus.Value}" Header="Codex">
+                            <ctrls:OptionsDisplayItem.ActionButton>
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Spacing="4">
+                                    <TextBox x:Name="RuntimeCodexPath"
+                                             Width="166"
+                                             AutomationProperties.Name="{x:Static lang:SettingsStrings.AiAgents_RuntimeCodexPath}"
+                                             Text="{Binding RuntimeSettings.CodexExecutablePath.Value}"
+                                             PlaceholderText="{x:Static lang:SettingsStrings.AiAgents_RuntimeExecutableOverride}" />
+                                    <Button AutomationProperties.Name="{x:Static lang:SettingsStrings.AiAgents_RuntimeCodexPath}"
+                                            Click="BrowseCodexExecutable_Click" Content="…" />
+                                </StackPanel>
+                            </ctrls:OptionsDisplayItem.ActionButton>
+                        </ctrls:OptionsDisplayItem>
+                    </ctrls:OptionsGroupPanel>
+                </Border>
+
+                <TextBlock Margin="0,12,0,0"
+                           Text="{x:Static lang:SettingsStrings.AiAgents_RuntimeCustomProviders}"
+                           Theme="{StaticResource BodyStrongTextBlockStyle}" />
+                <Border Classes="options-group">
+                    <ctrls:OptionsGroupPanel>
+                        <ItemsControl ItemsSource="{Binding RuntimeSettings.CustomProviders.Value}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <ctrls:OptionsGroupPanel />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:AgentCustomProviderItem">
+                                    <Grid Margin="12,8" ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                        <StackPanel Spacing="2">
+                                            <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                            <SelectableTextBlock Text="{Binding Id}" FontSize="12" TextWrapping="Wrap"
+                                                                 Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                            <SelectableTextBlock Text="{Binding Command}" FontSize="12" TextWrapping="Wrap"
+                                                                 FontFamily="Cascadia Code,Consolas,Menlo,Monospace" />
+                                            <SelectableTextBlock Text="{Binding Arguments}" FontSize="12" TextWrapping="Wrap"
+                                                                 FontFamily="Cascadia Code,Consolas,Menlo,Monospace"
+                                                                 IsVisible="{Binding Arguments, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                                            <TextBlock Text="{Binding Status}" FontSize="12" TextWrapping="Wrap"
+                                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                        </StackPanel>
+                                        <Button Grid.Column="1" VerticalAlignment="Top"
+                                                Click="RemoveRuntimeProvider_Click"
+                                                Content="{x:Static lang:SettingsStrings.AiAgents_RuntimeRemove}" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <ctrls:OptionsDisplayItem x:Name="RuntimeAddProvider"
+                                                  Expands="True"
+                                                  Header="{x:Static lang:SettingsStrings.AiAgents_RuntimeAddProvider}">
+                            <ctrls:OptionsDisplayItem.Content>
+                                <StackPanel Margin="12,8,12,12" Spacing="8">
+                                    <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto"
+                                          ColumnSpacing="12" RowSpacing="6">
+                                        <TextBlock VerticalAlignment="Center" Text="{x:Static lang:SettingsStrings.AiAgents_RuntimeId}" />
+                                        <TextBox Grid.Column="1"
+                                                 AutomationProperties.Name="{x:Static lang:SettingsStrings.AiAgents_RuntimeId}"
+                                                 Text="{Binding RuntimeSettings.NewProviderId.Value}" />
+                                        <TextBlock Grid.Row="1" VerticalAlignment="Center" Text="{x:Static lang:SettingsStrings.AiAgents_RuntimeDisplayName}" />
+                                        <TextBox Grid.Row="1" Grid.Column="1"
+                                                 AutomationProperties.Name="{x:Static lang:SettingsStrings.AiAgents_RuntimeDisplayName}"
+                                                 Text="{Binding RuntimeSettings.NewProviderName.Value}" />
+                                        <TextBlock Grid.Row="2" VerticalAlignment="Center" Text="{x:Static lang:SettingsStrings.AiAgents_RuntimeCommand}" />
+                                        <TextBox Grid.Row="2" Grid.Column="1"
+                                                 AutomationProperties.Name="{x:Static lang:SettingsStrings.AiAgents_RuntimeCommand}"
+                                                 Text="{Binding RuntimeSettings.NewProviderCommand.Value}" />
+                                        <TextBlock Grid.Row="3" Margin="0,6,0,0" Text="{x:Static lang:SettingsStrings.TerminalShellArguments}" />
+                                        <TextBox Grid.Row="3" Grid.Column="1" MinHeight="60" AcceptsReturn="True"
+                                                 AutomationProperties.Name="{x:Static lang:SettingsStrings.TerminalShellArguments}"
+                                                 Text="{Binding RuntimeSettings.NewProviderArguments.Value}"
+                                                 PlaceholderText="{x:Static lang:SettingsStrings.AiAgents_RuntimeArgumentsPlaceholder}" />
+                                    </Grid>
+                                    <TextBlock Foreground="{DynamicResource SystemFillColorCriticalBrush}"
+                                               IsVisible="{Binding RuntimeSettings.NewProviderError.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                               Text="{Binding RuntimeSettings.NewProviderError.Value}" TextWrapping="Wrap" />
+                                    <Button HorizontalAlignment="Right" Command="{Binding RuntimeSettings.AddProvider}"
+                                            Content="{x:Static lang:SettingsStrings.AiAgents_RuntimeAddProvider}" />
+                                </StackPanel>
+                            </ctrls:OptionsDisplayItem.Content>
+                        </ctrls:OptionsDisplayItem>
+                    </ctrls:OptionsGroupPanel>
+                </Border>
+                <TextBlock Foreground="{DynamicResource SystemFillColorCriticalBrush}"
+                           IsVisible="{Binding RuntimeSettings.CustomProvidersError.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                           Text="{Binding RuntimeSettings.CustomProvidersError.Value}" TextWrapping="Wrap" />
+
+                <SelectableTextBlock Margin="0,20,0,0" Text="{x:Static lang:SettingsStrings.AiAgents_PageDescription}" TextWrapping="Wrap" />
 
                 <TextBlock Margin="0,16,0,0"
                            Text="{x:Static lang:SettingsStrings.AiAgents_Target}"

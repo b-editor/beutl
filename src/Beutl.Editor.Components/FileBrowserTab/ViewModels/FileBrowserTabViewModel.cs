@@ -21,6 +21,7 @@ public sealed partial class FileBrowserTabViewModel : IToolContext
     private readonly CompositeDisposable _disposables = [];
     private readonly ILogger _logger = Log.CreateLogger<FileBrowserTabViewModel>();
     private readonly IEditorContext _editorContext;
+    internal IEditorContext EditorContext => _editorContext;
     private readonly DirectoryWatcherService _directoryWatcher;
     private readonly FileThumbnailService _thumbnails;
     private readonly FavoritesManager _favoritesManager;

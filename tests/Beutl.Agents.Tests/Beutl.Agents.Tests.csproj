@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="NUnit" />
+    <PackageReference Include="NUnit3TestAdapter" />
+    <Using Include="NUnit.Framework" />
+    <ProjectReference Include="../../src/Beutl.Agents/Beutl.Agents.csproj" />
+    <ProjectReference Include="../../src/Beutl.Agents.Worker/Beutl.Agents.Worker.csproj" />
+    <None Update="Fixtures/*.mjs" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

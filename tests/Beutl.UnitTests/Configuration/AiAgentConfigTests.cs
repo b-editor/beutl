@@ -26,6 +26,17 @@ public class AiAgentConfigTests
             Assert.That(config.McpServersPropertyName.Value, Is.Empty);
             Assert.That(config.LiveMcpToken.Value, Is.Empty);
             Assert.That(config.FollowLiveMcpEdits.Value, Is.False);
+            Assert.That(config.DefaultRuntimeProviderId.Value, Is.Empty);
+            Assert.That(config.DefaultPermissionMode.Value, Is.EqualTo("Auto"));
+            Assert.That(config.DefaultModel.Value, Is.Empty);
+            Assert.That(config.DefaultReasoningEffort.Value, Is.Empty);
+            Assert.That(config.SteerOnSend.Value, Is.False);
+            Assert.That(config.ComposerSendKey.Value, Is.EqualTo(AgentComposerSendKey.Enter));
+            Assert.That(config.EnableNotifications.Value, Is.True);
+            Assert.That(config.EnableNotificationSound.Value, Is.True);
+            Assert.That(config.ClaudeCodeExecutablePath.Value, Is.Empty);
+            Assert.That(config.CodexExecutablePath.Value, Is.Empty);
+            Assert.That(config.CustomRuntimeProvidersJson.Value, Is.Empty);
         });
     }
 
@@ -45,6 +56,17 @@ public class AiAgentConfigTests
             McpConfigFileName = { Value = "mcp.json" },
             McpServersPropertyName = { Value = "mcpServers" },
             FollowLiveMcpEdits = { Value = true },
+            DefaultRuntimeProviderId = { Value = "custom-acp" },
+            DefaultPermissionMode = { Value = "Supervised" },
+            DefaultModel = { Value = "example-model" },
+            DefaultReasoningEffort = { Value = "high" },
+            SteerOnSend = { Value = true },
+            ComposerSendKey = { Value = AgentComposerSendKey.CtrlEnter },
+            EnableNotifications = { Value = false },
+            EnableNotificationSound = { Value = false },
+            ClaudeCodeExecutablePath = { Value = "/tools/claude" },
+            CodexExecutablePath = { Value = "/tools/codex" },
+            CustomRuntimeProvidersJson = { Value = """[{"id":"custom-acp","displayName":"Example","command":"acp","arguments":[]}]""" },
         };
 
         JsonObject json = CoreSerializer.SerializeToJsonObject(source);
@@ -64,9 +86,46 @@ public class AiAgentConfigTests
             Assert.That(restored.McpConfigFileName.Value, Is.EqualTo(source.McpConfigFileName.Value));
             Assert.That(restored.McpServersPropertyName.Value, Is.EqualTo(source.McpServersPropertyName.Value));
             Assert.That(restored.FollowLiveMcpEdits.Value, Is.True);
+            Assert.That(restored.DefaultRuntimeProviderId.Value, Is.EqualTo(source.DefaultRuntimeProviderId.Value));
+            Assert.That(restored.DefaultPermissionMode.Value, Is.EqualTo(source.DefaultPermissionMode.Value));
+            Assert.That(restored.DefaultModel.Value, Is.EqualTo(source.DefaultModel.Value));
+            Assert.That(restored.DefaultReasoningEffort.Value, Is.EqualTo("high"));
+            Assert.That(restored.SteerOnSend.Value, Is.True);
+            Assert.That(restored.ComposerSendKey.Value, Is.EqualTo(AgentComposerSendKey.CtrlEnter));
+            Assert.That(restored.EnableNotifications.Value, Is.False);
+            Assert.That(restored.EnableNotificationSound.Value, Is.False);
+            Assert.That(restored.ClaudeCodeExecutablePath.Value, Is.EqualTo(source.ClaudeCodeExecutablePath.Value));
+            Assert.That(restored.CodexExecutablePath.Value, Is.EqualTo(source.CodexExecutablePath.Value));
+            Assert.That(restored.CustomRuntimeProvidersJson.Value, Is.EqualTo(source.CustomRuntimeProvidersJson.Value));
             Assert.That(json.ContainsKey(nameof(AiAgentConfig.LiveMcpToken)), Is.False);
             Assert.That(restored.LiveMcpToken.Value, Is.Empty);
         });
+    }
+
+    [Test]
+    public void Profiles_without_picker_settings_preserve_the_configured_model()
+    {
+        var config = new AiAgentConfig();
+        CoreSerializer.PopulateFromJsonObject(config, new JsonObject { [nameof(AiAgentConfig.DefaultModel)] = "example-model" });
+        Assert.That(config.ComposerSendKey.Value, Is.EqualTo(AgentComposerSendKey.Enter));
+
+        Assert.That(config.DefaultModel.Value, Is.EqualTo("example-model"));
+        Assert.That(config.DefaultReasoningEffort.Value, Is.Empty);
+        Assert.That(config.EnableNotifications.Value, Is.True);
+        Assert.That(config.EnableNotificationSound.Value, Is.True);
+    }
+
+    [Test]
+    public void Notification_changes_raise_RuntimeSettingsChanged()
+    {
+        var config = new AiAgentConfig();
+        var changes = new List<string?>();
+        config.RuntimeSettingsChanged += (_, args) => changes.Add(args.PropertyName);
+
+        config.EnableNotifications.Value = false;
+        config.EnableNotificationSound.Value = false;
+
+        Assert.That(changes, Is.EqualTo(new[] { nameof(config.EnableNotifications), nameof(config.EnableNotificationSound) }));
     }
 
     [Test]

@@ -1,0 +1,206 @@
+<UserControl x:Class="Beutl.Editor.Components.AgentTab.Views.AgentComposerView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:conv="using:Avalonia.Data.Converters"
+             xmlns:icons="using:FluentIcons.Avalonia.Fluent"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:views="using:Beutl.Editor.Components.AgentTab.Views"
+             xmlns:vm="using:Beutl.Editor.Components.AgentTab.ViewModels"
+             x:DataType="vm:AgentTabViewModel">
+    <Panel>
+    <Border x:Name="ComposerCard" Classes="agent-card agent-composer" Margin="10,4,10,10" Padding="0" DragDrop.AllowDrop="True">
+        <Panel>
+        <StackPanel>
+            <ScrollViewer Margin="10,10,10,0" MaxHeight="200" HorizontalScrollBarVisibility="Disabled"
+                          VerticalScrollBarVisibility="Auto" IsVisible="{Binding !!Attachments.Count}">
+                <ItemsControl x:Name="AttachmentCards" ItemsSource="{Binding Attachments}" IsEnabled="{Binding CanManage}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate><WrapPanel ItemSpacing="7" LineSpacing="7" /></ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:AgentAttachment">
+                            <Grid Classes="agent-attachment-card" Classes.pasted-text="{Binding IsPastedText}" VerticalAlignment="Top">
+                                <ToolTip.Tip>
+                                    <TextBlock Text="{Binding Tooltip}" MaxWidth="300" TextWrapping="Wrap" />
+                                </ToolTip.Tip>
+                                <Border CornerRadius="{DynamicResource ControlCornerRadius}" BorderThickness="1"
+                                        BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                                        Background="{DynamicResource SubtleFillColorSecondaryBrush}" ClipToBounds="True">
+                                    <Grid RowDefinitions="*,25">
+                                        <Button x:Name="ComposerImageThumbnail" IsVisible="{Binding HasThumbnail}" Click="OnOpenAttachmentImage"
+                                                Theme="{StaticResource TransparentButton}" Padding="0"
+                                                HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                                                HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"
+                                                AutomationProperties.Name="{Binding Label}"
+                                                AutomationProperties.HelpText="{x:Static lang:AgentStrings.OpenImagePreview}">
+                                            <Image Source="{Binding Thumbnail}" Stretch="UniformToFill" />
+                                        </Button>
+                                        <StackPanel Orientation="Vertical" Spacing="3" Margin="6,0"
+                                                    HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding !HasThumbnail}">
+                                            <icons:FluentIcon Icon="{Binding Icon}" FontSize="23" HorizontalAlignment="Center"
+                                                              Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                            <TextBlock Text="{Binding Detail}" Classes="agent-caption" FontSize="10" TextTrimming="CharacterEllipsis"
+                                                       TextAlignment="Center"
+                                                       IsVisible="{Binding Detail, Converter={x:Static conv:StringConverters.IsNotNullOrEmpty}}" />
+                                        </StackPanel>
+                                        <Border Grid.Row="1" Background="{DynamicResource ControlAltFillColorSecondaryBrush}" Padding="7,0">
+                                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="5">
+                                                <icons:FluentIcon Icon="{Binding Icon}" FontSize="12" VerticalAlignment="Center"
+                                                                  Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}" />
+                                                <TextBlock Grid.Column="1" Text="{Binding Label}" FontSize="11" TextTrimming="CharacterEllipsis"
+                                                           VerticalAlignment="Center" />
+                                            </Grid>
+                                        </Border>
+                                    </Grid>
+                                </Border>
+                                <Border Classes="agent-attachment-remove"
+                                        HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,3,3,0"
+                                        CornerRadius="{DynamicResource ControlCornerRadius}"
+                                        Background="{DynamicResource SolidBackgroundFillColorSecondaryBrush}"
+                                        BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="1">
+                                    <Button Command="{Binding Remove}" Theme="{StaticResource TransparentButton}"
+                                            Padding="0" Width="21" Height="21"
+                                            ToolTip.Tip="{Binding RemoveLabel}" AutomationProperties.Name="{Binding RemoveLabel}">
+                                        <icons:FluentIcon Icon="Dismiss" FontSize="11" />
+                                    </Button>
+                                </Border>
+                            </Grid>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+
+            <TextBox x:Name="PromptBox" Text="{Binding Prompt, Mode=TwoWay}" IsReadOnly="{Binding !CanManage}"
+                     PlaceholderText="{Binding PromptPlaceholder}" AutomationProperties.Name="{x:Static lang:AgentStrings.Prompt}"
+                     AcceptsReturn="True" TextWrapping="Wrap" VerticalContentAlignment="Top" ScrollViewer.VerticalScrollBarVisibility="Auto"
+                     Background="Transparent" BorderThickness="0" Padding="11,9,11,6" FontSize="14" MinHeight="45" MaxHeight="140">
+                <TextBox.Resources>
+                    <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="Transparent" />
+                    <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="Transparent" />
+                    <Thickness x:Key="TextControlBorderThemeThicknessFocused">0</Thickness>
+                </TextBox.Resources>
+            </TextBox>
+
+            <Grid ColumnDefinitions="Auto,*,Auto" Margin="8,2,8,8" ColumnSpacing="4">
+                <StackPanel Orientation="Horizontal" Spacing="0" VerticalAlignment="Center">
+                    <Button x:Name="AddButton" Theme="{StaticResource ToolTabBarIconButtonTheme}" Width="26" Height="28"
+                            Padding="0" IsEnabled="{Binding CanManage}"
+                            ToolTip.Tip="{x:Static lang:AgentStrings.ComposerAdd}" AutomationProperties.Name="{x:Static lang:AgentStrings.ComposerAdd}">
+                        <icons:FluentIcon Icon="Add" FontSize="18" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                        <Button.Flyout>
+                            <MenuFlyout Placement="TopEdgeAlignedLeft">
+                                <MenuItem Header="{x:Static lang:AgentStrings.AttachFile}" Click="OnAttachFile">
+                                    <MenuItem.Icon><icons:FluentIcon Icon="Attach" FontSize="16" /></MenuItem.Icon>
+                                </MenuItem>
+                                <MenuItem Header="{x:Static lang:AgentStrings.AttachCurrentFrame}" Command="{Binding CaptureFrameAsync}">
+                                    <MenuItem.Icon><icons:FluentIcon Icon="Image" FontSize="16" /></MenuItem.Icon>
+                                </MenuItem>
+                                <MenuItem Header="{x:Static lang:AgentStrings.AttachSceneContext}"
+                                          ToggleType="CheckBox" IsChecked="{Binding IncludeSceneContext, Mode=TwoWay}"
+                                          ToolTip.Tip="{x:Static lang:AgentStrings.SceneContextTooltip}"
+                                          AutomationProperties.HelpText="{x:Static lang:AgentStrings.SceneContextTooltip}" />
+                            </MenuFlyout>
+                        </Button.Flyout>
+                    </Button>
+                    <views:AgentPermissionModePicker x:Name="PermissionPicker" VerticalAlignment="Center" />
+                    <Border x:Name="SceneContextSeparator" Width="1" Height="14" Margin="6,0"
+                            VerticalAlignment="Center" Background="{DynamicResource DividerStrokeColorDefaultBrush}"
+                            IsVisible="{Binding IncludeSceneContext}" />
+                    <Button x:Name="SceneContextChip" Theme="{StaticResource TransparentButton}"
+                            Classes="agent-scene-chip" Padding="5,0" Height="28" VerticalContentAlignment="Center"
+                            IsEnabled="{Binding CanManage}" IsVisible="{Binding IncludeSceneContext}"
+                            Click="OnRemoveSceneContext"
+                            ToolTip.Tip="{Binding SceneContextTooltip}"
+                            AutomationProperties.Name="{x:Static lang:AgentStrings.RemoveSceneContext}">
+                        <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
+                            <Panel Width="15" VerticalAlignment="Center">
+                                <icons:FluentIcon Classes="agent-scene-icon-idle" Icon="Video" FontSize="15" Margin="0,1.5,0,0"
+                                                  HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                  Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                <icons:FluentIcon Classes="agent-scene-icon-hover" Icon="DismissCircle" IconVariant="Filled" FontSize="15"
+                                                  HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                  Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                            </Panel>
+                            <TextBlock Text="{x:Static lang:AgentStrings.SceneContext}"
+                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+
+                <Button Grid.Column="1" x:Name="ModelButton" Theme="{StaticResource TransparentButton}" MaxWidth="190" Padding="7,3" HorizontalAlignment="Right"
+                        Height="30" IsEnabled="{Binding CanChooseModel}"
+                        ToolTip.Tip="{Binding ModelPickerTooltip}" ToolTip.ShowOnDisabled="True"
+                        AutomationProperties.Name="{Binding ModelButtonLabel}" AutomationProperties.HelpText="{x:Static lang:AgentStrings.ModelPicker}">
+                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="5">
+                        <views:AgentProviderIcon Kind="{Binding ProviderKind}" Width="15" Height="15"
+                                                 VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="1" x:Name="ShortModelLabel" Text="{Binding ShortModelName}" VerticalAlignment="Center"
+                                   TextTrimming="CharacterEllipsis" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                        <TextBlock Grid.Column="2" x:Name="ReasoningEffortLabel" Text="{Binding ReasoningEffortLabel}" VerticalAlignment="Center"
+                                   IsVisible="{Binding !!ReasoningEffortLabel}" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                    </Grid>
+                    <Button.Flyout>
+                        <Flyout Placement="TopEdgeAlignedRight" FlyoutPresenterClasses="agent-model-picker"
+                                Opening="OnModelPickerOpening" Opened="OnModelPickerOpened">
+                            <views:AgentModelPickerView x:Name="ModelPicker" />
+                        </Flyout>
+                    </Button.Flyout>
+                </Button>
+
+                <Panel Grid.Column="2">
+                    <Button x:Name="StopButton" Width="30" Height="30" Padding="0"
+                            Command="{Binding StopAsync}" IsEnabled="{Binding CanStop}" IsVisible="{Binding !ShowSendButton}"
+                            ToolTip.Tip="{Binding StopTooltip}" AutomationProperties.Name="{x:Static lang:AgentStrings.Stop}">
+                        <icons:FluentIcon Icon="Stop" IconVariant="Filled" FontSize="11" />
+                    </Button>
+                    <Button x:Name="SendButton" Classes="accent" Width="30" Height="30" Padding="0"
+                            Command="{Binding SendAsync}" IsEnabled="{Binding CanSend}" IsVisible="{Binding ShowSendButton}"
+                            ToolTip.Tip="{Binding SendTooltip}" AutomationProperties.Name="{Binding SendLabel}">
+                        <icons:FluentIcon Icon="ArrowUp" FontSize="16" />
+                    </Button>
+                </Panel>
+            </Grid>
+        </StackPanel>
+        <Border x:Name="DropIndicator" Classes="agent-drop-indicator" IsHitTestVisible="False" Margin="-1"
+                BorderBrush="{DynamicResource AccentFillColorDefaultBrush}" BorderThickness="2"
+                CornerRadius="{DynamicResource OverlayCornerRadius}">
+            <Border.Background>
+                <SolidColorBrush Color="{DynamicResource SystemAccentColor}" Opacity="0.07" />
+            </Border.Background>
+        </Border>
+        </Panel>
+    </Border>
+    <Popup x:Name="SuggestionsPopup" PlacementTarget="{Binding #ComposerCard}" Placement="TopEdgeAlignedLeft" VerticalOffset="-5"
+           ShouldUseOverlayLayer="True" TakesFocusFromNativeControl="False">
+        <Border x:Name="SuggestionsCard" CornerRadius="{DynamicResource OverlayCornerRadius}" BorderThickness="1" Padding="4"
+                Background="{DynamicResource SolidBackgroundFillColorSecondaryBrush}" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}">
+            <ListBox x:Name="SuggestionsList" Focusable="False" Background="Transparent" BorderThickness="0" Padding="0"
+                     ScrollViewer.HorizontalScrollBarVisibility="Disabled" MaxHeight="230"
+                     AutomationProperties.Name="{x:Static lang:AgentStrings.ComposerSuggestions}">
+                <ListBox.Styles>
+                    <Style Selector="ListBoxItem">
+                        <Setter Property="Focusable" Value="False" />
+                        <Setter Property="Padding" Value="14,6,10,6" />
+                    </Style>
+                </ListBox.Styles>
+                <ListBox.ItemTemplate>
+                    <DataTemplate x:DataType="vm:AgentComposerSuggestionRow">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" RowDefinitions="Auto,Auto" RowSpacing="2">
+                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="6">
+                                <TextBlock Text="{Binding Title}" FontSize="13" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" MaxWidth="245" />
+                                <TextBlock Grid.Column="1" Text="{Binding ArgumentHint}" Classes="agent-caption"
+                                           VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                            </Grid>
+                            <Border Grid.Column="1" Padding="5,1" CornerRadius="4" Background="{DynamicResource SubtleFillColorSecondaryBrush}">
+                                <TextBlock Text="{Binding KindLabel}" Classes="agent-caption" />
+                            </Border>
+                            <TextBlock Grid.Row="1" Grid.ColumnSpan="2" Text="{Binding Detail}" Classes="agent-caption"
+                                       TextTrimming="CharacterEllipsis" IsVisible="{Binding Detail, Converter={x:Static conv:StringConverters.IsNotNullOrEmpty}}" />
+                        </Grid>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+        </Border>
+    </Popup>
+    </Panel>
+</UserControl>

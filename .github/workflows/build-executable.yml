@@ -60,6 +60,12 @@ jobs:
       - name: Verify bundled libSkiaSharp
         run: python3 native/SkiaSharp/verify.py
 
+      - name: Setup Node.js for the agent bridge build
+        uses: actions/setup-node@v7.1.0
+        with:
+          node-version: '24'
+          package-manager-cache: false
+
       - name: Restore
         run: |
           chmod +x build.sh
@@ -79,9 +85,9 @@ jobs:
       - name: Verify native architecture
         run: python3 build/verify_native_architecture.py --rid ${{ matrix.rid }} output/Beutl
 
-      # Only the linux_x64 output runs on this runner. Starting the FFmpeg worker and the MCP host from it
-      # catches a file that the merge into output/Beutl left out, which the build does not notice (#2887).
-      - name: Smoke-test the FFmpeg worker and the MCP host
+      # Only the linux_x64 output runs on this runner. Start the shipped helpers to catch missing files
+      # from the merge into output/Beutl (#2887).
+      - name: Smoke-test the published helpers
         if: matrix.rid == 'linux_x64'
         run: python3 build/smoke_test_output.py output/Beutl
 

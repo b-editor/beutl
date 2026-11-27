@@ -30,6 +30,18 @@ MCP_HOST = """
     sys.stdin.read()
 """
 
+AGENT_WORKER = """
+    import json, os, sys
+    request = json.loads(sys.stdin.readline())
+    assert request == {"jsonrpc": "2.0", "id": 1, "method": "ping"}, request
+    result = {"nodeVersion": "26.13.1", "processId": os.getpid()}
+    print(json.dumps({"jsonrpc": "2.0", "id": 1, "result": result}), flush=True)
+    request = json.loads(sys.stdin.readline())
+    assert request == {"jsonrpc": "2.0", "id": 2, "method": "shutdown"}, request
+    print(json.dumps({"jsonrpc": "2.0", "id": 2, "result": None}), flush=True)
+    assert sys.stdin.read() == ""
+"""
+
 
 def answering(response, after="sys.stdin.read()"):
     return f"""
@@ -42,10 +54,10 @@ def answering(response, after="sys.stdin.read()"):
 
 @unittest.skipIf(os.name == "nt", "the fake helpers are shell scripts")
 class SmokeTestOutputTests(unittest.TestCase):
-    def run_main(self, worker=WORKER_WITHOUT_FFMPEG, mcp=MCP_HOST, timeout=None):
+    def run_main(self, worker=WORKER_WITHOUT_FFMPEG, mcp=MCP_HOST, agent=AGENT_WORKER, timeout=None):
         """Runs main against fake helpers and returns (exit code, stdout, stderr)."""
         with tempfile.TemporaryDirectory() as directory:
-            for name, body in ((smoke.WORKER, worker), (smoke.MCP_HOST, mcp)):
+            for name, body in ((smoke.WORKER, worker), (smoke.MCP_HOST, mcp), (smoke.AGENT_WORKER, agent)):
                 if body is None:
                     continue
                 script = Path(directory, f"{name}.py")
@@ -67,10 +79,13 @@ class SmokeTestOutputTests(unittest.TestCase):
         with mock.patch.dict(os.environ, {"LD_LIBRARY_PATH": "/opt/ffmpeg/lib"}):
             code, stdout, _ = self.run_main()
         self.assertEqual(code, 0, stdout)
-        self.assertEqual(stdout.splitlines(), [
+        lines = stdout.splitlines()
+        self.assertEqual(lines[:2], [
             "Beutl.FFmpegWorker exited with 2 (FFmpeg was not found), as expected.",
             "Beutl.AgentToolkit.Mcp answered initialize: Fake 1.2, protocol 2025-06-18.",
         ])
+        self.assertEqual(len(lines), 3)
+        self.assertRegex(lines[2], r"^Beutl\.Agents\.Worker answered ping: Node\.js 26\.13\.1, PID \d+\.$")
 
     def test_worker_that_cannot_initialize_fails_with_its_output(self):
         code, stdout, stderr = self.run_main(worker="""
@@ -84,7 +99,7 @@ class SmokeTestOutputTests(unittest.TestCase):
         self.assertIn("\n    [ffmpeg:Error] Failed to initialize FFmpeg: Could not load file or assembly", stdout)
         # The helper's lines are indented, so none of them is read as a workflow command.
         self.assertIn("\n    ::error::from the worker\n", stdout)
-        self.assertRegex(stderr, r"^1 of 2 helpers did not come up from \S+\.\n$")
+        self.assertRegex(stderr, r"^1 of 3 helpers did not come up from \S+\.\n$")
 
     def test_worker_that_finds_ffmpeg_names_the_machine(self):
         code, stdout, _ = self.run_main(worker="raise SystemExit(3)")
@@ -189,11 +204,50 @@ class SmokeTestOutputTests(unittest.TestCase):
         code, stdout, _ = self.run_main(mcp=None)
         self.assertEqual(code, 1)
         self.assertRegex(stdout, r"^::error::\S+ has no Beutl\.AgentToolkit\.Mcp; expected the publish output\.\n$")
+        code, stdout, _ = self.run_main(agent=None)
+        self.assertEqual(code, 1)
+        self.assertIn("has no Beutl.Agents.Worker; expected the publish output.", stdout)
 
     def test_timeout_must_be_positive(self):
         code, _, stderr = self.run_main(timeout=0)
         self.assertEqual(code, 2)
         self.assertIn("--timeout must be positive", stderr)
+
+
+class AgentWorkerSmokeTests(unittest.TestCase):
+    def check_worker(self, body):
+        # Launch a real subprocess on Windows as well as Unix without a platform-specific stub executable.
+        from subprocess import Popen
+
+        with tempfile.TemporaryDirectory() as directory:
+            script = Path(directory, "worker.py")
+            script.write_text(textwrap.dedent(body), encoding="utf-8")
+            with mock.patch.object(smoke.subprocess, "Popen", side_effect=lambda _, **kw: Popen(
+                    [sys.executable, str(script)], **kw)):
+                return smoke.check_agent_worker(script, Path(directory), 5)
+
+    def test_agent_worker_answers_and_shuts_down(self):
+        self.assertRegex(self.check_worker(AGENT_WORKER), r"answered ping: Node\.js 26\.13\.1, PID \d+\.")
+
+    def test_agent_worker_stdout_is_only_json_rpc(self):
+        for body in (
+            "print('log before ping', flush=True)\n" + textwrap.dedent(AGENT_WORKER),
+            AGENT_WORKER + "\n    print('log after shutdown', flush=True)\n",
+            AGENT_WORKER.replace("os.getpid()", "float('nan')"),
+        ):
+            with self.subTest(body=body), self.assertRaisesRegex(smoke.Failure, "not JSON-RPC to stdout"):
+                self.check_worker(body)
+
+    def test_agent_worker_ping_requires_a_node_version_and_process_id(self):
+        for result in ('{"processId": 1}', '{"nodeVersion": "26.13.1", "processId": true}'):
+            body = AGENT_WORKER.replace('{"nodeVersion": "26.13.1", "processId": os.getpid()}',
+                                        f"json.loads({result!r})")
+            with self.subTest(result=result), self.assertRaisesRegex(smoke.Failure, "valid nodeVersion and processId"):
+                self.check_worker(body)
+
+    def test_agent_worker_must_exit_with_zero(self):
+        with self.assertRaisesRegex(smoke.Failure, "exited with 7 after its stdin closed"):
+            self.check_worker(AGENT_WORKER + "\n    sys.exit(7)\n")
 
 
 if __name__ == "__main__":

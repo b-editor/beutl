@@ -17,6 +17,8 @@
 | `Beutl.NodeGraph` | Node editor model and evaluation. |
 | `Beutl.Api` | Server API and AI service clients, package installation, and extension loading (`ExtensionProvider`). |
 | `Beutl.AgentToolkit`, `Beutl.AgentToolkit.Mcp` | Agent-editing product functionality and its MCP host. Bundled skills and subagents are product assets under the toolkit project, not repository-wide development configuration. |
+| `Beutl.Agents` | Managed external agent models, thread storage, permission routing, and worker IPC. |
+| `Beutl.Agents.Worker`, `Beutl.Agents.NodeBridge` | Separate libnode process and TypeScript provider adapters for ACP, Codex App Server, and Claude Code. |
 | `Beutl.Extensions.FFmpeg`, `Beutl.Extensions.FFmpeg.Core` | MIT FFmpeg decoding and encoding that runs the worker through IPC; `.Core` is the headless encoding part. |
 | `Beutl.Extensions.MediaFoundation`, `Beutl.Extensions.AVFoundation` | Platform media backends for Windows and macOS. |
 | `Beutl.FFmpegIpc` | MIT IPC transport and adapters used to communicate with the FFmpeg worker. |

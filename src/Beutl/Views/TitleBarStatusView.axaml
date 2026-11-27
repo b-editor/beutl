@@ -124,7 +124,7 @@
                             <TextBlock Classes="header" Text="{x:Static lang:StatusStrings.BackgroundTasks}" />
                             <Grid Classes="rows"
                                   ColumnSpacing="12"
-                                  RowDefinitions="Auto,Auto,Auto,Auto"
+                                  RowDefinitions="Auto,Auto,Auto,Auto,Auto"
                                   RowSpacing="4">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="Auto" SharedSizeGroup="Label" />
@@ -164,9 +164,15 @@
                                 </WrapPanel>
                                 <TextBlock Grid.Row="3"
                                            Classes="label"
+                                           Text="{x:Static lang:AgentStrings.Title}" />
+                                <TextBlock Grid.Row="3"
+                                           Grid.Column="1"
+                                           Text="{Binding AgentsText.Value}" />
+                                <TextBlock Grid.Row="4"
+                                           Classes="label"
                                            IsVisible="{Binding AppUpdate.Value.IsActive}"
                                            Text="{x:Static lang:Strings.Update}" />
-                                <StackPanel Grid.Row="3"
+                                <StackPanel Grid.Row="4"
                                             Grid.Column="1"
                                             IsVisible="{Binding AppUpdate.Value.IsActive}"
                                             Spacing="2">

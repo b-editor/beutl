@@ -10,6 +10,7 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Avalonia.Xaml.Interactivity;
 using Beutl.Controls.PropertyEditors;
+using Beutl.Editor.Components.AgentTab;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.SilenceSplitTab.ViewModels;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
@@ -141,6 +142,7 @@ public sealed partial class ElementView : UserControl
         delete.IsEnabled = !viewModel.IsLockedByUser.Value;
         finishEditingAnimation.IsEnabled = editable;
         rename.IsEnabled = editable;
+        sendToAgent.IsEnabled = AgentComposerLauncher.IsAvailable(viewModel.Timeline.EditorContext);
         enableElement.IsEnabled = editable;
         changeColor.IsEnabled = editable;
         // With the layer locked, clearing the element flag has no visible effect
@@ -151,6 +153,16 @@ public sealed partial class ElementView : UserControl
         PopulateTrackMatteMenu(viewModel);
         PopulateTransitionMenu(viewModel, editable);
         PopulateAnimationMenu(viewModel, editable);
+    }
+
+    private async void SendToAgent_Click(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not ElementViewModel viewModel) return;
+
+        var editor = viewModel.Timeline.EditorContext;
+        var selection = editor.GetRequiredService<IEditorSelection>().SelectedElements;
+        Element[] elements = selection.Count > 1 && selection.Contains(viewModel.Model) ? [.. selection] : [viewModel.Model];
+        await AgentComposerLauncher.SendElementsAsync(editor, elements);
     }
 
     private void AutoSplitBySilence_Click(object? sender, RoutedEventArgs e)

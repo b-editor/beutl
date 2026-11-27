@@ -49,7 +49,7 @@ Beutl.Utilities
 
 [Beutl.Configuration]:AiAgentConfig
   sealed
-  keys: AgentId, FollowLiveMcpEdits, InstallMcp, InstallScope, InstallSkills, InstallSubagents, McpConfigFileName, McpServersPropertyName, ProjectRoot, SkillsDirectory, StdioArguments, StdioCommand, SubagentsDirectory
+  keys: AgentId, ClaudeCodeExecutablePath, CodexExecutablePath, ComposerSendKey, CustomRuntimeProvidersJson, DefaultModel, DefaultPermissionMode, DefaultReasoningEffort, DefaultRuntimeProviderId, EnableNotificationSound, EnableNotifications, FollowLiveMcpEdits, InstallMcp, InstallScope, InstallSkills, InstallSubagents, McpConfigFileName, McpServersPropertyName, ProjectRoot, SkillsDirectory, StdioArguments, StdioCommand, SteerOnSend, SubagentsDirectory
 [Beutl.Configuration]:ConfigurationBase
   abstract
 [Beutl.Configuration]:EditorConfig
@@ -1703,6 +1703,8 @@ Beutl.Utilities
 # settings.json). The id is the tools[].id that BeutlToolDockable.CreateId gives it, with <guid> in place
 # of a GUID it generates.
 
+[Beutl.Editor.Components].AgentTab:AgentTabExtension
+  id: Beutl.Editor.Components.AgentTab.AgentTabExtension#<guid>
 [Beutl.Editor.Components].AiWorkspaceTab:AiWorkspaceTabExtension
   id: Beutl.Editor.Components.AiWorkspaceTab.AiWorkspaceTabExtension#<guid>
 [Beutl.Editor.Components].AudioVisualizerTab:AudioVisualizerTabExtension

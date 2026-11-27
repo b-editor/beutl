@@ -1,0 +1,332 @@
+<UserControl x:Class="Beutl.Editor.Components.AgentTab.Views.AgentTimelineView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:conv="using:Avalonia.Data.Converters"
+             xmlns:icons="using:FluentIcons.Avalonia.Fluent"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:views="using:Beutl.Editor.Components.AgentTab.Views"
+             xmlns:vm="using:Beutl.Editor.Components.AgentTab.ViewModels"
+             x:DataType="vm:AgentTabViewModel">
+    <UserControl.Resources>
+        <DataTemplate x:Key="LiveStatusTemplate" x:DataType="vm:AgentTabViewModel">
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="7" Margin="4,4,2,4">
+                <icons:FluentIcon Classes="agent-status" Icon="{Binding LiveStatusIcon}" VerticalAlignment="Center" />
+                <views:AgentShimmerTextBlock x:Name="LiveTurnStatus" Grid.Column="1" HorizontalAlignment="Left"
+                                             IsLive="{Binding ShowLiveStatus}" Text="{Binding LiveStatus}" FontSize="12"
+                                             VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+            </Grid>
+        </DataTemplate>
+    </UserControl.Resources>
+    <UserControl.Styles>
+        <StyleInclude Source="AgentMarkdownStyles.axaml" />
+    </UserControl.Styles>
+
+    <UserControl.DataTemplates>
+        <DataTemplate DataType="vm:AgentUserItem" x:DataType="vm:AgentUserItem">
+            <StackPanel Classes="agent-message" HorizontalAlignment="Right" Margin="30,0,0,0" Spacing="2">
+                <Border x:Name="SentUserBubble" Classes="agent-card" HorizontalAlignment="Right" Padding="10,8">
+                    <StackPanel Spacing="6">
+                        <SelectableTextBlock Text="{Binding Text}" IsVisible="{Binding HasText}" FontSize="14" TextWrapping="Wrap" />
+                        <ItemsControl ItemsSource="{Binding Attachments}" IsVisible="{Binding !!Attachments.Count}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate><WrapPanel ItemSpacing="6" LineSpacing="5" /></ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:AgentMessageAttachmentItem">
+                                    <Panel>
+                                        <Button x:Name="SentImageThumbnail" IsVisible="{Binding HasPreview}" Click="OnOpenSentImage"
+                                                Theme="{StaticResource TransparentButton}" Padding="0" CornerRadius="6"
+                                                ToolTip.Tip="{Binding Path}" AutomationProperties.Name="{Binding Label}"
+                                                AutomationProperties.HelpText="{x:Static lang:AgentStrings.OpenImagePreview}">
+                                            <Border Width="128" CornerRadius="6" ClipToBounds="True" BorderThickness="1"
+                                                    BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}">
+                                                <Grid RowDefinitions="76,Auto">
+                                                    <Image Source="{Binding Preview.Thumbnail}" Stretch="UniformToFill" />
+                                                    <TextBlock Grid.Row="1" Classes="agent-caption" Margin="7,3"
+                                                               Text="{Binding Label}" TextTrimming="CharacterEllipsis" />
+                                                </Grid>
+                                            </Border>
+                                        </Button>
+                                        <Border x:Name="SentFileChip" IsVisible="{Binding !HasPreview}" Padding="7,5" MaxWidth="208" VerticalAlignment="Top"
+                                                CornerRadius="5" BorderThickness="1" ToolTip.Tip="{Binding Path}"
+                                                Background="{DynamicResource ControlAltFillColorSecondaryBrush}"
+                                                BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}">
+                                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="6">
+                                                <icons:FluentIcon Icon="{Binding Icon}" FontSize="15" VerticalAlignment="Center"
+                                                                  Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                                <StackPanel Grid.Column="1" Spacing="1">
+                                                    <TextBlock Text="{Binding Label}" FontSize="11" TextTrimming="CharacterEllipsis" />
+                                                    <TextBlock Classes="agent-caption" FontSize="10" Text="{Binding Detail}" TextTrimming="CharacterEllipsis"
+                                                               IsVisible="{Binding Detail, Converter={x:Static conv:StringConverters.IsNotNullOrEmpty}}" />
+                                                </StackPanel>
+                                            </Grid>
+                                        </Border>
+                                    </Panel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+                <StackPanel x:Name="UserMessageFooter" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="1" Margin="0,0,4,0">
+                    <TextBlock Classes="agent-message-time" Text="{Binding TimeLabel}" ToolTip.Tip="{Binding TimeDetail}" />
+                    <Button x:Name="CopyUserMessage" Classes="agent-message-action" Click="OnCopyMessage" IsVisible="{Binding HasText}"
+                            ToolTip.Tip="{x:Static lang:AgentStrings.CopyMessage}" AutomationProperties.Name="{x:Static lang:AgentStrings.CopyMessage}">
+                        <icons:FluentIcon Icon="Copy" FontSize="13" />
+                    </Button>
+                    <Button x:Name="EditUserMessage" Classes="agent-message-action" Click="OnEditMessage" IsVisible="{Binding HasTurn}"
+                            IsEnabled="{Binding $parent[views:AgentTimelineView].((vm:AgentTabViewModel)DataContext).CanActOnMessages}"
+                            ToolTip.Tip="{x:Static lang:AgentStrings.EditFromHere}" AutomationProperties.Name="{x:Static lang:AgentStrings.EditFromHere}">
+                        <icons:FluentIcon Icon="Edit" FontSize="13" />
+                    </Button>
+                    <Button x:Name="ForkUserMessage" Classes="agent-message-action" Click="OnForkMessage" IsVisible="{Binding HasTurn}"
+                            IsEnabled="{Binding $parent[views:AgentTimelineView].((vm:AgentTabViewModel)DataContext).CanActOnMessages}"
+                            ToolTip.Tip="{x:Static lang:AgentStrings.ForkFromHere}" AutomationProperties.Name="{x:Static lang:AgentStrings.ForkFromHere}">
+                        <icons:FluentIcon Icon="BranchFork" FontSize="13" />
+                    </Button>
+                </StackPanel>
+            </StackPanel>
+        </DataTemplate>
+
+        <DataTemplate DataType="vm:AgentAssistantItem" x:DataType="vm:AgentAssistantItem">
+            <StackPanel Classes="agent-message" Margin="2,2,2,0" Spacing="3">
+                <views:AgentMarkdownRenderer MarkdownBuilder="{Binding Markdown}" />
+                <ItemsControl ItemsSource="{Binding Images}" IsVisible="{Binding !!Images.Count}" Margin="0,2,0,2">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate><WrapPanel ItemSpacing="5" LineSpacing="5" /></ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:AgentImagePreview">
+                            <Button x:Name="AssistantImageThumbnail" Theme="{StaticResource TransparentButton}" Padding="0" HorizontalAlignment="Left"
+                                    Click="OnOpenAssistantImage" ToolTip.Tip="{Binding Caption}" AutomationProperties.Name="{Binding Caption}"
+                                    AutomationProperties.HelpText="{x:Static lang:AgentStrings.OpenImagePreview}">
+                                <Border CornerRadius="8" BorderThickness="1" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" ClipToBounds="True">
+                                    <Image Source="{Binding Thumbnail}" Stretch="Uniform" StretchDirection="DownOnly" MaxHeight="156" />
+                                </Border>
+                            </Button>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <StackPanel x:Name="AssistantFooter" Orientation="Horizontal" Spacing="1" IsVisible="{Binding IsFinalTurnResponse}">
+                    <TextBlock Classes="agent-message-time" Text="{Binding TimeLabel}" ToolTip.Tip="{Binding TimeDetail}" />
+                    <StackPanel Orientation="Horizontal" Spacing="1" IsVisible="{Binding CanCopy}">
+                        <Button Classes="agent-message-action" Click="OnCopyMessage"
+                                ToolTip.Tip="{x:Static lang:AgentStrings.CopyResponse}" AutomationProperties.Name="{x:Static lang:AgentStrings.CopyResponse}">
+                            <icons:FluentIcon Icon="Copy" FontSize="13" />
+                        </Button>
+                        <Button x:Name="RetryAssistantMessage" Classes="agent-message-action" Click="OnRetryMessage" IsVisible="{Binding HasTurn}"
+                                IsEnabled="{Binding $parent[views:AgentTimelineView].((vm:AgentTabViewModel)DataContext).CanActOnMessages}"
+                                ToolTip.Tip="{x:Static lang:AgentStrings.RetryTurn}" AutomationProperties.Name="{x:Static lang:AgentStrings.RetryTurn}">
+                            <icons:FluentIcon Icon="ArrowSync" FontSize="13" />
+                        </Button>
+                        <Button x:Name="ForkAssistantMessage" Classes="agent-message-action" Click="OnForkMessage" IsVisible="{Binding HasTurn}"
+                                IsEnabled="{Binding $parent[views:AgentTimelineView].((vm:AgentTabViewModel)DataContext).CanActOnMessages}"
+                                ToolTip.Tip="{x:Static lang:AgentStrings.ForkFromHere}" AutomationProperties.Name="{x:Static lang:AgentStrings.ForkFromHere}">
+                            <icons:FluentIcon Icon="BranchFork" FontSize="13" />
+                        </Button>
+                    </StackPanel>
+                </StackPanel>
+            </StackPanel>
+        </DataTemplate>
+
+        <DataTemplate DataType="vm:AgentReasoningItem" x:DataType="vm:AgentReasoningItem">
+            <StackPanel>
+                <ToggleButton x:Name="ThinkingToggle" Classes="agent-disclosure" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                              IsChecked="{Binding IsExpanded, Mode=TwoWay}"
+                              MinHeight="24" Padding="4,2" AutomationProperties.Name="{Binding Summary}">
+                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="7">
+                        <icons:FluentIcon Classes="agent-status agent-disclosure-glyph" Icon="Lightbulb" VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="1" Text="{Binding Summary}" Classes="agent-caption agent-disclosure-label" FontSize="12" VerticalAlignment="Center"
+                                   TextTrimming="CharacterEllipsis" />
+                        <icons:FluentIcon Grid.Column="2" Classes="agent-status agent-chevron agent-disclosure-glyph" VerticalAlignment="Center" />
+                    </Grid>
+                </ToggleButton>
+                <Border IsVisible="{Binding IsExpanded}" Margin="8,2,0,2" Padding="9,4"
+                        CornerRadius="{DynamicResource ControlCornerRadius}" Background="{DynamicResource ControlAltFillColorSecondaryBrush}">
+                    <ContentControl Content="{Binding ExpandedContent}">
+                        <ContentControl.ContentTemplate>
+                            <DataTemplate x:DataType="vm:AgentReasoningItem">
+                                <ScrollViewer MaxHeight="260" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                                    <SelectableTextBlock Text="{Binding Text}" Classes="agent-secondary" TextWrapping="Wrap" />
+                                </ScrollViewer>
+                            </DataTemplate>
+                        </ContentControl.ContentTemplate>
+                    </ContentControl>
+                </Border>
+            </StackPanel>
+        </DataTemplate>
+
+        <DataTemplate DataType="vm:AgentToolItem"><views:AgentToolView /></DataTemplate>
+
+        <DataTemplate DataType="vm:AgentToolGroupItem" x:DataType="vm:AgentToolGroupItem">
+            <StackPanel Spacing="3">
+                <ToggleButton x:Name="ToolGroupToggle" Classes="agent-disclosure" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                              IsChecked="{Binding IsExpanded, Mode=TwoWay}"
+                              AutomationProperties.Name="{Binding Label}" MinHeight="26" Padding="4,3">
+                    <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="7">
+                        <icons:FluentIcon Classes="agent-status agent-disclosure-glyph" Icon="Wrench" VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="1" Classes="agent-secondary agent-disclosure-label" Text="{Binding Label}" VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="2" x:Name="ToolGroupFailure" Classes="agent-caption agent-disclosure-label" IsVisible="{Binding HasFailure}"
+                                   Text="{x:Static lang:AgentStrings.ToolGroupFailures}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                        <icons:FluentIcon Grid.Column="3" Classes="agent-status agent-chevron agent-disclosure-glyph" VerticalAlignment="Center" />
+                    </Grid>
+                </ToggleButton>
+                <Border Margin="9,0,0,0" Padding="7,0,0,0" IsVisible="{Binding IsExpanded}">
+                    <ItemsControl ItemsSource="{Binding VisibleTools}" />
+                </Border>
+            </StackPanel>
+        </DataTemplate>
+
+        <DataTemplate DataType="vm:AgentPlanItem" x:DataType="vm:AgentPlanItem">
+            <Border Padding="10,8" CornerRadius="8" BorderThickness="1" BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}">
+                <StackPanel Spacing="5">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock Text="{x:Static lang:AgentStrings.Plan}" FontSize="13" FontWeight="SemiBold" />
+                        <TextBlock Grid.Column="1" Text="{Binding Progress}" Classes="agent-caption" VerticalAlignment="Center" />
+                    </Grid>
+                    <TextBlock Classes="agent-secondary" Text="{Binding Explanation}" TextWrapping="Wrap"
+                               IsVisible="{Binding Explanation, Converter={x:Static conv:StringConverters.IsNotNullOrEmpty}}" />
+                    <ItemsControl ItemsSource="{Binding Steps}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:AgentPlanRow">
+                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="7" Margin="0,2" AutomationProperties.Name="{Binding StatusText}">
+                                    <icons:FluentIcon Icon="{Binding StatusIcon}" Classes="agent-status"
+                                                      Classes.success="{Binding IsCompleted}" Classes.active="{Binding IsInProgress}"
+                                                      VerticalAlignment="Top" Margin="0,1,0,0" />
+                                    <TextBlock Grid.Column="1" Text="{Binding Text}" Classes="agent-secondary" TextWrapping="Wrap" />
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+        </DataTemplate>
+
+        <DataTemplate DataType="vm:AgentInteractionItem" x:DataType="vm:AgentInteractionItem">
+            <Grid Classes="agent-resolution" ColumnDefinitions="Auto,*" ColumnSpacing="7" MinHeight="22" Margin="4,0">
+                <icons:FluentIcon Icon="{Binding ResolutionIcon}" Classes="agent-status" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="1" Classes="agent-secondary" Text="{Binding ResolutionText}" MaxLines="1" TextTrimming="CharacterEllipsis"
+                           VerticalAlignment="Center" ToolTip.Tip="{Binding ResolutionText}" />
+            </Grid>
+        </DataTemplate>
+
+        <DataTemplate DataType="vm:AgentHistoryItem" x:DataType="vm:AgentHistoryItem">
+            <Border Padding="0,3">
+                <StackPanel Spacing="4">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="4">
+                        <ToggleButton x:Name="HistoryToggle" Classes="agent-disclosure" Padding="2,3"
+                                      IsChecked="{Binding IsExpanded, Mode=TwoWay}"
+                                      HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                                      IsHitTestVisible="{Binding HasChanges}" Focusable="{Binding HasChanges}"
+                                      AutomationProperties.Name="{Binding DisplayText}">
+                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="7">
+                                <icons:FluentIcon Icon="History" Classes="agent-status agent-disclosure-glyph" FontSize="14" VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="1" Classes="agent-secondary agent-disclosure-label" Text="{Binding DisplayText}"
+                                           TextWrapping="Wrap" VerticalAlignment="Center" />
+                                <icons:FluentIcon Grid.Column="2" Classes="agent-status agent-chevron agent-disclosure-glyph" IsVisible="{Binding HasChanges}" />
+                            </Grid>
+                        </ToggleButton>
+                        <Button Grid.Column="1" Command="{Binding RevertAsync}" IsVisible="{Binding CanRevert}" Theme="{StaticResource TransparentButton}"
+                                AutomationProperties.Name="{x:Static lang:AgentStrings.RevertTurn}" Padding="5,3">
+                            <StackPanel Orientation="Horizontal" Spacing="5">
+                                <icons:FluentIcon Icon="ArrowUndo" FontSize="13" />
+                                <TextBlock Text="{x:Static lang:AgentStrings.RevertTurn}" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+                    </Grid>
+                    <Border IsVisible="{Binding IsExpanded}" Margin="5,0,0,3" Padding="11,2,0,0">
+                        <ContentControl Content="{Binding ExpandedContent}">
+                            <ContentControl.ContentTemplate>
+                                <DataTemplate x:DataType="vm:AgentHistoryItem">
+                                    <StackPanel Spacing="4">
+                                        <ItemsControl ItemsSource="{Binding Changes}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate x:DataType="x:String">
+                                                    <TextBlock Classes="agent-secondary" Margin="0,1" Text="{Binding}" TextWrapping="Wrap" />
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                        <TextBlock Classes="agent-caption" Text="{Binding MoreChanges}" IsVisible="{Binding HasMoreChanges}" />
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ContentControl.ContentTemplate>
+                        </ContentControl>
+                    </Border>
+                </StackPanel>
+            </Border>
+        </DataTemplate>
+
+        <DataTemplate DataType="vm:AgentTurnWorkItem" x:DataType="vm:AgentTurnWorkItem">
+            <StackPanel Spacing="4" Margin="2,0,2,4">
+                <ToggleButton x:Name="TurnStatsToggle" Classes="agent-disclosure" HorizontalAlignment="Left"
+                              Padding="3,2" MinHeight="24" Focusable="{Binding !Header.IsRunning}" IsHitTestVisible="{Binding !Header.IsRunning}"
+                              IsChecked="{Binding IsExpanded, Mode=TwoWay}"
+                              AutomationProperties.Name="{Binding Header.WorkTime}" ToolTip.Tip="{Binding Header.Detail}">
+                    <StackPanel Orientation="Horizontal" Spacing="7">
+                        <TextBlock x:Name="TurnWorkTime" Classes="agent-turn-time agent-disclosure-label" Text="{Binding Header.WorkTime}" />
+                        <icons:FluentIcon Classes="agent-status agent-chevron agent-disclosure-glyph"
+                                          IsVisible="{Binding !Header.IsRunning}" />
+                    </StackPanel>
+                </ToggleButton>
+                <Border Classes="agent-turn-divider" />
+                <StackPanel x:Name="TurnWorkBody" IsVisible="{Binding IsExpanded}" Spacing="4">
+                    <ItemsControl ItemsSource="{Binding VisibleEntries}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate><StackPanel Spacing="6" /></ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                    </ItemsControl>
+                    <ContentControl IsVisible="{Binding Header.IsRunning}"
+                                    Content="{Binding $parent[views:AgentTimelineView].((vm:AgentTabViewModel)DataContext)}"
+                                    ContentTemplate="{StaticResource LiveStatusTemplate}" />
+                </StackPanel>
+            </StackPanel>
+        </DataTemplate>
+
+        <DataTemplate DataType="vm:AgentTimelineDividerItem" x:DataType="vm:AgentTimelineDividerItem">
+            <Grid x:Name="TimelineDivider" ColumnDefinitions="*,8*,*" ColumnSpacing="8" MinHeight="25" Margin="2,1"
+                  AutomationProperties.Name="{Binding Text}" ToolTip.Tip="{Binding Text}">
+                <Border Classes="agent-turn-divider" VerticalAlignment="Center" />
+                <Grid Grid.Column="1" ColumnDefinitions="Auto,*" HorizontalAlignment="Center" ColumnSpacing="6">
+                    <icons:FluentIcon Icon="{Binding Icon}" Classes="agent-status" VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="1" Text="{Binding Text}" Classes="agent-secondary" TextWrapping="Wrap"
+                               TextAlignment="Center" VerticalAlignment="Center" />
+                </Grid>
+                <Border Grid.Column="2" Classes="agent-turn-divider" VerticalAlignment="Center" />
+            </Grid>
+        </DataTemplate>
+
+        <DataTemplate DataType="vm:AgentNoticeItem" x:DataType="vm:AgentNoticeItem">
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="6" Margin="4,3" ToolTip.Tip="{Binding Message}">
+                <icons:FluentIcon Icon="{Binding StatusIcon}" Classes="agent-status" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="1" Text="{Binding DisplayMessage}" Classes="agent-secondary" TextWrapping="Wrap" />
+            </Grid>
+        </DataTemplate>
+    </UserControl.DataTemplates>
+
+    <Grid>
+        <ScrollViewer x:Name="TimelineScroll" HorizontalScrollBarVisibility="Disabled" ScrollChanged="OnTimelineScrollChanged">
+            <Border Classes="agent-wide-gutter">
+                <Border MaxWidth="740" Padding="10,12,10,10">
+                    <StackPanel x:Name="TimelineContentColumn" Spacing="7">
+                        <ItemsControl ItemsSource="{Binding DisplayTimeline}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate><StackPanel Spacing="7" /></ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                        </ItemsControl>
+                        <ContentControl IsVisible="{Binding ShowStandaloneLiveStatus}" Content="{Binding}"
+                                        ContentTemplate="{StaticResource LiveStatusTemplate}" />
+                    </StackPanel>
+                </Border>
+            </Border>
+        </ScrollViewer>
+        <Border Classes="agent-wide-gutter">
+            <Panel MaxWidth="740">
+                <Button x:Name="ScrollToBottomButton" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,17,12"
+                        IsVisible="False" Width="34" Height="34" CornerRadius="17" Padding="0" Click="OnScrollToBottom"
+                        Background="{DynamicResource SolidBackgroundFillColorSecondaryBrush}"
+                        ToolTip.Tip="{x:Static lang:AgentStrings.ScrollToBottom}" AutomationProperties.Name="{x:Static lang:AgentStrings.ScrollToBottom}">
+                    <icons:FluentIcon Icon="ArrowDown" FontSize="16" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                </Button>
+            </Panel>
+        </Border>
+    </Grid>
+</UserControl>
