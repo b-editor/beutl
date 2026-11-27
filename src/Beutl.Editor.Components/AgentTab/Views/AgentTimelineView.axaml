@@ -130,14 +130,15 @@
 
         <DataTemplate DataType="vm:AgentReasoningItem" x:DataType="vm:AgentReasoningItem">
             <StackPanel>
-                <ToggleButton x:Name="ThinkingToggle" Classes="agent-disclosure" HorizontalAlignment="Left"
+                <ToggleButton x:Name="ThinkingToggle" Classes="agent-disclosure" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
                               IsChecked="{Binding IsExpanded, Mode=TwoWay}"
                               MinHeight="24" Padding="4,2" AutomationProperties.Name="{Binding Summary}">
-                    <StackPanel Orientation="Horizontal" Spacing="7">
+                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="7">
                         <icons:FluentIcon Classes="agent-status agent-disclosure-glyph" Icon="Lightbulb" VerticalAlignment="Center" />
-                        <TextBlock Text="{Binding Summary}" Classes="agent-caption agent-disclosure-label" FontSize="12" VerticalAlignment="Center" />
-                        <icons:FluentIcon Classes="agent-status agent-chevron agent-disclosure-glyph" />
-                    </StackPanel>
+                        <TextBlock Grid.Column="1" Text="{Binding Summary}" Classes="agent-caption agent-disclosure-label" FontSize="12" VerticalAlignment="Center"
+                                   TextTrimming="CharacterEllipsis" />
+                        <icons:FluentIcon Grid.Column="2" Classes="agent-status agent-chevron agent-disclosure-glyph" VerticalAlignment="Center" />
+                    </Grid>
                 </ToggleButton>
                 <Border IsVisible="{Binding IsExpanded}" Margin="8,2,0,2" Padding="9,4"
                         CornerRadius="{DynamicResource ControlCornerRadius}" Background="{DynamicResource ControlAltFillColorSecondaryBrush}">
@@ -158,16 +159,16 @@
 
         <DataTemplate DataType="vm:AgentToolGroupItem" x:DataType="vm:AgentToolGroupItem">
             <StackPanel Spacing="3">
-                <ToggleButton x:Name="ToolGroupToggle" Classes="agent-disclosure" HorizontalAlignment="Left"
+                <ToggleButton x:Name="ToolGroupToggle" Classes="agent-disclosure" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
                               IsChecked="{Binding IsExpanded, Mode=TwoWay}"
                               AutomationProperties.Name="{Binding Label}" MinHeight="26" Padding="4,3">
-                    <StackPanel Orientation="Horizontal" Spacing="7">
+                    <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="7">
                         <icons:FluentIcon Classes="agent-status agent-disclosure-glyph" Icon="Wrench" VerticalAlignment="Center" />
-                        <TextBlock Classes="agent-secondary agent-disclosure-label" Text="{Binding Label}" VerticalAlignment="Center" />
-                        <TextBlock x:Name="ToolGroupFailure" Classes="agent-caption agent-disclosure-label" IsVisible="{Binding HasFailure}"
-                                   Text="{x:Static lang:AgentStrings.ToolGroupFailures}" VerticalAlignment="Center" />
-                        <icons:FluentIcon Classes="agent-status agent-chevron agent-disclosure-glyph" />
-                    </StackPanel>
+                        <TextBlock Grid.Column="1" Classes="agent-secondary agent-disclosure-label" Text="{Binding Label}" VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="2" x:Name="ToolGroupFailure" Classes="agent-caption agent-disclosure-label" IsVisible="{Binding HasFailure}"
+                                   Text="{x:Static lang:AgentStrings.ToolGroupFailures}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                        <icons:FluentIcon Grid.Column="3" Classes="agent-status agent-chevron agent-disclosure-glyph" VerticalAlignment="Center" />
+                    </Grid>
                 </ToggleButton>
                 <Border Margin="9,0,0,0" Padding="7,0,0,0" IsVisible="{Binding IsExpanded}">
                     <ItemsControl ItemsSource="{Binding VisibleTools}" />
