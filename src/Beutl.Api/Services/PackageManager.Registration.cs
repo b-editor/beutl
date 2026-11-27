@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics;
 using System.Reflection;
+using System.Runtime.ExceptionServices;
 using Avalonia;
 using Avalonia.Platform;
 using Beutl.Extensibility;
@@ -18,8 +19,7 @@ public sealed partial class PackageManager
     {
         List<Extension> extensions = [];
         var addedToProvider = false;
-        var addedToLoadedPackages = false;
-        if (!TryBeginLoading(package))
+        if (!TryBeginLoading(package.LocalId))
         {
             // The caller resolved the package's assemblies into a collectible
             // context before this could be known. Nothing will ever reference
@@ -27,7 +27,7 @@ public sealed partial class PackageManager
             // loaded for the life of the process.
             if (loadContext is { })
             {
-                TryUnloadLoadContext(package, loadContext);
+                TryUnloadLoadContext(package.Name, loadContext);
             }
 
             throw new InvalidOperationException(
@@ -61,34 +61,57 @@ public sealed partial class PackageManager
 
                 _loadingPackages.Remove(package.LocalId);
             }
-            addedToLoadedPackages = true;
-
             return assemblies;
         }
         catch (Exception loadFailure)
         {
             RollBackFailedRegistration(
-                package,
+                package.LocalId,
+                package.Name,
                 extensions,
                 loadContext,
                 loadFailure,
-                addedToProvider,
-                addedToLoadedPackages);
+                addedToProvider);
+            if (loadContext is not null)
+            {
+                throw CreateDetachedLoadFailure(loadFailure);
+            }
+
             throw;
         }
     }
 
-    private bool TryBeginLoading(LocalPackage package)
+    private static Exception CreateDetachedLoadFailure(Exception loadFailure)
+    {
+        // An exception can root plugin code through its fields or its captured stack frames.
+        string typeName = loadFailure.GetType().ToString();
+        string message = typeName;
+        string diagnostics;
+        try
+        {
+            message = $"{typeName}: {loadFailure.Message}";
+            diagnostics = loadFailure.ToString();
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            // A plugin's exception formatter can itself throw from collectible code.
+            diagnostics = new StackTrace(loadFailure, fNeedFileInfo: true).ToString();
+        }
+
+        return ExceptionDispatchInfo.SetRemoteStackTrace(new InvalidOperationException(message), diagnostics);
+    }
+
+    private bool TryBeginLoading(int packageId)
     {
         lock (_packageLifecycleGate)
         {
-            bool alreadyKnown = _loadingPackages.Contains(package.LocalId)
-                                || _unloadOperations.ContainsKey(package.LocalId)
-                                || _quarantinedPackages.Contains(package.LocalId)
-                                || _loadedPackages.ContainsKey(package.LocalId);
+            bool alreadyKnown = _loadingPackages.Contains(packageId)
+                                || _unloadOperations.ContainsKey(packageId)
+                                || _quarantinedPackages.Contains(packageId)
+                                || _loadedPackages.ContainsKey(packageId);
             if (!alreadyKnown)
             {
-                _loadingPackages.Add(package.LocalId);
+                _loadingPackages.Add(packageId);
             }
 
             return !alreadyKnown;
@@ -96,86 +119,54 @@ public sealed partial class PackageManager
     }
 
     private void RollBackFailedRegistration(
-        LocalPackage package,
+        int packageId,
+        string packageName,
         List<Extension> extensions,
         PluginLoadContext? loadContext,
         Exception loadFailure,
-        bool addedToProvider,
-        bool addedToLoadedPackages)
+        bool addedToProvider)
     {
-        ExtensionRemoval? rollbackRemoval = null;
-        if (loadFailure is ExtensionRegistrationNotificationException registrationFailure)
-        {
-            rollbackRemoval = registrationFailure.Removal;
-        }
+        ExtensionRemoval? rollbackRemoval = (loadFailure as ExtensionRegistrationNotificationException)?.Removal;
         if (addedToProvider)
         {
             try
             {
-                rollbackRemoval = ExtensionRegistry.RemoveExtensions(package.LocalId);
+                rollbackRemoval = ExtensionRegistry.RemoveExtensions(packageId);
             }
             catch (ExtensionRemovalNotificationException ex)
             {
                 rollbackRemoval = ex.Removal;
             }
         }
-        if (addedToLoadedPackages)
+        if (rollbackRemoval is not null)
         {
             lock (_packageLifecycleGate)
             {
-                _loadedPackages.TryRemove(package.LocalId, out _);
+                _loadingPackages.Remove(packageId);
+                _quarantinedPackages.Add(packageId);
             }
+
+            _ = DrainAndRollbackAsync(packageId, packageName, extensions, loadContext, rollbackRemoval);
+            return;
         }
 
-        bool rollbackPending = rollbackRemoval is not null;
+        RollbackLoadedExtensions(extensions);
+        if (loadContext is not null)
+        {
+            TryUnloadLoadContext(packageName, loadContext);
+        }
+
         lock (_packageLifecycleGate)
         {
-            _loadingPackages.Remove(package.LocalId);
-            if (rollbackPending)
-            {
-                _quarantinedPackages.Add(package.LocalId);
-            }
+            _loadingPackages.Remove(packageId);
         }
-
-        if (rollbackRemoval is null)
-        {
-            // LoadPackageExtensions already rolls back on failure, so extensions is non-empty
-            // only when a later registration step threw; this is not a double-unload.
-            RollbackLoadedExtensions(extensions);
-            if (loadContext is { })
-            {
-                TryUnloadLoadContext(package, loadContext);
-            }
-        }
-        else
-        {
-            StartRollbackAfterDrain(
-                package,
-                extensions,
-                loadContext,
-                rollbackRemoval);
-        }
-    }
-
-    private void StartRollbackAfterDrain(
-        LocalPackage package,
-        List<Extension> extensions,
-        PluginLoadContext? loadContext,
-        ExtensionRemoval removal)
-    {
-        Extension[] rollbackExtensions = extensions.ToArray();
-        extensions.Clear();
-        var pendingRollback = new PendingRollbackInfo(
-            package,
-            rollbackExtensions,
-            loadContext);
-        _ = DrainAndRollbackAsync(
-            pendingRollback,
-            removal);
     }
 
     private async Task DrainAndRollbackAsync(
-        PendingRollbackInfo pendingRollback,
+        int packageId,
+        string packageName,
+        List<Extension> extensions,
+        PluginLoadContext? loadContext,
         ExtensionRemoval removal)
     {
         try
@@ -184,39 +175,81 @@ public sealed partial class PackageManager
         }
         catch (Exception ex)
         {
-            lock (_packageLifecycleGate)
-            {
-                _quarantinedPackages.Add(pendingRollback.Package.LocalId);
-            }
             _logger.LogError(
                 ex,
-                "Package {PackageName} failed to drain after registration rollback; its load context remains quarantined.",
-                pendingRollback.Package.Name);
+                "Package {PackageName} failed to drain after registration rollback and remains quarantined.",
+                packageName);
             return;
         }
 
-        var rollbackList = pendingRollback.Extensions.ToList();
-        RollbackLoadedExtensions(rollbackList);
-        if (pendingRollback.LoadContext is not null)
+        RollbackLoadedExtensions(extensions);
+        if (loadContext is not null)
         {
-            TryUnloadLoadContext(pendingRollback.Package, pendingRollback.LoadContext);
+            TryUnloadLoadContext(packageName, loadContext);
         }
         lock (_packageLifecycleGate)
         {
-            _quarantinedPackages.Remove(pendingRollback.Package.LocalId);
+            _quarantinedPackages.Remove(packageId);
         }
     }
 
-    private sealed class PendingRollbackInfo(
-        LocalPackage package,
+    internal void LoadBuiltInExtensions(
+        int packageId,
         IReadOnlyList<Extension> extensions,
-        PluginLoadContext? loadContext)
+        IReadOnlyList<Extension>? restoreSettingsFirst)
     {
-        public LocalPackage Package { get; } = package;
+        List<Extension> loaded = new(extensions.Count);
+        HashSet<Extension>? pendingSettings = null;
+        if (!TryBeginLoading(packageId))
+        {
+            throw new InvalidOperationException($"Extensions for package (id: {packageId}) are already loaded, loading, or rolling back.");
+        }
 
-        public IReadOnlyList<Extension> Extensions { get; } = extensions;
+        try
+        {
+            // Embedded backends restore settings for a subset before any extension loads.
+            if (restoreSettingsFirst is not null)
+            {
+                pendingSettings = new(ReferenceEqualityComparer.Instance);
+                foreach (Extension extension in restoreSettingsFirst)
+                {
+                    pendingSettings.Add(extension);
+                    SetupExtensionSettings(extension);
+                }
+            }
 
-        public PluginLoadContext? LoadContext { get; } = loadContext;
+            foreach (Extension extension in extensions)
+            {
+                pendingSettings?.Remove(extension);
+                LoadExtension(extension, restoreSettings: restoreSettingsFirst is null);
+                loaded.Add(extension);
+            }
+
+            ExtensionRegistry.AddExtensions(packageId, extensions);
+            lock (_packageLifecycleGate)
+            {
+                _loadingPackages.Remove(packageId);
+            }
+        }
+        catch (Exception loadFailure)
+        {
+            if (pendingSettings is not null)
+            {
+                foreach (Extension extension in pendingSettings)
+                {
+                    RollbackExtensionSettings(extension);
+                }
+            }
+
+            RollBackFailedRegistration(
+                packageId,
+                $"built-in extensions (id: {packageId})",
+                loaded,
+                loadContext: null,
+                loadFailure,
+                addedToProvider: false);
+            throw;
+        }
     }
 
     internal List<Extension> LoadPackageExtensions(IEnumerable<Type> extensionTypes)
@@ -302,6 +335,11 @@ public sealed partial class PackageManager
             }
         }
 
+        RollbackExtensionSettings(extension);
+    }
+
+    private void RollbackExtensionSettings(Extension extension)
+    {
         try
         {
             CleanupExtensionSettings(extension);
@@ -312,7 +350,7 @@ public sealed partial class PackageManager
         }
     }
 
-    private void TryUnloadLoadContext(LocalPackage package, PluginLoadContext loadContext)
+    private void TryUnloadLoadContext(string packageName, PluginLoadContext loadContext)
     {
         try
         {
@@ -326,17 +364,17 @@ public sealed partial class PackageManager
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to clean up type registrations for {PackageName}.", package.Name);
+            _logger.LogError(ex, "Failed to clean up type registrations for {PackageName}.", packageName);
         }
 
         try
         {
             loadContext.Unload();
-            _logger.LogInformation("AssemblyLoadContext unloaded for {PackageName}.", package.Name);
+            _logger.LogInformation("AssemblyLoadContext unloaded for {PackageName}.", packageName);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to unload AssemblyLoadContext for {PackageName}.", package.Name);
+            _logger.LogError(ex, "Failed to unload AssemblyLoadContext for {PackageName}.", packageName);
         }
     }
 
