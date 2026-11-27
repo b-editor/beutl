@@ -1984,6 +1984,53 @@ public class WebBrowserDownloadTests
     }
 
     [AvaloniaTest]
+    public async Task TypedNativeDownloadKeepsUnknownPageMetadataForHistoryRetries()
+    {
+        using var temporary = new TemporaryDirectory();
+        string root = temporary.Path;
+        var page = new Uri("https://original.example/page");
+        var download = new Uri("https://files.example/download");
+        var profile = new BrowserProfile(Path.Combine(root, "profile.json"));
+        using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(new Scene()), page, profile);
+        using var view = CreateView(vm, includesSubframes: true, reportsNavigationCommits: true);
+        view.OnNativeNavigationCommitted(page);
+        using var handler = new ReferrerHandler();
+        using var client = new HttpClient(handler);
+        view.MediaDownloader = new BrowserMediaDownload(client);
+        view.DownloadOptionsSelector = (_, _) => Task.FromResult<WebBrowserTabView.BrowserDownloadOptions?>(new(root, false));
+        view.DownloadCookiesProvider = (_, _) => Task.FromResult<IReadOnlyList<Cookie>>(
+            [new("session", "private", "/", "files.example") { Secure = true }]);
+        var completed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        profile.Downloads.CollectionChanged += (_, _) => completed.TrySetResult();
+        var window = new Window { Content = view };
+        try
+        {
+            window.Show();
+            vm.Address.Value = download.AbsoluteUri;
+            view.NavigateFromAddress();
+            view.OnNativeDownloadRequested(download, "file.mp3", new ResponseDownloadSource("file.mp3"));
+            Dispatcher.UIThread.RunJobs();
+            view.FindControl<Button>("ConfirmPageDownloadButton")!
+                .RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+            await completed.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.That(profile.Downloads.Single().Referrer, Is.Null);
+
+            completed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var menu = (FAMenuFlyout)view.FindControl<Button>("BrowserMenuButton")!.Flyout!;
+            menu.Items.OfType<FAMenuFlyoutItem>().Single(item => item.Text == Beutl.Language.Strings.BrowserDownloads)
+                .RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(FAMenuFlyoutItem.ClickEvent));
+            Dispatcher.UIThread.RunJobs();
+            view.FindControl<ContentControl>("ToolPanelContent")!.GetVisualDescendants().OfType<Button>()
+                .Single(button => Equals(ToolTip.GetTip(button), Beutl.Language.Strings.BrowserRetry))
+                .RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+            await completed.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.That(handler.CookieHeader, Is.EqualTo("session=private"));
+            Assert.That(handler.Referrer, Is.Null);
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaTest]
     public void AmbiguousNavigationInvalidatesAnOfferWithoutReenablingDismissedRequests()
     {
         using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(new Scene()), new Uri("https://page.example/"));

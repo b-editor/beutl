@@ -7,6 +7,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
 
+using Beutl.Editor.Components.WebBrowserTab.ViewModels;
 
 namespace Beutl.Editor.Components.WebBrowserTab.Views;
 
@@ -36,8 +37,9 @@ internal partial class WebBrowserTabView
     // An extension's claim is settled when the file arrives, while the page that offered it is still on display. A
     // file from a frame of a page that is still loading belongs to that page, its LoadingPage: it is claimed when that
     // page finishes loading, and offered without a claim if the page fails to load or never becomes the one shown.
+    // A file that ended a navigation keeps its own referrer, BlankPage when the navigation had no document.
     private sealed record DeferredDownload(Uri Uri, string? SuggestedName, IBrowserDownloadSource Source,
-        BrowserDownloadHandling? Handling, Uri? LoadingPage = null);
+        BrowserDownloadHandling? Handling, Uri? LoadingPage = null, Uri? Referrer = null);
 
     private sealed record PageDownloadRequest(Uri Uri, string? SuggestedName, Uri? Referrer, int DocumentId,
         BrowserReferrerPolicy ReferrerPolicy, IBrowserDownloadSource? Source, BrowserDownloadHandling? Handling);
@@ -114,13 +116,16 @@ internal partial class WebBrowserTabView
             if (_nativeDownloadFailures.Count > MaxNativeDownloadFailures) _nativeDownloadFailures.RemoveAt(0);
         }
         _latestNavigationRequest = null;
-        if (_pageDownloadNavigationPending) SettleAbortedPageNavigation();
+        bool endsNavigation = _pageDownloadNavigationPending;
+        if (endsNavigation) SettleAbortedPageNavigation();
         else InvalidatePageDownloadRequests();
         _viewModel.RestoreCommittedPage();
         UpdateBlankPageState();
-        // Keep history retries conservative; the current transfer retains the browser's original response.
-        if (source != null && _downloadCancellation != null) DeferNativeDownload(uri, suggestedName, source);
-        else QueuePageDownloadRequest(uri, suggestedName, referrerPolicy, source);
+        // Keep history retries conservative; the current transfer retains the browser's original response. A file
+        // that ended a navigation has no document of its own, so its metadata must not name the page it left.
+        Uri? referrer = endsNavigation ? WebBrowserTabViewModel.BlankPage : null;
+        if (source != null && _downloadCancellation != null) DeferNativeDownload(uri, suggestedName, source, referrer: referrer);
+        else QueuePageDownloadRequest(uri, suggestedName, referrerPolicy, source, referrer: referrer);
         // The queued request keeps its conservative metadata; later links belong to the restored document.
         _pageDownloadReferrerUncertain = !BrowserMediaDownload.IsHttpUri(_viewModel.CurrentUri);
     }
@@ -176,7 +181,7 @@ internal partial class WebBrowserTabView
         _deferredNativeDownloads.RemoveFirst();
         // A file whose page never finished loading holds no claim, so it is offered without one.
         OfferPageDownload(deferred.Uri, deferred.SuggestedName, BrowserReferrerPolicy.NoReferrer, deferred.Source, deferred.Handling,
-            openOptions: !afterDecline);
+            openOptions: !afterDecline, referrer: deferred.Referrer);
     }
 
     // The files that frames of the page offered while it loaded are claimed as soon as it is the page on display, even
@@ -201,11 +206,12 @@ internal partial class WebBrowserTabView
         return false;
     }
 
-    private void DeferNativeDownload(Uri uri, string? suggestedName, IBrowserDownloadSource source, Uri? page = null)
+    private void DeferNativeDownload(Uri uri, string? suggestedName, IBrowserDownloadSource source,
+        Uri? page = null, Uri? referrer = null)
     {
         if (!CanDefer(source)) return;
         _deferredNativeDownloads.AddLast(new DeferredDownload(uri, suggestedName, source,
-            ClaimDownload(uri, suggestedName, source, page)));
+            ClaimDownload(uri, suggestedName, source, page), Referrer: referrer));
     }
 
     // The page a frame's file belongs to is the main-frame request still loading, if the engine reported one.
