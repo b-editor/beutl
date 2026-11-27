@@ -147,17 +147,8 @@
     <Style Selector="ToggleButton.agent-disclosure">
         <Setter Property="Theme" Value="{StaticResource AgentDisclosureToggleTheme}" />
     </Style>
-    <Style Selector="ToggleButton.agent-disclosure:pointerover TextBlock.agent-disclosure-label">
-        <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
-    </Style>
-    <Style Selector="ToggleButton.agent-disclosure:pointerover icons|FluentIcon.agent-disclosure-glyph">
-        <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
-    </Style>
     <Style Selector="ToggleButton.agent-disclosure views|AgentShimmerTextBlock">
         <Setter Property="MutedBrush" Value="{DynamicResource TextFillColorSecondaryBrush}" />
-    </Style>
-    <Style Selector="ToggleButton.agent-disclosure:pointerover views|AgentShimmerTextBlock">
-        <Setter Property="MutedBrush" Value="{DynamicResource TextFillColorPrimaryBrush}" />
     </Style>
     <Style Selector="views|AgentContextRing">
         <Setter Property="TrackBrush" Value="{DynamicResource ControlStrokeColorDefaultBrush}" />
@@ -210,5 +201,14 @@
     </Style>
     <Style Selector="ToggleButton:checked icons|FluentIcon.agent-chevron">
         <Setter Property="RenderTransform" Value="rotate(90deg)" />
+    </Style>
+    <Style Selector="ToggleButton.agent-disclosure:pointerover TextBlock.agent-disclosure-label">
+        <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+    </Style>
+    <Style Selector="ToggleButton.agent-disclosure:pointerover icons|FluentIcon.agent-disclosure-glyph">
+        <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+    </Style>
+    <Style Selector="ToggleButton.agent-disclosure:pointerover views|AgentShimmerTextBlock">
+        <Setter Property="MutedBrush" Value="{DynamicResource TextFillColorPrimaryBrush}" />
     </Style>
 </Styles>

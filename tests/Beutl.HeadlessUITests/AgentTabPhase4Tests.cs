@@ -357,8 +357,21 @@ public sealed class AgentTabPhase4Tests
             window.Height = 580;
             Capture(view, "phase4-work-collapsed");
 
-            Click(Find<ToggleButton>(view, "TurnStatsToggle"));
-            AssertDisclosureTransparent(Find<ToggleButton>(view, "TurnStatsToggle"));
+            var workToggle = Find<ToggleButton>(view, "TurnStatsToggle");
+            var workChevron = workToggle.GetVisualDescendants().OfType<FluentIcons.Avalonia.Fluent.FluentIcon>().Single();
+            var idleWorkColor = ((ISolidColorBrush)header.Foreground!).Color;
+            var idleChevronColor = ((ISolidColorBrush)workChevron.Foreground!).Color;
+            window.MouseMove(HeadlessTestHelpers.Center(workToggle, window));
+            HeadlessTestHelpers.Render(4);
+            Assert.That(((ISolidColorBrush)header.Foreground!).Color, Is.Not.EqualTo(idleWorkColor));
+            Assert.That(((ISolidColorBrush)workChevron.Foreground!).Color, Is.Not.EqualTo(idleChevronColor));
+            window.MouseMove(new Point(4, 4));
+            HeadlessTestHelpers.Render(4);
+            Assert.That(((ISolidColorBrush)header.Foreground!).Color, Is.EqualTo(idleWorkColor));
+            Assert.That(((ISolidColorBrush)workChevron.Foreground!).Color, Is.EqualTo(idleChevronColor));
+
+            Click(workToggle);
+            AssertDisclosureTransparent(workToggle);
             Assert.That(section.IsExpanded, Is.True);
             Assert.That(Visible<Button>(view, "ToolImageThumbnail"), Is.Not.Null);
             Find<ScrollViewer>(view, "TimelineScroll").Offset = default;
