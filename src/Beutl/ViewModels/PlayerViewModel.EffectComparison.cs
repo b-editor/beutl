@@ -1,9 +1,13 @@
 ﻿using Avalonia.Input;
 using Avalonia.Threading;
+using Beutl.Editor;
 using Beutl.Editor.Components.PropertyEditors;
 using Beutl.Graphics.Effects;
+using Beutl.Graphics.Rendering;
+using Beutl.Graphics3D;
 using Beutl.Media;
 using Beutl.Media.Source;
+using Beutl.ProjectSystem;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 
@@ -11,7 +15,18 @@ namespace Beutl.ViewModels;
 
 public partial class PlayerViewModel : IEffectComparisonSelection
 {
-    internal sealed record EffectComparisonTarget(FilterEffect Effect);
+    internal sealed class EffectComparisonTarget(FilterEffect effect)
+    {
+        public FilterEffect Effect { get; } = effect;
+        public Guid EffectId { get; } = effect.Id.Value;
+        internal volatile EffectComparisonCapture Capture = null!;
+        internal int CapturePending;
+    }
+
+    internal sealed record EffectComparisonCapture(EffectComparisonTarget Target, Lazy<Scene> Scene);
+
+    internal sealed record EffectComparisonRenderScene(
+        SceneRenderer Renderer, FilterEffect Effect, EffectComparisonCapture Capture, SceneRenderer Preview);
 
     internal sealed record EffectComparisonFrame(EffectComparisonTarget Target, Ref<Bitmap> Before) : IDisposable
     {
@@ -20,6 +35,8 @@ public partial class PlayerViewModel : IEffectComparisonSelection
 
     private readonly object _effectComparisonLock = new();
     private volatile EffectComparisonTarget? _effectComparisonTarget;
+    // The renderer and the scene it was built from are owned by the render thread.
+    private EffectComparisonRenderScene? _comparisonRenderScene;
     private Ref<Bitmap>? _effectComparisonBefore;
     private Ref<Bitmap>? _effectComparisonAfter;
     private double _effectComparisonDivider = 0.5;
@@ -88,19 +105,32 @@ public partial class PlayerViewModel : IEffectComparisonSelection
     }
 
     private bool IsEffectInCurrentScene(FilterEffect effect)
-        => Scene is { } scene && ReferenceEquals(effect.FindHierarchicalParent<ProjectSystem.Scene>(), scene);
+        => Scene is { } scene && ReferenceEquals(effect.FindHierarchicalParent<Scene>(), scene);
 
     private void SetEffectComparisonTarget(EffectComparisonTarget? target)
     {
+        if (target is not null)
+            RefreshComparisonCapture(target);
+
+        EffectComparisonTarget? previous;
         lock (_effectComparisonLock)
         {
-            EffectComparisonTarget? previous = _effectComparisonTarget;
+            previous = _effectComparisonTarget;
             if (ReferenceEquals(previous, target)) return;
             if (previous is not null) previous.Effect.DetachedFromHierarchy -= OnComparisonEffectDetached;
             if (target is not null) target.Effect.DetachedFromHierarchy += OnComparisonEffectDetached;
             _effectComparisonTarget = target;
             ReplaceEffectComparisonFrames(null, null);
             ReplaceImage(EffectComparisonImage, null);
+        }
+
+        if (previous is not null)
+        {
+            RenderThread.Dispatcher.Dispatch(() =>
+            {
+                if (ReferenceEquals(_comparisonRenderScene?.Capture.Target, previous))
+                    ReleaseComparisonRenderer();
+            });
         }
 
         EffectComparisonTargetChanged?.Invoke(this, EventArgs.Empty);
@@ -172,9 +202,79 @@ public partial class PlayerViewModel : IEffectComparisonSelection
         ReplaceImage(EffectComparisonImage, split);
     }
 
-    internal static EffectComparisonFrame RenderComparisonBefore(SceneRenderer renderer, MediaTime time, EffectComparisonTarget target)
+    // Capture on the editing thread. This keeps even effects that sample the scene during drawing
+    // on the same revision, without making the editing thread wait for the two draws.
+    internal EffectComparisonCapture RefreshComparisonCapture(EffectComparisonTarget target)
     {
-        renderer.Render(renderer.Compositor.EvaluateGraphicsWithBypassedFilterEffect(time, target.Effect));
-        return new(target, Ref<Bitmap>.Create(renderer.Snapshot()));
+        try
+        {
+            Scene scene = Scene!;
+            var capture = SceneSnapshot.Capture(scene);
+            var gizmos = scene.Children.SelectMany(element => element.Objects).OfType<Scene3D>()
+                .Where(obj => obj.GizmoTarget.Value.HasValue)
+                .Select(obj => (Id: obj.Id.Value, Target: obj.GizmoTarget.Value, Mode: obj.GizmoMode.Value))
+                .ToArray();
+            return target.Capture = new(target, new Lazy<Scene>(() =>
+            {
+                Scene detached = SceneSnapshot.Materialize(capture);
+                foreach (var (id, gizmoTarget, mode) in gizmos)
+                {
+                    if (ReferenceScope.Find(detached, id) is Scene3D obj)
+                    {
+                        obj.GizmoTarget.Value = gizmoTarget;
+                        obj.GizmoMode.Value = mode;
+                    }
+                }
+
+                return detached;
+            }));
+        }
+        catch (Exception ex)
+        {
+            // Let the usual preview error handling report a capture failure on its next render.
+            return target.Capture = new(target, new Lazy<Scene>(
+                () => throw new InvalidOperationException("The comparison scene could not be captured.", ex)));
+        }
+    }
+
+    internal void RequestPlaybackComparisonCapture(EffectComparisonTarget target)
+    {
+        if (Interlocked.Exchange(ref target.CapturePending, 1) != 0)
+            return;
+
+        Dispatcher.UIThread.Post(() =>
+        {
+            Interlocked.Exchange(ref target.CapturePending, 0);
+            if (ReferenceEquals(target, ComparisonTarget))
+                RefreshComparisonCapture(target);
+        }, DispatcherPriority.Background);
+    }
+
+    internal EffectComparisonRenderScene GetComparisonRenderScene(SceneRenderer preview, EffectComparisonCapture capture)
+    {
+        if (_comparisonRenderScene is { } current && ReferenceEquals(current.Capture, capture)
+            && ReferenceEquals(current.Preview, preview))
+            return current;
+
+        Scene scene = capture.Scene.Value;
+        var effect = ReferenceScope.Find(scene, capture.Target.EffectId) as FilterEffect
+            ?? throw new InvalidOperationException("The compared effect could not be found in the captured scene.");
+        ReleaseComparisonRenderer();
+        var renderer = EditViewModel.CreatePreviewRenderer(scene, preview.OutputScale);
+        return _comparisonRenderScene = new(renderer, effect, capture, preview);
+    }
+
+    private void ReleaseComparisonRenderer()
+    {
+        var previous = _comparisonRenderScene;
+        _comparisonRenderScene = null;
+        previous?.Renderer.Dispose();
+    }
+
+    internal static EffectComparisonFrame RenderComparisonBefore(EffectComparisonRenderScene scene, MediaTime time)
+    {
+        SceneRenderer renderer = scene.Renderer;
+        renderer.Render(renderer.Compositor.EvaluateGraphicsWithBypassedFilterEffect(time, scene.Effect));
+        return new(scene.Capture.Target, Ref<Bitmap>.Create(renderer.Snapshot()));
     }
 }

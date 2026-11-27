@@ -6,6 +6,7 @@ using Avalonia.Headless.NUnit;
 using Avalonia.Input;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
+using Beutl.Composition;
 using Beutl.Editor.Components.ElementPropertyTab.Views;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.PropertyEditors;
@@ -197,13 +198,22 @@ public sealed class PlayerViewEffectComparisonTests
             Assert.That(split.Comparison!.Before.Value.GetPixelSpan().SequenceEqual(split.Bitmap.Value.GetPixelSpan()), Is.False);
 
             blur.Sigma.Value = BtlSize.Empty;
-            using BufferedPlayer.Frame edited = await TakeAsync(buffer);
-            Assert.That(edited.Time, Is.EqualTo(split.Time + 1));
-            Assert.That(edited.Comparison!.Before.Value.GetPixelSpan().SequenceEqual(edited.Bitmap.Value.GetPixelSpan()), Is.True);
+            HeadlessTestHelpers.Settle();
+            int lastFrame = split.Time;
+            bool editShown = false;
+            // Up to two coherent pairs may already have been queued or be drawing when the edit arrives.
+            for (int i = 0; i < 3 && !editShown; i++)
+            {
+                using BufferedPlayer.Frame edited = await TakeAsync(buffer);
+                Assert.That(edited.Time, Is.EqualTo(++lastFrame));
+                editShown = edited.Comparison!.Before.Value.GetPixelSpan().SequenceEqual(edited.Bitmap.Value.GetPixelSpan());
+            }
+
+            Assert.That(editShown, Is.True);
 
             player.ToggleEffectComparison();
             using BufferedPlayer.Frame restored = await TakeAsync(buffer);
-            Assert.That(restored.Time, Is.EqualTo(edited.Time + 1));
+            Assert.That(restored.Time, Is.EqualTo(lastFrame + 1));
             Assert.That(restored.Comparison, Is.Null);
         }
         finally
@@ -211,14 +221,144 @@ public sealed class PlayerViewEffectComparisonTests
             player.IsPlaying.Value = false;
             await HeadlessTestHelpers.WaitUntilAsync(() => buffer.ProducerStopped, pump: false);
         }
+    }
 
-        static async Task<BufferedPlayer.Frame> TakeAsync(BufferedPlayer buffer)
+    [AvaloniaTest]
+    public async Task Paused_comparison_presents_coherent_pairs_during_repeated_edits()
+    {
+        using var host = await ComparisonHost.OpenAsync();
+        var (_, editor, player, view, blur, _, _) = host;
+        var (fill, probe) = AddComparisonProbe(editor);
+        player.IsMoveMode.Value = false;
+        ChooseBlur(player, blur);
+        await WaitForComparison(view);
+
+        var gate = probe.BlockNextPair();
+        try
         {
-            await HeadlessTestHelpers.WaitUntilAsync(() => buffer.QueuedFrames > 0 || buffer.ProducerStopped, pump: false);
-            Assert.That(buffer.Failure, Is.Null);
-            Assert.That(buffer.TryDequeue(out BufferedPlayer.Frame frame), Is.True);
-            return frame;
+            Edit(blur, fill, 1);
+            for (int revision = 1; revision < s_editColors.Length - 1; revision++)
+            {
+                await gate.Entered.WaitAsync(TimeSpan.FromSeconds(10));
+                using var previous = gate;
+                gate = probe.BlockNextPair();
+                Edit(blur, fill, revision + 1);
+                previous.Dispose();
+
+                // The pending edit has started drawing. Its predecessor must already be visible.
+                await gate.Entered.WaitAsync(TimeSpan.FromSeconds(10));
+                using var split = player.EffectComparisonImage.Value!.Clone();
+                AssertRevision(split.Value, split.Value, revision);
+                Assert.That(ComparisonMatchesNormal(player, expected: false), Is.True);
+            }
         }
+        finally
+        {
+            gate.Dispose();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Comparison_playback_advances_during_edits_to_every_pair()
+    {
+        using var host = await ComparisonHost.OpenAsync();
+        var (_, editor, player, _, blur, _, _) = host;
+        var (fill, probe) = AddComparisonProbe(editor);
+        // Keep the paused editor playhead outside the edited elements. The producer plays those
+        // elements from frame zero without starting a native audio device.
+        editor.GetRequiredService<IEditorClock>().Seek(MediaTime.FromSeconds(18));
+        HeadlessTestHelpers.Settle();
+        RenderThreadDrain.Drain(TimeSpan.FromSeconds(10));
+
+        player.IsPlaying.Value = true;
+        ChooseBlur(player, blur);
+        Edit(blur, fill, 0);
+        using var buffer = new BufferedPlayer(editor, player.IsPlaying, new Rational(30), CancellationToken.None);
+        var gate = probe.BlockNextPair();
+        try
+        {
+            buffer.Start(new PlaybackRange(0, 30));
+            for (int revision = 0; revision < s_editColors.Length - 1; revision++)
+            {
+                await gate.Entered.WaitAsync(TimeSpan.FromSeconds(10));
+                using var previous = gate;
+                gate = probe.BlockNextPair();
+                Edit(blur, fill, revision + 1);
+                HeadlessTestHelpers.Settle();
+                previous.Dispose();
+
+                using BufferedPlayer.Frame frame = await TakeAsync(buffer);
+                Assert.That(frame.Time, Is.EqualTo(revision));
+                Assert.That(frame.Comparison?.Target.Effect, Is.SameAs(blur));
+                AssertRevision(frame.Comparison!.Before.Value, frame.Bitmap.Value, revision);
+            }
+        }
+        finally
+        {
+            player.IsPlaying.Value = false;
+            gate.Dispose();
+            await HeadlessTestHelpers.WaitUntilAsync(() => buffer.ProducerStopped, pump: false);
+        }
+    }
+
+    private static readonly Color[] s_editColors = [Colors.Red, Colors.Lime, Colors.Blue, Colors.Yellow, Colors.Magenta];
+
+    private static (SolidColorBrush Fill, ComparisonRenderProbe Probe) AddComparisonProbe(EditViewModel editor)
+    {
+        var fill = new SolidColorBrush(Colors.White);
+        var probe = new ComparisonRenderProbe();
+        var element = new Element { Length = { Value = MediaTime.FromSeconds(15) }, ZIndex = { Value = 1 } };
+        element.AddObject(new RectShape
+        {
+            Width = { Value = 640 },
+            Height = { Value = 32 },
+            AlignmentX = { Value = AlignmentX.Left },
+            AlignmentY = { Value = AlignmentY.Top },
+            Fill = { Value = fill },
+        });
+        element.AddObject(probe);
+        editor.Scene.Children.Add(element);
+        return (fill, probe);
+    }
+
+    private static void ChooseBlur(PlayerViewModel player, Blur blur)
+    {
+        player.ToggleEffectComparison();
+        Assert.That(((IEffectComparisonSelection)player).TryChooseComparisonEffect(blur), Is.True);
+    }
+
+    private static void Edit(Blur blur, SolidColorBrush fill, int revision)
+    {
+        blur.Sigma.Value = new BtlSize(5 + revision, 5 + revision);
+        fill.Color.Value = s_editColors[revision];
+    }
+
+    private static void AssertRevision(Bitmap before, Bitmap after, int revision)
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(Sample(before, 1), Is.EqualTo(s_editColors[revision]), $"Bypassed side of edit {revision}.");
+            Assert.That(Sample(after, 3), Is.EqualTo(s_editColors[revision]), $"Normal side of edit {revision}.");
+        });
+
+        static Color Sample(Bitmap bitmap, int quarter)
+        {
+            const int bytesPerPixel = 4;
+            using Bitmap bgra = bitmap.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Unpremul);
+            int x = bgra.Width * quarter / 4;
+            int y = bgra.Height / 24;
+            var pixel = bgra.GetRow(y).Slice(x * bytesPerPixel, bytesPerPixel);
+            return Color.FromArgb(pixel[3], pixel[2], pixel[1], pixel[0]);
+        }
+    }
+
+    private static async Task<BufferedPlayer.Frame> TakeAsync(BufferedPlayer buffer)
+    {
+        await HeadlessTestHelpers.WaitUntilAsync(() => buffer.QueuedFrames > 0 || buffer.ProducerStopped, pump: false,
+            message: "Playback did not queue a frame.");
+        Assert.That(buffer.Failure, Is.Null);
+        Assert.That(buffer.TryDequeue(out BufferedPlayer.Frame frame), Is.True);
+        return frame;
     }
 
     private static FilterEffectListItemEditor FindRow(Window window, FilterEffect effect)
@@ -359,5 +499,56 @@ public sealed class PlayerViewEffectComparisonTests
                 Transform = { Value = new TranslateTransform(x, y) },
                 Fill = { Value = new SolidColorBrush(color) },
             };
+    }
+}
+
+// Pauses the bypass reconciliation after the marker has been reconciled. The probe is serialized
+// with the scene, so its Id identifies both the live drawable and each captured copy.
+internal sealed partial class ComparisonRenderProbe : Drawable
+{
+    private static PairGate? s_gate;
+
+    internal PairGate BlockNextPair()
+    {
+        var gate = new PairGate(Id.Value);
+        Assert.That(Interlocked.CompareExchange(ref s_gate, gate, null), Is.Null);
+        return gate;
+    }
+
+    internal sealed class PairGate(Guid probeId) : IDisposable
+    {
+        private readonly TaskCompletionSource _entered = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource _release = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public Guid ProbeId { get; } = probeId;
+        public Task Entered => _entered.Task;
+
+        public void WaitForEdit()
+        {
+            _entered.TrySetResult();
+            _release.Task.WaitAsync(TimeSpan.FromSeconds(15)).GetAwaiter().GetResult();
+        }
+
+        public void Dispose()
+        {
+            Interlocked.CompareExchange(ref s_gate, null, this);
+            _release.TrySetResult();
+        }
+    }
+
+    public new partial class Resource
+    {
+        partial void PostReconcile(ComparisonRenderProbe obj, CompositionContext context)
+        {
+            if (context.Conditions.BypassedFilterEffect is not null && Volatile.Read(ref s_gate) is { } gate
+                && gate.ProbeId == obj.Id.Value && ReferenceEquals(Interlocked.CompareExchange(ref s_gate, null, gate), gate))
+                gate.WaitForEdit();
+        }
+
+        protected override BtlSize MeasureCore(BtlSize availableSize) => BtlSize.Empty;
+
+        protected override void OnDraw(GraphicsContext2D context)
+        {
+        }
     }
 }

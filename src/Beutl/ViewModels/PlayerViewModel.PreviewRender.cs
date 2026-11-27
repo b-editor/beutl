@@ -196,12 +196,13 @@ public partial class PlayerViewModel
         float onionPrevOpacity = editorConfig.OnionSkinPrevOpacity.Value;
         float onionNextOpacity = editorConfig.OnionSkinNextOpacity.Value;
         EffectComparisonTarget? comparison = ComparisonTarget;
+        EffectComparisonCapture? capture = comparison is null ? null : RefreshComparisonCapture(comparison);
         IEditingStageProvider? stage = IsPlaybackActive || comparison is not null ? null : _editingStageEffect.Value;
         IReadOnlySet<EngineObject>? disabledEffects = GetEditingStageDisabledEffects(stage);
         RenderThread.Dispatcher.Dispatch(
             () => RenderPreviewFrame(
                 token, onionEnabled, onionPrevCount, onionNextCount, onionPrevOpacity, onionNextOpacity,
-                stage, disabledEffects, comparison),
+                stage, disabledEffects, capture),
             ct: token);
     }
 
@@ -215,7 +216,7 @@ public partial class PlayerViewModel
         float onionNextOpacity,
         IEditingStageProvider? stage,
         IReadOnlySet<EngineObject>? disabledEffects,
-        EffectComparisonTarget? comparison)
+        EffectComparisonCapture? comparison)
     {
         int frame = 0;
         bool useOnionSkin = false;
@@ -230,13 +231,16 @@ public partial class PlayerViewModel
             if (renderer is not { IsDisposed: false, IsGraphicsRendering: false }
                 || cacheManager.IsDisposed)
                 return;
-            if (Scene is null)
+            if (Scene is not { } scene || comparison is not null && !ReferenceEquals(comparison.Target, ComparisonTarget))
                 return;
 
             Rational rate = GetFrameRate();
             MediaTime time = _editorClock.CurrentTime.Value;
             frame = (int)time.ToFrame(rate, MidpointRounding.AwayFromZero);
             time = MediaTime.FromFrames(frame, rate);
+            EffectComparisonRenderScene? renderScene = comparison is null ? null : GetComparisonRenderScene(renderer, comparison);
+            SceneRenderer drawingRenderer = renderScene?.Renderer ?? renderer;
+            Scene drawingScene = renderScene?.Renderer.Compositor.Scene ?? scene;
             // A side contributes nothing when its opacity is 0, so fold opacity into the
             // effective count. When both sides are invisible useOnionSkin stays false and
             // the empty-samples fallback below routes through the cheaper cache-aware path.
@@ -250,7 +254,7 @@ public partial class PlayerViewModel
             if (useOnionSkin)
             {
                 onionSamples = OnionSkinHelper.EnumerateOnionSkinTimes(
-                    frame, Scene.Start.Value, Scene.Duration.Value, rate,
+                    frame, drawingScene.Start.Value, drawingScene.Duration.Value, rate,
                     effectivePrevCount, effectiveNextCount,
                     onionPrevOpacity, onionNextOpacity);
                 onionSampleCount = onionSamples.Count;
@@ -265,25 +269,31 @@ public partial class PlayerViewModel
                 }
             }
 
-            // Draw the bypass first so the normal side leaves its geometry and effect state in the renderer.
-            using EffectComparisonFrame? comparisonFrame = comparison is null ? null : RenderComparisonBefore(renderer, time, comparison);
-            using Ref<Bitmap> bitmapRef = GetPreviewFrame(renderer, cacheManager, time, frame, disabledEffects, stage as FilterEffect,
+            using EffectComparisonFrame? comparisonFrame = renderScene is null ? null : RenderComparisonBefore(renderScene, time);
+            using Ref<Bitmap> bitmapRef = GetPreviewFrame(drawingRenderer, cacheManager, time, frame, disabledEffects, stage as FilterEffect,
                 useCache: !useOnionSkin && disabledEffects is null && comparison is null,
                 out GraphEditingFrame? graphEditingFrame, out string? warning);
             Bitmap bitmap = bitmapRef.Value;
-            using Ref<Bitmap>? cleanFrame = CopyCleanFrame(renderer, bitmap);
+            using Ref<Bitmap>? cleanFrame = CopyCleanFrame(drawingRenderer, bitmap);
             if (useOnionSkin)
             {
                 using var canvas = new SKCanvas(bitmap.SKBitmap);
                 using var beforeCanvas = comparisonFrame is null ? null : new SKCanvas(comparisonFrame.Before.Value.SKBitmap);
-                DrawOnionSkin(renderer, canvas, beforeCanvas, time, frame, onionSamples, disabledEffects, token);
+                DrawOnionSkin(drawingRenderer, canvas, beforeCanvas, time, frame, onionSamples, disabledEffects, token);
             }
 
-            if (token.IsCancellationRequested || comparisonFrame is not null && ComparisonRenderWasSuperseded(token))
+            if (token.IsCancellationRequested)
+                return;
+
+            if (comparisonFrame is not null && !IsCurrentComparisonRender(token, comparisonFrame.Target))
                 return;
 
             UpdateImage(bitmapRef, cleanFrame, time, editingStage: disabledEffects is null ? null : stage,
                 graphEditingFrame: graphEditingFrame, comparison: comparisonFrame);
+
+            // The tool handles query the live drawables' geometry. Prepare it before another job can query it.
+            if (comparisonFrame is not null && (IsMoveMode.Value || IsCameraMode.Value))
+                renderer.UpdateFrame(renderer.Compositor.EvaluateGraphics(time));
 
             // Dispose と並走した場合に AfterRendered が破棄されている可能性があるためトークンを確認する
             if (!token.IsCancellationRequested)
@@ -330,11 +340,10 @@ public partial class PlayerViewModel
         }
     }
 
-    private bool ComparisonRenderWasSuperseded(CancellationToken token)
+    private bool IsCurrentComparisonRender(CancellationToken token, EffectComparisonTarget target)
     {
-        // A scene edit arriving between the two draws queues another render. Publish that pair instead.
         lock (_renderRequestLock)
-            return _cts?.Token != token || _previewEditPending;
+            return _cts?.Token == token && ReferenceEquals(target, ComparisonTarget);
     }
 
     private static Ref<Bitmap> GetPreviewFrame(
