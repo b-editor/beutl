@@ -80,7 +80,7 @@ Pass `sceneId` for live saves and applications. For a file-backed session, use `
 | --- | --- | --- |
 | Use existing media in a scene | `get_schema`, `apply_edit` | Add or edit the file source of a media object. |
 | Scan and relink missing media | `scan_missing_media`, `relink_missing_media` | Lists missing media and fonts by scene. Relink a batch by absolute path pairs or search a folder using the editor's matching rules. |
-| Organize project assets | — | No tool for scanning or reorganizing project assets. |
+| Organize project assets | `inspect_project_assets`, `organize_project_assets` | Lists the Project Assets view's external, unused, and quarantined files and the referenced assets inside the project. Collects external assets, moves unused files aside, restores them, and permanently deletes quarantined files. File-backed and live. |
 | Manage proxy media | `generate_proxies`, `read_proxy_status`, `remove_proxies` | Live editor tools. Queue generation for elements or video paths, poll jobs, and remove cached proxies. |
 | Analyze audio rhythm | `analyze_audio_rhythm` | Reports estimated beats and onsets. |
 | Generate or edit media with AI and follow jobs | `list_ai_models`, `generate_image`, `edit_image`, `generate_video`, `edit_video`, `list_ai_jobs`, `read_ai_job`, `cancel_ai_job` | Live editor tools. |
@@ -93,5 +93,9 @@ Pass `sceneId` for live saves and applications. For a file-backed session, use `
 Proxy tools use the running editor's queue and cache. Pass `sceneId` and, from the installed stdio server, `instanceId`. Pass `elementIds`, `mediaPaths`, or both to generate or remove proxies. Generation uses the configured preset unless you pass `half`, `quarter`, or `eighth`. Poll `read_proxy_status` with the returned `jobIds` for progress and recent outcomes. With no selectors, status lists the scene's video sources. Removing proxies cancels matching jobs and removes all presets for the selected sources unless you specify a preset.
 
 `relink_missing_media` takes `replacements` (objects with `missingPath` and `newPath`) or `searchFolder`. Folder search follows the Missing Media tab's saved-fingerprint and unique-name matching rules. The tool validates replacements, saves the repaired scene, and reports `relinked` and `remainingMissing`. Repairs leave the edit history intact, as in the Missing Media tab. File-backed calls have the same save conflict check as `save_project`.
+
+`inspect_project_assets` reports absolute paths, file kinds, sizes in bytes, element IDs, and issues for the whole project. Pass eligible row paths to `organize_project_assets` with `action` set to `collect`, `quarantine`, `restore`, or `delete`. Use the row's main path for a bundle. Collection copies files into `resources/` and saves all affected references across the project. Quarantine and restore move files and preserve project documents. Permanent deletion takes one quarantined path per call and requires `confirmDelete: true`. The response lists the affected files and their destinations.
+
+Both asset tools use the open project in a live editor. Pass `sceneId` to identify that project by one of its scenes without opening the scene tab. From stdio, pass `instanceId` to target a running editor or use `open_project` or `create_project` to select the active file session.
 
 The tool registrations are in the [shared AgentToolkit server](../../src/Beutl.AgentToolkit/AgentToolkitMcpServer.cs) and the [in-app host](../../src/Beutl/AgentHost/AgentHostEndpoint.cs).

@@ -1,4 +1,5 @@
-﻿using Beutl.Editor.VersionControl;
+﻿using Beutl.Editor;
+using Beutl.Editor.VersionControl;
 using Beutl.ProjectSystem;
 using Beutl.Services;
 
@@ -34,6 +35,14 @@ internal interface ILiveProjectVersionControlGateway
     IProjectVersionControlService? GetVersionControl(IEditingSession activeSession);
 
     ValueTask<CommitResult> CommitAsync(IEditingSession activeSession, string message, CancellationToken cancellationToken);
+}
+
+internal interface ILiveProjectAssetGateway
+{
+    ValueTask<ProjectAssetService.Inspection> InspectProjectAssetsAsync(Guid? sceneId, CancellationToken cancellationToken);
+
+    ValueTask<ProjectAssetItem[]> OrganizeProjectAssetsAsync(Guid? sceneId, ProjectAssetAction action,
+        Func<ProjectAssetPreview, ProjectAssetItem[]> select, CancellationToken cancellationToken);
 }
 
 public sealed class FileProjectSessionGateway(
@@ -99,7 +108,7 @@ public sealed class FileProjectSessionGateway(
         return ValueTask.FromResult(session.EditOnSession(() =>
         {
             cancellationToken.ThrowIfCancellationRequested();
-            Scene scene = ProjectOperations.FindSceneToRemove(session.Project, sceneId);
+            Scene scene = ProjectOperations.FindScene(session.Project, sceneId);
             SceneRemovalResult result = ProjectPersistence.RemoveScene(
                 session.Project, scene, session.HasUnsavedChanges(scene), persist: false);
             if (result == SceneRemovalResult.Removed)

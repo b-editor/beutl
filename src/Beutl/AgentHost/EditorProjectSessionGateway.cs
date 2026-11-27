@@ -2,6 +2,7 @@
 using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Reconciliation;
 using Beutl.AgentToolkit.Sessions;
+using Beutl.Editor;
 using Beutl.Editor.VersionControl;
 using Beutl.ProjectSystem;
 using Beutl.Services;
@@ -13,7 +14,8 @@ namespace Beutl.AgentHost;
 public sealed class EditorProjectSessionGateway(
     ProjectService projectService,
     EditorService editorService,
-    AgentEditFollower? follower = null) : IProjectSessionGateway, IProjectSceneRemovalGateway, ILiveProjectVersionControlGateway
+    AgentEditFollower? follower = null)
+    : IProjectSessionGateway, IProjectSceneRemovalGateway, ILiveProjectVersionControlGateway, ILiveProjectAssetGateway
 {
     public async ValueTask<ProjectSessionResult> OpenProjectAsync(string fullPath, CancellationToken cancellationToken = default)
     {
@@ -132,9 +134,48 @@ public sealed class EditorProjectSessionGateway(
         return await Dispatcher.UIThread.InvokeAsync(async () =>
         {
             Project project = projectService.CurrentProject.Value ?? throw new SessionUnavailableException();
-            Scene scene = ProjectOperations.FindSceneToRemove(project, sceneId);
+            Scene scene = ProjectOperations.FindScene(project, sceneId);
             return await editorService.RemoveSceneFromProjectAsync(projectService, project, scene, cancellationToken);
         });
+    }
+
+    async ValueTask<ProjectAssetService.Inspection> ILiveProjectAssetGateway.InspectProjectAssetsAsync(
+        Guid? sceneId, CancellationToken cancellationToken)
+    {
+        return await Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            var (project, assets) = ResolveProjectAssets(sceneId);
+            return assets.InspectAsync(project, cancellationToken);
+        });
+    }
+
+    async ValueTask<ProjectAssetItem[]> ILiveProjectAssetGateway.OrganizeProjectAssetsAsync(
+        Guid? sceneId, ProjectAssetAction action, Func<ProjectAssetPreview, ProjectAssetItem[]> select,
+        CancellationToken cancellationToken)
+    {
+        return await Dispatcher.UIThread.InvokeAsync(async () =>
+        {
+            var (project, assets) = ResolveProjectAssets(sceneId);
+            ProjectAssetPreview preview = await assets.PreviewAsync(project, cancellationToken);
+            ProjectAssetItem[] selected = select(preview);
+            await assets.ApplyAsync(project, preview, action, selected, cancellationToken);
+            return selected;
+        });
+    }
+
+    private (Project Project, ProjectAssetCoordinator Assets) ResolveProjectAssets(Guid? sceneId)
+    {
+        if (projectService.CurrentTransition is not null || projectService.CurrentProject.Value is not { } project
+            || editorService.ProjectAssets is not { } assets)
+        {
+            throw new SessionUnavailableException();
+        }
+
+        // A scene ID identifies the open project without creating or selecting an editor tab.
+        if (sceneId is { } id)
+            ProjectOperations.FindScene(project, id);
+
+        return (project, assets);
     }
 
     IProjectVersionControlService? ILiveProjectVersionControlGateway.GetVersionControl(IEditingSession activeSession)

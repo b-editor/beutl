@@ -30,7 +30,9 @@ public sealed partial class ProjectWorkflowToolsTests
             ("remove_scene", ["sceneId"], ["instanceId"], false),
             ("read_version_control_status", [], ["instanceId", "sceneId"], true),
             ("read_version_control_history", [], ["skip", "take", "instanceId", "sceneId"], true),
-            ("commit_project", ["message"], ["instanceId", "sceneId"], false)
+            ("commit_project", ["message"], ["instanceId", "sceneId"], false),
+            ("inspect_project_assets", [], ["instanceId", "sceneId"], true),
+            ("organize_project_assets", ["action", "paths"], ["confirmDelete", "instanceId", "sceneId"], false)
         };
         await using InProcessAgentToolkitServer server = await InProcessAgentToolkitServer.StartAsync(TestWorkspace.CreateDirectory());
         IList<McpClientTool> tools = await server.Client.ListToolsAsync();
