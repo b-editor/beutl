@@ -222,7 +222,7 @@ public partial class PackageInstaller
         return proxy.Task;
     }
 
-    // Test seam: only tests track an operation without a shutdown fallback.
+    // Keep extraction and activation together while the installer drains during shutdown.
     internal Task TrackInstallOperationAsync(Func<Task> operation)
         => TrackInstallOperationWithShutdownFallbackAsync(operation, null);
 

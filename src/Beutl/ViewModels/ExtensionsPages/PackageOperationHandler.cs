@@ -276,7 +276,8 @@ internal class PackageOperationHandler
         }
     }
 
-    internal async Task ActivateInstalledPackageAsync(PackageIdentity packageId, CancellationToken cancellationToken)
+    internal async Task ActivateInstalledPackageAsync(PackageIdentity packageId, CancellationToken cancellationToken,
+        bool loadExtension = true, bool allowReplacement = true)
     {
         string directory = Helper.PackagePathResolver.GetInstalledPath(packageId)
                            ?? throw new InvalidOperationException(
@@ -285,6 +286,11 @@ internal class PackageOperationHandler
         var localPackage = new LocalPackage(reader.NuspecReader) { InstalledPath = directory };
 
         bool isExtension = localPackage.Tags.GetPackageKind() == PackageKind.Extension;
+        if (isExtension && !loadExtension)
+        {
+            await Task.Run(() => _packageManager.CheckInstalledExtensionCompatibility(localPackage), cancellationToken)
+                .ConfigureAwait(false);
+        }
         var deployment = await Task.Run(() => _packageInstaller.PrepareDataPackage(localPackage, cancellationToken), cancellationToken).ConfigureAwait(false);
         try
         {
@@ -297,13 +303,17 @@ internal class PackageOperationHandler
                     // Extension hooks and repository observers run outside the payload gate.
                     // A failed load leaves the old payload untouched; failed publication or
                     // persistence unloads this newly loaded extension in the catch below.
-                    if (isExtension)
+                    if (isExtension && loadExtension
+                        && !_packageManager.FindLoadedPackage(localPackage.Name).Any(package =>
+                            !package.SideLoad && StringComparer.OrdinalIgnoreCase.Equals(package.Version, localPackage.Version)))
                     {
                         _packageManager.Load(localPackage);
                         extensionLoaded = true;
                     }
                     Action? notify = null;
-                    deployment.Commit(() => notify = _installedPackageRepository.UpgradePackagesAndDeferNotifications(packageId));
+                    deployment.Commit(
+                        () => notify = _installedPackageRepository.UpgradePackagesAndDeferNotifications(packageId, allowReplacement),
+                        allowReplacement ? null : () => _installedPackageRepository.RequireNoReplacement(packageId));
                     notify!();
                 }
                 catch (Exception failure)

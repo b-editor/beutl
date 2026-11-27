@@ -16,12 +16,14 @@ public sealed class LocalUserPackageViewModel : IUserPackageViewModel
 {
     private readonly ILogger _logger = Log.CreateLogger<LocalUserPackageViewModel>();
     private readonly CompositeDisposable _disposables = [];
+    private readonly BeutlApiApplication _app;
     private readonly PackageOperationHandler _handler;
     private readonly PackageIdentity _packageIdentity;
 
     public LocalUserPackageViewModel(LocalPackage package, BeutlApiApplication app, EditorService editorService, ProjectService projectService)
     {
         Package = package;
+        _app = app;
         _packageIdentity = new PackageIdentity(package.Name, new NuGetVersion(package.Version));
         DisplayName = new ReactivePropertySlim<string>(package.DisplayName);
         LogoUrl = new ReactivePropertySlim<string>(string.Empty);
@@ -62,6 +64,7 @@ public sealed class LocalUserPackageViewModel : IUserPackageViewModel
 
             StatusText.Value = ExtensionsStrings.Installing;
 
+            using var lease = await _app.Lock.LockAsync();
             await _handler.InstallOrQueueAsync(_packageIdentity, _logger, CancellationToken.None);
         }
         catch (Exception e)
@@ -90,6 +93,7 @@ public sealed class LocalUserPackageViewModel : IUserPackageViewModel
             StatusText.Value = ExtensionsStrings.Updating;
             var packageId = new PackageIdentity(Package.Name, new NuGetVersion(release.Version.Value));
 
+            using var lease = await _app.Lock.LockAsync();
             await _handler.UpdateOrQueueAsync(
                 Package.Name,
                 packageId,
@@ -122,6 +126,7 @@ public sealed class LocalUserPackageViewModel : IUserPackageViewModel
 
             StatusText.Value = ExtensionsStrings.Uninstalling;
 
+            using var lease = await _app.Lock.LockAsync();
             if (!await _handler.UnloadPackages(Package.Name))
             {
                 throw new Exception("Failed to unload the package. It may still be in use. Uninstallation has been scheduled.");

@@ -155,6 +155,7 @@ public sealed class RemoteUserPackageViewModel : IUserPackageViewModel
 
             StatusText.Value = ExtensionsStrings.Uninstalling;
 
+            using var lease = await _app.Lock.LockAsync();
             if (await _handler.UnloadAndUninstallAsync(Package.Name))
             {
                 PackageNotifications.Uninstalled(_handler.Notifications, Package.Name);

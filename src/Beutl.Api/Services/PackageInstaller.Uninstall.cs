@@ -25,7 +25,7 @@ public partial class PackageInstaller
             {
                 _logger.LogInformation("Cleaning unnecessary packages.");
 
-                PackageIdentity[] installedPackages = _installedPackageRepository.GetLocalPackages()
+                PackageIdentity[] installedPackages = _installedPackageRepository.GetProfilePackages()
                     .Except(unnecessaryPackages, PackageIdentityComparer.Default)
                     .ToArray();
 
@@ -39,7 +39,8 @@ public partial class PackageInstaller
             return new PackageUninstallContext(uninstallPackage, installedPath)
             {
                 UnnecessaryPackages = unnecessaryPackages,
-                SizeToBeReleased = size
+                SizeToBeReleased = size,
+                RecheckDependencies = clean
             };
         });
     }
@@ -52,14 +53,20 @@ public partial class PackageInstaller
         TrackSyncOperation(() =>
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (_installedPackageRepository.RestoreFailed)
+            using var lease = PackageFileLock.Open(PackageFileChangesLockPath);
+            if (!_installedPackageRepository.TryGetCompleteProfilePackages(out PackageIdentity[] installed))
             {
                 throw new InvalidOperationException(
                     "Cannot uninstall packages because installedPackages.json could not be restored.");
             }
 
+            PackageIdentity[] unnecessary = context.RecheckDependencies
+                ? [.. context.UnnecessaryPackages.Except(
+                    GetRequiredPackages(installed.Where(package => !package.Equals(context.Id))), PackageIdentityComparer.Default)]
+                : context.UnnecessaryPackages;
             context.FailedPackages = RemovePackageDirectories(
-                context.UnnecessaryPackages,
+                unnecessary,
+                installed,
                 context.SizeToBeReleased,
                 progress,
                 out _);

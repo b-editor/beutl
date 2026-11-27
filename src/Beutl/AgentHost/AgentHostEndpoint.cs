@@ -465,6 +465,7 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
             })
             .WithTools<AgentHostInstanceTools>()
             .WithTools<AgentHostTools>()
+            .WithTools<AgentHostExtensionTools>()
             .WithTools<ProxyTools>()
             .WithSharedAgentToolkitTools()
             .WithAgentToolkitSkills()

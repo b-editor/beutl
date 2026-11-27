@@ -57,6 +57,17 @@ public class PackageChangesQueue : IBeutlApiResource
         }
     }
 
+    internal (PackageIdentity[] Installs, PackageIdentity[] Uninstalls) GetProfileChanges()
+    {
+        lock (_gate)
+        {
+            if (_saveFailed)
+                return ([.. _installs], [.. _uninstalls]);
+            var saved = new PackageChangesQueue(_path);
+            return ([.. saved._installs], [.. saved._uninstalls]);
+        }
+    }
+
     public IObservable<EventType> GetObservable(string name)
     {
         return new _Observable(this, name);

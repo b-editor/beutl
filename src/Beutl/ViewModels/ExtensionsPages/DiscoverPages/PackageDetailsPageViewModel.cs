@@ -307,6 +307,7 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
 
             StatusText.Value = ExtensionsStrings.Uninstalling;
 
+            using var lease = await _app.Lock.LockAsync(_lifetimeCts.Token);
             if (await _handler.UnloadAndUninstallAsync(Package.Name))
             {
                 PackageNotifications.Uninstalled(_handler.Notifications, Package.Name);

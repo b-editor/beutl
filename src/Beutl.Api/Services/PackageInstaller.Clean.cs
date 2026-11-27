@@ -9,7 +9,7 @@ namespace Beutl.Api.Services;
 
 public partial class PackageInstaller
 {
-    private PackageIdentity[] UnnecessaryPackages(IEnumerable<PackageIdentity>? installedPackages = null)
+    private PackageIdentity[] UnnecessaryPackages(IEnumerable<PackageIdentity> installedPackages)
     {
         if (!Directory.Exists(Helper.InstallPath))
         {
@@ -17,14 +17,24 @@ public partial class PackageInstaller
             return [];
         }
 
+        HashSet<PackageIdentity> needed = GetRequiredPackages(installedPackages);
+        var unnecessary = new List<PackageIdentity>();
+        foreach (string directory in Directory.GetDirectories(Helper.InstallPath))
+        {
+            using var reader = new PackageFolderReader(directory);
+            PackageIdentity package = reader.GetIdentity();
+            if (!needed.Contains(package)) unnecessary.Add(package);
+        }
+        return [.. unnecessary];
+    }
+
+    private static HashSet<PackageIdentity> GetRequiredPackages(IEnumerable<PackageIdentity> installedPackages)
+    {
         NuGetFramework framework = Helper.GetFrameworkName();
-
-        var availablePackages = new HashSet<PackageIdentity>(PackageIdentityComparer.Default);
-
-        installedPackages ??= _installedPackageRepository.GetLocalPackages();
-
+        var needed = new HashSet<PackageIdentity>(PackageIdentityComparer.Default);
         foreach (PackageIdentity packageId in installedPackages)
         {
+            needed.Add(packageId);
             // Must resolve like the deletion pass below: a package whose .nupkg is gone would
             // otherwise contribute no dependency metadata yet still be deletable, which would
             // classify a live dependency as unnecessary.
@@ -32,14 +42,11 @@ public partial class PackageInstaller
             if (Directory.Exists(directory))
             {
                 using var reader = new PackageFolderReader(directory);
-                availablePackages.UnionWith(ResolvedPackageDependencies.Load(reader, framework, preserveCandidates: true));
+                needed.UnionWith(ResolvedPackageDependencies.Load(reader, framework, preserveCandidates: true));
             }
         }
 
-        IEnumerable<PackageIdentity> all = Directory.GetDirectories(Helper.InstallPath)
-            .Select(x => new PackageFolderReader(x).GetIdentity());
-
-        return all.Except(availablePackages, PackageIdentityComparer.Default).ToArray();
+        return needed;
     }
 
     private long MeasureInstalledSize(IEnumerable<PackageIdentity> packages)
@@ -71,14 +78,14 @@ public partial class PackageInstaller
             excludedPackages ??= [];
 
             // An incomplete registry makes every extracted package and its data payload look unnecessary.
-            if (IsRegistryIncompleteForClean())
+            if (IsRegistryIncompleteForClean(out PackageIdentity[] installed))
             {
                 _logger.LogWarning(
                     "The installed package registry is empty or could not be restored; skipping clean to preserve extracted packages and their data.");
                 return new PackageCleanContext([], 0) { RegistryUnavailable = true };
             }
 
-            PackageIdentity[] unnecessaryPackages = UnnecessaryPackages()
+            PackageIdentity[] unnecessaryPackages = UnnecessaryPackages(installed)
                 .Except(excludedPackages, PackageIdentityComparer.Default)
                 .ToArray();
 
@@ -86,7 +93,7 @@ public partial class PackageInstaller
 
             _logger.LogInformation("Prepared for clean. Unnecessary packages: {PackageCount}, Total size: {TotalSize} bytes", unnecessaryPackages.Length, size);
 
-            return new PackageCleanContext(unnecessaryPackages, size);
+            return new PackageCleanContext(unnecessaryPackages, size) { RecheckDependencies = true };
         });
     }
 
@@ -98,14 +105,19 @@ public partial class PackageInstaller
         TrackSyncOperation(() =>
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (IsRegistryIncompleteForClean())
+            using var lease = PackageFileLock.Open(PackageFileChangesLockPath);
+            if (IsRegistryIncompleteForClean(out PackageIdentity[] installed))
             {
                 throw new InvalidOperationException(
                     "Cannot clean packages because installedPackages.json is empty or could not be restored.");
             }
 
+            PackageIdentity[] unnecessary = context.RecheckDependencies
+                ? [.. context.UnnecessaryPackages.Except(GetRequiredPackages(installed), PackageIdentityComparer.Default)]
+                : context.UnnecessaryPackages;
             List<string> failedPackages = RemovePackageDirectories(
-                context.UnnecessaryPackages,
+                unnecessary,
+                installed,
                 context.SizeToBeReleased,
                 progress,
                 out long totalSize);
@@ -124,10 +136,10 @@ public partial class PackageInstaller
 
     // An empty registry cannot prove that the extracted directories are orphaned. This is
     // separate from a legitimately empty file: saves stay enabled, but clean must not run.
-    private bool IsRegistryIncompleteForClean()
+    private bool IsRegistryIncompleteForClean(out PackageIdentity[] packages)
     {
-        return _installedPackageRepository.RestoreFailed
-            || (!_installedPackageRepository.GetLocalPackages().Any()
+        return !_installedPackageRepository.TryGetCompleteProfilePackages(out packages)
+            || (packages.Length == 0
                 && Directory.Exists(Helper.InstallPath)
                 && Directory.EnumerateDirectories(Helper.InstallPath).Any());
     }
@@ -135,6 +147,7 @@ public partial class PackageInstaller
     // Returns the directories that could not be removed completely.
     private List<string> RemovePackageDirectories(
         IReadOnlyCollection<PackageIdentity> packages,
+        IReadOnlyCollection<PackageIdentity> installedPackages,
         long sizeToBeReleased,
         IProgress<double> progress,
         out long totalSize)
@@ -147,7 +160,7 @@ public partial class PackageInstaller
             // go even when the extracted package itself is already missing. The payload
             // directory is keyed by id alone, so an update that leaves a newer identity
             // installed still owns it — removing it here would strip the live version.
-            bool dataRemoved = TryRemovePackagePayload(packages, package);
+            bool dataRemoved = TryRemovePackagePayload(packages, installedPackages, package);
 
             string directory = Helper.ResolveInstalledDirectory(package);
             if (!dataRemoved)
@@ -210,12 +223,14 @@ public partial class PackageInstaller
 
     // False means repair/removal failed, not that no survivor exists. Do not turn a
     // failed restoration into an unconditional deletion of the surviving payload.
-    private bool TryRemovePackagePayload(IReadOnlyCollection<PackageIdentity> removedPackages, PackageIdentity package)
+    private bool TryRemovePackagePayload(IReadOnlyCollection<PackageIdentity> removedPackages,
+        IReadOnlyCollection<PackageIdentity> installedPackages, PackageIdentity package)
     {
         try
         {
-            PackageIdentity? survivor = _installedPackageRepository.GetLocalPackages(package.Id)
-                .Where(other => !other.Equals(package) && !removedPackages.Contains(other))
+            PackageIdentity? survivor = installedPackages
+                .Where(other => StringComparer.OrdinalIgnoreCase.Equals(other.Id, package.Id)
+                    && !other.Equals(package) && !removedPackages.Contains(other))
                 .OrderByDescending(other => other.Version)
                 .FirstOrDefault(other => Directory.Exists(Helper.ResolveInstalledDirectory(other)));
             if (survivor is null)

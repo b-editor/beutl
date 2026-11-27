@@ -26,6 +26,8 @@ public class PackageUninstallContext
 
     public long SizeToBeReleased { get; init; }
 
+    internal bool RecheckDependencies { get; init; }
+
     [AllowNull]
     public IReadOnlyList<string> FailedPackages { get; internal set; }
 }
