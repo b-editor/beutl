@@ -45,8 +45,9 @@ public sealed class AgentTabViewTests
             "src", "Beutl.Editor.Components", "AgentTab", "Views", "AgentTabStyles.axaml"));
         Assert.That(styles, Does.Not.Match(@"#[0-9A-Fa-f]{6,8}\b"));
         Assert.That(styles, Does.Contain("ToggleButton.agent-disclosure"));
-        Assert.That(System.Text.RegularExpressions.Regex.Matches(styles, "<ControlTheme\\b"), Has.Count.EqualTo(1));
+        Assert.That(System.Text.RegularExpressions.Regex.Matches(styles, "<ControlTheme\\b"), Has.Count.EqualTo(2));
         Assert.That(styles, Does.Contain("x:Key=\"AgentDisclosureToggleTheme\""));
+        Assert.That(styles, Does.Contain("x:Key=\"AgentLiteButtonTheme\""));
     }
 
     [AvaloniaTest]
@@ -73,6 +74,10 @@ public sealed class AgentTabViewTests
         {
             window.Show();
             HeadlessTestHelpers.Render(4);
+            var emptyState = view.FindControl<Beutl.Controls.EmptyState>("EmptyState")!;
+            Assert.That(emptyState.IsEffectivelyVisible, Is.True);
+            Assert.That(emptyState.Title, Is.EqualTo(AgentStrings.EmptyTitle));
+            Assert.That(emptyState.Description, Is.EqualTo(viewModel.ProviderStatusLabel));
             var recent = view.FindControl<ItemsControl>("RecentThreads")!;
             Assert.That(recent.IsEffectivelyVisible, Is.True);
             Assert.That(recent.ItemCount, Is.EqualTo(3));
