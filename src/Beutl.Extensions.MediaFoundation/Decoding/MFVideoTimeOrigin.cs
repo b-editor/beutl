@@ -10,25 +10,30 @@ internal static class MFVideoTimeOrigin
 {
     // MF can leave the MP4 edit-list trim in its video timestamps or omit a leading
     // empty edit. Use metadata to locate the first picture on the container timeline.
-    public static long GetFirstVideoTime(string file, long firstVideoTimestamp)
+    public static long GetFirstVideoTime(string file, long firstVideoTimestamp, out long omittedEmptyEditDelay)
     {
         if (firstVideoTimestamp < 0)
+        {
+            omittedEmptyEditDelay = 0;
             return 0;
+        }
 
         try
         {
             using var stream = File.OpenRead(file);
-            return GetFirstVideoTime(stream, firstVideoTimestamp);
+            return GetFirstVideoTime(stream, firstVideoTimestamp, out omittedEmptyEditDelay);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
         {
             // Unavailable metadata keeps frame 0 at the first video frame.
+            omittedEmptyEditDelay = 0;
             return 0;
         }
     }
 
-    internal static long GetFirstVideoTime(Stream stream, long firstVideoTimestamp)
+    internal static long GetFirstVideoTime(Stream stream, long firstVideoTimestamp, out long omittedEmptyEditDelay)
     {
+        omittedEmptyEditDelay = 0;
         if (firstVideoTimestamp < 0 || !stream.CanSeek || stream.Length < 8)
             return 0;
 
@@ -98,6 +103,7 @@ internal static class MFVideoTimeOrigin
             if (movieScale == 0)
                 return firstVideoTime;
             long leadingDelay = checked((long)(emptyEditDuration * TimeSpan.TicksPerSecond / movieScale));
+            omittedEmptyEditDelay = Math.Max(0, leadingDelay - firstVideoTime);
             return Math.Max(firstVideoTime, leadingDelay);
         }
         catch (Exception ex) when (ex is IOException or InvalidDataException or OverflowException)

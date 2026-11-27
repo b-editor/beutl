@@ -28,16 +28,23 @@ public class MFVideoTimeOriginTests
     public void EmptyEditBeforeMedia_UsesTheMediaTrim()
         => Assert.That(Read(Mp4(Track(new[] { -1L, 200L })), 2_000_000), Is.Zero);
 
-    [TestCase(0, 0L)]
-    [TestCase(0, 5_000_000L)]
-    [TestCase(1, 0L)]
-    [TestCase(1, 5_000_000L)]
-    public void LeadingEmptyEdit_KeepsTheVideoDelay(int version, long firstTimestamp)
+    [TestCase(0, 0L, 0L, 5_000_000L)]
+    [TestCase(0, 0L, 5_000_000L, 0L)]
+    [TestCase(1, 0L, 0L, 5_000_000L)]
+    [TestCase(1, 0L, 5_000_000L, 0L)]
+    // The media starts at 200 ms in the track. The leading empty edit lasts 500 ms.
+    [TestCase(0, 200L, 2_000_000L, 5_000_000L)]
+    [TestCase(0, 200L, 7_000_000L, 0L)]
+    public void LeadingEmptyEdit_ReportsTheVideoStartAndOmittedDelay(
+        int version, long mediaStart, long firstTimestamp, long expectedOmittedDelay)
     {
         byte[] movieHeader = Box("mvhd", UInt32((uint)version << 24), new byte[version == 1 ? 16 : 8], UInt32(8000));
-        byte[] file = Mp4(movieHeader, Track(new[] { -1L, 0L }, version: version));
+        byte[] file = Mp4(movieHeader, Track(new[] { -1L, mediaStart }, version: version));
 
-        Assert.That(Read(file, firstTimestamp), Is.EqualTo(5_000_000));
+        using var stream = new MemoryStream(file);
+        long firstVideoTime = MFVideoTimeOrigin.GetFirstVideoTime(stream, firstTimestamp, out long omittedEmptyEditDelay);
+        Assert.That(firstVideoTime, Is.EqualTo(5_000_000));
+        Assert.That(omittedEmptyEditDelay, Is.EqualTo(expectedOmittedDelay));
     }
 
     [Test]
@@ -126,7 +133,7 @@ public class MFVideoTimeOriginTests
     private static long Read(byte[] data, long timestamp)
     {
         using var stream = new MemoryStream(data);
-        return MFVideoTimeOrigin.GetFirstVideoTime(stream, timestamp);
+        return MFVideoTimeOrigin.GetFirstVideoTime(stream, timestamp, out _);
     }
 
     private static byte[] Mp4(params byte[][] movieBoxes)

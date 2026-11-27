@@ -31,6 +31,8 @@ internal sealed class MFDecoder : IMediaFoundationVideoDecoder
     private MFMediaInfo _mediaInfo;
     // Subtract this from sample timestamps to place them on the container timeline.
     private long _originTimeStamp = 0;
+    // MF accounts for the composition trim when seeking.
+    private long _omittedEmptyEditDelay;
     // Frames before the first video frame show it.
     private int _firstFrame = 0;
     private long _currentVideoTimeStamp = 0;
@@ -138,9 +140,8 @@ internal sealed class MFDecoder : IMediaFoundationVideoDecoder
 
         if (frame < currentFrame || (currentFrame + _thresholdFrameCount) < frame)
         {
-            // When MF omits a leading empty edit, it also seeks on that shortened timeline.
             long destTimePosition = Math.Max(0,
-                TimestampUtilities.ConvertTimeStampFromFrame(frame, _mediaInfo.Fps) + Math.Min(0, _originTimeStamp));
+                TimestampUtilities.ConvertTimeStampFromFrame(frame, _mediaInfo.Fps) - _omittedEmptyEditDelay);
             try
             {
                 SeekVideo(destTimePosition);
@@ -364,7 +365,7 @@ internal sealed class MFDecoder : IMediaFoundationVideoDecoder
         SeekVideo(0);
         _currentVideoTimeStamp = 0;
 
-        long firstVideoTime = MFVideoTimeOrigin.GetFirstVideoTime(file, firstVideoTimeStamp);
+        long firstVideoTime = MFVideoTimeOrigin.GetFirstVideoTime(file, firstVideoTimeStamp, out _omittedEmptyEditDelay);
         _originTimeStamp = firstVideoTimeStamp - firstVideoTime;
         _firstFrame = TimestampUtilities.ConvertFrameFromTimeStamp(firstVideoTime, _mediaInfo.Fps);
         _logger.LogInformation("TestFirstReadSample - originTimeStamp: {originTimeStamp}", _originTimeStamp);
