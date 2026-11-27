@@ -79,7 +79,7 @@ internal sealed class AgentHostExtensionTools(EditorService editor, ProjectServi
                 string? loadedVersion = LatestVersion(loaded[name]);
                 bool pendingUninstall = pendingRemoval.Contains(name);
                 return new InstalledItem(name, installedVersion, loadedVersion, LatestVersion(pending[name]), pendingUninstall,
-                    (installedVersion is not null && installedVersion != loadedVersion) || pending.Contains(name) || pendingUninstall);
+                    installedVersion != loadedVersion || pending.Contains(name) || pendingUninstall);
             })]);
 
             bool IsExtension(PackageIdentity package)
@@ -207,6 +207,13 @@ internal sealed class AgentHostExtensionTools(EditorService editor, ProjectServi
                     var loadedId = new PackageIdentity(other.Name, NuGetVersion.Parse(other.Version));
                     if (!package.Equals(loadedId))
                         throw new PackageVersionConflictException(loadedId);
+                }
+                // A sideload waiting for its load decision would load beside a profile copy installed now.
+                if (manager.GetSideLoadPackages().Any(other =>
+                        StringComparer.OrdinalIgnoreCase.Equals(other.Name, package.Id)))
+                {
+                    throw new ReconcileException(new ToolError("extension_version_conflict",
+                        $"'{package.Id}' is already side-loaded in the sideload directory.", package.Id));
                 }
                 if (!installed.Contains(package) || PackageManager.ReadInstalledPackage(package) is not { } installedPackage)
                     return null;

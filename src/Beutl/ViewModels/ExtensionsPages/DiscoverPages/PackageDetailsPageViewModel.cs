@@ -317,6 +317,9 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
                 PackageNotifications.ScheduledUninstallation(_handler.Notifications, Package.Name);
             }
         }
+        catch (OperationCanceledException) when (_lifetimeCts.IsCancellationRequested)
+        {
+        }
         catch (Exception e)
         {
             _logger.LogWarning(e, "Immediate uninstall failed, falling back to queue.");

@@ -291,6 +291,50 @@ public sealed class AgentHostExtensionInstallTests
     }
 
     [AvaloniaTest]
+    public async Task Loaded_extension_missing_from_the_profile_requires_a_restart()
+    {
+        await TestReset.ResetShellAsync();
+        PackageIdentity package = NewPackage();
+        string path = WriteArchive(CreateToolPackage(package));
+        using var store = new PackageStore(package, []);
+        await using var app = CreateApplication(store, out EditorService editor);
+        var tools = new AgentHostExtensionTools(editor, TestShell.Project);
+
+        var installed = await tools.InstallExtension(path: path);
+        Assert.That(installed.Value!.Loaded, Is.True);
+        app.GetResource<InstalledPackageRepository>().RemovePackage(package);
+        var listed = await tools.ListInstalledExtensions();
+        var item = listed.Value!.Extensions.Single(entry => entry.PackageId == package.Id);
+
+        Assert.That(item.InstalledVersion, Is.Null);
+        Assert.That(item.LoadedVersion, Is.EqualTo(package.Version.ToString()));
+        Assert.That(item.RestartRequired, Is.True);
+        await UnloadAsync(app, package);
+    }
+
+    [AvaloniaTest]
+    public async Task Install_is_rejected_while_a_matching_sideload_is_pending()
+    {
+        await TestReset.ResetShellAsync();
+        PackageIdentity package = NewPackage();
+        string sideLoad = Path.Combine(Helper.SideLoadsPath, package.Id);
+        Directory.CreateDirectory(sideLoad);
+        File.WriteAllText(Path.Combine(sideLoad, $"{package.Id}.dll"), "");
+        _cleanup.Add(sideLoad);
+        using var store = new PackageStore(package, []);
+        await using var app = CreateApplication(store, out EditorService editor);
+        await using var host = CreateHost(editor, _directory, "extension-install-token");
+        await host.StartAsync();
+        await using McpClient client = await ConnectAsync(host);
+
+        AssertError(await client.CallToolAsync("install_extension", new Dictionary<string, object?>
+        {
+            ["path"] = WriteArchive(TestPackages.CreateExtensionNupkg(package))
+        }), "extension_version_conflict");
+        Assert.That(new InstalledPackageRepository().ExistsPackage(package), Is.False);
+    }
+
+    [AvaloniaTest]
     public async Task Cleanup_waits_for_an_active_package_file_change()
     {
         await TestReset.ResetShellAsync();
