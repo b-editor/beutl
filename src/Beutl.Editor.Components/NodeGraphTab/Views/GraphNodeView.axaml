@@ -39,6 +39,10 @@
         <Style Selector="views|GraphNodeView.custom-width TextBlock.node-label, views|GraphNodeView.custom-width :is(pe|PropertyEditor) /template/ TextBlock#PART_HeaderTextBlock">
             <Setter Property="TextWrapping" Value="Wrap" />
         </Style>
+        <!-- Consume wheel input at the text box's scroll limits so the graph keeps its current zoom. -->
+        <Style Selector=":is(TextBox)">
+            <Setter Property="ScrollViewer.IsScrollChainingEnabled" Value="False" />
+        </Style>
         <!-- A long script scrolls inside its field rather than stretching the node past the view. -->
         <Style Selector="pe|StringEditor.multiline /template/ TextBox#PART_InnerTextBox">
             <Setter Property="MaxHeight" Value="360" />
