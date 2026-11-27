@@ -809,14 +809,15 @@ public class AudioLatencyCompensationTests
     }
 
     [Test]
-    public void MixerNode_GetDrainLatencySamples_ExcludesBranchWhoseTailEndedDuringProcess()
+    public void MixerNode_GetDrainLatencySamples_IncludesCompensationAfterSlowerBranchEnds()
     {
         const int sampleCount = 1024;
         const int activeLatencySamples = 120;
+        const int slowLatencySamples = 240;
         var groupEnd = ExactDuration(sampleCount, SampleRate);
         var earlyEnd = ExactDuration(sampleCount / 2, SampleRate);
 
-        using var earlyBranch = new RecordingLatencyNode(240);
+        using var earlyBranch = new RecordingLatencyNode(slowLatencySamples);
         using var activeBranch = new RecordingLatencyNode(activeLatencySamples);
         using var mixer = new MixerNode();
         mixer.AddInput(earlyBranch);
@@ -826,8 +827,8 @@ public class AudioLatencyCompensationTests
 
         using var processed = mixer.Process(Exact(MediaTime.Zero, sampleCount, SampleRate));
 
-        Assert.That(mixer.GetDrainLatencySamples(SampleRate), Is.EqualTo(activeLatencySamples),
-            "A branch whose tail ended inside the processed block must not keep the mixer drain budget alive.");
+        Assert.That(mixer.GetDrainLatencySamples(SampleRate), Is.EqualTo(slowLatencySamples),
+            "The active branch retains its own tail and the compensation delay after the slower branch ends.");
     }
 
     [Test]

@@ -157,6 +157,9 @@ public sealed partial class SceneSound : Sound, ITimeMappedSource
             }
         }
 
+        // The embedded composer sums independent outputs and reports their largest tail budget.
+        internal override bool HasFixedLatency(int sampleRate) => false;
+
         public override int GetTotalLatencySamples(int sampleRate)
         {
             ArgumentOutOfRangeException.ThrowIfNegativeOrZero(sampleRate);

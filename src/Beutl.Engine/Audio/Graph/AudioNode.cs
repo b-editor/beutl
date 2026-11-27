@@ -190,6 +190,28 @@ public abstract class AudioNode : IDisposable
         return AudioLatency.SaturatingAdd(ownLatency, upstream);
     }
 
+    // The public total can be a conservative drain budget. Alignment needs an actual fixed delay.
+    internal int? GetFixedLatencySamples(int sampleRate)
+    {
+        if (!HasFixedLatency(sampleRate))
+            return null;
+
+        int latency = GetTotalLatencySamples(sampleRate);
+        AudioLatency.ThrowIfNegative(this, latency, "total latency");
+        return latency == int.MaxValue ? null : latency;
+    }
+
+    internal virtual bool HasFixedLatency(int sampleRate)
+    {
+        foreach (AudioNode input in _inputs)
+        {
+            if (!input.HasFixedLatency(sampleRate))
+                return false;
+        }
+
+        return true;
+    }
+
     /// <summary>
     /// Reports the latency still held by this node immediately after its terminal process call.
     /// Unlike <see cref="GetTotalLatencySamples"/>, an implementation may use values latched from
