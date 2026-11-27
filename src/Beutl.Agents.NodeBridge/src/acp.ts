@@ -67,10 +67,9 @@ export class AcpAdapter implements Adapter {
 
         const mcpServers = this.buildMcpServers(Boolean(initialized.agentCapabilities?.mcpCapabilities?.http));
         const request = { cwd: options.workingDirectory, mcpServers };
+        const canLoadSession = Boolean(initialized.agentCapabilities?.loadSession);
         let session;
-        if (options.externalSessionId) {
-            if (!initialized.agentCapabilities?.loadSession)
-                throw new Error("This ACP agent does not support session/load.");
+        if (options.externalSessionId && canLoadSession) {
             this.sessionId = options.externalSessionId;
             session = await client.loadSession({ ...request, sessionId: this.sessionId });
         } else {
@@ -85,7 +84,8 @@ export class AcpAdapter implements Adapter {
         this.legacyModels = (session as { models?: LegacyModels }).models;
         this.initialModel = this.config("model")?.currentValue ?? this.legacyModels?.currentModelId;
         this.rememberEffortDefault(this.initialModel);
-        this.host.saveSessionId(this.sessionId);
+        if (canLoadSession)
+            this.host.saveSessionId(this.sessionId);
         await this.setMode(options.permissionMode);
     }
 
