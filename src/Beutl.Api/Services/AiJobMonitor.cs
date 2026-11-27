@@ -40,6 +40,7 @@ internal sealed class AiJobMonitor : IAiJobMonitor, IDisposable
     private AuthenticatedUser? _authenticationOwner;
     private CancellationTokenSource? _authenticationCts;
     private CancellationTokenSource? _pollingCts;
+    private Task? _pollingCancellation;
     private long _authenticationVersion;
     private int _loadedPageCount;
     private int _pollingLeases;
@@ -105,7 +106,6 @@ internal sealed class AiJobMonitor : IAiJobMonitor, IDisposable
     public void Dispose()
     {
         CancellationTokenSource? authenticationCts;
-        CancellationTokenSource? pollingCts;
         lock (_stateGate)
         {
             if (_disposed)
@@ -117,13 +117,8 @@ internal sealed class AiJobMonitor : IAiJobMonitor, IDisposable
             _authenticationCts = null;
         }
 
-        lock (_pollingGate)
-        {
-            pollingCts = _pollingCts;
-        }
-
         authenticationCts?.Cancel();
-        pollingCts?.Cancel();
+        CancelPollingIfUnneeded();
         _subscriptions.Dispose();
         _readOnlySnapshot.Dispose();
         _snapshot.Dispose();
@@ -545,21 +540,19 @@ internal sealed class AiJobMonitor : IAiJobMonitor, IDisposable
 
     private void CancelPollingIfUnneeded()
     {
-        CancellationTokenSource? cancellationTokenSource = null;
         lock (_pollingGate)
         {
             if (IsPollingUnneeded_NoLock())
             {
-                cancellationTokenSource = _pollingCts;
+                // Request cancellation under the gate without running callbacks there.
+                _pollingCancellation ??= _pollingCts?.CancelAsync();
             }
         }
-
-        cancellationTokenSource?.Cancel();
     }
 
     // Callers hold _pollingGate.
     private bool IsPollingUnneeded_NoLock()
-        => _pollingLeases == 0 && !GetSnapshot().Jobs.Any(ShouldPoll);
+        => _disposed || (_pollingLeases == 0 && !GetSnapshot().Jobs.Any(ShouldPoll));
 
     private async Task RunPollingAsync(
         AuthenticationContext authentication,
@@ -572,16 +565,24 @@ internal sealed class AiJobMonitor : IAiJobMonitor, IDisposable
         }
         finally
         {
+            Task? cancellation;
             lock (_pollingGate)
             {
-                if (ReferenceEquals(_pollingCts, cancellationTokenSource))
-                {
-                    _pollingCts = null;
-                }
+                cancellation = _pollingCancellation;
+                _pollingCts = null;
+                _pollingCancellation = null;
             }
 
-            cancellationTokenSource.Dispose();
-            EnsurePolling();
+            try
+            {
+                if (cancellation is not null)
+                    await cancellation.ConfigureAwait(false);
+            }
+            finally
+            {
+                cancellationTokenSource.Dispose();
+                EnsurePolling();
+            }
         }
     }
 
@@ -589,7 +590,7 @@ internal sealed class AiJobMonitor : IAiJobMonitor, IDisposable
     {
         lock (_pollingGate)
         {
-            return !_disposed && (_pollingLeases > 0 || GetSnapshot().Jobs.Any(ShouldPoll));
+            return !IsPollingUnneeded_NoLock();
         }
     }
 
