@@ -23,6 +23,7 @@ public sealed class ToolSurfaceTests
         typeof(NodeGraphTools),
         typeof(HistoryTools),
         typeof(MissingMediaTools),
+        typeof(ProjectAssetTools),
         typeof(SubtitleTools),
         typeof(RenderTools)
     ];
@@ -91,6 +92,8 @@ public sealed class ToolSurfaceTests
             "edit_node_graph",
             "scan_missing_media",
             "relink_missing_media",
+            "inspect_project_assets",
+            "organize_project_assets",
             "import_subtitles",
             "list_subtitles",
             "export_subtitles",

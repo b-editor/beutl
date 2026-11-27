@@ -94,7 +94,7 @@ public static class ProjectOperations
         return scene;
     }
 
-    internal static Scene FindSceneToRemove(Project project, Guid id)
+    internal static Scene FindScene(Project project, Guid id)
     {
         Scene[] matches = project.Items.OfType<Scene>().Where(scene => scene.Id.Value == id).Take(2).ToArray();
         return matches.Length switch

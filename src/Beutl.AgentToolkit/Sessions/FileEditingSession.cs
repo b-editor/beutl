@@ -53,6 +53,8 @@ public sealed class FileEditingSession : IEditingSession, IDisposable
 
     public bool IsDirty { get; internal set; }
 
+    internal bool HasUnsavedProjectChanges { get; private set; }
+
     public void SetActiveScene(Scene scene)
     {
         ArgumentNullException.ThrowIfNull(scene);
@@ -90,12 +92,9 @@ public sealed class FileEditingSession : IEditingSession, IDisposable
             }
 
             string projectPath = Project.Uri.LocalPath;
-            DateTime currentStamp = File.Exists(projectPath)
-                ? File.GetLastWriteTimeUtc(projectPath)
-                : DateTime.MinValue;
-            if (!skipConflictCheck && currentStamp != _projectLastWriteUtc)
+            if (!skipConflictCheck)
             {
-                throw new ProjectConflictException(projectPath);
+                CheckProjectStamp(projectPath);
             }
 
             UriState original = CaptureUriState();
@@ -113,7 +112,35 @@ public sealed class FileEditingSession : IEditingSession, IDisposable
 
             _projectLastWriteUtc = File.GetLastWriteTimeUtc(projectPath);
             IsDirty = false;
+            HasUnsavedProjectChanges = false;
             _dirtyScenes.Clear();
+        }
+    }
+
+    // Called under the dispatch lock by operations that persist through editor services.
+    internal void CheckProjectStamp(string projectPath)
+    {
+        if (ReadProjectStamp(projectPath) != _projectLastWriteUtc)
+            throw new ProjectConflictException(projectPath);
+    }
+
+    internal void AcceptRestoredProjectStamp(string projectPath, byte[] previousContents)
+    {
+        // The document transaction restores bytes with a replacement file. Only accept
+        // its new timestamp if the project contents match the pre-transaction snapshot.
+        try
+        {
+            DateTime stamp = ReadProjectStamp(projectPath);
+            if (stamp != DateTime.MinValue && stamp != _projectLastWriteUtc
+                && previousContents.AsSpan().SequenceEqual(File.ReadAllBytes(projectPath))
+                && stamp == ReadProjectStamp(projectPath))
+            {
+                _projectLastWriteUtc = stamp;
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            s_logger.LogWarning(ex, "Could not verify the restored project file.");
         }
     }
 
@@ -121,10 +148,11 @@ public sealed class FileEditingSession : IEditingSession, IDisposable
     {
         // A not-yet-written target has no prior stamp; leaving the previous file's stamp here would
         // make the next Save see a spurious conflict (MinValue on disk vs the old timestamp).
-        _projectLastWriteUtc = Project.Uri is { } uri && File.Exists(uri.LocalPath)
-            ? File.GetLastWriteTimeUtc(uri.LocalPath)
-            : DateTime.MinValue;
+        _projectLastWriteUtc = Project.Uri is { } uri ? ReadProjectStamp(uri.LocalPath) : DateTime.MinValue;
     }
+
+    private static DateTime ReadProjectStamp(string path)
+        => File.Exists(path) ? File.GetLastWriteTimeUtc(path) : DateTime.MinValue;
 
     private void SetProjectPathCore(string projectPath)
     {
@@ -262,7 +290,11 @@ public sealed class FileEditingSession : IEditingSession, IDisposable
         _dirtyScenes.Add(Scene);
     }
 
-    internal void MarkProjectDirty() => IsDirty = true;
+    internal void MarkProjectDirty()
+    {
+        HasUnsavedProjectChanges = true;
+        IsDirty = true;
+    }
 
     internal bool HasUnsavedChanges(Scene scene)
         => _dirtyScenes.Contains(scene) || (ReferenceEquals(Scene, scene) && History.HasPendingOperations);

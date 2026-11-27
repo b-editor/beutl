@@ -124,6 +124,7 @@ public static class AgentToolkitMcpServer
             .WithTools<NodeGraphTools>()
             .WithTools<HistoryTools>()
             .WithTools<MissingMediaTools>()
+            .WithTools<ProjectAssetTools>()
             .WithTools<SubtitleTools>()
             .WithTools<RenderTools>();
     }

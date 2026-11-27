@@ -36,4 +36,10 @@
   <data name="InUse" xml:space="preserve"><value>Un proyecto o editor abierto hace referencia a este archivo.</value></data>
   <data name="DestinationExists" xml:space="preserve"><value>La ubicación original ya está ocupada.</value></data>
   <data name="Unavailable" xml:space="preserve"><value>No se pudo leer el archivo o sus dependencias.</value></data>
+  <data name="InvalidAction" xml:space="preserve"><value>Elige collect, quarantine, restore o delete.</value></data>
+  <data name="SelectAssetPaths" xml:space="preserve"><value>Selecciona rutas de archivos de inspect_project_assets que admitan esta operación.</value></data>
+  <data name="ConfirmPermanentDelete" xml:space="preserve"><value>Establece confirmDelete en true para eliminar permanentemente el archivo seleccionado.</value></data>
+  <data name="DeleteOneAsset" xml:space="preserve"><value>Solo se puede eliminar permanentemente un archivo apartado por llamada.</value></data>
+  <data name="InvalidSceneId" xml:space="preserve"><value>Proporciona un ID de escena válido del proyecto abierto en el editor u omite sceneId.</value></data>
+  <data name="SaveProjectBeforeCollecting" xml:space="preserve"><value>Ejecuta save_project para guardar los cambios pendientes del proyecto antes de reunir los recursos.</value></data>
 </root>
