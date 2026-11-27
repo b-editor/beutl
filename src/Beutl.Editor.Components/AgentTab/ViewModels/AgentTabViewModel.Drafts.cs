@@ -13,6 +13,7 @@ internal sealed partial class AgentTabViewModel
     private bool _draftDirty;
     private bool _restoringDraft;
     private CancellationTokenSource? _draftSyncCancellation;
+    private readonly List<AgentAttachedFile> _pendingSyncedAttachments = [];
     private int _historyIndex;
     private IReadOnlyList<string>? _browsedHistory;
     private string? _savedPrompt;
@@ -22,7 +23,6 @@ internal sealed partial class AgentTabViewModel
     {
         if (!_draftLoaded || _restoringDraft || _disposed)
             return;
-        CancelDraftSync();
         _draftDirty = true;
         _sessions.PublishDraft(_selectedThread?.Id, CreateDraftSnapshot(), this);
         _draftTimer.Stop();
@@ -42,10 +42,30 @@ internal sealed partial class AgentTabViewModel
     private AgentDraft? CreateDraftSnapshot()
     {
         string? text = _browsedHistory is null ? Prompt : _savedPrompt;
-        return string.IsNullOrEmpty(text) && _attachments.Count == 0 && IncludeSceneContext
+        var paths = new List<string>(_attachments.Count + _pendingSyncedAttachments.Count);
+        var mediaTypes = new List<string?>(_attachments.Count + _pendingSyncedAttachments.Count);
+        var seen = new HashSet<string>(s_pathComparer);
+        foreach (var item in _attachments)
+        {
+            if (seen.Add(item.Path))
+            {
+                paths.Add(item.Path);
+                mediaTypes.Add(item.File.MediaType);
+            }
+        }
+        foreach (var pending in _pendingSyncedAttachments)
+        {
+            if (seen.Add(pending.Path))
+            {
+                paths.Add(pending.Path);
+                mediaTypes.Add(pending.MediaType);
+            }
+        }
+
+        return string.IsNullOrEmpty(text) && paths.Count == 0 && IncludeSceneContext
             ? null
-            : new AgentDraft(text, _attachments.Select(item => item.Path).ToArray(), IncludeSceneContext,
-                _attachments.Select(item => item.File.MediaType).ToArray(), GetAcceptedMentions(text));
+            : new AgentDraft(text, paths.ToArray(), IncludeSceneContext,
+                mediaTypes.ToArray(), GetAcceptedMentions(text));
     }
 
     private async Task SaveDraftAsync()
@@ -123,6 +143,7 @@ internal sealed partial class AgentTabViewModel
             .ToArray();
         if (missing.Length > 0)
         {
+            _pendingSyncedAttachments.AddRange(missing);
             var cancellation = _draftSyncCancellation = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);
             _ = SyncMissingAttachmentsAsync(threadId, missing, cancellation);
         }
@@ -138,7 +159,8 @@ internal sealed partial class AgentTabViewModel
             {
                 ct.ThrowIfCancellationRequested();
                 var attachment = await Task.Run(() => AgentAttachment.CreateFile(file, RemoveAttachment), ct);
-                if (ct.IsCancellationRequested || _disposed || threadId != _selectedThread?.Id
+                bool stillPending = RemovePendingSyncedAttachment(file.Path);
+                if (ct.IsCancellationRequested || _disposed || threadId != _selectedThread?.Id || !stillPending
                     || _attachments.Any(item => s_pathComparer.Equals(item.Path, attachment.Path)))
                 {
                     attachment.Dispose();
@@ -173,8 +195,22 @@ internal sealed partial class AgentTabViewModel
         }
     }
 
+    private bool RemovePendingSyncedAttachment(string path)
+    {
+        for (int index = 0; index < _pendingSyncedAttachments.Count; index++)
+        {
+            if (s_pathComparer.Equals(_pendingSyncedAttachments[index].Path, path))
+            {
+                _pendingSyncedAttachments.RemoveAt(index);
+                return true;
+            }
+        }
+        return false;
+    }
+
     private void CancelDraftSync()
     {
+        _pendingSyncedAttachments.Clear();
         _draftSyncCancellation?.Cancel();
         _draftSyncCancellation = null;
     }

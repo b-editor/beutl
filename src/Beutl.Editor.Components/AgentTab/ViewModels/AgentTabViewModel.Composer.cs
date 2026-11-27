@@ -147,6 +147,7 @@ internal sealed partial class AgentTabViewModel
             ct.ThrowIfCancellationRequested();
         }
         _attachments.Add(attachment);
+        RemovePendingSyncedAttachment(attachment.Path);
         MarkAttachmentsChanged();
     }
 
@@ -161,11 +162,13 @@ internal sealed partial class AgentTabViewModel
 
     private void ClearAttachments()
     {
+        bool hadPending = _pendingSyncedAttachments.Count > 0;
+        CancelDraftSync();
         var attachments = _attachments.ToArray();
         _attachments.Clear();
         foreach (var attachment in attachments)
             attachment.Dispose();
-        if (attachments.Length > 0)
+        if (attachments.Length > 0 || hadPending)
             MarkAttachmentsChanged();
     }
 
@@ -185,8 +188,16 @@ internal sealed partial class AgentTabViewModel
             return;
 
         string text = Prompt?.Trim() is { Length: > 0 } prompt ? prompt : AgentStrings.PastedText;
+        var snapshots = _attachments.Select(attachment => attachment.Snapshot()).ToList();
+        foreach (var pending in _pendingSyncedAttachments)
+        {
+            if (snapshots.Any(item => s_pathComparer.Equals(item.Path, pending.Path)))
+                continue;
+            using var loaded = AgentAttachment.CreateFile(pending, static _ => { });
+            snapshots.Add(loaded.Snapshot());
+        }
         var message = new AgentQueuedMessage(_editor, selected.Descriptor, text, IncludeSceneContext,
-            _attachments.Select(attachment => attachment.Snapshot()).ToArray(), GetInvokedProviderSkills(text), GetAcceptedMentions(text));
+            snapshots, GetInvokedProviderSkills(text), GetAcceptedMentions(text));
         SetError(null);
         if (_controller is null)
         {

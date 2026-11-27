@@ -498,16 +498,16 @@ public sealed class AgentTabPhase1Tests
         first.Prompt = "Shared new-thread draft";
         first.IncludeSceneContext = false;
         await first.AddFilesAsync([attachment]);
+        // Typing in the sibling tab before the async attachment sync finishes must keep the attachment in both tabs.
+        second.Prompt = "Updated from second tab";
         await HeadlessTestHelpers.WaitUntilAsync(() => second.Attachments.Count == 1);
         Assert.Multiple(() =>
         {
-            Assert.That(second.Prompt, Is.EqualTo("Shared new-thread draft"));
+            Assert.That(first.Prompt, Is.EqualTo("Updated from second tab"));
             Assert.That(second.IncludeSceneContext, Is.False);
+            Assert.That(first.Attachments.Single().Path, Is.EqualTo(attachment));
             Assert.That(second.Attachments.Single().Path, Is.EqualTo(attachment));
         });
-
-        second.Prompt = "Updated from second tab";
-        Assert.That(first.Prompt, Is.EqualTo("Updated from second tab"));
 
         // Send on the first tab creates a thread and clears the shared new-thread draft.
         await first.SendAsync();
