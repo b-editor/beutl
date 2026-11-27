@@ -9,6 +9,7 @@ using Avalonia.Headless.NUnit;
 using Avalonia.Input;
 using Avalonia.Input.Raw;
 using Avalonia.Platform.Storage;
+using Avalonia.Styling;
 using Avalonia.VisualTree;
 using Beutl.Audio;
 using Beutl.Composition;
@@ -40,8 +41,11 @@ using Beutl.Serialization;
 using Beutl.Services;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
+using Beutl.ViewModels.Dock;
 using Beutl.Views;
+using Beutl.Views.Dock;
 using Beutl.Views.Tools;
+using Dock.Avalonia.Controls;
 using FluentAvalonia.UI.Controls;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;
@@ -519,6 +523,63 @@ public class ElementAddEntryPointTests
             Assert.That(notification.Type, Is.EqualTo(NotificationType.Error));
             Assert.That(notification.Title, Is.EqualTo(Strings.AddElement));
             Assert.That(notification.Message, Is.EqualTo(MessageStrings.UnexpectedError));
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task EditView_DragOverTimelineTab_SelectsItBeforeTheDrop()
+    {
+        await TestReset.ResetShellAsync();
+        (EditViewModel editor, TimelineTabViewModel timeline) =
+            await OpenEditorForNewScene("timeline-tab-drag-hover");
+        var dock = editor.DockHost.Factory.GetAnchoredDock(DockAnchor.Bottom)!;
+        var timelineDockable = dock.VisibleDockables!.OfType<BeutlToolDockable>()
+            .Single(tool => ReferenceEquals(tool.ToolContext, timeline));
+        var initialTab = editor.DockHost.Factory.OpenNewToolTab(dock);
+        var window = new Window
+        {
+            Content = new EditView { DataContext = editor },
+            Width = 1200,
+            Height = 750,
+            RequestedThemeVariant = ThemeVariant.Dark
+        };
+
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+            var tab = window.GetVisualDescendants().OfType<ToolTabStripItem>()
+                .Single(item => ReferenceEquals(item.DataContext, timelineDockable));
+            var point = HeadlessTestHelpers.Center(tab, window);
+            window.MouseMove(point);
+            Assert.That(dock.ActiveDockable, Is.SameAs(initialTab), "Ordinary hover keeps the current selection.");
+            HeadlessCapture.SaveIfRequested(window, nameof(ElementAddEntryPointTests), "before-drag-hover");
+
+            using var transfer = new DataTransfer();
+            transfer.Add(DataTransferItem.Create(BeutlDataFormats.EngineObject, TypeFormat.ToString(typeof(RectShape))));
+            var freeSpace = tab.FindAncestorOfType<ToolTabHeaderPanel>()!.GetVisualDescendants().OfType<Border>()
+                .Single(border => border.Name == "PART_FreeSpace");
+            window.DragDrop(HeadlessTestHelpers.Center(freeSpace, window), RawDragEventType.DragEnter, transfer, DragDropEffects.Copy);
+            Assert.That(dock.ActiveDockable, Is.SameAs(initialTab), "Hovering empty header space keeps the current selection.");
+
+            window.DragDrop(point, RawDragEventType.DragOver, transfer, DragDropEffects.Copy);
+            Assert.That(dock.ActiveDockable, Is.SameAs(timelineDockable));
+            Assert.That(tab.IsSelected, Is.True);
+            Assert.That(editor.Scene.Children, Is.Empty);
+            HeadlessCapture.SaveIfRequested(window, nameof(ElementAddEntryPointTests), "during-drag-hover");
+
+            var timelineView = window.GetVisualDescendants().OfType<TimelineTabView>().Single();
+            var dropPoint = HeadlessTestHelpers.Center(timelineView.FindControl<ScrollViewer>("ContentScroll")!, window);
+            window.DragDrop(dropPoint, RawDragEventType.DragOver, transfer, DragDropEffects.Copy);
+            window.DragDrop(dropPoint, RawDragEventType.Drop, transfer, DragDropEffects.Copy);
+            await HeadlessTestHelpers.WaitUntilAsync(() => editor.Scene.Children.Count == 1);
+            Assert.That(editor.Scene.Children.Single().Objects.OfType<RectShape>(), Has.Exactly(1).Items);
+            HeadlessCapture.SaveIfRequested(window, nameof(ElementAddEntryPointTests), "after-drag-drop");
+        }
+        finally
+        {
+            window.Close();
+            HeadlessTestHelpers.Settle();
         }
     }
 
