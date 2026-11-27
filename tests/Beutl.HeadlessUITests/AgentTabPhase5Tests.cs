@@ -119,13 +119,18 @@ public sealed class AgentTabPhase5Tests
             Assert.That(view.Classes.Contains("wide"), Is.True);
             var timelineColumn = view.GetVisualDescendants().OfType<StackPanel>().Single(panel => panel.Name == "TimelineContentColumn");
             var bottomDeck = view.FindControl<Grid>("BottomDeck")!;
+            var composerCard = view.GetVisualDescendants().OfType<Border>().Single(border => border.Name == "ComposerCard");
             Assert.That(timelineColumn.TranslatePoint(default, view)!.Value.X, Is.GreaterThanOrEqualTo(28));
+            Assert.That(Math.Abs(timelineColumn.Bounds.Width - composerCard.Bounds.Width), Is.LessThanOrEqualTo(0.5));
+            Assert.That(Math.Abs(timelineColumn.TranslatePoint(default, view)!.Value.X - composerCard.TranslatePoint(default, view)!.Value.X), Is.LessThanOrEqualTo(0.5));
             Capture(view, "polish-wide-600");
 
             window.Width = 1040;
             HeadlessTestHelpers.Render(4);
             Assert.That(timelineColumn.Bounds.Width, Is.LessThanOrEqualTo(740.5));
             Assert.That(bottomDeck.Bounds.Width, Is.LessThanOrEqualTo(740.5));
+            Assert.That(Math.Abs(timelineColumn.Bounds.Width - composerCard.Bounds.Width), Is.LessThanOrEqualTo(0.5));
+            Assert.That(Math.Abs(timelineColumn.TranslatePoint(default, view)!.Value.X - composerCard.TranslatePoint(default, view)!.Value.X), Is.LessThanOrEqualTo(0.5));
             double deckLeft = bottomDeck.TranslatePoint(default, view)!.Value.X;
             double deckRight = view.Bounds.Width - (deckLeft + bottomDeck.Bounds.Width);
             Assert.That(Math.Abs(deckLeft - deckRight), Is.LessThanOrEqualTo(2.0));

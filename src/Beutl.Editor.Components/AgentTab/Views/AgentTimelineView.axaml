@@ -373,15 +373,17 @@
     <Grid>
         <ScrollViewer x:Name="TimelineScroll" HorizontalScrollBarVisibility="Disabled" ScrollChanged="OnTimelineScrollChanged">
             <Border Classes="agent-wide-gutter">
-                <StackPanel x:Name="TimelineContentColumn" MaxWidth="740" Margin="12,12,12,10" Spacing="7">
-                    <ItemsControl ItemsSource="{Binding DisplayTimeline}">
-                        <ItemsControl.ItemsPanel>
-                            <ItemsPanelTemplate><StackPanel Spacing="7" /></ItemsPanelTemplate>
-                        </ItemsControl.ItemsPanel>
-                    </ItemsControl>
-                    <ContentControl IsVisible="{Binding ShowStandaloneLiveStatus}" Content="{Binding}"
-                                    ContentTemplate="{StaticResource LiveStatusTemplate}" />
-                </StackPanel>
+                <Border MaxWidth="740" Padding="10,12,10,10">
+                    <StackPanel x:Name="TimelineContentColumn" Spacing="7">
+                        <ItemsControl ItemsSource="{Binding DisplayTimeline}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate><StackPanel Spacing="7" /></ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                        </ItemsControl>
+                        <ContentControl IsVisible="{Binding ShowStandaloneLiveStatus}" Content="{Binding}"
+                                        ContentTemplate="{StaticResource LiveStatusTemplate}" />
+                    </StackPanel>
+                </Border>
             </Border>
         </ScrollViewer>
         <Border Classes="agent-wide-gutter">

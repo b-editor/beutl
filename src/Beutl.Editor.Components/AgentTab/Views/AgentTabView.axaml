@@ -13,14 +13,16 @@
     <Grid RowDefinitions="Auto,Auto,*,Auto">
         <views:AgentThreadBar x:Name="ThreadBar" />
         <Border Grid.Row="1" Classes="agent-wide-gutter" IsVisible="{Binding !!Diagnostic}">
-            <ContentControl x:Name="DiagnosticHost" MaxWidth="740" Margin="12,8,12,0" HorizontalContentAlignment="Stretch"
-                            Content="{Binding Diagnostic}">
-                <ContentControl.ContentTemplate>
-                    <DataTemplate DataType="vm:AgentDiagnosticItem" x:DataType="vm:AgentDiagnosticItem">
-                        <views:AgentDiagnosticCard />
-                    </DataTemplate>
-                </ContentControl.ContentTemplate>
-            </ContentControl>
+            <Border MaxWidth="740" Padding="10,8,10,0">
+                <ContentControl x:Name="DiagnosticHost" HorizontalContentAlignment="Stretch"
+                                Content="{Binding Diagnostic}">
+                    <ContentControl.ContentTemplate>
+                        <DataTemplate DataType="vm:AgentDiagnosticItem" x:DataType="vm:AgentDiagnosticItem">
+                            <views:AgentDiagnosticCard />
+                        </DataTemplate>
+                    </ContentControl.ContentTemplate>
+                </ContentControl>
+            </Border>
         </Border>
 
         <views:AgentTimelineView Grid.Row="2" IsVisible="{Binding !ShowEmptyState}" />
@@ -62,34 +64,36 @@
                 </StackPanel>
             </ScrollViewer>
 
-            <StackPanel Grid.Row="1" MaxWidth="740" Margin="12,0,12,6" Spacing="4" IsVisible="{Binding !!RecentThreads.Count}">
-                <TextBlock Text="{x:Static lang:AgentStrings.RecentThreads}" Classes="agent-caption"
-                           FontWeight="SemiBold" Margin="6,0,0,2" />
-                <ItemsControl x:Name="RecentThreads" ItemsSource="{Binding RecentThreads}" IsEnabled="{Binding CanManage}">
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate x:DataType="vm:AgentThreadRow">
-                            <Button Theme="{StaticResource TransparentButton}" Click="OnRecentThread"
-                                    HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Padding="6,4" MinHeight="36"
-                                    AutomationProperties.Name="{Binding Thread.Title}">
-                                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="9">
-                                    <Panel VerticalAlignment="Center">
-                                        <icons:FluentIcon Icon="Chat" FontSize="14" IsVisible="{Binding !Thread.IsPinned}"
-                                                          Foreground="{DynamicResource TextFillColorTertiaryBrush}" />
-                                        <icons:FluentIcon Icon="Pin" FontSize="14" IsVisible="{Binding Thread.IsPinned}"
-                                                          Foreground="{DynamicResource TextFillColorTertiaryBrush}" />
-                                    </Panel>
-                                    <StackPanel Grid.Column="1" Spacing="1" VerticalAlignment="Center">
-                                        <TextBlock Text="{Binding Thread.Title}" FontSize="13" TextTrimming="CharacterEllipsis"
-                                                   Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
-                                        <TextBlock Classes="agent-caption" Text="{Binding ProviderName}" TextTrimming="CharacterEllipsis" />
-                                    </StackPanel>
-                                    <TextBlock Grid.Column="2" Classes="agent-caption" Text="{Binding UpdatedAt}" VerticalAlignment="Center" />
-                                </Grid>
-                            </Button>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-            </StackPanel>
+            <Border Grid.Row="1" MaxWidth="740" Padding="10,0,10,6" IsVisible="{Binding !!RecentThreads.Count}">
+                <StackPanel Spacing="4">
+                    <TextBlock Text="{x:Static lang:AgentStrings.RecentThreads}" Classes="agent-caption"
+                               FontWeight="SemiBold" Margin="6,0,0,2" />
+                    <ItemsControl x:Name="RecentThreads" ItemsSource="{Binding RecentThreads}" IsEnabled="{Binding CanManage}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:AgentThreadRow">
+                                <Button Theme="{StaticResource TransparentButton}" Click="OnRecentThread"
+                                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Padding="6,4" MinHeight="36"
+                                        AutomationProperties.Name="{Binding Thread.Title}">
+                                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="9">
+                                        <Panel VerticalAlignment="Center">
+                                            <icons:FluentIcon Icon="Chat" FontSize="14" IsVisible="{Binding !Thread.IsPinned}"
+                                                              Foreground="{DynamicResource TextFillColorTertiaryBrush}" />
+                                            <icons:FluentIcon Icon="Pin" FontSize="14" IsVisible="{Binding Thread.IsPinned}"
+                                                              Foreground="{DynamicResource TextFillColorTertiaryBrush}" />
+                                        </Panel>
+                                        <StackPanel Grid.Column="1" Spacing="1" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding Thread.Title}" FontSize="13" TextTrimming="CharacterEllipsis"
+                                                       Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                                            <TextBlock Classes="agent-caption" Text="{Binding ProviderName}" TextTrimming="CharacterEllipsis" />
+                                        </StackPanel>
+                                        <TextBlock Grid.Column="2" Classes="agent-caption" Text="{Binding UpdatedAt}" VerticalAlignment="Center" />
+                                    </Grid>
+                                </Button>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
         </Grid>
         </Border>
 
