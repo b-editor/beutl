@@ -415,6 +415,12 @@
   <data name="ToolGroupTools" xml:space="preserve">
     <value>Herramientas ejecutadas · {0}</value>
   </data>
+  <data name="ToolGroupWithThought" xml:space="preserve">
+    <value>{0} · 1 reflexión</value>
+  </data>
+  <data name="ToolGroupWithThoughts" xml:space="preserve">
+    <value>{0} · {1} reflexiones</value>
+  </data>
   <data name="ToolGroupFailures" xml:space="preserve">
     <value>Algunas operaciones fallaron</value>
   </data>

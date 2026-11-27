@@ -355,8 +355,10 @@ internal sealed partial class AgentThreadTimeline : AgentBindable
         if (index >= 0)
         {
             _timeline.RemoveAt(index);
-            if (index > 0 && _timeline[index - 1] is AgentToolItem previous)
-                UpdateGrouping(previous);
+            if (index > 0)
+                GroupWithNeighbors(_timeline[index - 1]);
+            else if (index < _timeline.Count)
+                GroupWithNeighbors(_timeline[index]);
         }
         parent.Children.Add(child);
         UpdateGrouping(parent);

@@ -119,7 +119,11 @@ internal sealed partial class AgentThreadTimeline
     private void FinishReasoning(AgentTimelineEvent entry, string? parentId)
     {
         if (_reasoning.Remove((entry.TurnId, parentId), out var item))
+        {
             item.Finish(entry.Timestamp);
+            if (parentId is null)
+                GroupWithNeighbors(item);
+        }
     }
 
     private void FinishActivity(AgentTimelineEvent entry)

@@ -415,6 +415,12 @@
   <data name="ToolGroupTools" xml:space="preserve">
     <value>已执行 {0} 项工具操作</value>
   </data>
+  <data name="ToolGroupWithThought" xml:space="preserve">
+    <value>{0} · 思考 1 次</value>
+  </data>
+  <data name="ToolGroupWithThoughts" xml:space="preserve">
+    <value>{0} · 思考 {1} 次</value>
+  </data>
   <data name="ToolGroupFailures" xml:space="preserve">
     <value>部分失败</value>
   </data>
