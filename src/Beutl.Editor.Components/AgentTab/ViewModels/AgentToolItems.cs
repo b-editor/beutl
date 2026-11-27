@@ -254,6 +254,7 @@ internal sealed class AgentToolItem : AgentTimelineItemViewModel, IDisposable
 
 internal sealed class AgentToolGroupItem(Guid? turnId) : AgentTimelineItemViewModel(turnId)
 {
+    public ObservableCollection<AgentTimelineItemViewModel> Items { get; } = [];
     public ObservableCollection<AgentToolItem> Tools { get; } = [];
     public bool IsExpanded
     {
@@ -261,12 +262,14 @@ internal sealed class AgentToolGroupItem(Guid? turnId) : AgentTimelineItemViewMo
         set
         {
             if (Set(ref field, value))
-                Notify(nameof(VisibleTools));
+                Notify(nameof(VisibleItems), nameof(VisibleTools));
         }
     }
 
+    public ObservableCollection<AgentTimelineItemViewModel>? VisibleItems => IsExpanded ? Items : null;
     public ObservableCollection<AgentToolItem>? VisibleTools => IsExpanded ? Tools : null;
     public bool HasFailure => Tools.Any(tool => tool.IsFailed);
+    public int ThoughtCount => Items.Count(item => item is AgentReasoningItem);
     public string Label
     {
         get
@@ -276,20 +279,45 @@ internal sealed class AgentToolGroupItem(Guid? turnId) : AgentTimelineItemViewMo
                 : commands > 0 ? AgentStrings.ToolGroupMixed
                 : Tools.All(tool => tool.IsInspection) ? AgentStrings.ToolGroupChecks
                 : AgentStrings.ToolGroupTools;
-            return string.Format(CultureInfo.CurrentCulture, format, commands > 0 ? commands : Tools.Count, Tools.Count - commands);
+            string summary = string.Format(CultureInfo.CurrentCulture, format,
+                commands > 0 ? commands : Tools.Count, Tools.Count - commands);
+            int thoughts = ThoughtCount;
+            if (thoughts == 0)
+                return summary;
+            return string.Format(CultureInfo.CurrentCulture,
+                thoughts == 1 ? AgentStrings.ToolGroupWithThought : AgentStrings.ToolGroupWithThoughts,
+                summary, thoughts);
         }
     }
 
-    public void SetTools(IReadOnlyList<AgentToolItem> tools)
+    public void SetItems(IReadOnlyList<AgentTimelineItemViewModel> items)
     {
-        Tools.Clear();
-        foreach (var tool in tools)
+        ClearItems();
+        foreach (var item in items)
         {
-            tool.Group = this;
-            Tools.Add(tool);
+            SetGroup(item, this);
+            Items.Add(item);
+            if (item is AgentToolItem tool)
+                Tools.Add(tool);
         }
         RefreshSummary();
     }
 
-    public void RefreshSummary() => Notify(nameof(Label), nameof(HasFailure));
+    public void ClearItems()
+    {
+        foreach (var item in Items)
+            SetGroup(item, null);
+        Items.Clear();
+        Tools.Clear();
+    }
+
+    public void RefreshSummary() => Notify(nameof(Label), nameof(HasFailure), nameof(ThoughtCount));
+
+    private static void SetGroup(AgentTimelineItemViewModel item, AgentToolGroupItem? group)
+    {
+        if (item is AgentToolItem tool)
+            tool.Group = group;
+        else if (item is AgentReasoningItem reasoning)
+            reasoning.Group = group;
+    }
 }

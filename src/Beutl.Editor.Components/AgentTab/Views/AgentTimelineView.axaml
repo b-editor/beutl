@@ -171,7 +171,7 @@
                     </Grid>
                 </ToggleButton>
                 <Border Margin="9,0,0,0" Padding="7,0,0,0" IsVisible="{Binding IsExpanded}">
-                    <ItemsControl ItemsSource="{Binding VisibleTools}" />
+                    <ItemsControl ItemsSource="{Binding VisibleItems}" />
                 </Border>
             </StackPanel>
         </DataTemplate>

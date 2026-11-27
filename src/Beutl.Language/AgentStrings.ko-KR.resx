@@ -415,6 +415,12 @@
   <data name="ToolGroupTools" xml:space="preserve">
     <value>도구 {0}개 실행</value>
   </data>
+  <data name="ToolGroupWithThought" xml:space="preserve">
+    <value>{0} · 생각 1건</value>
+  </data>
+  <data name="ToolGroupWithThoughts" xml:space="preserve">
+    <value>{0} · 생각 {1}건</value>
+  </data>
   <data name="ToolGroupFailures" xml:space="preserve">
     <value>일부 실패</value>
   </data>

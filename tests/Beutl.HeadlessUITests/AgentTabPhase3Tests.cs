@@ -1,4 +1,5 @@
-﻿using System.Text.Json;
+﻿using System.Globalization;
+using System.Text.Json;
 using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
@@ -224,6 +225,224 @@ public sealed class AgentTabPhase3Tests
         {
             transcript.ApplyEntry(new AgentToolCallStarted(thread, turn, now, id, name, server, IsBackground: background));
             transcript.ApplyEntry(new AgentToolCallCompleted(thread, turn, now, id, status, outputs));
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task ToolGroupsAggregateToolCallsSeparatedByFinishedReasoning()
+    {
+        await using var workspace = new AgentTabTestWorkspace();
+        string path = Path.Combine(workspace.Root, "frame.png");
+        string encoded = CreateFrame(path);
+        var transcript = new AgentThreadTimeline();
+        var thread = Guid.NewGuid();
+        var turn = Guid.NewGuid();
+        var now = DateTimeOffset.UtcNow;
+        var entries = new List<AgentTimelineEvent>();
+        try
+        {
+            Apply(new AgentTurnStarted(thread, turn, now));
+            Apply(new AgentReasoningDelta(thread, turn, now.AddSeconds(1), "Initial thought"));
+            Complete("exec-1", "execute", now.AddSeconds(2));
+            Apply(new AgentReasoningDelta(thread, turn, now.AddSeconds(3), "First bridge thought"));
+            Complete("exec-2", "execute", now.AddSeconds(7));
+            Apply(new AgentReasoningDelta(thread, turn, now.AddSeconds(8), "Second bridge thought"));
+            Complete("exec-3", "execute", now.AddSeconds(10));
+            Apply(new AgentReasoningDelta(thread, turn, now.AddSeconds(11), "Before image thought"));
+            Complete("exec-image", "execute", now.AddSeconds(15), [new AgentToolOutput("image", Data: encoded)]);
+            Apply(new AgentReasoningDelta(thread, turn, now.AddSeconds(16), "Trailing thought"));
+            Apply(new AgentTurnCompleted(thread, turn, now.AddSeconds(18)));
+
+            AssertTimelineStructure(transcript);
+
+            // Replaying the persisted transcript must produce the exact same grouping.
+            transcript.Restore(entries);
+            AssertTimelineStructure(transcript);
+
+            // Unfinished reasoning between two completed tools must not group until it finishes.
+            transcript.Clear();
+            var liveTurn = Guid.NewGuid();
+            transcript.ApplyEntry(new AgentTurnStarted(thread, liveTurn, now));
+            transcript.ApplyEntry(new AgentToolCallStarted(thread, liveTurn, now.AddSeconds(1), "first", "execute"));
+            transcript.ApplyEntry(new AgentToolCallCompleted(thread, liveTurn, now.AddSeconds(2), "first", AgentToolStatus.Completed));
+            transcript.ApplyEntry(new AgentReasoningDelta(thread, liveTurn, now.AddSeconds(3), "Still thinking"));
+            transcript.ApplyEntry(new AgentToolCallCompleted(thread, liveTurn, now.AddSeconds(4), "second", AgentToolStatus.Completed));
+            Assert.That(transcript.Items.OfType<AgentToolGroupItem>(), Is.Empty);
+            transcript.ApplyEntry(new AgentTurnCompleted(thread, liveTurn, now.AddSeconds(5)));
+            var liveGroup = transcript.Items.OfType<AgentToolGroupItem>().Single();
+            Assert.That(liveGroup.Tools.Select(tool => tool.ToolCallId), Is.EqualTo(new[] { "first", "second" }));
+            Assert.That(liveGroup.ThoughtCount, Is.EqualTo(1));
+            Assert.That(liveGroup.Label, Is.EqualTo(string.Format(CultureInfo.CurrentCulture, AgentStrings.ToolGroupWithThought,
+                string.Format(CultureInfo.CurrentCulture, AgentStrings.ToolGroupTools, 2, 0), 1)));
+
+            // A single tool surrounded by thoughts must stay ungrouped.
+            transcript.Clear();
+            var singleTurn = Guid.NewGuid();
+            transcript.ApplyEntry(new AgentTurnStarted(thread, singleTurn, now));
+            transcript.ApplyEntry(new AgentReasoningDelta(thread, singleTurn, now.AddSeconds(1), "Before"));
+            transcript.ApplyEntry(new AgentToolCallStarted(thread, singleTurn, now.AddSeconds(2), "only", "execute"));
+            transcript.ApplyEntry(new AgentToolCallCompleted(thread, singleTurn, now.AddSeconds(3), "only", AgentToolStatus.Completed));
+            transcript.ApplyEntry(new AgentReasoningDelta(thread, singleTurn, now.AddSeconds(4), "After"));
+            transcript.ApplyEntry(new AgentTurnCompleted(thread, singleTurn, now.AddSeconds(5)));
+            Assert.That(transcript.Items.OfType<AgentToolGroupItem>(), Is.Empty);
+            Assert.That(transcript.Items.OfType<AgentToolItem>().Select(tool => tool.ToolCallId), Is.EqualTo(new[] { "only" }));
+            Assert.That(transcript.Items.OfType<AgentReasoningItem>().Select(thought => thought.Text),
+                Is.EqualTo(new[] { "Before", "After" }));
+
+            // Ungrouping a middle tool with an image output preserves order and regroups the remaining run.
+            transcript.Clear();
+            var splitTurn = Guid.NewGuid();
+            transcript.ApplyEntry(new AgentTurnStarted(thread, splitTurn, now));
+            EmitTool(splitTurn, "t1", now.AddSeconds(1));
+            transcript.ApplyEntry(new AgentReasoningDelta(thread, splitTurn, now.AddSeconds(2), "r1"));
+            EmitTool(splitTurn, "t2", now.AddSeconds(3));
+            transcript.ApplyEntry(new AgentReasoningDelta(thread, splitTurn, now.AddSeconds(4), "r2"));
+            EmitTool(splitTurn, "t3", now.AddSeconds(5));
+            transcript.ApplyEntry(new AgentReasoningDelta(thread, splitTurn, now.AddSeconds(6), "r3"));
+            EmitTool(splitTurn, "t4", now.AddSeconds(7));
+            Assert.That(transcript.Items.OfType<AgentToolGroupItem>().Single().Tools.Select(tool => tool.ToolCallId),
+                Is.EqualTo(new[] { "t1", "t2", "t3", "t4" }));
+
+            transcript.ApplyEntry(new AgentToolCallCompleted(thread, splitTurn, now.AddSeconds(8), "t2",
+                AgentToolStatus.Completed, [new AgentToolOutput("image", Data: encoded)]));
+            Assert.That(transcript.Items, Has.Count.EqualTo(5));
+            Assert.That(((AgentToolItem)transcript.Items[0]).ToolCallId, Is.EqualTo("t1"));
+            Assert.That(((AgentReasoningItem)transcript.Items[1]).Text, Is.EqualTo("r1"));
+            Assert.That(((AgentToolItem)transcript.Items[2]).ToolCallId, Is.EqualTo("t2"));
+            Assert.That(((AgentReasoningItem)transcript.Items[3]).Text, Is.EqualTo("r2"));
+            var tailGroup = (AgentToolGroupItem)transcript.Items[4];
+            Assert.That(tailGroup.Items.Select(DescribeItem), Is.EqualTo(new[] { "tool:t3", "thought:r3", "tool:t4" }));
+
+            // A late tool that bridges two existing groups merges them and keeps every child linked to the merged group.
+            transcript.Clear();
+            var mergeTurn = Guid.NewGuid();
+            transcript.ApplyEntry(new AgentTurnStarted(thread, mergeTurn, now));
+            EmitTool(mergeTurn, "m1", now.AddSeconds(1));
+            EmitTool(mergeTurn, "m2", now.AddSeconds(2));
+            transcript.ApplyEntry(new AgentToolCallStarted(thread, mergeTurn, now.AddSeconds(3), "slow", "execute"));
+            EmitTool(mergeTurn, "m3", now.AddSeconds(4));
+            EmitTool(mergeTurn, "m4", now.AddSeconds(5));
+            Assert.That(transcript.Items.OfType<AgentToolGroupItem>().Count(), Is.EqualTo(2));
+            transcript.ApplyEntry(new AgentToolCallCompleted(thread, mergeTurn, now.AddSeconds(6), "slow", AgentToolStatus.Completed));
+            var merged = transcript.Items.OfType<AgentToolGroupItem>().Single();
+            Assert.That(merged.Tools.Select(tool => tool.ToolCallId), Is.EqualTo(new[] { "m1", "m2", "slow", "m3", "m4" }));
+            Assert.That(merged.Tools.All(tool => ReferenceEquals(tool.Group, merged)), Is.True);
+
+            transcript.ApplyEntry(new AgentToolCallCompleted(thread, mergeTurn, now.AddSeconds(7), "m4",
+                AgentToolStatus.Completed, [new AgentToolOutput("image", Data: encoded)]));
+            Assert.That(transcript.Items.OfType<AgentToolGroupItem>().Single().Tools.Select(tool => tool.ToolCallId),
+                Is.EqualTo(new[] { "m1", "m2", "slow", "m3" }));
+            Assert.That(transcript.Items.OfType<AgentToolItem>().Select(tool => tool.ToolCallId), Is.EqualTo(new[] { "m4" }));
+        }
+        finally
+        {
+            transcript.Clear();
+        }
+
+        void Apply(AgentTimelineEvent entry)
+        {
+            entries.Add(entry);
+            transcript.ApplyEntry(entry);
+        }
+
+        void Complete(string id, string name, DateTimeOffset timestamp, IReadOnlyList<AgentToolOutput>? outputs = null)
+        {
+            Apply(new AgentToolCallStarted(thread, turn, timestamp, id, name));
+            Apply(new AgentToolCallCompleted(thread, turn, timestamp, id, AgentToolStatus.Completed, outputs));
+        }
+
+        void EmitTool(Guid turnId, string id, DateTimeOffset timestamp)
+        {
+            transcript.ApplyEntry(new AgentToolCallStarted(thread, turnId, timestamp, id, "execute"));
+            transcript.ApplyEntry(new AgentToolCallCompleted(thread, turnId, timestamp, id, AgentToolStatus.Completed));
+        }
+
+        static string DescribeItem(AgentTimelineItemViewModel item) => item switch
+        {
+            AgentToolItem tool => $"tool:{tool.ToolCallId}",
+            AgentReasoningItem thought => $"thought:{thought.Text}",
+            _ => item.GetType().Name
+        };
+
+        static void AssertTimelineStructure(AgentThreadTimeline timeline)
+        {
+            Assert.That(timeline.Items, Has.Count.EqualTo(5));
+            Assert.That(((AgentReasoningItem)timeline.Items[0]).Text, Is.EqualTo("Initial thought"));
+            var group = (AgentToolGroupItem)timeline.Items[1];
+            Assert.That(group.Items.Select(DescribeItem),
+                Is.EqualTo(new[] { "tool:exec-1", "thought:First bridge thought", "tool:exec-2", "thought:Second bridge thought", "tool:exec-3" }));
+            Assert.That(group.Tools.Select(tool => tool.ToolCallId), Is.EqualTo(new[] { "exec-1", "exec-2", "exec-3" }));
+            Assert.That(group.ThoughtCount, Is.EqualTo(2));
+            Assert.That(group.Label, Is.EqualTo(string.Format(CultureInfo.CurrentCulture, AgentStrings.ToolGroupWithThoughts,
+                string.Format(CultureInfo.CurrentCulture, AgentStrings.ToolGroupTools, 3, 0), 2)));
+            Assert.That(((AgentReasoningItem)timeline.Items[2]).Text, Is.EqualTo("Before image thought"));
+            Assert.That(((AgentToolItem)timeline.Items[3]).ToolCallId, Is.EqualTo("exec-image"));
+            Assert.That(((AgentReasoningItem)timeline.Items[4]).Text, Is.EqualTo("Trailing thought"));
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task ToolGroupExpansionRendersInterleavedToolsAndThoughtsInOrder()
+    {
+        using var theme = AgentTabViewTests.UseDockTheme(ThemeVariant.Dark);
+        await using var workspace = new AgentTabTestWorkspace();
+        using var model = workspace.CreateWorkspace(workspace.Editor);
+        await model.InitializeAsync();
+        workspace.Bridge.Script = (request, _) =>
+        {
+            var (thread, turn, _, _) = request;
+            var now = DateTimeOffset.UtcNow;
+            workspace.Bridge.Emit(new AgentToolCallStarted(thread, turn, now, "exec-1", "execute", Input: JsonDocument.Parse("{\"step\":1}").RootElement));
+            workspace.Bridge.Emit(new AgentToolCallCompleted(thread, turn, now.AddSeconds(1), "exec-1", AgentToolStatus.Completed, [new AgentToolOutput("text", "Step 1 done")]));
+            workspace.Bridge.Emit(new AgentReasoningDelta(thread, turn, now.AddSeconds(2), "Checking intermediate scene state."));
+            workspace.Bridge.Emit(new AgentToolCallStarted(thread, turn, now.AddSeconds(5), "exec-2", "execute", Input: JsonDocument.Parse("{\"step\":2}").RootElement));
+            workspace.Bridge.Emit(new AgentToolCallCompleted(thread, turn, now.AddSeconds(6), "exec-2", AgentToolStatus.Completed, [new AgentToolOutput("text", "Step 2 done")]));
+            workspace.Bridge.Emit(new AgentReasoningDelta(thread, turn, now.AddSeconds(7), "Verifying timing alignment."));
+            workspace.Bridge.Emit(new AgentToolCallStarted(thread, turn, now.AddSeconds(9), "exec-3", "execute", Input: JsonDocument.Parse("{\"step\":3}").RootElement));
+            workspace.Bridge.Emit(new AgentToolCallCompleted(thread, turn, now.AddSeconds(10), "exec-3", AgentToolStatus.Completed, [new AgentToolOutput("text", "Step 3 done")]));
+            workspace.Bridge.Emit(new AgentAssistantMessageCompleted(thread, turn, now.AddSeconds(11), "All three steps finished."));
+            return Task.CompletedTask;
+        };
+
+        var view = new AgentTabView { DataContext = model };
+        var window = AgentTabViewTests.CreateDockWindow(view, ThemeVariant.Dark, 560, 760);
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render(4);
+
+            model.Prompt = "Run the three scene steps.";
+            await model.SendAsync();
+            await HeadlessTestHelpers.WaitUntilAsync(() => TryFind<ToggleButton>(view, "TurnStatsToggle") is { IsEffectivelyVisible: true });
+            HeadlessTestHelpers.Render(4);
+
+            Click(Find<ToggleButton>(view, "TurnStatsToggle"));
+            HeadlessTestHelpers.Render(4);
+
+            var group = model.Timeline.OfType<AgentToolGroupItem>().Single();
+            var toggle = Find<ToggleButton>(view, "ToolGroupToggle");
+            Assert.That(group.ThoughtCount, Is.EqualTo(2));
+            Assert.That(toggle.IsChecked, Is.Not.True);
+            Assert.That(view.GetVisualDescendants().OfType<AgentToolView>().Count(tool => tool.IsEffectivelyVisible), Is.EqualTo(0));
+            Capture(view, window, "phase3-step-group-collapsed");
+
+            Click(toggle);
+            HeadlessTestHelpers.Render(4);
+            Assert.That(view.GetVisualDescendants().OfType<AgentToolView>().Count(tool => tool.IsEffectivelyVisible), Is.EqualTo(3));
+            var thoughts = view.GetVisualDescendants().OfType<ToggleButton>()
+                .Where(button => button.Name == "ThinkingToggle" && button.IsEffectivelyVisible)
+                .ToArray();
+            Assert.That(thoughts, Has.Length.EqualTo(2));
+            Capture(view, window, "phase3-step-group-expanded");
+
+            Click(thoughts[0]);
+            HeadlessTestHelpers.Render(4);
+            Assert.That(VisibleText(view, "Checking intermediate scene state."), Is.True);
+        }
+        finally
+        {
+            window.Close();
+            HeadlessTestHelpers.Settle();
         }
     }
 

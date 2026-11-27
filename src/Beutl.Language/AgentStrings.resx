@@ -633,6 +633,12 @@
   <data name="ToolGroupTools" xml:space="preserve">
     <value>Ran {0} tools</value>
   </data>
+  <data name="ToolGroupWithThought" xml:space="preserve">
+    <value>{0} · 1 thought</value>
+  </data>
+  <data name="ToolGroupWithThoughts" xml:space="preserve">
+    <value>{0} · {1} thoughts</value>
+  </data>
   <data name="ToolGroupFailures" xml:space="preserve">
     <value>Some failed</value>
   </data>

@@ -109,8 +109,10 @@ internal sealed class AgentAssistantItem(Guid? turnId, DateTimeOffset timestamp,
 
 internal sealed class AgentReasoningItem(Guid? turnId, DateTimeOffset startedAt) : AgentTimelineItemViewModel(turnId)
 {
+    internal AgentToolGroupItem? Group { get; set; }
     public string Summary { get; private set => Set(ref field, value); } = AgentStrings.Thinking;
     public bool IsFinished { get; private set; }
+    public bool CanGroup => TurnId.HasValue && IsFinished;
     public bool IsExpanded
     {
         get;

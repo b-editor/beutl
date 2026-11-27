@@ -633,6 +633,12 @@
   <data name="ToolGroupTools" xml:space="preserve">
     <value>{0} 件のツールを実行しました</value>
   </data>
+  <data name="ToolGroupWithThought" xml:space="preserve">
+    <value>{0} · 思考 1 件</value>
+  </data>
+  <data name="ToolGroupWithThoughts" xml:space="preserve">
+    <value>{0} · 思考 {1} 件</value>
+  </data>
   <data name="ToolGroupFailures" xml:space="preserve">
     <value>一部失敗</value>
   </data>
