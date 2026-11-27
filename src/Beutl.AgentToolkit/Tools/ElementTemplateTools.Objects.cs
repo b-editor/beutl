@@ -4,6 +4,7 @@ using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Reconciliation;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.Editor.Services;
+using Beutl.Engine;
 using Beutl.Language;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
@@ -93,12 +94,25 @@ public sealed partial class ElementTemplateTools
                 ObjectRegenerator.Regenerate(instance, out string regenerated);
                 JsonObject value = JsonNode.Parse(regenerated)!.AsObject();
                 createdId = value[nameof(CoreObject.Id)]!.GetValue<string>();
+                HashSet<Guid> createdIds = CollectionReconciler.CollectIds(value);
                 if (index is { } position)
-                    list!.Insert(position, value);
-                else
-                    ownerJson[propertyName] = value;
+                {
+                    if (owner is Element && propertyName == nameof(Element.Objects)
+                        && instance is EngineObject engineObject && Element.CreatePairedPortal(engineObject) is { } portal)
+                    {
+                        list!.Insert(position, CoreSerializer.SerializeToJsonObject(portal));
+                        createdIds.Add(portal.Id.Value);
+                        position++;
+                    }
 
-                return (document, CollectionReconciler.CollectIds(value));
+                    list!.Insert(position, value);
+                }
+                else
+                {
+                    ownerJson[propertyName] = value;
+                }
+
+                return (document, createdIds);
             }, CommandNames.ApplyTemplate, cancellationToken);
 
             return new ApplyObjectTemplateResponse(createdId);

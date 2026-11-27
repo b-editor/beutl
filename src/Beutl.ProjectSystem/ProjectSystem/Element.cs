@@ -153,18 +153,18 @@ public partial class Element : Hierarchical, INotifyEdited
 
     public void AddObject(EngineObject obj)
     {
-        if (obj is IFlowOperator)
+        if (CreatePairedPortal(obj) is { } portal)
         {
-            Objects.Add(new PortalObject());
+            Objects.Add(portal);
         }
         Objects.Add(obj);
     }
 
     public void InsertObject(int index, EngineObject obj)
     {
-        if (obj is IFlowOperator)
+        if (CreatePairedPortal(obj) is { } portal)
         {
-            Objects.Insert(index, new PortalObject());
+            Objects.Insert(index, portal);
             Objects.Insert(index + 1, obj);
         }
         else
@@ -172,6 +172,8 @@ public partial class Element : Hierarchical, INotifyEdited
             Objects.Insert(index, obj);
         }
     }
+
+    internal static PortalObject? CreatePairedPortal(EngineObject obj) => obj is IFlowOperator ? new PortalObject() : null;
 
     public void RemoveObject(EngineObject obj)
     {

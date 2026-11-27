@@ -131,6 +131,55 @@ public sealed partial class ProjectWorkflowToolsTests
         Assert.That(session.History.UndoCount, Is.Zero);
     }
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Object_template_inserts_a_drawable_group_with_its_portal(bool hasExistingObject)
+    {
+        await using InProcessAgentToolkitServer server = await InProcessAgentToolkitServer.StartAsync(TestWorkspace.CreateDirectory());
+        FileEditingSession session = await CreateProjectAsync(server);
+        Element source = TestWorkspace.AddElement(session.Scene, MediaTime.Zero, MediaTime.FromSeconds(1), "source.belm");
+        Element target = TestWorkspace.AddElement(session.Scene, MediaTime.FromSeconds(1), MediaTime.FromSeconds(1), "target.belm");
+        var group = new DrawableGroup();
+        var child = new RectShape { Name = { Value = "Group child" } };
+        group.Children.Add(child);
+        source.AddObject(group);
+        var sourcePortal = (PortalObject)source.Objects[0];
+        RectShape[] existing = hasExistingObject ? [new RectShape()] : [];
+        foreach (RectShape shape in existing)
+            target.AddObject(shape);
+        session.History.Commit("Seed group template");
+        session.History.Clear();
+        ObjectTemplateSummary saved = Success(await Call<ObjectTemplateSummary>(server.Client, "save_object_template",
+            ("objectId", group.Id.Value.ToString()), ("name", "Drawable group")));
+
+        int index = existing.Length;
+        ApplyObjectTemplateResponse applied = Success(await Call<ApplyObjectTemplateResponse>(server.Client, "apply_object_template",
+            ("templateId", saved.TemplateId), ("objectId", target.Id.Value.ToString()),
+            ("propertyName", nameof(target.Objects)), ("index", index)));
+
+        Assert.That(target.Objects, Has.Count.EqualTo(index + 2));
+        var portal = (PortalObject)target.Objects[index];
+        var inserted = (DrawableGroup)target.Objects[index + 1];
+        Drawable insertedChild = inserted.Children.Single();
+        Assert.Multiple(() =>
+        {
+            Assert.That(target.Objects.Take(index), Is.EqualTo(existing));
+            Assert.That(portal.Id.Value, Is.Not.EqualTo(sourcePortal.Id.Value));
+            Assert.That(portal.Count.Value, Is.EqualTo(sourcePortal.Count.Value));
+            Assert.That(portal.Clear.Value, Is.EqualTo(sourcePortal.Clear.Value));
+            Assert.That(inserted.Id.Value, Is.Not.EqualTo(group.Id.Value));
+            Assert.That(applied.ObjectId, Is.EqualTo(inserted.Id.Value.ToString()));
+            Assert.That(insertedChild.Id.Value, Is.Not.EqualTo(child.Id.Value));
+            Assert.That(insertedChild.Name.Value, Is.EqualTo(child.Name.Value));
+            Assert.That(session.History.UndoCount, Is.EqualTo(1));
+        });
+
+        HistoryStateResponse undo = Success(await Call<HistoryStateResponse>(server.Client, "undo"));
+        Assert.That(undo.Applied.Single().Name, Is.EqualTo(CommandNames.ApplyTemplate));
+        Assert.That(target.Objects, Is.EqualTo(existing));
+        Assert.That(session.History.UndoCount, Is.Zero);
+    }
+
     [Test]
     public async Task Object_template_rejects_an_incompatible_property_type()
     {

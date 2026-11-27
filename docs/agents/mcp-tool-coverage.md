@@ -64,8 +64,9 @@ the `objectId` from `read_document` and a `name` to save a template to the profi
 `apply_object_template` takes a `templateId`, the `objectId` of the property owner, and the `propertyName`
 as written in `read_document`. Omit `index` to replace an object value, such as `Fill` on a shape. Pass a
 zero-based `index` to insert into an object list, such as `Children` on a filter effect group. Use the
-list length to append. The template's concrete type must fit the property or list item type. The tool
-returns the new object's `objectId` and uses the same locks as `apply_edit`.
+list length to append. For a flow operator in `Element.Objects`, the tool inserts its paired portal at
+`index` and the operator immediately after it. The template's concrete type must fit the property or list
+item type. The tool returns the new object's `objectId` and uses the same locks as `apply_edit`.
 Pass `sceneId` for live saves and applications. For a file-backed session, use `save_project` to persist the scene edit.
 
 ## Media, captions, and output
