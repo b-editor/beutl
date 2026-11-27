@@ -122,6 +122,10 @@ public partial class Composer
                     var entryBuffers = outputs[index] = new List<MixInput>();
                     foreach (DuckingNode node in entry.DuckingNodes)
                         node.Sidechain = sidechain;
+                    // Effects that read ahead pull one output block in several pieces; start their taps fresh so
+                    // the segments describe this block (and the read-ahead past its end) only.
+                    foreach (LevelTapNode tap in entry.LevelTaps)
+                        tap.BeginBlock(context.TimeRange);
                     try
                     {
                         if (index < liveEntries.Count)
@@ -235,21 +239,28 @@ public partial class Composer
                 {
                     if (layerId(tap.ZIndex) != sourceId) continue;
 
-                    ReadOnlySpan<float> tapped = tap.Peaks;
-                    if (tapped.IsEmpty) continue;
-
-                    peaks ??= new AudioBuffer(context.SampleRate, 1, sampleCount);
-                    Span<float> target = peaks.GetChannelData(0);
-                    // The tap may have read a shifted window, so place its samples by time rather than by index.
-                    long firstSample = (context.TimeRange.Start - tap.BlockStart)
-                        .ToSamples(tap.BlockSampleRate, MidpointRounding.ToZero);
-                    double step = (double)tap.BlockSampleRate / context.SampleRate;
-                    for (int i = 0; i < target.Length; i++)
+                    foreach (LevelTapNode.PeakSegment segment in tap.Segments)
                     {
-                        long sample = firstSample + (long)(i * step);
-                        if ((ulong)sample < (ulong)tapped.Length)
+                        if (segment.Count == 0) continue;
+
+                        MediaTime segmentEnd = segment.Start + MediaTime.FromSamples(segment.Count, segment.SampleRate);
+                        if (segmentEnd <= context.TimeRange.Start || segment.Start >= context.TimeRange.End)
+                            continue;
+
+                        ReadOnlySpan<float> tapped = segment.Buffer.GetChannelData(0)[..segment.Count];
+                        peaks ??= new AudioBuffer(context.SampleRate, 1, sampleCount);
+                        Span<float> target = peaks.GetChannelData(0);
+                        // The tap may have read a shifted window, so place its samples by time rather than by index.
+                        long firstSample = (context.TimeRange.Start - segment.Start)
+                            .ToSamples(segment.SampleRate, MidpointRounding.ToZero);
+                        double step = (double)segment.SampleRate / context.SampleRate;
+                        for (int i = 0; i < target.Length; i++)
                         {
-                            target[i] = Math.Max(target[i], tapped[(int)sample]);
+                            long sample = firstSample + (long)(i * step);
+                            if ((ulong)sample < (ulong)tapped.Length)
+                            {
+                                target[i] = Math.Max(target[i], tapped[(int)sample]);
+                            }
                         }
                     }
                 }

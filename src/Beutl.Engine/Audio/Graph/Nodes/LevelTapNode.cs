@@ -6,19 +6,55 @@ namespace Beutl.Audio.Graph.Nodes;
 // composer can detect ducking even when the child is mixed by the group instead of being a top-level entry.
 internal sealed class LevelTapNode : AudioNode
 {
-    private AudioBuffer? _peaks;
-    private int _peakCount;
+    // A lookahead effect can pull the same output block in many small reads, and a later block needs the reads
+    // that reached past the previous block's end. The cap keeps a pathological block from growing without bound.
+    private const int MaxSegments = 64;
+
+    private readonly List<PeakSegment> _segments = [];
+    private readonly List<AudioBuffer> _pool = [];
+    private TimeRange _lastBlock;
+    private bool _hasBlock;
 
     // The row of the sound this tap reads; the composer maps it to the layer the sound belongs to.
     public required int ZIndex { get; init; }
 
-    // The block the peaks belong to: Peaks[0] is at this time in the scene's timeline.
-    public MediaTime BlockStart { get; private set; }
+    // The context this tap sees is local to the clip above it; adding this gives scene time. It is the group's
+    // start on the mixer path, and the pass-through clip's start on a branch outside the group's range.
+    public required MediaTime TimeOffset { get; init; }
 
-    public int BlockSampleRate { get; private set; }
+    public IReadOnlyList<PeakSegment> Segments => _segments;
 
-    public ReadOnlySpan<float> Peaks
-        => _peaks is null || _peakCount == 0 ? default : _peaks.GetChannelData(0)[.._peakCount];
+    internal readonly record struct PeakSegment(MediaTime Start, int SampleRate, AudioBuffer Buffer, int Count);
+
+    // Called by the composer before the owning entry is processed for a new output block.
+    internal void BeginBlock(TimeRange block)
+    {
+        bool discontinuity = _hasBlock
+            && (block.Start < _lastBlock.Start
+                || block.Start > _lastBlock.End + AudioProcessContext.TimestampQuantizationTolerance);
+        if (discontinuity)
+        {
+            ClearSegments();
+        }
+        else
+        {
+            // A segment that ends before this block cannot contribute to it. Later segments may still hold the
+            // read-ahead that covers the start of this block.
+            for (int i = _segments.Count - 1; i >= 0; i--)
+            {
+                PeakSegment segment = _segments[i];
+                MediaTime end = segment.Start + MediaTime.FromSamples(segment.Count, segment.SampleRate);
+                if (end <= block.Start)
+                {
+                    _segments.RemoveAt(i);
+                    Return(segment.Buffer);
+                }
+            }
+        }
+
+        _lastBlock = block;
+        _hasBlock = true;
+    }
 
     public override AudioBuffer Process(AudioProcessContext context)
         => PassThrough(Inputs[0].Process(context), context);
@@ -43,45 +79,71 @@ internal sealed class LevelTapNode : AudioNode
     private void Record(AudioBuffer input, AudioProcessContext context)
     {
         int count = input.SampleCount;
-        if (count == 0)
-        {
-            _peakCount = 0;
-            BlockStart = context.TimeRange.Start;
-            BlockSampleRate = context.SampleRate;
-            return;
-        }
+        if (count == 0) return;
 
-        if (_peaks is null || _peaks.SampleRate != context.SampleRate || _peaks.SampleCount < count)
-        {
-            var replacement = new AudioBuffer(context.SampleRate, 1, count);
-            _peaks?.Dispose();
-            _peaks = replacement;
-        }
-
-        Span<float> peaks = _peaks!.GetChannelData(0)[..count];
-        peaks.Clear();
+        AudioBuffer peaks = Rent(context.SampleRate, count);
+        Span<float> values = peaks.GetChannelData(0)[..count];
+        values.Clear();
         for (int channel = 0; channel < input.ChannelCount; channel++)
         {
             ReadOnlySpan<float> samples = input.GetChannelData(channel);
             for (int i = 0; i < count; i++)
             {
                 float magnitude = MathF.Abs(samples[i]);
-                if (float.IsFinite(magnitude) && magnitude > peaks[i])
-                    peaks[i] = magnitude;
+                if (float.IsFinite(magnitude) && magnitude > values[i])
+                    values[i] = magnitude;
             }
         }
 
-        _peakCount = count;
-        BlockStart = context.TimeRange.Start;
-        BlockSampleRate = context.SampleRate;
+        _segments.Add(new PeakSegment(context.TimeRange.Start + TimeOffset, context.SampleRate, peaks, count));
+        if (_segments.Count > MaxSegments)
+        {
+            PeakSegment oldest = _segments[0];
+            _segments.RemoveAt(0);
+            Return(oldest.Buffer);
+        }
+    }
+
+    private AudioBuffer Rent(int sampleRate, int count)
+    {
+        for (int i = 0; i < _pool.Count; i++)
+        {
+            AudioBuffer buffer = _pool[i];
+            if (buffer.SampleRate == sampleRate && buffer.SampleCount >= count)
+            {
+                _pool.RemoveAt(i);
+                return buffer;
+            }
+        }
+
+        return new AudioBuffer(sampleRate, 1, count);
+    }
+
+    private void Return(AudioBuffer buffer)
+    {
+        if (_pool.Count < MaxSegments)
+            _pool.Add(buffer);
+        else
+            buffer.Dispose();
+    }
+
+    private void ClearSegments()
+    {
+        foreach (PeakSegment segment in _segments)
+            Return(segment.Buffer);
+        _segments.Clear();
     }
 
     protected override void Dispose(bool disposing)
     {
         if (disposing)
         {
-            _peaks?.Dispose();
-            _peaks = null;
+            foreach (PeakSegment segment in _segments)
+                segment.Buffer.Dispose();
+            _segments.Clear();
+            foreach (AudioBuffer buffer in _pool)
+                buffer.Dispose();
+            _pool.Clear();
         }
 
         base.Dispose(disposing);

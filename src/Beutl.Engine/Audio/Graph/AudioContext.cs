@@ -334,16 +334,18 @@ public sealed class AudioContext : IDisposable
     }
 
     // A pass-through that records the level of one SoundGroup child, keyed by the row of the child's sound.
-    internal LevelTapNode CreateLevelTapNode(int zIndex)
+    // `timeOffset` turns the local context the tap sees back into scene time.
+    internal LevelTapNode CreateLevelTapNode(int zIndex, MediaTime timeOffset)
     {
         ThrowIfDisposed();
 
-        if (_previousNodes?.OfType<LevelTapNode>().FirstOrDefault(n => n.ZIndex == zIndex) is { } existing)
+        if (_previousNodes?.OfType<LevelTapNode>()
+                .FirstOrDefault(n => n.ZIndex == zIndex && n.TimeOffset == timeOffset) is { } existing)
         {
             return AddNode(Reclaim(existing));
         }
 
-        return AddNode(new LevelTapNode { ZIndex = zIndex });
+        return AddNode(new LevelTapNode { ZIndex = zIndex, TimeOffset = timeOffset });
     }
 
     // A shift node for a sound's offset. A fixed offset makes a node per value, as editing it composes the sound
