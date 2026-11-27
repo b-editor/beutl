@@ -78,10 +78,15 @@ public sealed partial class SoundGroup : Sound, IFlowInputOperator
         {
             // ShiftNodeでSoundGroupのStartを加算して打ち消す
             var shiftNode = context.CreateShiftNode(TimeRange.Value.Start);
+            // The tap reads the child on the scene timeline, before the group's own gain and effects, so ducking
+            // can detect a layer that the group mixes instead of exposing as a top-level entry. The group's
+            // outer clip made this context group-local, so the tap adds the group's start back.
+            var tapNode = context.CreateLevelTapNode(original.ZIndex.Value, TimeRange.Value.Start);
             context.Connect(outputNode, shiftNode);
-            context.Connect(shiftNode, mixerNode);
+            context.Connect(shiftNode, tapNode);
+            context.Connect(tapNode, mixerNode);
             // Let the mixer skip a child's already-recovered tail.
-            mixerNode.SetBranchEndTime(shiftNode, original.TimeRange.Value.End - TimeRange.Value.Start);
+            mixerNode.SetBranchEndTime(tapNode, original.TimeRange.Value.End - TimeRange.Value.Start);
         }
 
         ComposeOutputStages(context, mixerNode, context.ChannelLayout);
@@ -113,9 +118,13 @@ public sealed partial class SoundGroup : Sound, IFlowInputOperator
         foreach (var outputNode in ComposeChildInto(context, original, child))
         {
             var shiftNode = context.CreateShiftNode(start);
+            // The pass-through clip below makes the context local by subtracting its start; add it back so the
+            // tap records scene time, including for the tail after the group's end.
+            var tapNode = context.CreateLevelTapNode(original.ZIndex.Value, start);
             var clipNode2 = context.CreateClipNode(start, duration);
             context.Connect(outputNode, shiftNode);
-            context.Connect(shiftNode, clipNode2);
+            context.Connect(shiftNode, tapNode);
+            context.Connect(tapNode, clipNode2);
             context.MarkAsOutput(clipNode2);
         }
     }

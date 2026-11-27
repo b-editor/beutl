@@ -221,6 +221,174 @@ public sealed class DuckingAudioTests
     }
 
     [AvaloniaTest]
+    public async Task Grouped_source_layer_ducks_in_preview_and_export()
+    {
+        using var fixture = new WaveScene(index => FirstBurst(index) + SecondBurst(index), groupNarration: true);
+        fixture.SecondVoiceLayer.IsAudioMuted.Value = true;
+        fixture.Ducking.SourceLayers.Clear();
+        fixture.Ducking.SourceLayers.Add(fixture.FirstVoiceLayer);
+        var (left, right) = RenderPreview(fixture.Scene);
+
+        using var exporter = ExportRendererFactory.CreateComposer(fixture.Scene, TestShell.FontManager, SampleRate, TestShell.Decoders);
+        using var progress = new Subject<MediaTime>();
+        using var provider = new SampleProviderImpl(fixture.Scene, exporter, SampleRate, progress, AudioChannelLayout.Stereo);
+        using var exported = await provider.ReadNextSamples(Frames(DurationMs));
+
+        Assert.That(exported, Is.Not.Null);
+        Assert.Multiple(() =>
+        {
+            Assert.That(left[Frames(209)], Is.EqualTo(MusicLevel));
+            Assert.That(left[Frames(210 + AttackMs)], Is.EqualTo(s_duckedLevel).Within(1e-6f));
+            Assert.That(left[Frames(440 + ReleaseMs)], Is.EqualTo(MusicLevel));
+            Assert.That(left[Frames(710 + AttackMs)], Is.EqualTo(s_duckedLevel).Within(1e-6f));
+            Assert.That(left[Frames(960 + ReleaseMs)], Is.EqualTo(MusicLevel));
+            Assert.That(right[Frames(300)], Is.EqualTo(0.40f));
+            Assert.That(right[Frames(800)], Is.EqualTo(0.35f));
+        });
+        AssertBits(exported!.GetChannelData(0).ToArray(), left);
+        AssertBits(exported.GetChannelData(1).ToArray(), right);
+    }
+
+    [AvaloniaTest]
+    public void Selecting_the_group_layer_still_ducks_the_music()
+    {
+        using var fixture = new WaveScene(index => FirstBurst(index) + SecondBurst(index), groupNarration: true);
+        fixture.SecondVoiceLayer.IsAudioMuted.Value = true;
+        fixture.Ducking.SourceLayers.Clear();
+        fixture.Ducking.SourceLayers.Add(fixture.GroupLayer!);
+        var (left, _) = RenderPreview(fixture.Scene);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(left[Frames(210 + AttackMs)], Is.EqualTo(s_duckedLevel).Within(1e-6f));
+            Assert.That(left[Frames(440 + ReleaseMs)], Is.EqualTo(MusicLevel));
+            Assert.That(left[Frames(710 + AttackMs)], Is.EqualTo(s_duckedLevel).Within(1e-6f));
+            Assert.That(left[Frames(960 + ReleaseMs)], Is.EqualTo(MusicLevel));
+        });
+    }
+
+    [AvaloniaTest]
+    public async Task A_group_starting_later_than_the_scene_ducks_in_preview_and_export()
+    {
+        // The group and its narration start at 1 s, and 4096 frames does not divide the group start.
+        using var fixture = new WaveScene(
+            groupNarration: true, groupStartMs: 1000, narrationStartMs: 1000, durationMs: 1800);
+        fixture.SecondVoiceLayer.IsAudioMuted.Value = true;
+        fixture.Ducking.SourceLayers.Clear();
+        fixture.Ducking.SourceLayers.Add(fixture.FirstVoiceLayer);
+        var (left, right) = RenderPreview(fixture.Scene, blockSize: 4096, durationMs: 1800);
+
+        using var exporter = ExportRendererFactory.CreateComposer(fixture.Scene, TestShell.FontManager, SampleRate, TestShell.Decoders);
+        using var progress = new Subject<MediaTime>();
+        using var provider = new SampleProviderImpl(fixture.Scene, exporter, SampleRate, progress, AudioChannelLayout.Stereo);
+        using var exported = await provider.ReadNextSamples(Frames(1800));
+
+        Assert.That(exported, Is.Not.Null);
+        Assert.Multiple(() =>
+        {
+            Assert.That(left[Frames(1209)], Is.EqualTo(MusicLevel));
+            Assert.That(left[Frames(1210 + AttackMs)], Is.EqualTo(s_duckedLevel).Within(1e-6f));
+            Assert.That(left[Frames(1440 + ReleaseMs)], Is.EqualTo(MusicLevel));
+            Assert.That(right[Frames(1300)], Is.EqualTo(0.40f));
+        });
+        AssertBits(exported!.GetChannelData(0).ToArray(), left);
+        AssertBits(exported.GetChannelData(1).ToArray(), right);
+    }
+
+    [AvaloniaTest]
+    public void A_group_that_passes_a_child_outside_its_range_still_ducks_on_both_sides()
+    {
+        // The narration [900, 2100] extends before and after the group [1000, 1800]. Its bursts fall in the
+        // left pass-through, the group's own range, and the right pass-through in the block around 1.8 s.
+        using var fixture = new WaveScene(
+            index => Burst(index, 0, 100, 0.40f) + Burst(index, 700, 800, 0.30f) + Burst(index, 900, 950, 0.35f),
+            _ => 0f,
+            groupNarration: true,
+            groupStartMs: 1000,
+            groupLengthMs: 800,
+            narrationStartMs: 900,
+            durationMs: 2100);
+        fixture.SecondVoiceLayer.IsAudioMuted.Value = true;
+        fixture.Ducking.SourceLayers.Clear();
+        fixture.Ducking.SourceLayers.Add(fixture.FirstVoiceLayer);
+        var (left, _) = RenderPreview(fixture.Scene, blockSize: 4096, durationMs: 2100);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(left[Frames(990)], Is.EqualTo(s_duckedLevel).Within(1e-6f));
+            Assert.That(left[Frames(1640)], Is.EqualTo(s_duckedLevel).Within(1e-6f));
+            Assert.That(left[Frames(1840)], Is.EqualTo(s_duckedLevel).Within(1e-6f));
+        });
+    }
+
+    [AvaloniaTest]
+    [TestCase(5760)]
+    [TestCase(4096)]
+    public void A_group_that_reads_ahead_keeps_ducking_across_the_block(int blockSize)
+    {
+        using var fixture = new WaveScene(groupNarration: true);
+        fixture.SecondVoiceLayer.IsAudioMuted.Value = true;
+        fixture.Ducking.SourceLayers.Clear();
+        fixture.Ducking.SourceLayers.Add(fixture.FirstVoiceLayer);
+        fixture.Group!.Effect.Value = new PitchShiftEffect { Semitones = { Value = 12f } };
+        var (left, _) = RenderPreview(fixture.Scene, blockSize: blockSize);
+
+        var steady = left[Frames(210 + AttackMs)..Frames(440)];
+        Assert.Multiple(() =>
+        {
+            Assert.That(steady.Min(), Is.EqualTo(s_duckedLevel).Within(1e-6f));
+            Assert.That(steady.Max(), Is.EqualTo(s_duckedLevel).Within(1e-6f));
+        });
+    }
+
+    [AvaloniaTest]
+    public void Replaying_a_block_after_silencing_the_grouped_child_does_not_keep_ducking()
+    {
+        using var fixture = new WaveScene(groupNarration: true);
+        fixture.SecondVoiceLayer.IsAudioMuted.Value = true;
+        fixture.Ducking.SourceLayers.Clear();
+        fixture.Ducking.SourceLayers.Add(fixture.FirstVoiceLayer);
+        using var composer = new SceneComposer(fixture.Scene, new SceneRenderServices(TestShell.FontManager, TestShell.Decoders))
+        {
+            SampleRate = SampleRate,
+            ChannelLayout = AudioChannelLayout.Stereo,
+        };
+        // The leading block leaves a loud peak segment that overlaps the start of the block under test.
+        var leading = new TimeRange(MediaTime.Zero, MediaTime.FromSamples(12500, SampleRate));
+        const int blockStart = 10500;
+        const int probe = 1950; // block frame 10500 + 1950 = 12450, 259.375 ms
+        var block = new TimeRange(MediaTime.FromSamples(blockStart, SampleRate),
+            MediaTime.FromSamples(6500, SampleRate));
+
+        using AudioBuffer seed = composer.Compose(leading)!;
+        using AudioBuffer loud = composer.Compose(block)!;
+        float loudLevel = loud.GetChannelData(0)[probe];
+
+        // The same tap and composer see the block again, now with a silent child.
+        fixture.FirstVoice.Gain.Value = 0f;
+        using AudioBuffer silent = composer.Compose(block)!;
+        float silentLevel = silent.GetChannelData(0)[probe];
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(loudLevel, Is.EqualTo(s_duckedLevel).Within(1e-6f));
+            Assert.That(silentLevel, Is.EqualTo(MusicLevel));
+        });
+    }
+
+    [AvaloniaTest]
+    public void A_group_without_ducking_preserves_the_wav_samples_and_mix_bits()
+    {
+        using var fixture = new WaveScene(groupNarration: true);
+        fixture.Music.Effect.Value = null;
+        var (left, right) = RenderPreview(fixture.Scene);
+
+        AssertBits(left, Enumerable.Range(0, Frames(DurationMs)).Select(index => index >= Frames(MusicStartMs) ? MusicLevel : 0f));
+        AssertBits(right, Enumerable.Range(0, Frames(DurationMs))
+            .Select(index => FirstBurst(index) + SecondBurst(index)));
+    }
+
+    [AvaloniaTest]
     public void Saved_layer_references_survive_reload_and_moving_the_source_layers()
     {
         using var fixture = new WaveScene();
@@ -250,14 +418,14 @@ public sealed class DuckingAudioTests
         Assert.That(left[Frames(800)], Is.EqualTo(s_duckedLevel).Within(1e-6f));
     }
 
-    private static (float[] Left, float[] Right) RenderPreview(Scene scene, int blockSize = 5760)
+    private static (float[] Left, float[] Right) RenderPreview(Scene scene, int blockSize = 5760, int durationMs = DurationMs)
     {
         using var composer = new SceneComposer(scene, new SceneRenderServices(TestShell.FontManager, TestShell.Decoders))
         {
             SampleRate = SampleRate,
             ChannelLayout = AudioChannelLayout.Stereo,
         };
-        var left = new float[Frames(DurationMs)];
+        var left = new float[Frames(durationMs)];
         var right = new float[left.Length];
         for (int start = 0; start < left.Length; start += blockSize)
         {
@@ -291,7 +459,10 @@ public sealed class DuckingAudioTests
         private readonly DirectoryInfo _directory = Directory.CreateTempSubdirectory("beutl-ducking-");
         private readonly WaveDecoderInfo _decoder = new();
 
-        public WaveScene(Func<int, float>? first = null, Func<int, float>? second = null, int musicRate = SampleRate)
+        public WaveScene(
+            Func<int, float>? first = null, Func<int, float>? second = null, int musicRate = SampleRate,
+            bool groupNarration = false, int groupStartMs = 0, int groupLengthMs = 0,
+            int narrationStartMs = 0, int durationMs = DurationMs)
         {
             TestShell.Decoders.Register(_decoder);
             try
@@ -299,16 +470,32 @@ public sealed class DuckingAudioTests
                 Scene = new Scene(320, 180, "Ducking")
                 {
                     Uri = new Uri(Path.Combine(_directory.FullName, "ducking.bep")),
-                    Duration = { Value = Time(DurationMs) },
+                    Duration = { Value = Time(durationMs) },
                     FrameRate = { Value = new Rational(50) },
                     SampleRate = { Value = SampleRate },
                 };
                 MusicLayer = AddLayer(0, "Music");
-                FirstVoiceLayer = AddLayer(1, "Narration");
-                SecondVoiceLayer = AddLayer(2, "Interview");
-                Music = AddClip(MusicLayer, MusicStartMs, _ => (MusicLevel, 0f), musicRate);
-                FirstVoice = AddClip(FirstVoiceLayer, 0, index => (0f, (first ?? FirstBurst)(index)));
-                SecondVoice = AddClip(SecondVoiceLayer, 0, index => (0f, (second ?? SecondBurst)(index)));
+                if (groupNarration)
+                {
+                    GroupLayer = AddLayer(1, "Group");
+                    FirstVoiceLayer = AddLayer(2, "Narration");
+                    SecondVoiceLayer = AddLayer(3, "Interview");
+                }
+                else
+                {
+                    FirstVoiceLayer = AddLayer(1, "Narration");
+                    SecondVoiceLayer = AddLayer(2, "Interview");
+                }
+                Music = AddClip(MusicLayer, MusicStartMs, _ => (MusicLevel, 0f), musicRate, durationMs);
+                FirstVoice = AddClip(FirstVoiceLayer, groupNarration ? narrationStartMs : 0,
+                    index => (0f, (first ?? FirstBurst)(index)), endMs: durationMs);
+                SecondVoice = AddClip(SecondVoiceLayer, 0, index => (0f, (second ?? SecondBurst)(index)), endMs: durationMs);
+                if (groupNarration)
+                {
+                    Group = new SoundGroup();
+                    AddGroup(GroupLayer!, Group, groupStartMs,
+                        groupLengthMs > 0 ? groupLengthMs : durationMs - groupStartMs);
+                }
                 Ducking = new DuckingEffect
                 {
                     Threshold = { Value = -16f },
@@ -329,8 +516,10 @@ public sealed class DuckingAudioTests
 
         public Scene Scene { get; }
         public TimelineLayer MusicLayer { get; }
+        public TimelineLayer? GroupLayer { get; }
         public TimelineLayer FirstVoiceLayer { get; }
         public TimelineLayer SecondVoiceLayer { get; }
+        public SoundGroup? Group { get; }
         public SourceSound Music { get; }
         public SourceSound FirstVoice { get; }
         public SourceSound SecondVoice { get; }
@@ -343,11 +532,29 @@ public sealed class DuckingAudioTests
             return layer;
         }
 
-        private SourceSound AddClip(TimelineLayer layer, int startMs, Func<int, (float Left, float Right)> sample, int rate = SampleRate)
+        // The group's paired portal pulls the next layer's sound out of the top-level mix.
+        private void AddGroup(TimelineLayer layer, SoundGroup group, int startMs, int lengthMs)
         {
+            var element = new Element
+            {
+                Uri = new Uri(Path.Combine(_directory.FullName, "Group.belm")),
+                ZIndex = { Value = layer.ZIndex.Value },
+                Start = { Value = Time(startMs) },
+                Length = { Value = Time(lengthMs) },
+            };
+            element.AddObject(group);
+            ((PortalObject)element.Objects[0]).Count.Value = 1;
+            Scene.Children.Add(element);
+        }
+
+        private SourceSound AddClip(
+            TimelineLayer layer, int startMs, Func<int, (float Left, float Right)> sample, int rate = SampleRate,
+            int endMs = DurationMs)
+        {
+            int lengthMs = endMs - startMs;
             string name = layer.Name.Value;
             string path = Path.Combine(_directory.FullName, name + ".wav");
-            var samples = new float[(DurationMs - startMs) * rate / 1000 * 2];
+            var samples = new float[lengthMs * rate / 1000 * 2];
             for (int i = 0; i < samples.Length / 2; i++)
                 (samples[2 * i], samples[2 * i + 1]) = sample(i);
 
@@ -359,7 +566,7 @@ public sealed class DuckingAudioTests
                 Uri = new Uri(Path.Combine(_directory.FullName, name + ".belm")),
                 ZIndex = { Value = layer.ZIndex.Value },
                 Start = { Value = Time(startMs) },
-                Length = { Value = Time(DurationMs - startMs) },
+                Length = { Value = Time(lengthMs) },
             };
             var sound = new SourceSound { Source = { Value = SoundSource.Open(path) } };
             clip.Objects.Add(sound);
