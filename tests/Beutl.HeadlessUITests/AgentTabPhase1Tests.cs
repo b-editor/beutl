@@ -489,43 +489,64 @@ public sealed class AgentTabPhase1Tests
         string attachment = Path.Combine(workspace.Root, "sibling-note.txt");
         File.WriteAllText(attachment, "shared draft attachment");
 
-        using var first = workspace.CreateWorkspace(workspace.Editor);
-        using var second = workspace.CreateWorkspace(workspace.Editor);
-        await first.InitializeAsync();
-        await second.InitializeAsync();
-
-        // Both tabs start on the shared new-thread draft.
-        first.Prompt = "Shared new-thread draft";
-        first.IncludeSceneContext = false;
-        await first.AddFilesAsync([attachment]);
-        // Typing in the sibling tab before the async attachment sync finishes must keep the attachment in both tabs.
-        second.Prompt = "Updated from second tab";
-        await HeadlessTestHelpers.WaitUntilAsync(() => second.Attachments.Count == 1);
-        Assert.Multiple(() =>
+        var firstLayout = new JsonObject();
+        var secondLayout = new JsonObject();
+        using (var first = workspace.CreateWorkspace(workspace.Editor))
+        using (var second = workspace.CreateWorkspace(workspace.Editor))
         {
-            Assert.That(first.Prompt, Is.EqualTo("Updated from second tab"));
-            Assert.That(second.IncludeSceneContext, Is.False);
-            Assert.That(first.Attachments.Single().Path, Is.EqualTo(attachment));
-            Assert.That(second.Attachments.Single().Path, Is.EqualTo(attachment));
-        });
+            await first.InitializeAsync();
+            await second.InitializeAsync();
 
-        // Send on the first tab creates a thread and clears the shared new-thread draft.
-        await first.SendAsync();
-        Assert.That(second.Prompt, Is.Null.Or.Empty);
-        Assert.That(second.Attachments, Is.Empty);
+            // Two tabs drafting new threads keep independent saved draft slots.
+            first.Prompt = "First new-thread draft";
+            second.Prompt = "Second new-thread draft";
+            Assert.Multiple(() =>
+            {
+                Assert.That(first.Prompt, Is.EqualTo("First new-thread draft"));
+                Assert.That(second.Prompt, Is.EqualTo("Second new-thread draft"));
+            });
+            first.WriteToJson(firstLayout);
+            second.WriteToJson(secondLayout);
+        }
 
-        // Selecting the same thread in both tabs synchronizes thread-scoped drafts too.
-        await second.SelectThreadAsync(first.SelectedThread!);
-        first.Prompt = "Reply drafted in tab 1";
-        Assert.That(second.Prompt, Is.EqualTo("Reply drafted in tab 1"));
-        second.Prompt = "Reply refined in tab 2";
-        Assert.That(first.Prompt, Is.EqualTo("Reply refined in tab 2"));
+        // Reloading both tabs restores each independent new-thread draft without overwriting the other.
+        Guid threadId;
+        using (var first = workspace.CreateWorkspace(workspace.Editor))
+        using (var second = workspace.CreateWorkspace(workspace.Editor))
+        {
+            first.ReadFromJson(firstLayout);
+            second.ReadFromJson(secondLayout);
+            await first.InitializeAsync();
+            await second.InitializeAsync();
+            Assert.Multiple(() =>
+            {
+                Assert.That(first.Prompt, Is.EqualTo("First new-thread draft"));
+                Assert.That(second.Prompt, Is.EqualTo("Second new-thread draft"));
+            });
 
-        first.Dispose();
-        second.Dispose();
+            // Sending creates a thread; selecting the same thread in both tabs shares and synchronizes its draft.
+            await first.SendAsync();
+            threadId = first.SelectedThread!.Id;
+            await second.SelectThreadAsync(first.SelectedThread!);
+
+            first.Prompt = "Shared thread reply";
+            first.IncludeSceneContext = false;
+            await first.AddFilesAsync([attachment]);
+            // Typing in the sibling tab before the async attachment sync finishes must keep the attachment in both tabs.
+            second.Prompt = "Reply refined in tab 2";
+            await HeadlessTestHelpers.WaitUntilAsync(() => second.Attachments.Count == 1);
+            Assert.Multiple(() =>
+            {
+                Assert.That(first.Prompt, Is.EqualTo("Reply refined in tab 2"));
+                Assert.That(second.IncludeSceneContext, Is.False);
+                Assert.That(first.Attachments.Single().Path, Is.EqualTo(attachment));
+                Assert.That(second.Attachments.Single().Path, Is.EqualTo(attachment));
+            });
+        }
+
         await workspace.ThreadSessions.DisposeAsync();
         var reloaded = new AgentDraftStore(workspace.Root);
-        Assert.That((await reloaded.LoadAsync(workspace.ProjectPath, first.SelectedThread!.Id)).Draft!.Prompt,
+        Assert.That((await reloaded.LoadAsync(workspace.ProjectPath, threadId)).Draft!.Prompt,
             Is.EqualTo("Reply refined in tab 2"));
     }
 

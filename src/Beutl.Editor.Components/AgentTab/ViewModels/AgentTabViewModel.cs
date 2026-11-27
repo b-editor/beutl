@@ -27,6 +27,8 @@ internal sealed partial class AgentTabViewModel : AgentBindable, IToolContext
     private AgentPermissionChoiceItem _permissionMode;
     private Guid? _restoredThreadId;
     private bool _restoreNewThread;
+    private string? _restoredNewThreadDraftKey;
+    private string? _newThreadDraftKey;
     private Task? _initialization;
     private AgentThreadController? _controller;
     private TaskCompletionSource? _managementCompletion;
@@ -212,15 +214,53 @@ internal sealed partial class AgentTabViewModel : AgentBindable, IToolContext
 
         if (!sendingDraft)
             await SaveDraftAsync();
-        var controller = thread is null ? null : _sessions.GetOrCreate(_host, thread.Id);
-        if (controller is not null)
-            await controller.LoadAsync(thread!, ct);
-        var draft = await _sessions.LoadDraftAsync(thread?.Id, ct);
-        ct.ThrowIfCancellationRequested();
-        if (controller is not null && _sessions.Find(controller.ThreadId) != controller)
-            return;
-        if (sendingDraft)
-            await _sessions.SaveDraftAsync(null, null);
+        string? previousNewThreadDraftKey = _newThreadDraftKey;
+        string? claimedNewThreadDraftKey = null;
+        string targetDraftKey;
+        if (thread is not null)
+        {
+            targetDraftKey = AgentDraftStore.Key(thread.Id);
+        }
+        else
+        {
+            claimedNewThreadDraftKey = _sessions.ClaimNewThreadDraftKey(this, _newThreadDraftKey ?? _restoredNewThreadDraftKey);
+            targetDraftKey = claimedNewThreadDraftKey;
+        }
+
+        AgentThreadController? controller;
+        AgentDraftEntry draft;
+        try
+        {
+            controller = thread is null ? null : _sessions.GetOrCreate(_host, thread.Id);
+            if (controller is not null)
+                await controller.LoadAsync(thread!, ct);
+            draft = await _sessions.LoadDraftByKeyAsync(targetDraftKey, ct);
+            ct.ThrowIfCancellationRequested();
+            if (controller is not null && _sessions.Find(controller.ThreadId) != controller)
+                return;
+        }
+        catch
+        {
+            if (claimedNewThreadDraftKey is not null && claimedNewThreadDraftKey != previousNewThreadDraftKey)
+                _sessions.ReleaseNewThreadDraftKey(claimedNewThreadDraftKey, this);
+            throw;
+        }
+
+        if (sendingDraft && previousNewThreadDraftKey is not null)
+            await _sessions.SaveDraftByKeyAsync(previousNewThreadDraftKey, null, this);
+
+        if (thread is not null)
+        {
+            _sessions.ReleaseNewThreadDraftKey(previousNewThreadDraftKey, this);
+            _newThreadDraftKey = null;
+        }
+        else
+        {
+            if (previousNewThreadDraftKey != claimedNewThreadDraftKey)
+                _sessions.ReleaseNewThreadDraftKey(previousNewThreadDraftKey, this);
+            _newThreadDraftKey = claimedNewThreadDraftKey;
+            _restoredNewThreadDraftKey = null;
+        }
 
         AttachController(controller);
         ApplyThread(thread is null ? null : _threads.FirstOrDefault(item => item.Id == thread.Id) ?? thread);
@@ -332,7 +372,8 @@ internal sealed partial class AgentTabViewModel : AgentBindable, IToolContext
     {
         if (json["AgentThreadId"] is JsonValue value && value.TryGetValue(out string? id))
         {
-            _restoreNewThread = id == "draft";
+            _restoreNewThread = AgentProjectThreadSessions.IsNewThreadDraftKey(id);
+            _restoredNewThreadDraftKey = _restoreNewThread ? id : null;
             _restoredThreadId = Guid.TryParse(id, out Guid parsed) ? parsed : null;
         }
         if (json["AgentExpandedWork"] is JsonArray sections)
@@ -353,7 +394,7 @@ internal sealed partial class AgentTabViewModel : AgentBindable, IToolContext
         if (id.HasValue)
             json["AgentThreadId"] = id.Value.ToString("D");
         else if (_draftLoaded || _restoreNewThread)
-            json["AgentThreadId"] = "draft";
+            json["AgentThreadId"] = (_draftLoaded ? _newThreadDraftKey : _restoredNewThreadDraftKey) ?? AgentDraftStore.DefaultDraftKey;
         json.Remove("AgentCollapsedWork");
         if (_expandedWork.Count > 0)
         {
@@ -377,6 +418,8 @@ internal sealed partial class AgentTabViewModel : AgentBindable, IToolContext
         _draftTimer.Stop();
         _draftTimer.Tick -= OnDraftTimerTick;
         _ = SaveDraftAsync();
+        _sessions.ReleaseNewThreadDraftKey(_newThreadDraftKey, this);
+        _newThreadDraftKey = null;
         _sessions.StateChanged -= OnThreadStateChanged;
         _sessions.MetadataChanged -= OnThreadMetadataChanged;
         _sessions.ActivityChanged -= OnThreadActivityChanged;

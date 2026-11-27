@@ -58,6 +58,7 @@ internal sealed class AgentProjectThreadSessions(string path, AgentDraftStore dr
     private readonly Dictionary<Guid, AgentThreadController> _controllers = [];
     private readonly Dictionary<Guid, int> _viewers = [];
     private readonly Dictionary<string, AgentDraft?> _liveDrafts = [];
+    private readonly Dictionary<string, object> _draftSlotOwners = [];
     private Task _draftWrites = Task.CompletedTask;
     private Task _metadataWork = Task.CompletedTask;
 
@@ -68,7 +69,7 @@ internal sealed class AgentProjectThreadSessions(string path, AgentDraftStore dr
     public event Action<Guid, AgentThreadMetadata?>? MetadataChanged;
     public event Action<Guid, DateTimeOffset?, DateTimeOffset?>? ActivityChanged;
     public event Action<Guid>? ActivityNotified;
-    public event Action<Guid?, AgentDraft?, object?>? DraftChanged;
+    public event Action<string, AgentDraft?, object?>? DraftChanged;
     public event Action? FlushingDrafts;
 
     public AgentThreadController GetOrCreate(IAgentWorkspaceHost host, Guid threadId)
@@ -224,26 +225,66 @@ internal sealed class AgentProjectThreadSessions(string path, AgentDraftStore dr
         await QueueDraftWrite(() => drafts.DeleteAsync(path, threadId));
     }
 
-    public void PublishDraft(Guid? threadId, AgentDraft? draft, object? source = null)
+    public static bool IsNewThreadDraftKey(string? key) =>
+        key == AgentDraftStore.DefaultDraftKey
+        || (key is not null
+            && key.StartsWith(AgentDraftStore.DefaultDraftKey + ":", StringComparison.Ordinal)
+            && Guid.TryParse(key.AsSpan(AgentDraftStore.DefaultDraftKey.Length + 1), out _));
+
+    public string ClaimNewThreadDraftKey(object owner, string? preferredKey = null)
     {
-        _liveDrafts[DraftKey(threadId)] = draft;
-        DraftChanged?.Invoke(threadId, draft, source);
+        string candidate = IsNewThreadDraftKey(preferredKey) ? preferredKey! : AgentDraftStore.DefaultDraftKey;
+        if (!_draftSlotOwners.TryGetValue(candidate, out var existing) || ReferenceEquals(existing, owner))
+        {
+            _draftSlotOwners[candidate] = owner;
+            return candidate;
+        }
+
+        string unique = $"{AgentDraftStore.DefaultDraftKey}:{Guid.NewGuid():D}";
+        _draftSlotOwners[unique] = owner;
+        return unique;
     }
 
-    public async Task<AgentDraftEntry> LoadDraftAsync(Guid? threadId, CancellationToken cancellationToken)
+    public void ReleaseNewThreadDraftKey(string? draftKey, object owner)
+    {
+        if (draftKey is not null
+            && _draftSlotOwners.TryGetValue(draftKey, out var existing)
+            && ReferenceEquals(existing, owner))
+        {
+            _draftSlotOwners.Remove(draftKey);
+            if (draftKey != AgentDraftStore.DefaultDraftKey
+                && _liveDrafts.TryGetValue(draftKey, out var live)
+                && live is null)
+                _liveDrafts.Remove(draftKey);
+        }
+    }
+
+    public void PublishDraft(string draftKey, AgentDraft? draft, object? source = null)
+    {
+        _liveDrafts[draftKey] = draft;
+        DraftChanged?.Invoke(draftKey, draft, source);
+    }
+
+    public Task<AgentDraftEntry> LoadDraftAsync(Guid? threadId, CancellationToken cancellationToken)
+        => LoadDraftByKeyAsync(AgentDraftStore.Key(threadId), cancellationToken);
+
+    public async Task<AgentDraftEntry> LoadDraftByKeyAsync(string draftKey, CancellationToken cancellationToken)
     {
         await _draftWrites.WaitAsync(cancellationToken);
-        var entry = await drafts.LoadAsync(path, threadId, cancellationToken);
-        return _liveDrafts.TryGetValue(DraftKey(threadId), out var live) ? entry with { Draft = live } : entry;
+        var entry = await drafts.LoadByKeyAsync(path, draftKey, cancellationToken);
+        return _liveDrafts.TryGetValue(draftKey, out var live) ? entry with { Draft = live } : entry;
     }
 
     public Task SaveDraftAsync(Guid? threadId, AgentDraft? draft, object? source = null)
+        => SaveDraftByKeyAsync(AgentDraftStore.Key(threadId), draft, source);
+
+    public Task SaveDraftByKeyAsync(string draftKey, AgentDraft? draft, object? source = null)
     {
-        PublishDraft(threadId, draft, source);
-        return QueueDraftWrite(() => drafts.SaveAsync(path, threadId, draft));
+        PublishDraft(draftKey, draft, source);
+        return QueueDraftWrite(() => drafts.SaveByKeyAsync(path, draftKey, draft));
     }
 
-    private static string DraftKey(Guid? threadId) => threadId?.ToString("D") ?? "draft";
+    private static string DraftKey(Guid? threadId) => AgentDraftStore.Key(threadId);
 
     public void RecordPrompt(Guid threadId, string prompt) =>
         _ = QueueDraftWrite(() => drafts.RecordPromptAsync(path, threadId, prompt));

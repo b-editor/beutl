@@ -132,8 +132,25 @@ internal sealed partial class AgentThreadController : AgentBindable
 
     public async Task<AgentThreadMetadata> CompactContextAsync(AgentProviderDescriptor provider, CancellationToken cancellationToken)
     {
+        var culture = CultureInfo.CurrentCulture;
+        var uiCulture = CultureInfo.CurrentUICulture;
         var callbacks = new AgentTurnCallbacks(
-            entry => Dispatcher.UIThread.Post(() => _transcript.ApplyEntry(entry), DispatcherPriority.Normal),
+            entry => Dispatcher.UIThread.Post(() =>
+            {
+                var previousCulture = CultureInfo.CurrentCulture;
+                var previousUiCulture = CultureInfo.CurrentUICulture;
+                CultureInfo.CurrentCulture = culture;
+                CultureInfo.CurrentUICulture = uiCulture;
+                try
+                {
+                    _transcript.ApplyEntry(entry);
+                }
+                finally
+                {
+                    CultureInfo.CurrentCulture = previousCulture;
+                    CultureInfo.CurrentUICulture = previousUiCulture;
+                }
+            }, DispatcherPriority.Normal),
             ShowPermissionAsync, ShowQuestionAsync);
         try
         {

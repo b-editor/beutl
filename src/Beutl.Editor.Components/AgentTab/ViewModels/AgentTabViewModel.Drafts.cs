@@ -19,12 +19,16 @@ internal sealed partial class AgentTabViewModel
     private string? _savedPrompt;
     private bool _recallingPrompt;
 
+    private string CurrentDraftKey => _selectedThread is { } thread
+        ? AgentDraftStore.Key(thread.Id)
+        : _newThreadDraftKey ?? AgentDraftStore.DefaultDraftKey;
+
     private void MarkDraftChanged()
     {
         if (!_draftLoaded || _restoringDraft || _disposed)
             return;
         _draftDirty = true;
-        _sessions.PublishDraft(_selectedThread?.Id, CreateDraftSnapshot(), this);
+        _sessions.PublishDraft(CurrentDraftKey, CreateDraftSnapshot(), this);
         _draftTimer.Stop();
         _draftTimer.Start();
     }
@@ -75,28 +79,28 @@ internal sealed partial class AgentTabViewModel
             return;
         _draftDirty = false;
 
-        Guid? threadId = _selectedThread?.Id;
+        string draftKey = CurrentDraftKey;
         AgentDraft? draft = CreateDraftSnapshot();
         try
         {
-            await _sessions.SaveDraftAsync(threadId, draft, this);
+            await _sessions.SaveDraftByKeyAsync(draftKey, draft, this);
         }
         catch (Exception ex)
         {
-            if (threadId == _selectedThread?.Id)
+            if (draftKey == CurrentDraftKey)
                 _draftDirty = true;
             ReportError(ex);
         }
     }
 
-    private void OnDraftChanged(Guid? threadId, AgentDraft? draft, object? source)
+    private void OnDraftChanged(string draftKey, AgentDraft? draft, object? source)
     {
         if (!Dispatcher.UIThread.CheckAccess())
         {
-            Post(() => OnDraftChanged(threadId, draft, source));
+            Post(() => OnDraftChanged(draftKey, draft, source));
             return;
         }
-        if (_disposed || ReferenceEquals(source, this) || !_draftLoaded || threadId != _selectedThread?.Id)
+        if (_disposed || ReferenceEquals(source, this) || !_draftLoaded || draftKey != CurrentDraftKey)
             return;
 
         _draftTimer.Stop();
@@ -145,12 +149,12 @@ internal sealed partial class AgentTabViewModel
         {
             _pendingSyncedAttachments.AddRange(missing);
             var cancellation = _draftSyncCancellation = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);
-            _ = SyncMissingAttachmentsAsync(threadId, missing, cancellation);
+            _ = SyncMissingAttachmentsAsync(draftKey, missing, cancellation);
         }
     }
 
     private async Task SyncMissingAttachmentsAsync(
-        Guid? threadId, AgentAttachedFile[] files, CancellationTokenSource cancellation)
+        string draftKey, AgentAttachedFile[] files, CancellationTokenSource cancellation)
     {
         var ct = cancellation.Token;
         try
@@ -160,11 +164,11 @@ internal sealed partial class AgentTabViewModel
                 ct.ThrowIfCancellationRequested();
                 var attachment = await Task.Run(() => AgentAttachment.CreateFile(file, RemoveAttachment), ct);
                 bool stillPending = RemovePendingSyncedAttachment(file.Path);
-                if (ct.IsCancellationRequested || _disposed || threadId != _selectedThread?.Id || !stillPending
+                if (ct.IsCancellationRequested || _disposed || draftKey != CurrentDraftKey || !stillPending
                     || _attachments.Any(item => s_pathComparer.Equals(item.Path, attachment.Path)))
                 {
                     attachment.Dispose();
-                    if (ct.IsCancellationRequested || _disposed || threadId != _selectedThread?.Id)
+                    if (ct.IsCancellationRequested || _disposed || draftKey != CurrentDraftKey)
                         return;
                     continue;
                 }
