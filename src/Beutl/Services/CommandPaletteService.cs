@@ -1,7 +1,9 @@
-﻿using Avalonia.Input;
+﻿using System.Globalization;
+using Avalonia.Input;
 using Avalonia.Threading;
 using Beutl.Api.Services;
 using Beutl.Services.PrimitiveImpls;
+using Beutl.Services.StartupTasks;
 using Beutl.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -9,6 +11,9 @@ namespace Beutl.Services;
 
 public sealed class CommandPaletteService
 {
+    private static readonly Lazy<Dictionary<(Type ExtensionType, string CommandId), PaletteSearchText>> s_englishCommands =
+        new(() => ReadEnglish(BuildEnglishCommandLookup));
+
     private readonly ContextCommandManager _commandManager;
     private readonly ICommandPaletteHandlerProvider _handlerProvider;
     private readonly Func<MenuBarViewModel?> _menuBarAccessor;
@@ -65,6 +70,7 @@ public sealed class CommandPaletteService
                 ? entry.Definition.Id
                 : entry.Definition.DisplayName!;
             string category = ResolveCategoryName(entry.ExtensionType);
+            PaletteSearchText englishSearchText = s_englishCommands.Value.GetValueOrDefault((entry.ExtensionType, commandId));
             KeyGesture? gesture = ContextCommandManager.CurrentGestures(entry).FirstOrDefault();
 
             if (entry.Definition.Scope == ContextCommandScope.Extension)
@@ -103,6 +109,7 @@ public sealed class CommandPaletteService
                     CanExecute: () => CanExecuteExtension(id, extensionDefinition, editorContext),
                     ExecuteAsync: interaction => ExecuteExtensionAsync(id, extensionDefinition, editorContext, interaction))
                 {
+                    EnglishSearchText = englishSearchText,
                     StateChanged = extensionStateChanged
                 });
                 continue;
@@ -135,7 +142,10 @@ public sealed class CommandPaletteService
                         CategoryName: string.Format(Strings.CommandPalette_OpensToolTab, category),
                         KeyGesture: gesture,
                         CanExecute: () => IsActiveEditor(activeEditor),
-                        ExecuteAsync: interaction => ExecuteClosedToolAsync(id, definition, activeEditor, interaction)));
+                        ExecuteAsync: interaction => ExecuteClosedToolAsync(id, definition, activeEditor, interaction))
+                    {
+                        EnglishSearchText = englishSearchText
+                    });
                 }
 
                 continue;
@@ -154,6 +164,7 @@ public sealed class CommandPaletteService
                 ExecuteAsync: interaction => Guard(owner, () =>
                     RunIfEnabledAsync(definition, context, CreateExecution(commandId, activeContext, interaction))))
             {
+                EnglishSearchText = englishSearchText,
                 StateChanged = stateChanged
             });
         }
@@ -161,6 +172,44 @@ public sealed class CommandPaletteService
         AppendMenuCommands(result);
 
         return result;
+    }
+
+    private static Dictionary<(Type ExtensionType, string CommandId), PaletteSearchText> BuildEnglishCommandLookup()
+    {
+        // Built-in catalogs read their labels when enumerated, so cache their English text once.
+        var texts = new Dictionary<(Type, string), PaletteSearchText>();
+        foreach (Extension extension in LoadPrimitiveExtensionTask.PrimitiveExtensions)
+        {
+            IEnumerable<ContextCommandDefinition> definitions = extension switch
+            {
+                ViewExtension view => view.ContextCommands,
+                ToolWindowExtension toolWindow => toolWindow.ContextCommands,
+                _ => []
+            };
+
+            foreach (ContextCommandDefinition definition in definitions)
+            {
+                texts[(extension.GetType(), definition.Id)] = new PaletteSearchText(
+                    definition.DisplayName, definition.Description, extension.DisplayName);
+            }
+        }
+
+        return texts;
+    }
+
+    private static T ReadEnglish<T>(Func<T> read)
+    {
+        CultureInfo previousCulture = CultureInfo.CurrentUICulture;
+        try
+        {
+            // Beutl's neutral resources are in English.
+            CultureInfo.CurrentUICulture = CultureInfo.InvariantCulture;
+            return read();
+        }
+        finally
+        {
+            CultureInfo.CurrentUICulture = previousCulture;
+        }
     }
 
     private static ExtensionDescriptor? FindDescriptor(IReadOnlyList<ExtensionDescriptor> descriptors, Type extensionType)
@@ -317,6 +366,13 @@ public sealed class CommandPaletteService
         }
 
         string category = Strings.CommandPalette_MenuCategory;
+        Dictionary<string, PaletteSearchText> englishCommands = ReadEnglish(() =>
+        {
+            string englishCategory = Strings.CommandPalette_MenuCategory;
+            return menuBar.EnumeratePaletteCommands().ToDictionary(
+                command => command.Id,
+                command => new PaletteSearchText(command.DisplayName, null, englishCategory));
+        });
 
         foreach (MenuBarViewModel.PaletteMenuCommand menuCommand in menuBar.EnumeratePaletteCommands())
         {
@@ -328,7 +384,10 @@ public sealed class CommandPaletteService
                 CategoryName: category,
                 KeyGesture: null,
                 CanExecute: () => command.CanExecute(null),
-                ExecuteAsync: _ => MenuBarViewModel.ExecuteCommandAsync(command)));
+                ExecuteAsync: _ => MenuBarViewModel.ExecuteCommandAsync(command))
+            {
+                EnglishSearchText = englishCommands.GetValueOrDefault(menuCommand.Id)
+            });
         }
     }
 }
