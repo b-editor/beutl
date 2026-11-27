@@ -36,11 +36,15 @@ UNIT_FILTERS = partition([
 ])
 # A prefix matching AssemblySetUp selects its entire subtree in NUnit. Matching
 # test fixture names keeps that namespace-wide SetUpFixture out of the partition.
+# The ranges follow the measured test time, not the number of letters: P alone
+# holds a quarter of the UI suite, so it is split, and S joins the shorter D-I
+# range. The totals in each range stay within about a minute of each other.
 UI_FILTERS = partition([
-    ("ui-a-d", [f"Beutl.HeadlessUITests.{letter}" for letter in "ABCD"]),
-    ("ui-e-i", [f"Beutl.HeadlessUITests.{letter}" for letter in "EFGHI"]),
-    ("ui-j-m", [f"Beutl.HeadlessUITests.{letter}" for letter in "JKLM"]),
-    ("ui-n-r", [f"Beutl.HeadlessUITests.{letter}" for letter in "NOPQR"]),
+    ("ui-a-c", [f"Beutl.HeadlessUITests.{letter}" for letter in "ABC"]),
+    ("ui-d-i-s", [f"Beutl.HeadlessUITests.{letter}" for letter in "DEFGHIS"]),
+    ("ui-j-pe", [f"Beutl.HeadlessUITests.{letter}" for letter in "JKLMNO"]
+                + [f"Beutl.HeadlessUITests.P{letter}" for letter in "abcde"]),
+    ("ui-pf-r", [f"Beutl.HeadlessUITests.{letter}" for letter in "PQR"]),
     ("ui-other", []),
 ], suffix=".*Tests$")
 FILTERS = UNIT_FILTERS | UI_FILTERS

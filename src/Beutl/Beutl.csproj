@@ -3,7 +3,7 @@
   <PropertyGroup>
     <BeutlHostLibrary>true</BeutlHostLibrary>
     <TargetFramework></TargetFramework><!-- empty so the TFMs below cross-target -->
-    <TargetFrameworks>net11.0;net11.0-windows</TargetFrameworks>
+    <TargetFrameworks>$(BeutlDesktopTargetFrameworks)</TargetFrameworks>
     <OutputType>WinExe</OutputType>
     <DesktopExeRids>true</DesktopExeRids>
     <FFmpegBuildIn Condition="'$(FFmpegBuildIn)' == ''">True</FFmpegBuildIn>

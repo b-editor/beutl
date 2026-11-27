@@ -153,8 +153,10 @@ class CiTestsTests(unittest.TestCase):
             name = f"Beutl.HeadlessUITests.{initial}Fixture.Test"
             with self.subTest(name=name):
                 self.assertEqual(sum(matches(filter_, name) for filter_ in ci_tests.UI_FILTERS.values()), 1)
-        name = "Beutl.HeadlessUITests.PlayerTests"
-        self.assertEqual(sum(matches(filter_, name) for filter_ in ci_tests.UI_FILTERS.values()), 1)
+        # P spans two shards, split after its second letter.
+        for name in ["Beutl.HeadlessUITests.PackageTests", "Beutl.HeadlessUITests.PlayerTests"]:
+            with self.subTest(name=name):
+                self.assertEqual(sum(matches(filter_, name) for filter_ in ci_tests.UI_FILTERS.values()), 1)
         for suite in ci_tests.UI_FILTERS.keys() - {"ui-other"}:
             self.assertFalse(matches(ci_tests.UI_FILTERS[suite], "Beutl.HeadlessUITests.AssemblySetUp"))
 

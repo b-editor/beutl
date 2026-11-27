@@ -86,8 +86,11 @@ jobs:
         id: build-cache
         uses: actions/cache/restore@v6.1.0
         with:
+          # The Node bridge's Outputs check reads dist/bridge.mjs, so keeping it in
+          # the cache skips pnpm install and esbuild while its sources stay unchanged.
           path: |
             **/obj
+            src/Beutl.Agents.NodeBridge/dist
           key: dotnet-obj-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.dotnet-sdk.outputs.version }}-${{ hashFiles('global.json') }}-${{ github.sha }}
           restore-keys: |
             dotnet-obj-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.dotnet-sdk.outputs.version }}-${{ hashFiles('global.json') }}-
@@ -136,8 +139,10 @@ jobs:
             done < <(git diff --name-only -z --diff-filter=ACMRTUXB "$CACHED_SHA" HEAD --)
           fi
 
+      # The shards run the Linux binaries only. windows-publish still compiles the
+      # Windows target, so the test build does not need it too.
       - name: Restore dependencies
-        run: dotnet restore Beutl.slnx
+        run: dotnet restore Beutl.slnx -p:BeutlWindowsTargets=false
 
       - name: Check third-party notices for shipped packages
         run: python3 build/check_third_party_notices.py
@@ -149,14 +154,17 @@ jobs:
           package-manager-cache: false
 
       - name: Build
-        run: dotnet build Beutl.slnx --no-restore
+        run: dotnet build Beutl.slnx --no-restore -p:BeutlWindowsTargets=false
 
       - name: Save .NET build cache
         if: steps.build-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v6.1.0
         with:
+          # The Node bridge's Outputs check reads dist/bridge.mjs, so keeping it in
+          # the cache skips pnpm install and esbuild while its sources stay unchanged.
           path: |
             **/obj
+            src/Beutl.Agents.NodeBridge/dist
           key: dotnet-obj-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.dotnet-sdk.outputs.version }}-${{ hashFiles('global.json') }}-${{ github.sha }}
 
       - name: Save NuGet cache
@@ -223,7 +231,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        suite: [unit-particles, unit-golden, unit-rendering, unit-audio, unit-engine, unit-git, unit-other, ui-a-d, ui-e-i, ui-j-m, ui-n-r, ui-other, graphics3d, other]
+        suite: [unit-particles, unit-golden, unit-rendering, unit-audio, unit-engine, unit-git, unit-other, ui-a-c, ui-d-i-s, ui-j-pe, ui-pf-r, ui-other, graphics3d, other]
         validation: [false]
         # Every unit and Graphics3D test still runs both normally and under Vulkan
         # validation. Namespace partitions are exhaustive, including untagged GPU
@@ -357,42 +365,45 @@ jobs:
           echo "$JOB_RESULTS" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
           echo "$JOB_RESULTS" | jq -e 'length > 0 and all(.[]; .result == "success")'
 
+      # Publish coverage for PRs and main, not the queue's temporary merge commits.
       - name: Checkout
+        if: github.event_name != 'merge_group'
         uses: actions/checkout@v7.0.1
         with:
           persist-credentials: false
 
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v6.1.0
-        with:
-          dotnet-version: ${{ needs.compile.outputs.dotnet-version }}
-
       - name: Download coverage reports
+        if: github.event_name != 'merge_group'
         uses: actions/download-artifact@v8.0.2
         with:
           pattern: Coverage-*
           path: coverage-shards
 
-      - name: Merge coverage reports
+      - name: Resolve WebView2 coverage paths
+        if: github.event_name != 'merge_group'
         run: |
-          # Resolve the WebView2 shard's Windows source directories against this checkout before merging hits.
+          # Match the Windows shard's source directories to this Linux checkout.
           find coverage-shards/Coverage-webview2 -name coverage.cobertura.xml -exec \
             sed -i -E "s#<source>[A-Za-z]:/[^<]*/src/#<source>$GITHUB_WORKSPACE/src/#g" {} +
-          dotnet tool install -g dotnet-reportgenerator-globaltool
-          reportgenerator -reports:"coverage-shards/**/coverage.cobertura.xml" -targetdir:coveragereport -reporttypes:Cobertura
 
-      - name: Save merged coverage
-        uses: actions/upload-artifact@v7.0.2
-        with:
-          name: Coverage
-          path: coveragereport
+      - name: List coverage reports
+        id: coverage-reports
+        if: github.event_name != 'merge_group'
+        run: |
+          files=$(find coverage-shards -name coverage.cobertura.xml | sort | paste -sd, -)
+          if [ -z "$files" ]; then
+            echo "::error::No coverage reports were downloaded."
+            exit 1
+          fi
+          echo "files=$files" >> "$GITHUB_OUTPUT"
 
+      # Codecov merges the shard reports server-side. ReportGenerator's local merge
+      # spent about a minute on every run and produced the same coverage.
       - name: Upload coverage to Codecov
-        # Publish coverage for PRs and main, not the queue's temporary merge commits.
         if: github.event_name != 'merge_group'
         uses: codecov/codecov-action@v7.1.1
         with:
-          files: ./coveragereport/Cobertura.xml
+          files: ${{ steps.coverage-reports.outputs.files }}
           disable_search: true
           fail_ci_if_error: true
           use_oidc: true
