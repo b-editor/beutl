@@ -6,6 +6,7 @@ using Beutl.Editor.Services;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Shapes;
+using Beutl.Graphics.Transitions;
 using Beutl.Language;
 using Beutl.Media;
 using Beutl.ProjectSystem;
@@ -177,6 +178,51 @@ public sealed partial class ProjectWorkflowToolsTests
         HistoryStateResponse undo = Success(await Call<HistoryStateResponse>(server.Client, "undo"));
         Assert.That(undo.Applied.Single().Name, Is.EqualTo(CommandNames.ApplyTemplate));
         Assert.That(target.Objects, Is.EqualTo(existing));
+        Assert.That(session.History.UndoCount, Is.Zero);
+    }
+
+    [TestCase(nameof(Element.EnterTransition))]
+    [TestCase(nameof(Element.ExitTransition))]
+    public async Task Object_template_applies_to_an_unset_clip_transition_in_one_undo_step(string propertyName)
+    {
+        await using InProcessAgentToolkitServer server = await InProcessAgentToolkitServer.StartAsync(TestWorkspace.CreateDirectory());
+        FileEditingSession session = await CreateProjectAsync(server);
+        Element source = TestWorkspace.AddElement(session.Scene, MediaTime.Zero, MediaTime.FromSeconds(1), "source.belm");
+        Element target = TestWorkspace.AddElement(session.Scene, MediaTime.FromSeconds(2), MediaTime.FromSeconds(1), "target.belm");
+        var transition = new CrossDissolveTransition { Duration = { Value = MediaTime.FromSeconds(0.4) } };
+        source.AddObject(new RectShape());
+        source.EnterTransition.Value = transition;
+        target.AddObject(new RectShape());
+        session.History.Commit("Seed clips");
+        session.History.Clear();
+
+        ReadDocumentResponse read = Success(await Call<ReadDocumentResponse>(server.Client, "read_document",
+            ("rootId", target.Id.Value.ToString())));
+        Assert.That(read.Document.ContainsKey(propertyName), Is.False);
+        ObjectTemplateSummary saved = Success(await Call<ObjectTemplateSummary>(server.Client, "save_object_template",
+            ("objectId", transition.Id.Value.ToString()), ("name", "Cross dissolve")));
+        ToolResult<ApplyObjectTemplateResponse> unknown = await Call<ApplyObjectTemplateResponse>(server.Client, "apply_object_template",
+            ("templateId", saved.TemplateId), ("objectId", target.Id.Value.ToString()), ("propertyName", "UnknownTransition"));
+        Assert.That(unknown.Error?.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+        Assert.That(unknown.Error?.Target, Is.EqualTo("propertyName"));
+        Assert.That(session.History.UndoCount, Is.Zero);
+
+        ApplyObjectTemplateResponse applied = Success(await Call<ApplyObjectTemplateResponse>(server.Client, "apply_object_template",
+            ("templateId", saved.TemplateId), ("objectId", target.Id.Value.ToString()), ("propertyName", propertyName)));
+        IProperty<ClipTransition?> property = propertyName == nameof(Element.EnterTransition) ? target.EnterTransition : target.ExitTransition;
+        Assert.That(property.Value, Is.TypeOf<CrossDissolveTransition>());
+        ClipTransition inserted = property.Value!;
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied.ObjectId, Is.EqualTo(inserted.Id.Value.ToString()));
+            Assert.That(inserted.Id.Value, Is.Not.EqualTo(transition.Id.Value));
+            Assert.That(inserted.Duration.Value, Is.EqualTo(transition.Duration.Value));
+            Assert.That(session.History.UndoCount, Is.EqualTo(1));
+        });
+
+        HistoryStateResponse undo = Success(await Call<HistoryStateResponse>(server.Client, "undo"));
+        Assert.That(undo.Applied.Single().Name, Is.EqualTo(CommandNames.ApplyTemplate));
+        Assert.That(property.Value, Is.Null);
         Assert.That(session.History.UndoCount, Is.Zero);
     }
 

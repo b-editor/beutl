@@ -140,8 +140,11 @@ public sealed partial class ElementTemplateTools
         IProperty? property = owner is Scene scene && propertyName == "Elements"
             ? scene.Children
             : owner.Properties.FirstOrDefault(property => property.Name == propertyName);
+        // Element writes its own non-auto-serialized properties and omits unset values.
         if (property is not null && owner is not IFallback && property is not IExpressionProperty { IsReference: true }
-            && (CoreObject.IsAutoSerialized(property) || ownerJson.ContainsKey(propertyName)))
+            && (CoreObject.IsAutoSerialized(property) || ownerJson.ContainsKey(propertyName)
+                || (owner is Element element
+                    && ReferenceEquals(typeof(Element).GetProperty(propertyName)?.GetValue(element), property))))
         {
             if (index is { } position && property is IListProperty list && ownerJson[propertyName] is JsonArray items)
             {
