@@ -3961,6 +3961,24 @@ GetProperty&lt;T&gt;("path", time) 或 GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="TogglePreviewCheckerboard_Description" xml:space="preserve">
     <value>在预览中将透明部分显示在棋盘格上，而不是黑色上。</value>
   </data>
+  <data name="CompareFilterEffect" xml:space="preserve">
+    <value>比较滤镜效果</value>
+  </data>
+  <data name="CompareFilterEffect_Description" xml:space="preserve">
+    <value>比较当前帧应用和未应用指定滤镜效果时的画面。</value>
+  </data>
+  <data name="ChooseFilterEffectToCompare" xml:space="preserve">
+    <value>在属性编辑器中选择要比较的滤镜效果。</value>
+  </data>
+  <data name="EffectComparisonBefore" xml:space="preserve">
+    <value>应用前：{0}</value>
+  </data>
+  <data name="EffectComparisonAfter" xml:space="preserve">
+    <value>应用后</value>
+  </data>
+  <data name="EffectComparisonDivider" xml:space="preserve">
+    <value>效果比较分隔线</value>
+  </data>
   <data name="PreviewZoom" xml:space="preserve">
     <value>预览缩放</value>
   </data>

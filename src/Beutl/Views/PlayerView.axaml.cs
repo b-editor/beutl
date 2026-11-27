@@ -97,6 +97,7 @@ public partial class PlayerView : UserControl
         ShowShortcutInToolTip(guidesToggle, "editor.togglePreviewGuides");
         ShowShortcutInToolTip(onionSkinToggle, "editor.toggleOnionSkin");
         ShowShortcutInToolTip(checkerboardToggle, "editor.togglePreviewCheckerboard");
+        ShowShortcutInToolTip(effectComparisonToggle, SceneEditorExtension.CompareFilterEffectCommandId);
     }
 
     private void ConfigurePreviewToolButton(RadioButton button, PreviewTool tool, string commandId)
@@ -309,6 +310,7 @@ public partial class PlayerView : UserControl
         puppetPlacementHint.IsVisible = false;
 
         InvalidateTransformHandleResource();
+        SubscribeEffectComparison(DataContext as PlayerViewModel);
 
         if (DataContext is PlayerViewModel vm)
         {

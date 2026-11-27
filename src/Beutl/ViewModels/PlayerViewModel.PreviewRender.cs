@@ -23,7 +23,8 @@ public partial class PlayerViewModel
 
     // Both displayed images retain their own reference; the caller still owns the supplied frames.
     private void UpdateImage(Ref<Bitmap> source, Ref<Bitmap>? cleanSource, MediaTime time, long playbackId = 0,
-        IEditingStageProvider? editingStage = null, GraphEditingFrame? graphEditingFrame = null)
+        IEditingStageProvider? editingStage = null, GraphEditingFrame? graphEditingFrame = null,
+        EffectComparisonFrame? comparison = null)
     {
         lock (_cleanPreviewLock)
         {
@@ -33,6 +34,8 @@ public partial class PlayerViewModel
         }
 
         _graphEditingFrame = graphEditingFrame;
+        if (comparison is not null)
+            UpdateEffectComparisonImage(source, comparison);
         ReplaceImage(PreviewImage, source);
         ShownEditingStage.Value = editingStage;
 
@@ -192,12 +195,13 @@ public partial class PlayerViewModel
         int onionNextCount = editorConfig.OnionSkinNextCount.Value;
         float onionPrevOpacity = editorConfig.OnionSkinPrevOpacity.Value;
         float onionNextOpacity = editorConfig.OnionSkinNextOpacity.Value;
-        IEditingStageProvider? stage = IsPlaybackActive ? null : _editingStageEffect.Value;
+        EffectComparisonTarget? comparison = ComparisonTarget;
+        IEditingStageProvider? stage = IsPlaybackActive || comparison is not null ? null : _editingStageEffect.Value;
         IReadOnlySet<EngineObject>? disabledEffects = GetEditingStageDisabledEffects(stage);
         RenderThread.Dispatcher.Dispatch(
             () => RenderPreviewFrame(
                 token, onionEnabled, onionPrevCount, onionNextCount, onionPrevOpacity, onionNextOpacity,
-                stage, disabledEffects),
+                stage, disabledEffects, comparison),
             ct: token);
     }
 
@@ -210,7 +214,8 @@ public partial class PlayerViewModel
         float onionPrevOpacity,
         float onionNextOpacity,
         IEditingStageProvider? stage,
-        IReadOnlySet<EngineObject>? disabledEffects)
+        IReadOnlySet<EngineObject>? disabledEffects,
+        EffectComparisonTarget? comparison)
     {
         int frame = 0;
         bool useOnionSkin = false;
@@ -260,20 +265,25 @@ public partial class PlayerViewModel
                 }
             }
 
+            // Draw the bypass first so the normal side leaves its geometry and effect state in the renderer.
+            using EffectComparisonFrame? comparisonFrame = comparison is null ? null : RenderComparisonBefore(renderer, time, comparison);
             using Ref<Bitmap> bitmapRef = GetPreviewFrame(renderer, cacheManager, time, frame, disabledEffects, stage as FilterEffect,
-                useCache: !useOnionSkin && disabledEffects is null, out GraphEditingFrame? graphEditingFrame, out string? warning);
+                useCache: !useOnionSkin && disabledEffects is null && comparison is null,
+                out GraphEditingFrame? graphEditingFrame, out string? warning);
             Bitmap bitmap = bitmapRef.Value;
             using Ref<Bitmap>? cleanFrame = CopyCleanFrame(renderer, bitmap);
             if (useOnionSkin)
             {
                 using var canvas = new SKCanvas(bitmap.SKBitmap);
-                DrawOnionSkin(renderer, canvas, time, frame, onionSamples, disabledEffects, token);
+                using var beforeCanvas = comparisonFrame is null ? null : new SKCanvas(comparisonFrame.Before.Value.SKBitmap);
+                DrawOnionSkin(renderer, canvas, beforeCanvas, time, frame, onionSamples, disabledEffects, token);
             }
 
-            if (token.IsCancellationRequested)
+            if (token.IsCancellationRequested || comparisonFrame is not null && ComparisonRenderWasSuperseded(token))
                 return;
 
-            UpdateImage(bitmapRef, cleanFrame, time, editingStage: disabledEffects is null ? null : stage, graphEditingFrame: graphEditingFrame);
+            UpdateImage(bitmapRef, cleanFrame, time, editingStage: disabledEffects is null ? null : stage,
+                graphEditingFrame: graphEditingFrame, comparison: comparisonFrame);
 
             // Dispose と並走した場合に AfterRendered が破棄されている可能性があるためトークンを確認する
             if (!token.IsCancellationRequested)
@@ -320,6 +330,13 @@ public partial class PlayerViewModel
         }
     }
 
+    private bool ComparisonRenderWasSuperseded(CancellationToken token)
+    {
+        // A scene edit arriving between the two draws queues another render. Publish that pair instead.
+        lock (_renderRequestLock)
+            return _cts?.Token != token || _previewEditPending;
+    }
+
     private static Ref<Bitmap> GetPreviewFrame(
         SceneRenderer renderer, FrameCacheManager cacheManager, MediaTime time, int frame,
         IReadOnlySet<EngineObject>? disabledEffects, FilterEffect? stage, bool useCache,
@@ -346,7 +363,7 @@ public partial class PlayerViewModel
         if (placement is not null)
             graphEditingFrame = new GraphEditingFrame(stage!, time, placement.GetTransform());
         using var bitmap = Ref<Bitmap>.Create(renderer.Snapshot());
-        // Onion skin and an editing stage bypass the normal frame cache.
+        // Onion skin, comparison and an editing stage bypass the normal frame cache.
         if (useCache && cacheManager.IsEnabled)
         {
             cacheManager.Add(frame, bitmap, warning);
@@ -358,6 +375,7 @@ public partial class PlayerViewModel
     private void DrawOnionSkin(
         SceneRenderer renderer,
         SKCanvas canvas,
+        SKCanvas? comparisonCanvas,
         MediaTime time,
         int frame,
         IReadOnlyList<OnionSkinSample> onionSamples,
@@ -389,6 +407,7 @@ public partial class PlayerViewModel
 
                 // This CPU canvas blends synchronously, so the next sample can reuse the scratch.
                 canvas.DrawBitmap(onionScratch.SKBitmap, 0, 0, SKSamplingOptions.Default, paint);
+                comparisonCanvas?.DrawBitmap(onionScratch.SKBitmap, 0, 0, SKSamplingOptions.Default, paint);
             }
 
             // Selection bounds and subsequent queries must use the current frame's geometry.

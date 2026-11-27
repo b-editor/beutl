@@ -14,12 +14,14 @@ namespace Beutl.Models;
 internal sealed class BufferedPlayer : IDisposable
 {
     public record struct Frame(
-        Ref<Bitmap> Bitmap, int Time, Ref<Bitmap>? CleanBitmap = null, string? PreviewWarning = null) : IDisposable
+        Ref<Bitmap> Bitmap, int Time, Ref<Bitmap>? CleanBitmap = null, string? PreviewWarning = null,
+        PlayerViewModel.EffectComparisonFrame? Comparison = null) : IDisposable
     {
         public void Dispose()
         {
             Bitmap.Dispose();
             CleanBitmap?.Dispose();
+            Comparison?.Dispose();
         }
     }
 
@@ -96,7 +98,8 @@ internal sealed class BufferedPlayer : IDisposable
         });
         _scene = editViewModel.Scene;
         _scene.Edited += OnSceneEdited;
-        _editViewModel.Player.CleanPreviewChanged += OnCleanPreviewChanged;
+        _editViewModel.Player.CleanPreviewChanged += OnPreviewFrameRequirementsChanged;
+        _editViewModel.Player.EffectComparisonTargetChanged += OnPreviewFrameRequirementsChanged;
     }
 
     // The caller computes the range once, from the playhead it starts the ticker and the audio from.
@@ -277,7 +280,7 @@ internal sealed class BufferedPlayer : IDisposable
             frame.Dispose();
     }
 
-    private void OnCleanPreviewChanged(object? sender, EventArgs e)
+    private void OnPreviewFrameRequirementsChanged(object? sender, EventArgs e)
         => InvalidateQueuedFrames([(int.MinValue, int.MaxValue)], invalidateCache: false);
 
     // Drops the queued frames from the first one an edit changes, and their cache, so it shows on the next frame.
@@ -328,9 +331,8 @@ internal sealed class BufferedPlayer : IDisposable
     private IEnumerable<TimeRange> WithTransitionRegions(ImmutableArray<TimeRange> ranges)
         => ranges.Concat(ElementTransitions.GetRegionsNear(_scene, ranges));
 
-    // A queued frame holds one snapshot, and a second only when its clean image is drawn apart: a frame with a 3D
-    // scene draws it again without gizmos, while any other frame lends its pixels. The next frame may need two
-    // while the clean preview is on, so room for both is kept.
+    // Count the comparison's second snapshot and any clean image drawn apart from the main one. Leave room for
+    // the next frame, which may need both extra snapshots.
     private bool IsQueueFull(SceneRenderer renderer)
     {
         lock (_queue)
@@ -341,8 +343,14 @@ internal sealed class BufferedPlayer : IDisposable
                 return false;
 
             int snapshots = _editViewModel.Player.IsCleanPreviewEnabled ? 2 : 1;
+            if (_editViewModel.Player.ComparisonTarget is not null)
+                snapshots++;
             foreach (Frame frame in _queue)
+            {
                 snapshots += frame.CleanBitmap is { } clean && !ReferenceEquals(clean.Value, frame.Bitmap.Value) ? 2 : 1;
+                if (frame.Comparison is not null)
+                    snapshots++;
+            }
 
             return snapshots * ReadAheadBudget.SnapshotBytes(renderer.DeviceSize) > ReadAheadBytes;
         }
@@ -353,6 +361,9 @@ internal sealed class BufferedPlayer : IDisposable
     private EnqueueResult TryEnqueueFrame(
         SceneRenderer renderer, FrameCacheManager cacheManager, int frame, MediaTime time, int editVersion)
     {
+        if (_editViewModel.Player.ComparisonTarget is { } comparison)
+            return TryEnqueueComparisonFrame(renderer, frame, time, comparison, editVersion);
+
         // cacheは参照を既に追加されている
         if (cacheManager.TryGet(frame, out Ref<Bitmap>? cache, out string? warning))
         {
@@ -391,12 +402,31 @@ internal sealed class BufferedPlayer : IDisposable
         }
     }
 
+    private EnqueueResult TryEnqueueComparisonFrame(
+        SceneRenderer renderer, int frame, MediaTime time, PlayerViewModel.EffectComparisonTarget target, int editVersion)
+    {
+        // Neither side enters the frame cache. Keep both snapshots at the same resolution and time.
+        using var comparison = PlayerViewModel.RenderComparisonBefore(renderer, time, target);
+        if (IsCanceled)
+            return EnqueueResult.Canceled;
+
+        string? warning = renderer.RenderWithWarning(renderer.Compositor.EvaluateGraphics(time));
+        if (IsCanceled)
+            return EnqueueResult.Canceled;
+
+        using var bitmap = Ref<Bitmap>.Create(renderer.Snapshot());
+        using var clean = _editViewModel.Player.CreatePlaybackCleanFrame(renderer, bitmap);
+        return TryQueue(new(bitmap.Clone(), frame, clean?.Clone(), warning, new(target, comparison.Before.Clone())), editVersion);
+    }
+
     // Takes the bitmap. A frame after the first one an edit dropped would come out of order, so it is drawn again.
-    private EnqueueResult TryQueue(Frame frame)
+    private EnqueueResult TryQueue(Frame frame, int? comparisonEditVersion = null)
     {
         lock (_queue)
         {
-            if (!_restartFrame.HasValue)
+            // A pair drawn across an edit can otherwise compare two different versions of the same scene.
+            if (!_restartFrame.HasValue && (comparisonEditVersion is null || comparisonEditVersion == _editVersion)
+                && ReferenceEquals(frame.Comparison?.Target, _editViewModel.Player.ComparisonTarget))
             {
                 _queue.Enqueue(frame);
                 return EnqueueResult.Queued;
@@ -456,7 +486,8 @@ internal sealed class BufferedPlayer : IDisposable
 
             _isDisposed = true;
             _scene.Edited -= OnSceneEdited;
-            _editViewModel.Player.CleanPreviewChanged -= OnCleanPreviewChanged;
+            _editViewModel.Player.CleanPreviewChanged -= OnPreviewFrameRequirementsChanged;
+            _editViewModel.Player.EffectComparisonTargetChanged -= OnPreviewFrameRequirementsChanged;
             _waitRenderGate.Cancel();
             // A parked producer runs once more to see the disposal and stop.
             Wake();

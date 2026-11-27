@@ -231,6 +231,7 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
         PathEditor = new PathEditorViewModel(_editViewModel, this)
             .DisposeWith(_disposables);
         InitializeEditingStage();
+        InitializeEffectComparison();
         InitializePuppetPinEditor();
 
         IsCameraMode.Subscribe(isCameraMode =>
@@ -899,6 +900,7 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
         // never disposed under the request holding its token. Pause then drains the compose and render
         // dispatchers, so the render thread cannot call OnNext on the subjects disposed below.
         renderCts?.Cancel();
+        EndEffectComparison();
         StopPuppetPinPlacement();
         SetSelectedPuppetPin(null);
         Disposing?.Invoke(this, EventArgs.Empty);
