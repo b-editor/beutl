@@ -363,6 +363,8 @@ internal static class LibraryRegistrar
                     KnownLibraryGroupIds.AudioEffectDynamics, group => group
                     .AddAudioEffect<CompressorEffect>(AudioStrings.CompressorEffect,
                         AudioStrings.CompressorEffect_LibraryDescription)
+                    .AddAudioEffect<DuckingEffect>(AudioStrings.DuckingEffect,
+                        AudioStrings.DuckingEffect_LibraryDescription)
                     .AddAudioEffect<LimiterEffect>(AudioStrings.LimiterEffect,
                         AudioStrings.LimiterEffect_LibraryDescription)
                     .AddAudioEffect<GateEffect>(AudioStrings.GateEffect, AudioStrings.GateEffect_LibraryDescription)

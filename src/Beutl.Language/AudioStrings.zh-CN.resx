@@ -368,4 +368,46 @@
   <data name="AudioEffectCategory_DelayAndModulation" xml:space="preserve">
     <value>延迟与调制</value>
   </data>
+  <data name="DuckingEffect" xml:space="preserve">
+    <value>闪避</value>
+  </data>
+  <data name="DuckingEffect_LibraryDescription" xml:space="preserve">
+    <value>选中图层的音频超过阈值时，降低此声音的音量。</value>
+  </data>
+  <data name="DuckingEffect_SourceLayers" xml:space="preserve">
+    <value>源图层</value>
+  </data>
+  <data name="DuckingEffect_SourceLayers_Description" xml:space="preserve">
+    <value>选择用于触发此声音音量降低的图层。</value>
+  </data>
+  <data name="DuckingEffect_Threshold" xml:space="preserve">
+    <value>阈值 (dBFS)</value>
+  </data>
+  <data name="DuckingEffect_Threshold_Description" xml:space="preserve">
+    <value>选中的图层中音量最大的图层超过此电平时，开始降低音量。</value>
+  </data>
+  <data name="DuckingEffect_Reduction" xml:space="preserve">
+    <value>衰减量 (dB)</value>
+  </data>
+  <data name="DuckingEffect_Reduction_Description" xml:space="preserve">
+    <value>闪避生效时，此声音的音量降低量。</value>
+  </data>
+  <data name="DuckingEffect_Attack" xml:space="preserve">
+    <value>起音时间 (ms)</value>
+  </data>
+  <data name="DuckingEffect_Attack_Description" xml:space="preserve">
+    <value>源图层超过阈值后，达到设定衰减量所需的时间。</value>
+  </data>
+  <data name="DuckingEffect_Release" xml:space="preserve">
+    <value>释放时间 (ms)</value>
+  </data>
+  <data name="DuckingEffect_Release_Description" xml:space="preserve">
+    <value>源图层变安静后，恢复原音量所需的时间。</value>
+  </data>
+  <data name="DuckingEffect_NoSourceLayers" xml:space="preserve">
+    <value>没有其他可选图层。</value>
+  </data>
+  <data name="DuckingEffect_LayerNumber" xml:space="preserve">
+    <value>图层 {0}</value>
+  </data>
 </root>

@@ -329,7 +329,10 @@ public sealed partial class SceneCompositor : ICompositor
             [.. allResources],
             timeRange,
             Scene.FrameSize.Value,
-            eligibility.Objects.WithChanges(activeObjects, eligibleObjects));
+            eligibility.Objects.WithChanges(activeObjects, eligibleObjects))
+        {
+            AudioLayerId = GetLayerSnapshot().GetLayerId
+        };
     }
 
     // Analyze a selected element through the same flow as playback, including its SoundGroups and

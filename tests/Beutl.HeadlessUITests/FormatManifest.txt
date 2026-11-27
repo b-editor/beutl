@@ -1682,6 +1682,9 @@ Beutl.Utilities
 [Beutl.ProjectSystem]:TimelineLayer
   unsealed
   keys: Color, Id, IsAudioMuted, IsLocked, IsSolo, IsVideoMuted, Name, ZIndex
+[Beutl.ProjectSystem]Beutl.Audio.Effects:DuckingEffect
+  sealed
+  keys: Animations, Attack, Expressions, Id, IsEnabled, Name, Reduction, Release, SourceLayers, Threshold
 
 ## Tool tabs
 # Every ToolTabExtension, by the $type a dock layout writes for it (tools[].extension in the view state of

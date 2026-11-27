@@ -1,6 +1,7 @@
 ﻿using System.Runtime.CompilerServices;
 using Beutl.Animation;
 using Beutl.Audio.Graph;
+using Beutl.Audio.Graph.Nodes;
 using Beutl.Composition;
 using Beutl.Media;
 
@@ -16,11 +17,13 @@ public partial class Composer : IComposer
     private readonly List<AudioNodeEntry> _previousEntry = new();
     private TimeRange? _previousRange;
     private CompositionEligibility? _lastEligibility;
+    private Func<int, Guid>? _audioLayerId;
 
     private sealed class AudioNodeEntry : IDisposable
     {
         public List<AudioNode> Nodes { get; set; } = new();
         public AudioNode[]? OutputNodes { get; set; }
+        public DuckingNode[] DuckingNodes { get; set; } = [];
         public bool IsDirty { get; set; } = true;
         public int Version { get; set; }
         public EventHandler? EditedHandler { get; set; }
@@ -82,6 +85,7 @@ public partial class Composer : IComposer
                     ?? throw new InvalidOperationException(
                         "Audio composition requires an eligibility snapshot.");
                 _lastEligibility = eligibility;
+                _audioLayerId = frame.AudioLayerId;
 
                 _currentEntry.Clear();
                 foreach (var resource in frame.Objects)
@@ -185,23 +189,12 @@ public partial class Composer : IComposer
                     return new AudioBuffer(SampleRate, ChannelLayout.ChannelCount, sampleCount);
                 }
 
-                foreach (var entry in entries)
-                {
-                    if (!CanFlushEntry(entry))
-                    {
-                        entry.TailBudgets.Clear();
-                        continue;
-                    }
-
-                    if (entry.OutputNodes is not { } outputNodes)
-                        continue;
-
-                    int latency = GetEntryLatency(entry, outputNodes, SampleRate);
-                    if (latency <= 0)
-                        continue;
-
-                    DrainEntryTails(entry, outputNodes, context, sampleCount, buffers);
-                }
+                var tails = GetFlushableEntries(entries);
+                if (_audioLayerId is { } layerId && entries.Exists(HasDucking))
+                    ProcessDucking(context, layerId, [], tails, buffers);
+                else
+                    foreach (var entry in tails)
+                        DrainEntryTails(entry, entry.OutputNodes!, context, sampleCount, buffers);
 
                 mixedBuffer = MixBuffers(buffers)
                     ?? new AudioBuffer(SampleRate, ChannelLayout.ChannelCount, AudioProcessContext.GetSampleCount(range, SampleRate));
@@ -239,25 +232,37 @@ public partial class Composer : IComposer
         }
     }
 
+    private IEnumerable<AudioNodeEntry> GetFlushableEntries(List<AudioNodeEntry> entries)
+    {
+        foreach (var entry in entries)
+        {
+            if (!CanFlushEntry(entry))
+                entry.TailBudgets.Clear();
+            else if (entry.OutputNodes is { } outputNodes && GetEntryLatency(entry, outputNodes, SampleRate) > 0)
+                yield return entry;
+        }
+    }
+
     private AudioBuffer? BuildFinalOutput(TimeRange range, CompositionEligibility eligibility)
     {
         var buffers = new List<AudioBuffer>();
         AudioBuffer? mixedBuffer = null;
         try
         {
-            foreach (var item in _currentEntry)
+            var context = new AudioProcessContext(range, SampleRate, _animationSampler, range);
+            var tails = GetEndedSoundTails(range, eligibility);
+            if (_audioLayerId is { } layerId && (_currentEntry.Exists(HasDucking) || _previousEntry.Exists(HasDucking)))
             {
-                if (item.OutputNodes is not { } outputNodes) continue;
-                var processContext = new AudioProcessContext(range, SampleRate, _animationSampler, range);
-                foreach (var outputNode in outputNodes)
-                {
-                    buffers.Add(outputNode.Process(processContext));
-                }
-
-                RecordInlineDrainBudget(item, outputNodes);
+                ProcessDucking(context, layerId, _currentEntry, tails, buffers);
             }
+            else
+            {
+                foreach (var entry in _currentEntry)
+                    ProcessEntry(entry, context, buffers);
 
-            AppendEndedSoundTails(range, eligibility, buffers);
+                foreach (var entry in tails)
+                    DrainEntryTails(entry, entry.OutputNodes!, context, context.GetSampleCount(), buffers);
+            }
 
             mixedBuffer = MixBuffers(buffers);
 
@@ -285,15 +290,21 @@ public partial class Composer : IComposer
         }
     }
 
-    // Drain residual latency tails into a window-length buffer with the tail at the front.
-    private void AppendEndedSoundTails(
-        TimeRange range,
-        CompositionEligibility eligibility,
-        List<AudioBuffer> buffers)
+    private void ProcessEntry(AudioNodeEntry entry, AudioProcessContext context, List<AudioBuffer> buffers)
+    {
+        if (entry.OutputNodes is not { } outputNodes) return;
+        foreach (var outputNode in outputNodes)
+            buffers.Add(outputNode.Process(context));
+
+        RecordInlineDrainBudget(entry, outputNodes);
+    }
+
+    // Residual latency tails are heard at the front of the next contiguous window.
+    private IEnumerable<AudioNodeEntry> GetEndedSoundTails(TimeRange range, CompositionEligibility eligibility)
     {
         // Flush only across contiguous windows; seeks and restarts invalidate cached tail timing.
         if (_previousRange is not { } previous || !IsContiguous(previous.End, range.Start))
-            return;
+            yield break;
 
         foreach (var entry in _previousEntry)
         {
@@ -314,9 +325,7 @@ public partial class Composer : IComposer
             if (GetEntryLatency(entry, outputNodes, SampleRate) <= 0)
                 continue;
 
-            var flushContext = new AudioProcessContext(range, SampleRate, _animationSampler, range);
-            int sampleCount = flushContext.GetSampleCount();
-            DrainEntryTails(entry, outputNodes, flushContext, sampleCount, buffers);
+            yield return entry;
         }
     }
 
@@ -397,6 +406,7 @@ public partial class Composer : IComposer
         _previousEntry.Clear();
         _previousRange = null;
         _lastEligibility = null;
+        _audioLayerId = null;
     }
 
     private AudioBuffer? MixBuffers(List<AudioBuffer> buffers)
@@ -504,6 +514,7 @@ public partial class Composer : IComposer
 
             entry.Nodes.Clear();
             entry.Nodes.AddRange(context.Nodes);
+            entry.DuckingNodes = [.. entry.Nodes.OfType<DuckingNode>()];
 
             entry.Version = resource.Version;
             entry.IsDirty = false;

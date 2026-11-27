@@ -369,4 +369,46 @@
   <data name="AudioEffectCategory_DelayAndModulation" xml:space="preserve">
     <value>Delay &amp; Modulation</value>
   </data>
+  <data name="DuckingEffect" xml:space="preserve">
+    <value>Ducking</value>
+  </data>
+  <data name="DuckingEffect_LibraryDescription" xml:space="preserve">
+    <value>Lowers this sound while audio from the selected layers is above the threshold.</value>
+  </data>
+  <data name="DuckingEffect_SourceLayers" xml:space="preserve">
+    <value>Source layers</value>
+  </data>
+  <data name="DuckingEffect_SourceLayers_Description" xml:space="preserve">
+    <value>Select the layers whose audio should lower this sound.</value>
+  </data>
+  <data name="DuckingEffect_Threshold" xml:space="preserve">
+    <value>Threshold (dBFS)</value>
+  </data>
+  <data name="DuckingEffect_Threshold_Description" xml:space="preserve">
+    <value>Ducking starts when the loudest selected layer exceeds this level.</value>
+  </data>
+  <data name="DuckingEffect_Reduction" xml:space="preserve">
+    <value>Reduction (dB)</value>
+  </data>
+  <data name="DuckingEffect_Reduction_Description" xml:space="preserve">
+    <value>How far to lower this sound when ducking is active.</value>
+  </data>
+  <data name="DuckingEffect_Attack" xml:space="preserve">
+    <value>Attack (ms)</value>
+  </data>
+  <data name="DuckingEffect_Attack_Description" xml:space="preserve">
+    <value>Time to reach full reduction after a source crosses the threshold.</value>
+  </data>
+  <data name="DuckingEffect_Release" xml:space="preserve">
+    <value>Release (ms)</value>
+  </data>
+  <data name="DuckingEffect_Release_Description" xml:space="preserve">
+    <value>Time to restore the original level after the sources go quiet.</value>
+  </data>
+  <data name="DuckingEffect_NoSourceLayers" xml:space="preserve">
+    <value>No other layers are available.</value>
+  </data>
+  <data name="DuckingEffect_LayerNumber" xml:space="preserve">
+    <value>Layer {0}</value>
+  </data>
 </root>

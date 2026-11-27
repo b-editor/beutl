@@ -111,6 +111,11 @@ internal static class BuiltInPropertyEditors
         Add<MeshWarpGrid>(registry, p => new MeshWarpGridEditorViewModel(p), () => new MeshWarpGridEditor());
         Add<ICoreList<GradientStop>>(registry, p => new GradientStopsEditorViewModel(p), () => new GradientStopsEditor());
         Add<ICoreList<PuppetPin>>(registry, p => new ListEditorViewModel<PuppetPin>(p), () => new PuppetPinsEditor());
+        Add(registry, typeof(ICoreList<Reference<TimelineLayer>>),
+            p => p.GetEngineProperty() is IListProperty<Reference<TimelineLayer>> sources && sources.GetOwnerObject() is DuckingEffect
+                ? new DuckingSourceLayersEditorViewModel(p, sources)
+                : null,
+            _ => new DuckingSourceLayersEditor());
         Add<DisplacementMapTransform?>(registry, p => new DisplacementMapTransformEditorViewModel(p), () => new DisplacementMapTransformEditor());
         Add(registry, typeof(IList), CreateListEditor, _ => new ListEditor());
         Add<GraphModel?>(registry, p => new GraphModelEditorViewModel(p), () => new GraphModelEditor());

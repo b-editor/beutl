@@ -1,4 +1,5 @@
-﻿using Beutl.Language;
+﻿using Beutl.Audio.Effects;
+using Beutl.Language;
 using Beutl.Media;
 using Beutl.ProjectSystem;
 
@@ -58,7 +59,7 @@ public sealed class LayerAttributeService : ILayerAttributeService
             if (layer.Name.Value == name) return false;
 
             layer.Name.Value = name;
-            if (IsEmptyLayerModel(layer))
+            if (CanPruneLayerModel(scene, layer))
             {
                 scene.Layers.Remove(layer);
             }
@@ -102,7 +103,7 @@ public sealed class LayerAttributeService : ILayerAttributeService
         }
 
         setter(layer, newValue);
-        if (!newValue && IsEmptyLayerModel(layer))
+        if (!newValue && CanPruneLayerModel(scene, layer))
         {
             scene.Layers.Remove(layer);
         }
@@ -111,14 +112,15 @@ public sealed class LayerAttributeService : ILayerAttributeService
         return true;
     }
 
-    // A model holding only defaults is indistinguishable from having no model,
-    // so prune it instead of letting toggled-off layers accumulate in the file.
+    // A model with only default attributes can still hold the identity of a Ducking source.
     // Alpha 0 covers both default(Color) (#00000000) and Colors.Transparent
     // (#00FFFFFF) — either renders as "no tint" in the layer header.
-    private static bool IsEmptyLayerModel(TimelineLayer layer)
+    private static bool CanPruneLayerModel(Scene scene, TimelineLayer layer)
         => layer is { IsLocked.Value: false, IsAudioMuted.Value: false, IsVideoMuted.Value: false, IsSolo.Value: false }
            && string.IsNullOrEmpty(layer.Name.Value)
-           && layer.Color.Value.A == 0;
+           && layer.Color.Value.A == 0
+           && !scene.EnumerateAllChildren<DuckingEffect>()
+               .Any(effect => effect.SourceLayers.Any(source => source.Id == layer.Id.Value));
 
     private static TimelineLayer? FindLayer(Scene scene, int zIndex)
     {

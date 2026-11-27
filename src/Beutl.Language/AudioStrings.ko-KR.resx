@@ -368,4 +368,46 @@
   <data name="AudioEffectCategory_DelayAndModulation" xml:space="preserve">
     <value>딜레이 및 변조</value>
   </data>
+  <data name="DuckingEffect" xml:space="preserve">
+    <value>더킹</value>
+  </data>
+  <data name="DuckingEffect_LibraryDescription" xml:space="preserve">
+    <value>선택한 레이어의 오디오가 임계값을 넘으면 이 소리의 음량을 낮춥니다.</value>
+  </data>
+  <data name="DuckingEffect_SourceLayers" xml:space="preserve">
+    <value>소스 레이어</value>
+  </data>
+  <data name="DuckingEffect_SourceLayers_Description" xml:space="preserve">
+    <value>이 소리의 음량을 낮추는 기준으로 사용할 레이어를 선택합니다.</value>
+  </data>
+  <data name="DuckingEffect_Threshold" xml:space="preserve">
+    <value>임계값 (dBFS)</value>
+  </data>
+  <data name="DuckingEffect_Threshold_Description" xml:space="preserve">
+    <value>선택한 레이어 중 가장 큰 소리가 이 수준을 넘으면 더킹이 시작됩니다.</value>
+  </data>
+  <data name="DuckingEffect_Reduction" xml:space="preserve">
+    <value>감소량 (dB)</value>
+  </data>
+  <data name="DuckingEffect_Reduction_Description" xml:space="preserve">
+    <value>더킹이 활성화되었을 때 이 소리의 음량을 낮추는 정도입니다.</value>
+  </data>
+  <data name="DuckingEffect_Attack" xml:space="preserve">
+    <value>어택 (ms)</value>
+  </data>
+  <data name="DuckingEffect_Attack_Description" xml:space="preserve">
+    <value>소스가 임계값을 넘은 후 설정한 감소량에 도달할 때까지 걸리는 시간입니다.</value>
+  </data>
+  <data name="DuckingEffect_Release" xml:space="preserve">
+    <value>릴리스 (ms)</value>
+  </data>
+  <data name="DuckingEffect_Release_Description" xml:space="preserve">
+    <value>소스가 조용해진 후 원래 음량으로 돌아갈 때까지 걸리는 시간입니다.</value>
+  </data>
+  <data name="DuckingEffect_NoSourceLayers" xml:space="preserve">
+    <value>선택할 수 있는 다른 레이어가 없습니다.</value>
+  </data>
+  <data name="DuckingEffect_LayerNumber" xml:space="preserve">
+    <value>레이어 {0}</value>
+  </data>
 </root>

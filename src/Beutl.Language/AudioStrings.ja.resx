@@ -364,4 +364,46 @@
   <data name="AudioEffectCategory_DelayAndModulation" xml:space="preserve">
     <value>ディレイ・モジュレーション</value>
   </data>
+  <data name="DuckingEffect" xml:space="preserve">
+    <value>ダッキング</value>
+  </data>
+  <data name="DuckingEffect_LibraryDescription" xml:space="preserve">
+    <value>選択したレイヤーの音声がしきい値を超える間、この音声の音量を下げます。</value>
+  </data>
+  <data name="DuckingEffect_SourceLayers" xml:space="preserve">
+    <value>ソースレイヤー</value>
+  </data>
+  <data name="DuckingEffect_SourceLayers_Description" xml:space="preserve">
+    <value>この音声の音量を下げるきっかけとなるレイヤーを選択します。</value>
+  </data>
+  <data name="DuckingEffect_Threshold" xml:space="preserve">
+    <value>しきい値 (dBFS)</value>
+  </data>
+  <data name="DuckingEffect_Threshold_Description" xml:space="preserve">
+    <value>選択したレイヤーのうち最も大きい音がこの値を超えると、ダッキングが始まります。</value>
+  </data>
+  <data name="DuckingEffect_Reduction" xml:space="preserve">
+    <value>減衰量 (dB)</value>
+  </data>
+  <data name="DuckingEffect_Reduction_Description" xml:space="preserve">
+    <value>ダッキング中にこの音声の音量をどれだけ下げるかを指定します。</value>
+  </data>
+  <data name="DuckingEffect_Attack" xml:space="preserve">
+    <value>アタック (ms)</value>
+  </data>
+  <data name="DuckingEffect_Attack_Description" xml:space="preserve">
+    <value>ソースの音量がしきい値を超えてから、指定の減衰量に達するまでの時間です。</value>
+  </data>
+  <data name="DuckingEffect_Release" xml:space="preserve">
+    <value>リリース (ms)</value>
+  </data>
+  <data name="DuckingEffect_Release_Description" xml:space="preserve">
+    <value>ソースの音が小さくなってから、元の音量に戻るまでの時間です。</value>
+  </data>
+  <data name="DuckingEffect_NoSourceLayers" xml:space="preserve">
+    <value>選択できる他のレイヤーがありません。</value>
+  </data>
+  <data name="DuckingEffect_LayerNumber" xml:space="preserve">
+    <value>レイヤー {0}</value>
+  </data>
 </root>
