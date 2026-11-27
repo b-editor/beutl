@@ -26,9 +26,12 @@ public class EncodingLayoutMessageTests
         using var stream = new MemoryStream();
         await MessageSerializer.WriteMessageAsync(stream, IpcMessage.Create(1, MessageType.StartEncode, request));
         stream.Position = 0;
-        var received = (await MessageSerializer.ReadMessageAsync(stream))!.RequirePayload<EncodeStartRequest>(MessageType.StartEncode);
+        var message = (await MessageSerializer.ReadMessageAsync(stream))!;
+        var received = message.RequirePayload<EncodeStartRequest>(MessageType.StartEncode);
         Assert.Multiple(() =>
         {
+            Assert.That(message.Payload!.Value.TryGetProperty("videoOnly", out _), Is.False);
+            Assert.That(received.VideoOnly, Is.False);
             Assert.That(received.ProviderChannelCount, Is.EqualTo(channels));
             Assert.That(received.ProviderSpeakerMask, Is.EqualTo(mask));
             Assert.That(received.AudioChannels, Is.EqualTo(1));
