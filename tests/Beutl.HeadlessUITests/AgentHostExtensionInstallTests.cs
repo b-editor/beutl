@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Json;
 using System.Security.Cryptography;
 using System.Text.Json;
@@ -342,8 +342,11 @@ public sealed class AgentHostExtensionInstallTests
             {
                 content = JsonContent.Create(new
                 {
-                    id = "archive", name = "test.nupkg", contentType = "application/octet-stream",
-                    downloadUrl = DownloadUrl, size = archive.Length,
+                    id = "archive",
+                    name = "test.nupkg",
+                    contentType = "application/octet-stream",
+                    downloadUrl = DownloadUrl,
+                    size = archive.Length,
                     sha256 = CorrectHash ? Convert.ToHexString(SHA256.HashData(archive)) : new string('0', 64)
                 });
             }

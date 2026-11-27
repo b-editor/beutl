@@ -1,4 +1,4 @@
-using System.Security.Cryptography;
+﻿using System.Security.Cryptography;
 using Beutl.Api.Objects;
 using NuGet.Packaging;
 using NuGet.Packaging.Core;
