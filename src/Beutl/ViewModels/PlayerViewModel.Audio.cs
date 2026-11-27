@@ -34,13 +34,13 @@ public partial class PlayerViewModel
 
     async Task<AudioFrameSnapshot?> IPreviewPlayer.ComposeAudioAsync(MediaTime start, MediaTime duration, CancellationToken ct)
     {
-        // Admit idle composition on the UI thread, like history mutations. A background visualizer
-        // continuation must not enqueue fresh scene work between Pause and the synchronous mutation.
+        // Admit idle composition alongside history mutations on the UI thread. Device playback
+        // owns the shared composer for the entire playback task, including loop restarts.
         return await await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
         {
             lock (_renderRequestLock)
             {
-                if (_isDisposing || _isPausing)
+                if (_isDisposing || IsPlaybackActive)
                     return Task.FromResult<AudioFrameSnapshot?>(null);
 
                 SceneComposer? composer = EditViewModel.Composer.Value;
@@ -50,10 +50,8 @@ public partial class PlayerViewModel
                 return ComposeThread.Dispatcher.InvokeAsync(() =>
                 {
                     ct.ThrowIfCancellationRequested();
-                    // The UI thread can dispose this composer (rebuild-by-replacement on frame-size changes)
-                    // after the calling-thread check above, so re-check on the compose thread and report
-                    // "no audio" instead of racing a disposed compositor.
-                    if (_isDisposing || _isPausing || composer.IsDisposed)
+                    // Playback may start or the UI may replace the composer while this read is queued.
+                    if (_isDisposing || IsPlaybackActive || composer.IsDisposed)
                         return (AudioFrameSnapshot?)null;
 
                     AudioBuffer? audio;

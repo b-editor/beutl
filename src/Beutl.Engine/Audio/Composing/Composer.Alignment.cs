@@ -7,15 +7,32 @@ public partial class Composer
 {
     // Build the graphs for the playback range without advancing any DSP state. A stable
     // scene-wide target keeps the output cursor valid even when the slowest sound comes and goes.
-    internal int GetPlaybackLatency(CompositionFrame frame)
+    internal int GetPlaybackLatency(CompositionFrame frame, bool forEmbeddedScene = false)
     {
-        int latency = 0;
+        int minimum = int.MaxValue;
+        int maximum = 0;
         foreach (var resource in frame.Objects)
         {
-            if (resource is Sound.Resource sound)
-                latency = Math.Max(latency, GetEntryFixedLatency(GetOrUpdateEntry(sound)));
+            if (resource is not Sound.Resource sound)
+                continue;
+
+            foreach (int? latency in GetFixedLatencies(GetOrUpdateEntry(sound)))
+            {
+                if (latency is { } fixedLatency)
+                {
+                    minimum = Math.Min(minimum, fixedLatency);
+                    maximum = Math.Max(maximum, fixedLatency);
+                }
+                else if (forEmbeddedScene)
+                {
+                    return 0;
+                }
+            }
         }
-        return latency;
+
+        // An embed removes the offset added by its scene mix when all outputs can
+        // be aligned. Other embeds keep their original timing and drain contracts.
+        return forEmbeddedScene && minimum >= maximum ? 0 : maximum;
     }
 
     private int GetAlignmentTarget()

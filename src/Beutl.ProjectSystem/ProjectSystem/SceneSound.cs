@@ -1,6 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using Beutl.Audio;
-using Beutl.Audio.Composing;
 using Beutl.Audio.Graph;
 using Beutl.Composition;
 using Beutl.Engine;
@@ -84,7 +83,7 @@ public sealed partial class SceneSound : Sound, ITimeMappedSource
     private sealed class SceneNode(Resource? resource) : AudioNode
     {
         internal Resource? _resource = resource;
-        private Composer? _composer;
+        private SceneComposer? _composer;
         internal AudioChannelLayout Layout { get; set; }
 
         protected override AudioBuffer CreateSilentFlush(AudioProcessContext context)
@@ -107,23 +106,25 @@ public sealed partial class SceneSound : Sound, ITimeMappedSource
 
             try
             {
-                if (_composer?.SampleRate != context.SampleRate || _composer.ChannelLayout != Layout)
+                if (_composer is not { } composer || composer.Compositor != compositor
+                    || composer.SampleRate != context.SampleRate || composer.ChannelLayout != Layout)
                 {
                     _composer?.Dispose();
-                    _composer = new Composer { SampleRate = context.SampleRate, ChannelLayout = Layout, ClampsToFullScale = false };
+                    _composer = composer = new SceneComposer(compositor)
+                    {
+                        SampleRate = context.SampleRate,
+                        ChannelLayout = Layout,
+                    };
                 }
 
-                // The embed composes the referenced scene's own window from the clip-local request.
-                TimeRange window = context.TimeRange.AddStart(scene.Start.Value);
-                var frame = compositor.EvaluateAudio(window);
-                _composer.MasterGain = scene.MasterGain;
-                var buffer = _composer.Compose(window, frame);
-                if (buffer == null)
-                {
-                    return CreateSilentFlush(context);
-                }
-
-                return buffer;
+                // Keep the compensated mix on the referenced-scene timeline. At a trim, read
+                // enough held samples to finish that mix without taking live input past the cut.
+                MediaTime start = scene.Start.Value;
+                MediaTime duration = scene.Duration.Value;
+                if (context.ProcessEndTime is { } terminal && terminal < duration)
+                    duration = terminal;
+                TimeRange window = context.TimeRange.AddStart(start);
+                return composer.ComposePlayback(window, start + duration) ?? CreateSilentFlush(context);
             }
             finally
             {
@@ -136,7 +137,8 @@ public sealed partial class SceneSound : Sound, ITimeMappedSource
             ArgumentNullException.ThrowIfNull(context);
             var scene = _resource?.ReferencedScene;
             var compositor = _resource?._compositor;
-            if (_composer is null || _composer.ChannelLayout != Layout || _composer.SampleRate != context.SampleRate
+            if (_composer is not { HasCompensatedPlayback: false } composer || composer.Compositor != compositor
+                || composer.ChannelLayout != Layout || composer.SampleRate != context.SampleRate
                 || scene is null || compositor is null)
                 return CreateSilentFlush(context);
 
@@ -147,8 +149,8 @@ public sealed partial class SceneSound : Sound, ITimeMappedSource
             {
                 TimeRange window = context.TimeRange.AddStart(scene.Start.Value);
                 CompositionFrame frame = compositor.EvaluateAudio(window);
-                _composer.MasterGain = scene.MasterGain;
-                return _composer.Flush(window, frame.Eligibility)
+                composer.MasterGain = scene.MasterGain;
+                return composer.Flush(window, frame.Eligibility)
                     ?? CreateSilentFlush(context);
             }
             finally
@@ -157,19 +159,19 @@ public sealed partial class SceneSound : Sound, ITimeMappedSource
             }
         }
 
-        // The embedded composer sums independent outputs and reports their largest tail budget.
+        // An embed can still contain outputs with independent, varying latencies.
         internal override bool HasFixedLatency(int sampleRate) => false;
 
         public override int GetTotalLatencySamples(int sampleRate)
         {
             ArgumentOutOfRangeException.ThrowIfNegativeOrZero(sampleRate);
-            return _composer?.GetTotalLatencySamples(sampleRate) ?? 0;
+            return _composer is { HasCompensatedPlayback: false } composer ? composer.GetTotalLatencySamples(sampleRate) : 0;
         }
 
         public override int GetDrainLatencySamples(int sampleRate)
         {
             ArgumentOutOfRangeException.ThrowIfNegativeOrZero(sampleRate);
-            return _composer?.GetDrainLatencySamples(sampleRate) ?? 0;
+            return _composer is { HasCompensatedPlayback: false } composer ? composer.GetDrainLatencySamples(sampleRate) : 0;
         }
 
         protected override void Dispose(bool disposing)

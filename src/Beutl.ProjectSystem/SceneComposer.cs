@@ -10,6 +10,7 @@ namespace Beutl;
 public sealed class SceneComposer : Composer
 {
     private readonly SceneCompositor _compositor;
+    private readonly bool _isEmbedded;
     private MediaTime? _nextOutputTime;
     private MediaTime _nextInputTime;
     private MediaTime _inputBlockDuration;
@@ -40,6 +41,16 @@ public sealed class SceneComposer : Composer
     }
 
     public SceneCompositor Compositor => _compositor;
+
+    // SceneSound.Resource owns the compositor and its inherited rendering conditions.
+    internal SceneComposer(SceneCompositor compositor)
+    {
+        _compositor = compositor;
+        _isEmbedded = true;
+        ClampsToFullScale = false;
+    }
+
+    internal bool HasCompensatedPlayback => _playbackLatency > 0;
 
     public AudioBuffer? Compose(TimeRange timeRange)
     {
@@ -76,7 +87,7 @@ public sealed class SceneComposer : Composer
             _playbackGeneration = generation;
             _drainEligibility = null;
             _playbackLatency = range.Start < sceneEnd
-                ? GetPlaybackLatency(_compositor.EvaluateAudio(TimeRange.FromRange(range.Start, sceneEnd)))
+                ? GetPlaybackLatency(_compositor.EvaluateAudio(TimeRange.FromRange(range.Start, sceneEnd)), _isEmbedded)
                 : 0;
 
             // An output seek can land at the previous input cursor. Starting with fresh
@@ -190,7 +201,7 @@ public sealed class SceneComposer : Composer
             DiscardInputBuffer();
         }
         base.OnDispose(disposing);
-        if (disposing)
+        if (disposing && !_isEmbedded)
             _compositor.Dispose();
     }
 }

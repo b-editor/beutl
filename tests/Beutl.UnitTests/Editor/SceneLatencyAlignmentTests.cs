@@ -140,6 +140,38 @@ public class SceneLatencyAlignmentTests
 
     [TestCase(false)]
     [TestCase(true)]
+    public void PreviewAndExportKeepNestedFixedMixOnTheParentTimeline(bool trimEmbed)
+    {
+        const int clipEnd = Rate + 351;
+        int frames = trimEmbed ? clipEnd + Latency + 37 : clipEnd;
+        int[] impulses = trimEmbed
+            ? [0, Rate - 1, Rate, clipEnd - 1, clipEnd, frames - 1]
+            : [0, Rate - 1, Rate, clipEnd - 1];
+        WithImpulseWave(frames, impulses, source =>
+        {
+            Scene nested = CreateScene(frames, start: 312);
+            AddSound(nested, source, 0, frames);
+            AddSound(nested, source, 0, frames, CreateLimiter());
+
+            Scene parent = CreateScene(frames);
+            AddSound(parent, source, 0, frames);
+            var embed = new Element { Length = { Value = SampleTime(clipEnd) }, ZIndex = { Value = 1 } };
+            embed.AddObject(new SceneSound { ReferencedScene = { Value = nested } });
+            parent.Children.Add(embed);
+
+            using var preview = CreateComposer(parent);
+            MediaTime end = parent.Duration.Value;
+            using var first = preview.ComposePlayback(SampleRange(0, Rate), end)!;
+            using var last = preview.ComposePlayback(SampleRange(Rate, frames - Rate), end)!;
+            (int, int)[] peaks = [.. impulses.Select(position => (position, position < clipEnd ? 3 : 1))];
+            AssertImpulses(first, 0, Rate, peaks);
+            AssertImpulses(last, Rate, frames - Rate, peaks);
+            AssertExportMatches(parent, first, last);
+        });
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
     public void ASceneShorterThanLookaheadRetainsTheEntireClip(bool includeDry)
     {
         const int frames = 40;
@@ -266,7 +298,8 @@ public class SceneLatencyAlignmentTests
 
     private static SceneComposer CreateComposer(Scene scene, int rate = Rate)
         => new(scene, new SceneRenderServices(TestFonts.Manager, TestMediaHelper.CreateRegistry()),
-            disableResourceShare: true, forceOriginalSource: true) { SampleRate = rate };
+            disableResourceShare: true, forceOriginalSource: true)
+        { SampleRate = rate };
 
     private static LimiterEffect CreateLimiter(float lookahead = 5f)
         => new() { Lookahead = { Value = lookahead }, Threshold = { Value = 0f } };

@@ -414,6 +414,64 @@ public class PlayerViewModelQuiescenceTests
     }
 
     [AvaloniaTest]
+    public async Task Auxiliary_audio_reads_leave_active_device_playback_contiguous()
+    {
+        EditViewModel editor = await OpenEditor();
+        var second = MediaTime.FromSeconds(1);
+        var twoSeconds = MediaTime.FromSeconds(2);
+        editor.Scene.Duration.Value = MediaTime.FromSeconds(4);
+        var sound = new PlaybackAudioReadProbe();
+        var element = new Element { Length = { Value = editor.Scene.Duration.Value } };
+        element.AddObject(sound);
+        editor.Scene.Children.Add(element);
+
+        var devicePlayback = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var release = new ManualResetEventSlim();
+        Task blocker = ComposeThread.Dispatcher.InvokeAsync(() =>
+        {
+            entered.TrySetResult();
+            if (!release.Wait(TimeSpan.FromSeconds(10)))
+                throw new TimeoutException("The test did not release the compose dispatcher.");
+        });
+
+        try
+        {
+            await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            int generation = GetSessionGuard(editor.Player).Claim(static () => { });
+            var firstRead = ComposeThread.Dispatcher.InvokeAsync(() =>
+                editor.Player.FillAudioData(MediaTime.Zero, editor.Scene, generation, CancellationToken.None));
+            IPreviewPlayer preview = editor.Player;
+            var queuedAuxiliary = preview.ComposeAudioAsync(twoSeconds, second);
+            // Let the UI admit the auxiliary request before publishing the active playback task.
+            await Dispatcher.UIThread.InvokeAsync(static () => { }, DispatcherPriority.Normal);
+            SetPlaybackTask(editor.Player, devicePlayback.Task);
+            release.Set();
+
+            using var first = (await firstRead.WaitAsync(TimeSpan.FromSeconds(5))).Audio;
+            var queuedSnapshot = await queuedAuxiliary.WaitAsync(TimeSpan.FromSeconds(5));
+            var activeSnapshot = await preview.ComposeAudioAsync(twoSeconds, second).WaitAsync(TimeSpan.FromSeconds(5));
+            using var next = editor.Player.FillAudioData(second, editor.Scene, generation, CancellationToken.None).Audio;
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(first, Is.Not.Null);
+                Assert.That(next, Is.Not.Null);
+                Assert.That(queuedSnapshot, Is.Null, "the queued read must re-check playback on the compose thread");
+                Assert.That(activeSnapshot, Is.Null, "new auxiliary reads must be declined while playback is active");
+                Assert.That(sound.BlockStarts, Is.EqualTo(new[] { MediaTime.Zero, second, twoSeconds }),
+                    "the second device read must keep the buffered input and continue the original graph");
+            });
+        }
+        finally
+        {
+            release.Set();
+            devicePlayback.TrySetResult();
+            await blocker.WaitAsync(TimeSpan.FromSeconds(5));
+        }
+    }
+
+    [AvaloniaTest]
     public async Task Background_idle_audio_requests_cannot_enter_during_a_history_mutation()
     {
         EditViewModel editor = await OpenEditor();
@@ -550,5 +608,31 @@ public sealed partial class BlockingPlaybackSound : Sound
     public partial class Resource
     {
         public override SoundSource.Resource? GetSoundSource() => null;
+    }
+}
+
+public sealed partial class PlaybackAudioReadProbe : Sound
+{
+    public PlaybackAudioReadProbe() => ScanProperties<PlaybackAudioReadProbe>();
+
+    internal List<MediaTime> BlockStarts { get; } = [];
+
+    public override void Compose(AudioContext context, Sound.Resource resource)
+        => context.MarkAsOutput(context.AddNode(new ProbeNode(BlockStarts)));
+
+    public partial class Resource
+    {
+        public override SoundSource.Resource? GetSoundSource() => null;
+    }
+
+    private sealed class ProbeNode(List<MediaTime> blockStarts) : AudioNode
+    {
+        public override int GetLatencySamples(int sampleRate) => 16;
+
+        public override AudioBuffer Process(AudioProcessContext context)
+        {
+            blockStarts.Add(context.TimeRange.Start);
+            return new AudioBuffer(context.SampleRate, LastProcessedChannelCount, context.GetSampleCount());
+        }
     }
 }
