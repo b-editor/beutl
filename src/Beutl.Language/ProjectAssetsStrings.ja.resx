@@ -41,4 +41,5 @@
   <data name="ConfirmPermanentDelete" xml:space="preserve"><value>選択したファイルを完全に削除するには、confirmDelete を true にしてください。</value></data>
   <data name="DeleteOneAsset" xml:space="preserve"><value>完全に削除できる隔離済みファイルは、1 回の呼び出しにつき 1 件です。</value></data>
   <data name="InvalidSceneId" xml:space="preserve"><value>エディターで開いているプロジェクトの有効なシーン ID を指定するか、sceneId を省略してください。</value></data>
+  <data name="SaveProjectBeforeCollecting" xml:space="preserve"><value>素材を集約する前に、save_project で未保存のプロジェクト変更を保存してください。</value></data>
 </root>

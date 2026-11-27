@@ -53,6 +53,8 @@ public sealed class FileEditingSession : IEditingSession, IDisposable
 
     public bool IsDirty { get; internal set; }
 
+    internal bool HasUnsavedProjectChanges { get; private set; }
+
     public void SetActiveScene(Scene scene)
     {
         ArgumentNullException.ThrowIfNull(scene);
@@ -110,6 +112,7 @@ public sealed class FileEditingSession : IEditingSession, IDisposable
 
             _projectLastWriteUtc = File.GetLastWriteTimeUtc(projectPath);
             IsDirty = false;
+            HasUnsavedProjectChanges = false;
             _dirtyScenes.Clear();
         }
     }
@@ -287,7 +290,11 @@ public sealed class FileEditingSession : IEditingSession, IDisposable
         _dirtyScenes.Add(Scene);
     }
 
-    internal void MarkProjectDirty() => IsDirty = true;
+    internal void MarkProjectDirty()
+    {
+        HasUnsavedProjectChanges = true;
+        IsDirty = true;
+    }
 
     internal bool HasUnsavedChanges(Scene scene)
         => _dirtyScenes.Contains(scene) || (ReferenceEquals(Scene, scene) && History.HasPendingOperations);

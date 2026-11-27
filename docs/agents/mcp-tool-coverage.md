@@ -96,6 +96,6 @@ Proxy tools use the running editor's queue and cache. Pass `sceneId` and, from t
 
 `inspect_project_assets` reports absolute paths, file kinds, sizes in bytes, element IDs, and issues for the whole project. Pass eligible row paths to `organize_project_assets` with `action` set to `collect`, `quarantine`, `restore`, or `delete`. Use the row's main path for a bundle. Collection copies files into `resources/` and saves all affected references across the project. Quarantine and restore move files and preserve project documents. Permanent deletion takes one quarantined path per call and requires `confirmDelete: true`. The response lists the affected files and their destinations.
 
-Both asset tools use the open project in a live editor. Pass `sceneId` to identify that project by one of its scenes without opening the scene tab. From stdio, pass `instanceId` to target a running editor or use `open_project` or `create_project` to select the active file session.
+Both asset tools use the open project in a live editor. Pass `sceneId` to identify that project by one of its scenes without opening the scene tab. From stdio, pass `instanceId` to target a running editor or use `open_project` or `create_project` to select the active file session. In a file session, call `save_project` after adding or removing a scene before collecting assets.
 
 The tool registrations are in the [shared AgentToolkit server](../../src/Beutl.AgentToolkit/AgentToolkitMcpServer.cs) and the [in-app host](../../src/Beutl/AgentHost/AgentHostEndpoint.cs).

@@ -41,4 +41,5 @@
   <data name="ConfirmPermanentDelete" xml:space="preserve"><value>Set confirmDelete to true to permanently delete the selected file.</value></data>
   <data name="DeleteOneAsset" xml:space="preserve"><value>Permanent deletion accepts one quarantined file per call.</value></data>
   <data name="InvalidSceneId" xml:space="preserve"><value>Supply a valid scene ID from the open editor project, or omit sceneId.</value></data>
+  <data name="SaveProjectBeforeCollecting" xml:space="preserve"><value>Call save_project to save pending project changes before collecting assets.</value></data>
 </root>

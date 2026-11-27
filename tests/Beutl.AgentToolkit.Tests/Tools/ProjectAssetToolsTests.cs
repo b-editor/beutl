@@ -72,6 +72,7 @@ public sealed class ProjectAssetToolsTests
         session.History.Commit("Add clips");
         session.Save(skipConflictCheck: false);
         int historyCount = session.History.UndoCount;
+        session.MarkDirty();
 
         OrganizeProjectAssetsResponse result = Success(await OrganizeAsync(server.Client, "collect", [external]));
         string collected = result.Files.Single().Destination!;
@@ -88,6 +89,49 @@ public sealed class ProjectAssetToolsTests
                 Is.EqualTo(new[] { collected, collected }));
             Assert.That(session.History.UndoCount, Is.EqualTo(historyCount));
             Assert.That(() => session.Save(skipConflictCheck: false), Throws.Nothing);
+        });
+    }
+
+    [Test]
+    public async Task Collect_requires_saving_a_new_scene_before_it_writes_the_project()
+    {
+        await using var server = await InProcessAgentToolkitServer.StartAsync(TestWorkspace.CreateDirectory());
+        var (session, root) = await CreateProjectAsync(server);
+        string external = WriteImage(Path.Combine(TestWorkspace.CreateDirectory(), "clip.png"));
+        Element element = AddImage(session.Scene, "clip.belm", ImageSource.Open(external));
+        session.Save(skipConflictCheck: false);
+        var before = ReadFiles(root);
+
+        var added = Success(ToolResultReader.Read<AddSceneResponse>(await server.Client.CallToolAsync("add_scene",
+            new Dictionary<string, object?>
+            {
+                ["session"] = session.SessionId,
+                ["width"] = 64,
+                ["height"] = 64,
+                ["start"] = "00:00:00",
+                ["duration"] = "00:00:03",
+                ["name"] = "Pending"
+            })));
+        string scenePath = session.Scene.Uri!.LocalPath;
+        Assert.That(File.Exists(scenePath), Is.False);
+
+        var rejected = await OrganizeAsync(server.Client, "collect", [external]);
+        Assert.Multiple(() =>
+        {
+            Assert.That(rejected.Error?.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(rejected.Error?.Message ?? string.Empty, Does.Contain("save_project"));
+            Assert.That(SourcePath(element), Is.EqualTo(external));
+            Assert.That(ReadFiles(root), Is.EqualTo(before));
+        });
+
+        Success(ToolResultReader.Read<SaveProjectResponse>(await server.Client.CallToolAsync("save_project")));
+        string destination = Success(await OrganizeAsync(server.Client, "collect", [external])).Files.Single().Destination!;
+        Project reopened = CoreSerializer.RestoreFromUri<Project>(session.Project.Uri!);
+        Assert.Multiple(() =>
+        {
+            Assert.That(SourcePath(element), Is.EqualTo(destination));
+            Assert.That(File.Exists(scenePath), Is.True);
+            Assert.That(reopened.Items.OfType<Scene>().Select(scene => scene.Id.Value.ToString()), Does.Contain(added.SceneId));
         });
     }
 

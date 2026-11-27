@@ -41,4 +41,5 @@
   <data name="ConfirmPermanentDelete" xml:space="preserve"><value>若要永久删除选中的文件，请将 confirmDelete 设置为 true。</value></data>
   <data name="DeleteOneAsset" xml:space="preserve"><value>每次调用只能永久删除一个已隔离的文件。</value></data>
   <data name="InvalidSceneId" xml:space="preserve"><value>请提供编辑器中当前打开项目的有效场景 ID，或省略 sceneId。</value></data>
+  <data name="SaveProjectBeforeCollecting" xml:space="preserve"><value>收集素材前，请调用 save_project 保存尚未保存的项目更改。</value></data>
 </root>

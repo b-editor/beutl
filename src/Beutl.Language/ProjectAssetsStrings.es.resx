@@ -41,4 +41,5 @@
   <data name="ConfirmPermanentDelete" xml:space="preserve"><value>Establece confirmDelete en true para eliminar permanentemente el archivo seleccionado.</value></data>
   <data name="DeleteOneAsset" xml:space="preserve"><value>Solo se puede eliminar permanentemente un archivo apartado por llamada.</value></data>
   <data name="InvalidSceneId" xml:space="preserve"><value>Proporciona un ID de escena válido del proyecto abierto en el editor u omite sceneId.</value></data>
+  <data name="SaveProjectBeforeCollecting" xml:space="preserve"><value>Ejecuta save_project para guardar los cambios pendientes del proyecto antes de reunir los recursos.</value></data>
 </root>

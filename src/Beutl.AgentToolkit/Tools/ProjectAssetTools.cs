@@ -120,6 +120,10 @@ public sealed class ProjectAssetTools(
         {
             ProjectAssetPaths paths = RequireProjectPaths(file);
             file.CheckProjectStamp(paths.ProjectFile);
+            // Collection writes project membership and only the documents affected by the relink.
+            if (action == ProjectAssetAction.Collect && file.HasUnsavedProjectChanges)
+                throw Rejected(ProjectAssetsStrings.SaveProjectBeforeCollecting, "project");
+
             file.History.FlushPendingMutations();
             var references = ProjectAssetReferences.Capture(file.Project, [], file.History.GetRetainedOperations(), token);
             ProjectAssetService.Analysis analysis = _assets.Analyze(paths, references, Guid.NewGuid(), token);
