@@ -188,6 +188,8 @@ internal sealed partial class AgentTabViewModel
             return;
 
         string text = Prompt?.Trim() is { Length: > 0 } prompt ? prompt : AgentStrings.PastedText;
+        Guid? originalThreadId = _selectedThread?.Id;
+        var originalController = _controller;
         var snapshots = _attachments.Select(attachment => attachment.Snapshot()).ToList();
         if (_pendingSyncedAttachments.Count > 0)
         {
@@ -196,19 +198,25 @@ internal sealed partial class AgentTabViewModel
                 .ToArray();
             if (pendingFiles.Length > 0)
             {
-                var loaded = await Task.Run(() =>
+                bool loadedPending = false;
+                await ManageAsync(async ct =>
                 {
-                    var built = new List<AgentUserAttachment>(pendingFiles.Length);
-                    foreach (var pending in pendingFiles)
+                    var loaded = await Task.Run(() =>
                     {
-                        using var attachment = AgentAttachment.CreateFile(pending, static _ => { });
-                        built.Add(attachment.Snapshot());
-                    }
-                    return built;
-                }, _lifetime.Token);
-                if (_disposed)
+                        var built = new List<AgentUserAttachment>(pendingFiles.Length);
+                        foreach (var pending in pendingFiles)
+                        {
+                            ct.ThrowIfCancellationRequested();
+                            using var attachment = AgentAttachment.CreateFile(pending, static _ => { });
+                            built.Add(attachment.Snapshot());
+                        }
+                        return built;
+                    }, ct);
+                    snapshots.AddRange(loaded);
+                    loadedPending = true;
+                });
+                if (!loadedPending || _disposed || _selectedThread?.Id != originalThreadId || !ReferenceEquals(_controller, originalController))
                     return;
-                snapshots.AddRange(loaded);
             }
         }
         var message = new AgentQueuedMessage(_editor, selected.Descriptor, text, IncludeSceneContext,

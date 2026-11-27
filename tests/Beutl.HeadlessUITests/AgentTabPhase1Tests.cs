@@ -524,9 +524,14 @@ public sealed class AgentTabPhase1Tests
                 Assert.That(second.Prompt, Is.EqualTo("Second new-thread draft"));
             });
 
-            // Sending creates a thread; selecting the same thread in both tabs shares and synchronizes its draft.
+            // Sending creates a thread; switching tab 2 to that thread and back to New Thread retains tab 2's unsent new-thread draft.
             await first.SendAsync();
             threadId = first.SelectedThread!.Id;
+            await second.SelectThreadAsync(first.SelectedThread!);
+            await second.NewThreadAsync();
+            Assert.That(second.Prompt, Is.EqualTo("Second new-thread draft"));
+
+            // Selecting the same thread in both tabs shares and synchronizes its draft.
             await second.SelectThreadAsync(first.SelectedThread!);
 
             first.Prompt = "Shared thread reply";
