@@ -90,8 +90,19 @@ internal sealed class VersionControlCoordinators :
         }
     }
 
+    // A save is snapshotted by the version control of the project it wrote: the one whose files its write reserved,
+    // which need not be the active one by the time the save finishes.
     public Task NotifySavedAsync(IProjectFileWriteLease? completedWrite = null, CancellationToken cancellationToken = default)
-        => Current.NotifySavedAsync(completedWrite, cancellationToken);
+    {
+        if (completedWrite is not null && EditorWorkspace.OwnerOf(completedWrite) is { } workspace)
+        {
+            return workspace.VersionControlSession is { } session
+                ? session.NotifySavedAsync(completedWrite, cancellationToken)
+                : Task.CompletedTask;
+        }
+
+        return Current.NotifySavedAsync(completedWrite, cancellationToken);
+    }
 
     public Task<CommitResult> CommitManualAsync(string message, CancellationToken cancellationToken)
         => Current.CommitManualAsync(message, cancellationToken);

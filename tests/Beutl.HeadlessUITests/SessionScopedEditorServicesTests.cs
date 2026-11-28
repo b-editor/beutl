@@ -109,6 +109,125 @@ public sealed class SessionScopedEditorServicesTests
     }
 
     [AvaloniaTest]
+    public async Task Projects_whose_files_overlap_share_the_reservation()
+    {
+        await TestReset.ResetShellAsync();
+        try
+        {
+            // Two project files in one folder load the same scene files.
+            string original = await CreateClosedProjectAsync("overlap-original");
+            string alternate = Path.Combine(Path.GetDirectoryName(original)!, "alternate.bep");
+            File.Copy(original, alternate);
+            (ProjectSession first, _, ProjectSession second, _) = await OpenTwoProjectsAsync(original, alternate);
+            EditorWorkspace firstWorkspace = TestShell.Editor.WorkspaceFor(first);
+            EditorWorkspace secondWorkspace = TestShell.Editor.WorkspaceFor(second);
+            Assert.That(firstWorkspace, Is.Not.SameAs(secondWorkspace));
+
+            using (IDisposable? output = firstWorkspace.TryBeginOutputOperation())
+            {
+                Assert.That(output, Is.Not.Null);
+                Assert.That(secondWorkspace.TryBeginWorktreeMutation(), Is.Null,
+                    "An export reading the shared files keeps them from being replaced.");
+            }
+
+            ValueTask<IProjectFileWriteLease> waitingWrite;
+            using (IDisposable? mutation = secondWorkspace.TryBeginWorktreeMutation())
+            {
+                Assert.That(mutation, Is.Not.Null);
+                Assert.Multiple(() =>
+                {
+                    Assert.That(firstWorkspace.TryBeginOutputOperation(), Is.Null);
+                    Assert.That(firstWorkspace.TryBeginEditorFileOpen(), Is.Null);
+                    Assert.That(firstWorkspace.TryBeginProjectFileWrite(), Is.Null);
+                });
+                waitingWrite = firstWorkspace.BeginProjectFileWriteAsync(CancellationToken.None);
+                HeadlessTestHelpers.Settle();
+                Assert.That(waitingWrite.IsCompleted, Is.False, "A write waits until the shared files are replaced.");
+            }
+
+            using IProjectFileWriteLease write = await waitingWrite.AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+        }
+        finally
+        {
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task A_project_inside_another_projects_repository_shares_its_reservation()
+    {
+        await TestReset.ResetShellAsync();
+        try
+        {
+            (ProjectSession background, _, ProjectSession foreground, _) = await OpenTwoProjectsAsync("repository-overlap");
+            EditorWorkspace backgroundWorkspace = TestShell.Editor.WorkspaceFor(background);
+            EditorWorkspace foregroundWorkspace = TestShell.Editor.WorkspaceFor(foreground);
+            using (IDisposable? output = backgroundWorkspace.TryBeginOutputOperation())
+            {
+                using IDisposable? unrelated = foregroundWorkspace.TryBeginWorktreeMutation();
+                Assert.That(unrelated, Is.Not.Null, "Projects in separate folders keep separate reservations.");
+            }
+
+            // A branch switch replaces the whole worktree, the folders of both projects included.
+            foregroundWorkspace.SetRepositoryRoot(BeutlHomeIsolation.CurrentHome!);
+            try
+            {
+                using IDisposable? output = backgroundWorkspace.TryBeginOutputOperation();
+                Assert.That(output, Is.Not.Null);
+                Assert.That(foregroundWorkspace.TryBeginWorktreeMutation(), Is.Null);
+            }
+            finally
+            {
+                foregroundWorkspace.SetRepositoryRoot(null);
+            }
+        }
+        finally
+        {
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task An_opened_file_is_scanned_for_conflict_markers_once()
+    {
+        await TestReset.ResetShellAsync();
+        VersionControlCoordinators versionControl = TestShell.MainViewModel.VersionControl;
+        var previous = new Dictionary<VersionControlCoordinator, Func<string, Task>>();
+        try
+        {
+            string loaded = await CreateClosedProjectAsync("conflict-scan-loaded");
+            string conflicted = await CreateClosedProjectAsync("conflict-scan-conflicted");
+            File.WriteAllText(Path.Combine(Path.GetDirectoryName(conflicted)!, "conflict-scan-conflicted", "conflicted.belm"),
+                "<<<<<<< ours\n{}\n=======\n{}\n>>>>>>> theirs\n");
+            await TestShell.Project.OpenProject(loaded);
+            HeadlessTestHelpers.Settle();
+            Assert.That(versionControl.All, Has.Count.EqualTo(2), "The loaded project's coordinator and the one waiting.");
+
+            int warnings = 0;
+            foreach (VersionControlCoordinator coordinator in versionControl.All)
+            {
+                previous[coordinator] = coordinator.WarnConflictMarkersAsync;
+                coordinator.WarnConflictMarkersAsync = _ =>
+                {
+                    warnings++;
+                    return Task.CompletedTask;
+                };
+            }
+
+            await TestShell.Project.OpenProject(conflicted);
+            HeadlessTestHelpers.Settle();
+
+            Assert.That(warnings, Is.EqualTo(1));
+        }
+        finally
+        {
+            foreach ((VersionControlCoordinator coordinator, Func<string, Task> warning) in previous)
+                coordinator.WarnConflictMarkersAsync = warning;
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
     public async Task Only_the_active_project_and_work_outside_projects_cover_the_editor_area()
     {
         await TestReset.ResetShellAsync();

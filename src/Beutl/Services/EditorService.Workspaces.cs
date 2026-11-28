@@ -14,6 +14,10 @@ namespace Beutl.Services;
 public sealed partial class EditorService
 {
     private readonly object _workspacesSync = new();
+
+    // Guards the reservations of every workspace, so a workspace checks the ones whose files it overlaps atomically.
+    // Never held while taking _workspacesSync.
+    internal object WorkspaceOperationSync { get; } = new();
     private readonly List<EditorWorkspace> _workspaces = [];
     private readonly object _allRunningOutputsSync = new();
     private readonly ReactivePropertySlim<ImmutableArray<OutputProfileItem>> _allRunningOutputs = new([]);

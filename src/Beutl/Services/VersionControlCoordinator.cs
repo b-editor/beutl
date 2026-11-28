@@ -180,6 +180,7 @@ internal sealed partial class VersionControlCoordinator :
             return;
 
         workspace.PublishProjectVersionControlService(null);
+        workspace.SetRepositoryRoot(null);
         if (ReferenceEquals(workspace.VersionControl, this))
             workspace.VersionControl = null;
         _workspace = null;

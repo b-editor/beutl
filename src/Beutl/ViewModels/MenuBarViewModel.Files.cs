@@ -142,14 +142,16 @@ public partial class MenuBarViewModel
             using IProjectFileWriteLease fileWrite = await _editorService.BeginProjectFileWriteAsync(
                 CancellationToken.None);
             // Waiting for the lease can span a whole version-control transition, which closes the
-            // project and reopens a new instance, so nothing may be captured before the wait.
-            Project? project = _projectService.CurrentProject.Value;
+            // project and reopens a new instance, so nothing may be captured before the wait. From here on the
+            // save stays with the project whose files the lease reserves, even if another one becomes active.
+            EditorWorkspace workspace = EditorWorkspace.OwnerOf(fileWrite) ?? _editorService.ActiveWorkspace.Value;
+            Project? project = workspace.Project.Value;
             if (project != null)
             {
                 // Every scene of the project is written, so that leaves the UI thread, as a lifecycle save does. The
                 // list of them does not: it changes on this thread, and the project file must end up holding the last.
                 ProjectItem[] items = [.. project.Items];
-                using (_editorService.SuspendEditors())
+                using (workspace.SuspendEditors())
                 {
                     await Task.Run(() =>
                     {
@@ -167,7 +169,7 @@ public partial class MenuBarViewModel
 
             // Each SaveAsync can yield to the dispatcher, which can close a tab, so the live list is
             // snapshotted rather than enumerated across the awaits.
-            foreach (EditorTabItem item in _editorService.TabItems.ToArray())
+            foreach (EditorTabItem item in workspace.TabItems)
             {
                 if (item.Context.Value is ISavableEditorContext editor)
                 {
@@ -187,7 +189,7 @@ public partial class MenuBarViewModel
 
             Notifications.ShowSuccess(string.Empty, string.Format(MessageStrings.ItemsSaved, itemsCount.ToString()));
 
-            if (_editorService.TabItems.All(v => v.Context.Value is ISupportAutoSaveEditorContext))
+            if (workspace.TabItems.All(v => v.Context.Value is ISupportAutoSaveEditorContext))
             {
                 Notifications.ShowInformation(string.Empty, MessageStrings.FilesAutoSaved);
             }
@@ -227,7 +229,8 @@ public partial class MenuBarViewModel
             // The tab captured before the wait may have been disposed by a version-control
             // transition, so the save targets whichever tab is selected once the lease is held.
             item = _editorService.SelectedTabItem.Value;
-            if (item == null)
+            EditorWorkspace? workspace = EditorWorkspace.OwnerOf(fileWrite);
+            if (item == null || workspace is not null && !workspace.TabItems.Contains(item))
             {
                 return;
             }

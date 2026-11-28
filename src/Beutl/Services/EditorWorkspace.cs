@@ -23,6 +23,9 @@ internal sealed partial class EditorWorkspace : IOutputOperationLeaseProvider
     {
         Owner = owner;
         ProjectFile = projectFile;
+        _projectDirectory = projectFile is not null && Path.GetDirectoryName(projectFile) is { Length: > 0 } directory
+            ? Path.TrimEndingDirectorySeparator(FilePathComparison.ResolveCanonicalPath(directory))
+            : null;
         LifecycleActivity = _lifecycleActivity.ToReadOnlyReactivePropertySlim();
         ProjectVersionControlService = _projectVersionControlService.ToReadOnlyReactivePropertySlim();
         Admission = new ProjectFileWriteAdmission(this);

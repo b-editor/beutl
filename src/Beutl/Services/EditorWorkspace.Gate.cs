@@ -4,10 +4,13 @@ namespace Beutl.Services;
 
 // The reservation of the project's files: outputs, project-file writes and editor file opens may overlap one
 // another, and a worktree mutation runs only while none of them does. Each workspace has its own, so a save, an
-// export or a version-control operation in one project neither waits for nor blocks another.
+// export or a version-control operation in one project neither waits for nor blocks an unrelated one. Projects whose
+// files can overlap (one folder inside the other's, or inside the other's Git worktree) share the reservation: a
+// mutation of one waits for the other's work, and the other's work waits for the mutation.
 internal sealed partial class EditorWorkspace
 {
-    private readonly object _workspaceOperationSync = new();
+    // Shared by every workspace of the editor service, so a workspace can check the ones it overlaps atomically.
+    private object _workspaceOperationSync => Owner.WorkspaceOperationSync;
     private readonly SemaphoreSlim _projectFileWriteGate = new(1, 1);
     private TaskCompletionSource? _worktreeMutationCompletion;
     private int _activeOutputOperations;
@@ -15,6 +18,8 @@ internal sealed partial class EditorWorkspace
     private int _activeEditorFileOpens;
     private bool _worktreeMutationActive;
 
+    // Whether this project's own files are being replaced. A mutation of an overlapping project still holds back the
+    // reservations taken here.
     internal bool IsWorktreeMutationActive
     {
         get
@@ -26,11 +31,67 @@ internal sealed partial class EditorWorkspace
         }
     }
 
-    internal IDisposable? TryBeginOutputOperation()
+    // The folder of the project, canonical, or null for the editor service's own workspace.
+    private readonly string? _projectDirectory;
+    private string? _repositoryRoot;
+
+    // The Git worktree the project's version control works in, canonical; set by the coordinator tracking it.
+    internal void SetRepositoryRoot(string? repositoryRoot)
     {
+        string? canonical = null;
+        if (repositoryRoot is not null)
+        {
+            try
+            {
+                canonical = Path.TrimEndingDirectorySeparator(FilePathComparison.ResolveCanonicalPath(repositoryRoot));
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+            {
+                canonical = Path.TrimEndingDirectorySeparator(Path.GetFullPath(repositoryRoot));
+            }
+        }
+
         lock (_workspaceOperationSync)
         {
-            if (_worktreeMutationActive)
+            _repositoryRoot = canonical;
+        }
+    }
+
+    // Whether a mutation of one of the two workspaces can replace files the other uses. Called holding the lock.
+    private bool Overlaps(EditorWorkspace other)
+    {
+        if (ReferenceEquals(other, this) || _projectDirectory is null || other._projectDirectory is null)
+            return false;
+
+        return Contains(_repositoryRoot ?? _projectDirectory, other._projectDirectory)
+               || Contains(other._repositoryRoot ?? other._projectDirectory, _projectDirectory);
+
+        static bool Contains(string scope, string directory)
+            => FilePathComparison.IsSameOrDescendantCanonicalPath(scope, directory);
+    }
+
+    // The worktree mutation that holds back work here: this workspace's own, or one of an overlapping workspace.
+    // Called holding the lock.
+    private EditorWorkspace? FindBlockingMutation(EditorWorkspace[] workspaces)
+    {
+        if (_worktreeMutationActive)
+            return this;
+
+        foreach (EditorWorkspace other in workspaces)
+        {
+            if (other._worktreeMutationActive && Overlaps(other))
+                return other;
+        }
+
+        return null;
+    }
+
+    internal IDisposable? TryBeginOutputOperation()
+    {
+        EditorWorkspace[] workspaces = Owner.Workspaces;
+        lock (_workspaceOperationSync)
+        {
+            if (FindBlockingMutation(workspaces) is not null)
             {
                 return null;
             }
@@ -49,9 +110,10 @@ internal sealed partial class EditorWorkspace
     // opened, and fails while one runs. Opens may overlap each other, outputs and project-file writes.
     internal IDisposable? TryBeginEditorFileOpen()
     {
+        EditorWorkspace[] workspaces = Owner.Workspaces;
         lock (_workspaceOperationSync)
         {
-            if (_worktreeMutationActive)
+            if (FindBlockingMutation(workspaces) is not null)
             {
                 return null;
             }
@@ -73,10 +135,11 @@ internal sealed partial class EditorWorkspace
         {
             cancellationToken.ThrowIfCancellationRequested();
             Task waitForWorktreeMutation;
+            EditorWorkspace[] workspaces = Owner.Workspaces;
             lock (_workspaceOperationSync)
             {
-                waitForWorktreeMutation = _worktreeMutationActive
-                    ? _worktreeMutationCompletion?.Task ?? Task.CompletedTask
+                waitForWorktreeMutation = FindBlockingMutation(workspaces) is { } blocking
+                    ? blocking._worktreeMutationCompletion?.Task ?? Task.CompletedTask
                     : Task.CompletedTask;
             }
 
@@ -104,7 +167,12 @@ internal sealed partial class EditorWorkspace
     // Clipboard edits can wait behind auto-save, but must not enter a replacement worktree.
     internal async ValueTask<IProjectFileWriteLease?> TryBeginProjectFileWriteAsync(CancellationToken cancellationToken)
     {
-        if (IsWorktreeMutationActive) return null;
+        EditorWorkspace[] workspaces = Owner.Workspaces;
+        lock (_workspaceOperationSync)
+        {
+            if (FindBlockingMutation(workspaces) is not null) return null;
+        }
+
         await _projectFileWriteGate.WaitAsync(cancellationToken);
         return TryAdmitProjectFileWrite(cancellationToken);
     }
@@ -113,9 +181,10 @@ internal sealed partial class EditorWorkspace
     // (or the request was canceled) meanwhile, and otherwise releases the gate.
     private WorkspaceOperationLease? TryAdmitProjectFileWrite(CancellationToken cancellationToken = default)
     {
+        EditorWorkspace[] workspaces = Owner.Workspaces;
         lock (_workspaceOperationSync)
         {
-            if (!_worktreeMutationActive && !cancellationToken.IsCancellationRequested)
+            if (FindBlockingMutation(workspaces) is null && !cancellationToken.IsCancellationRequested)
             {
                 _activeProjectFileWrites++;
                 return new WorkspaceOperationLease(
@@ -157,6 +226,7 @@ internal sealed partial class EditorWorkspace
         }
 
         IDisposable? mutation = null;
+        EditorWorkspace[] workspaces = Owner.Workspaces;
         lock (_workspaceOperationSync)
         {
             if (handoff is not null && handoff.TryTakeOver())
@@ -167,10 +237,9 @@ internal sealed partial class EditorWorkspace
                 _projectFileWriteGate.Release();
             }
 
-            if (!_worktreeMutationActive
-                && _activeOutputOperations == 0
-                && _activeProjectFileWrites == 0
-                && _activeEditorFileOpens == 0)
+            if (FindBlockingMutation(workspaces) is null
+                && !HasReservations
+                && !workspaces.Any(other => Overlaps(other) && other.HasReservations))
             {
                 _worktreeMutationActive = true;
                 _worktreeMutationCompletion = new TaskCompletionSource(
@@ -183,6 +252,16 @@ internal sealed partial class EditorWorkspace
 
         return mutation;
     }
+
+    // The workspace whose files a project-file write reserves, or null for a lease of another kind.
+    internal static EditorWorkspace? OwnerOf(IProjectFileWriteLease lease)
+        => lease is WorkspaceOperationLease { Kind: WorkspaceOperationKind.ProjectFileWrite } workspaceLease
+            ? workspaceLease.Owner
+            : null;
+
+    // Outputs, project-file writes or editor file opens are running. Called holding the lock.
+    private bool HasReservations
+        => _activeOutputOperations != 0 || _activeProjectFileWrites != 0 || _activeEditorFileOpens != 0;
 
     private void EndWorkspaceOperation(WorkspaceOperationKind kind)
     {

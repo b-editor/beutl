@@ -960,6 +960,34 @@ public class VersionControlSaveTests
     }
 
     [AvaloniaTest]
+    public async Task A_save_is_snapshotted_by_the_project_it_wrote_after_another_one_became_active()
+    {
+        await using RealGitScope git = await RealGitScope.StartAsync(
+            autoCommitOnSave: true,
+            autoCommitOnClose: false,
+            useLfsWhenAvailable: false);
+        Project saved = await git.CreateProjectAsync("save-routing-saved", "saved");
+        string projectRoot = Path.GetDirectoryName(saved.Uri!.LocalPath)!;
+        Scene scene = saved.Items.OfType<Scene>().Single();
+        int before = await CountSnapshotsAsync(git.GitPath, projectRoot, "save");
+        EditorWorkspace savedWorkspace = TestShell.Editor.WorkspaceFor(saved);
+
+        // The save holds the saved project's lease when another project becomes active.
+        using IProjectFileWriteLease write = await savedWorkspace.BeginProjectFileWriteAsync(CancellationToken.None);
+        scene.Duration.Value = MediaTime.FromSeconds(29);
+        CoreSerializer.StoreToUri(scene, scene.Uri!);
+        Project active = (await TestShell.Project.CreateProject(
+            320, 180, new Rational(30), 44100, "save-routing-active", TestShell.NewWorkspace("save-routing-active")))!;
+        HeadlessTestHelpers.Settle();
+        Assert.That(TestShell.Project.CurrentProject.Value, Is.SameAs(active));
+
+        await TestShell.MainViewModel.VersionControl.NotifySavedAsync(write);
+        HeadlessTestHelpers.Settle();
+
+        Assert.That(await CountSnapshotsAsync(git.GitPath, projectRoot, "save"), Is.EqualTo(before + 1));
+    }
+
+    [AvaloniaTest]
     public async Task A_project_closed_in_the_background_takes_the_close_snapshot_the_settings_ask_for_then()
     {
         bool oldAutoSave = EditViewModel.IsAutoSaveSuppressedForTesting;
