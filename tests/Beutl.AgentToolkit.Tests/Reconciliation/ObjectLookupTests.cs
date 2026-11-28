@@ -94,6 +94,33 @@ public sealed class ObjectLookupTests
         });
     }
 
+    // Two loaded copies of one project share every Id: a reference resolves within the copy that holds it.
+    [Test]
+    public void FindReference_stays_in_its_own_project_when_two_copies_are_loaded()
+    {
+        Scene originalOther = TestWorkspace.CreateScene("other");
+        Scene originalHolder = TestWorkspace.CreateScene("holder");
+        Scene copyOther = TestWorkspace.CreateScene("other");
+        Scene copyHolder = TestWorkspace.CreateScene("holder");
+        copyOther.Id.Value = originalOther.Id.Value;
+        copyHolder.Id.Value = originalHolder.Id.Value;
+        Element originalTarget = AddElement(originalOther);
+        Element copyTarget = AddElement(copyOther);
+        copyTarget.Id.Value = originalTarget.Id.Value;
+        var original = new Project { Items = { originalOther, originalHolder } };
+        var copy = new Project { Items = { copyOther, copyHolder } };
+        _ = new BeutlApplication { Projects = { original, copy } };
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(new ObjectLookup(originalHolder).FindReference(originalTarget.Id.Value), Is.SameAs(originalTarget));
+            Assert.That(new ObjectLookup(copyHolder).FindReference(copyTarget.Id.Value), Is.SameAs(copyTarget));
+            Assert.That(new ObjectLookup(copyHolder).FindReference(copyOther.Id.Value), Is.SameAs(copyOther));
+            Assert.That(new ObjectLookup(copyHolder).FindReference(copyTarget.Id.Value),
+                Is.SameAs(ReferenceScope.Find(copyHolder, copyTarget.Id.Value)));
+        });
+    }
+
     [Test]
     public void FindReference_searches_a_root_outside_any_hierarchy_alone()
     {

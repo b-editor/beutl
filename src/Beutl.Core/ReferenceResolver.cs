@@ -25,10 +25,13 @@ public class ReferenceResolver(IHierarchical anchor, Guid id)
         }
         else
         {
+            // Only an object that joins the anchor's project resolves it, not one of another loaded project.
+            Project? project = anchor.FindHierarchicalParent<Project>(includeSelf: true);
             var tcs = new TaskCompletionSource<ICoreObject>();
             void OnDescendantAttached(object? sender, IHierarchical e)
             {
-                if (e is ICoreObject coreObject && coreObject.Id.Value == id)
+                if (e is ICoreObject coreObject && coreObject.Id.Value == id
+                    && (project is null || ReferenceEquals(e.FindHierarchicalParent<Project>(includeSelf: true), project)))
                 {
                     root.DescendantAttached -= OnDescendantAttached;
                     tcs.SetResult(coreObject);

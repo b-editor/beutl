@@ -78,7 +78,7 @@ public class ScenePackageTests
             Directory.Delete(library, recursive: true);
             Project? imported = await ProjectPackageService.Current.ImportAsync(package, Path.Combine(root, "imported"));
             Assert.That(imported, Is.Not.Null);
-            _ = new BeutlApplication { Projects = { imported } };
+            _ = new BeutlApplication { Projects = { imported! } };
             string importedRoot = Path.GetDirectoryName(imported!.Uri!.LocalPath)!;
             Scene[] scenes = GetScenes(imported, topLevel).ToArray();
             Assert.That(scenes.Select(scene => scene.Name.Value), Is.EquivalentTo(expected.Keys));
