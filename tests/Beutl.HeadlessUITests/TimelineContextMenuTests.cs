@@ -32,7 +32,7 @@ public sealed class TimelineContextMenuTests
         Assert.That(menu.Items.Cast<object>().Select(ItemText), Is.EqualTo(new string?[]
         {
             Strings.EnableElement, Strings.Lock, Strings.EditingMode, null,
-            Strings.Split, Strings.SplitByCurrentFrame, Strings.AutoSplitBySilenceMenu, null,
+            Strings.Split, Strings.SplitByCurrentFrame, Strings.AutoSplitBySilenceMenu, Strings.DetectCutsMenu, null,
             Strings.Cut, Strings.Copy, Strings.Duplicate, Strings.Delete, Strings.RenameMenu, Strings.ChangeToOriginalLength, null,
             Strings.BulkSelection, Strings.GroupSelectedElements, Strings.UngroupSelectedElements, null,
             Strings.ChangeColor, Strings.DisableThumbnails, null,
