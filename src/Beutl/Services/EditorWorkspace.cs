@@ -27,6 +27,12 @@ internal sealed partial class EditorWorkspace : IOutputOperationLeaseProvider
             ? Path.TrimEndingDirectorySeparator(FilePathComparison.ResolveCanonicalPath(directory))
             : null;
         LifecycleActivity = _lifecycleActivity.ToReadOnlyReactivePropertySlim();
+        // The last lease on an unloaded project's work can be what kept its workspace.
+        Activity = new SessionActivityTracker(owner.TimeProvider, () =>
+        {
+            if (Project.Value is null)
+                Owner.ScheduleWorkspaceRelease();
+        });
         ProjectVersionControlService = _projectVersionControlService.ToReadOnlyReactivePropertySlim();
         Admission = new ProjectFileWriteAdmission(this);
     }
@@ -38,6 +44,10 @@ internal sealed partial class EditorWorkspace : IOutputOperationLeaseProvider
     internal string? ProjectFile { get; }
 
     internal IProjectFileWriteAdmission Admission { get; }
+
+    // The work running for the project's session: outputs, reservations, slow lifecycle work, auto-saves, version
+    // control, AI generations, agents and playback each hold a lease while they run.
+    internal SessionActivityTracker Activity { get; }
 
     private readonly ReactivePropertySlim<Project?> _project = new();
     private ProjectAssetCoordinator? _projectAssets;
@@ -89,12 +99,25 @@ internal sealed partial class EditorWorkspace : IOutputOperationLeaseProvider
     // The tabs of the project: those put aside, or the open ones while the project is the active one.
     internal EditorTabItem[] TabItems => Owner.GetTabItems(this);
 
+    // Whether a scene editor of the project has edits not yet written to its files, open or put aside. Read on the
+    // UI thread.
+    internal bool HasUnsavedChanges
+    {
+        get
+        {
+            Dispatcher.UIThread.VerifyAccess();
+            return TabItems.Select(item => item.Context.Value)
+                .OfType<EditViewModel>()
+                .Any(editor => !editor.IsDisposingOrDisposed && editor.HasUnsavedSceneChanges);
+        }
+    }
+
     // Nothing holds the workspace, so the editor service can let it go once its project is unloaded.
     internal bool IsIdle
     {
         get
         {
-            if (InactiveTabs is not null || VersionControl is not null || HasRunningOutputs)
+            if (InactiveTabs is not null || VersionControl is not null || HasRunningOutputs || Activity.HasActiveLeases)
                 return false;
 
             lock (_workspaceOperationSync)

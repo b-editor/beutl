@@ -61,7 +61,15 @@ internal sealed class AgentAiJobManager : IDisposable
     private readonly Dictionary<AgentAiRequestKey, Job> _jobsByRequest = [];
     // Admission and disposal share it, so no job is added after Dispose has cancelled the others.
     private readonly object _lifetimeSync = new();
+    private readonly Func<IDisposable?>? _beginActivity;
     private bool _disposed;
+
+    // beginActivity keeps the session the agent works on busy for as long as a job it returns a lease for runs. It is
+    // called when the job starts, so the job belongs to the session that was active then.
+    internal AgentAiJobManager(Func<IDisposable?>? beginActivity = null)
+    {
+        _beginActivity = beginActivity;
+    }
 
     public string Start(
         string operation,
@@ -83,18 +91,30 @@ internal sealed class AgentAiJobManager : IDisposable
     {
         ArgumentException.ThrowIfNullOrEmpty(operation);
         ArgumentNullException.ThrowIfNull(run);
-        lock (_lifetimeSync)
+        // Taken outside the lock, and ended unless the job starts.
+        IDisposable? activity = _beginActivity?.Invoke();
+        bool started = false;
+        try
         {
-            ObjectDisposedException.ThrowIf(_disposed, this);
-            if (requestKey is { } key && FindReplayCore(key) is { } existing)
-                return (existing, false);
+            lock (_lifetimeSync)
+            {
+                ObjectDisposedException.ThrowIf(_disposed, this);
+                if (requestKey is { } key && FindReplayCore(key) is { } existing)
+                    return (existing, false);
 
-            var job = new Job(Guid.NewGuid().ToString("N"), operation, sceneId?.ToString(), requestKey);
-            _jobs[job.Id] = job;
-            if (requestKey is { } newKey)
-                _jobsByRequest[newKey] = job;
-            job.Task = Task.Run(() => RunAsync(job, run));
-            return (job, true);
+                var job = new Job(Guid.NewGuid().ToString("N"), operation, sceneId?.ToString(), requestKey);
+                _jobs[job.Id] = job;
+                if (requestKey is { } newKey)
+                    _jobsByRequest[newKey] = job;
+                job.Task = Task.Run(() => RunAsync(job, run, activity));
+                started = true;
+                return (job, true);
+            }
+        }
+        finally
+        {
+            if (!started)
+                activity?.Dispose();
         }
     }
 
@@ -151,11 +171,19 @@ internal sealed class AgentAiJobManager : IDisposable
         }
     }
 
-    private async Task RunAsync(Job job, Func<IProgress<string>, CancellationToken, Task<AgentAiJobOutput>> run)
+    private async Task RunAsync(
+        Job job, Func<IProgress<string>, CancellationToken, Task<AgentAiJobOutput>> run, IDisposable? activity)
     {
-        await RunCoreAsync(job, run).ConfigureAwait(false);
-        // Pruned as each job finishes, so the bound holds even when no later job starts.
-        Prune();
+        try
+        {
+            await RunCoreAsync(job, run).ConfigureAwait(false);
+            // Pruned as each job finishes, so the bound holds even when no later job starts.
+            Prune();
+        }
+        finally
+        {
+            activity?.Dispose();
+        }
     }
 
     private static async Task RunCoreAsync(Job job, Func<IProgress<string>, CancellationToken, Task<AgentAiJobOutput>> run)

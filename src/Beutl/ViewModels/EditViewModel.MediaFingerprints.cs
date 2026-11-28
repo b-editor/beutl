@@ -1,6 +1,7 @@
 ﻿using Beutl.Editor;
 using Beutl.Media.Decoding;
 using Beutl.ProjectSystem;
+using Beutl.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -26,7 +27,20 @@ public sealed partial class EditViewModel
         _forceFingerprintScanRequested |= force;
         _fingerprintScanRequested = true;
         if (_fingerprintScanTask.IsCompleted)
-            _fingerprintScanTask = UpdateMediaFingerprintsInBackgroundAsync();
+        {
+            // The session is busy from the moment the scan is queued, through hashing and the wait for the
+            // project's files, until the fingerprint file is written or the scan is abandoned.
+            IDisposable activity = Workspace.Activity.Begin(SessionActivityKind.MediaFingerprints);
+            try
+            {
+                _fingerprintScanTask = UpdateMediaFingerprintsInBackgroundAsync(activity);
+            }
+            catch
+            {
+                activity.Dispose();
+                throw;
+            }
+        }
     }
 
     internal Task WaitForMediaFingerprintsAsync() => _fingerprintScanTask;
@@ -78,8 +92,9 @@ public sealed partial class EditViewModel
             _savedMediaFingerprints[pair.Key] = pair.Value;
     }
 
-    private async Task UpdateMediaFingerprintsInBackgroundAsync()
+    private async Task UpdateMediaFingerprintsInBackgroundAsync(IDisposable activity)
     {
+        using IDisposable _ = activity;
         // Begin outside the SaveAsync call stack and its storage transaction.
         await Task.Yield();
         try

@@ -17,7 +17,15 @@ internal sealed class AgentThreadSessionHub(string beutlHome, IAgentNotification
     private readonly Dictionary<string, AgentProjectThreadSessions> _projects =
         new(OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
 
+    // The leases keeping busy the session of each project with a running thread, by project path.
+    private readonly Dictionary<string, IDisposable> _projectActivities =
+        new(OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
+
     public IObservable<int> RunningCount => _runningCount.DistinctUntilChanged();
+
+    // Keeps the session of the project at a path busy until the returned lease is disposed, which happens once no
+    // thread of that project runs any more. Null leaves sessions alone.
+    internal Func<string, IDisposable?>? BeginProjectActivity { get; set; }
 
     public AgentProjectThreadSessions ForProject(string projectPath)
     {
@@ -32,7 +40,33 @@ internal sealed class AgentThreadSessionHub(string beutlHome, IAgentNotification
     {
         if (_lifetime.IsCancellationRequested)
             return;
+        UpdateProjectActivities();
         _runningCount.OnNext(_projects.Values.Sum(project => project.RunningCount));
+    }
+
+    private void UpdateProjectActivities()
+    {
+        foreach ((string path, AgentProjectThreadSessions project) in _projects)
+        {
+            bool running = project.RunningCount > 0;
+            if (running && !_projectActivities.ContainsKey(path))
+            {
+                if (BeginProjectActivity?.Invoke(path) is { } activity)
+                    _projectActivities.Add(path, activity);
+            }
+            else if (!running && _projectActivities.Remove(path, out IDisposable? ended))
+            {
+                ended.Dispose();
+            }
+        }
+    }
+
+    private void EndProjectActivities()
+    {
+        IDisposable[] activities = [.. _projectActivities.Values];
+        _projectActivities.Clear();
+        foreach (IDisposable activity in activities)
+            activity.Dispose();
     }
 
     public async ValueTask DisposeAsync()
@@ -41,7 +75,16 @@ internal sealed class AgentThreadSessionHub(string beutlHome, IAgentNotification
             return;
 
         await _lifetime.CancelAsync();
-        await Task.WhenAll(_projects.Values.Select(project => project.ShutdownAsync()));
+        try
+        {
+            await Task.WhenAll(_projects.Values.Select(project => project.ShutdownAsync()));
+        }
+        finally
+        {
+            // The threads have stopped, or failed to; either way no session waits on them any more.
+            EndProjectActivities();
+        }
+
         _projects.Clear();
         _runningCount.OnNext(0);
         _runningCount.Dispose();

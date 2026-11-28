@@ -104,17 +104,21 @@ internal sealed partial class EditorWorkspace
 
     internal IDisposable? TryBeginOutputOperation()
     {
+        // The session is busy from before the reservation until after it ends, so no moment shows it reserved but
+        // idle. The activity is taken outside the lock, since its subscribers may run synchronously.
+        IDisposable activity = Activity.Begin(SessionActivityKind.Output);
         EditorWorkspace[] workspaces = Owner.Workspaces;
         lock (_workspaceOperationSync)
         {
-            if (FindBlockingMutation(workspaces) is not null)
+            if (FindBlockingMutation(workspaces) is null)
             {
-                return null;
+                _activeOutputOperations++;
+                return new WorkspaceOperationLease(this, WorkspaceOperationKind.Output, activity);
             }
-
-            _activeOutputOperations++;
-            return new WorkspaceOperationLease(this, WorkspaceOperationKind.Output);
         }
+
+        activity.Dispose();
+        return null;
     }
 
     IDisposable? IOutputOperationLeaseProvider.TryBeginOutputOperation()
@@ -126,17 +130,19 @@ internal sealed partial class EditorWorkspace
     // opened, and fails while one runs. Opens may overlap each other, outputs and project-file writes.
     internal IDisposable? TryBeginEditorFileOpen()
     {
+        IDisposable activity = Activity.Begin(SessionActivityKind.EditorFileOpen);
         EditorWorkspace[] workspaces = Owner.Workspaces;
         lock (_workspaceOperationSync)
         {
-            if (FindBlockingMutation(workspaces) is not null)
+            if (FindBlockingMutation(workspaces) is null)
             {
-                return null;
+                _activeEditorFileOpens++;
+                return new WorkspaceOperationLease(this, WorkspaceOperationKind.EditorFileOpen, activity);
             }
-
-            _activeEditorFileOpens++;
-            return new WorkspaceOperationLease(this, WorkspaceOperationKind.EditorFileOpen);
         }
+
+        activity.Dispose();
+        return null;
     }
 
     internal IDisposable BeginObservedOutputOperation()
@@ -197,6 +203,7 @@ internal sealed partial class EditorWorkspace
     // (or the request was canceled) meanwhile, and otherwise releases the gate.
     private WorkspaceOperationLease? TryAdmitProjectFileWrite(CancellationToken cancellationToken = default)
     {
+        IDisposable activity = Activity.Begin(SessionActivityKind.ProjectFileWrite);
         EditorWorkspace[] workspaces = Owner.Workspaces;
         lock (_workspaceOperationSync)
         {
@@ -205,11 +212,13 @@ internal sealed partial class EditorWorkspace
                 _activeProjectFileWrites++;
                 return new WorkspaceOperationLease(
                     this,
-                    WorkspaceOperationKind.ProjectFileWrite);
+                    WorkspaceOperationKind.ProjectFileWrite,
+                    activity);
             }
         }
 
         _projectFileWriteGate.Release();
+        activity.Dispose();
         return null;
     }
 
@@ -242,11 +251,15 @@ internal sealed partial class EditorWorkspace
         }
 
         IDisposable? mutation = null;
+        // Taken before the write is folded in, so the session stays busy across the handoff.
+        IDisposable activity = Activity.Begin(SessionActivityKind.WorktreeMutation);
+        bool tookOver = false;
         EditorWorkspace[] workspaces = Owner.Workspaces;
         lock (_workspaceOperationSync)
         {
             if (handoff is not null && handoff.TryTakeOver())
             {
+                tookOver = true;
                 _activeProjectFileWrites--;
                 // Released under the lock so the count and the gate never disagree about whether the
                 // workspace is reserved.
@@ -262,10 +275,15 @@ internal sealed partial class EditorWorkspace
                     TaskCreationOptions.RunContinuationsAsynchronously);
                 mutation = new WorkspaceOperationLease(
                     this,
-                    WorkspaceOperationKind.WorktreeMutation);
+                    WorkspaceOperationKind.WorktreeMutation,
+                    activity);
             }
         }
 
+        if (tookOver)
+            handoff!.EndActivity();
+        if (mutation is null)
+            activity.Dispose();
         return mutation;
     }
 
@@ -316,9 +334,11 @@ internal sealed partial class EditorWorkspace
             Owner.ScheduleWorkspaceRelease();
     }
 
+    // activity keeps the session busy for as long as the reservation lasts; it ends after the reservation does.
     private sealed class WorkspaceOperationLease(
         EditorWorkspace owner,
-        WorkspaceOperationKind kind) : IProjectFileWriteLease
+        WorkspaceOperationKind kind,
+        IDisposable activity) : IProjectFileWriteLease
     {
         private int _disposed;
 
@@ -333,11 +353,21 @@ internal sealed partial class EditorWorkspace
             return Interlocked.Exchange(ref _disposed, 1) == 0;
         }
 
+        // Ends the session activity of a lease another one took over.
+        public void EndActivity() => activity.Dispose();
+
         public void Dispose()
         {
             if (Interlocked.Exchange(ref _disposed, 1) == 0)
             {
-                owner.EndWorkspaceOperation(kind);
+                try
+                {
+                    owner.EndWorkspaceOperation(kind);
+                }
+                finally
+                {
+                    activity.Dispose();
+                }
             }
         }
     }

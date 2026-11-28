@@ -113,6 +113,8 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
             })
             .DisposeWith(_disposables);
 
+        TrackPlaybackActivity();
+
         PlayPause = new AsyncReactiveCommand(_isEnabled.AsObservable())
             .WithSubscribe(async () =>
             {
@@ -958,6 +960,9 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
             {
                 _isPausing = false;
             }
+
+            // The playback task and the compose and render threads have drained, or the pause failed.
+            EndPlaybackActivityIfStopped();
         }
 
         // Run after the caller's synchronous history mutation. During the drain, preview handoffs
@@ -1020,6 +1025,7 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
         Disposing?.Invoke(this, EventArgs.Empty);
         UpdateCleanPreviewConsumers(0);
         await Pause();
+        EndPlaybackActivity();
         renderCts?.Dispose();
         Scene!.Edited -= OnSceneEdited;
         _disposables.Dispose();
