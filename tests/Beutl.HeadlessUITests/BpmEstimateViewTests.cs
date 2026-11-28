@@ -87,7 +87,7 @@ public sealed class BpmEstimateViewTests
             new BpmGridOptions(90, 6, MediaTime.Zero, false), _ => { });
         using (host)
         {
-            flyout.EstimateView.ShowError(new string('x', 200));
+            flyout.EstimateView.ShowError(string.Join(' ', Enumerable.Repeat("failed", 40)));
             HeadlessTestHelpers.Render(2);
 
             Assert.Multiple(() =>
@@ -96,6 +96,10 @@ public sealed class BpmEstimateViewTests
                 Assert.That(flyout.ConfirmButton!.IsEnabled, Is.False);
                 Assert.That(flyout.EstimateView.CanConfirm, Is.False);
                 Assert.That(flyout.EstimateView.Fields.IsEnabled, Is.False);
+                Assert.That(flyout.EstimateView.StatusText.TextWrapping, Is.EqualTo(Avalonia.Media.TextWrapping.Wrap));
+                Assert.That(
+                    flyout.EstimateView.StatusText.Bounds.Width,
+                    Is.LessThanOrEqualTo(flyout.EstimateView.Bounds.Width));
             });
         }
     }

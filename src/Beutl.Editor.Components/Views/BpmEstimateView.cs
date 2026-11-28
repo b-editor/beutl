@@ -26,6 +26,8 @@ internal sealed class BpmEstimateView : UserControl
             Width = 20,
             Height = 20,
             IsIndeterminate = true,
+            // Margin rather than a spacer column, so an error without the ring starts at the left edge.
+            Margin = new Thickness(0, 0, 8, 0),
             VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
         };
         _status = new TextBlock
@@ -36,10 +38,10 @@ internal sealed class BpmEstimateView : UserControl
         // A grid, not a horizontal stack, so a long error wraps within the flyout's width.
         _statusRow = new Grid
         {
-            ColumnDefinitions = new ColumnDefinitions("Auto,8,*"),
+            ColumnDefinitions = new ColumnDefinitions("Auto,*"),
             Children = { _ring, _status },
         };
-        Grid.SetColumn(_status, 2);
+        Grid.SetColumn(_status, 1);
         _bpm = new NumericUpDown
         {
             Minimum = 1,
@@ -87,6 +89,8 @@ internal sealed class BpmEstimateView : UserControl
     internal NumericUpDown OffsetInput => _offset;
 
     internal StackPanel Fields => _fields;
+
+    internal TextBlock StatusText => _status;
 
     internal bool TryCreateOptions(out BpmGridOptions options)
     {

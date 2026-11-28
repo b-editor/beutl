@@ -84,7 +84,6 @@ internal sealed class BpmEstimateFlyout : FAPickerFlyoutBase
         using var cancellation = new CancellationTokenSource();
         _cancellation = cancellation;
         _view.ShowAnalyzing();
-        UpdateConfirmButton();
         try
         {
             BpmEstimate? estimate = await BpmEstimateService.AnalyzeAsync(
@@ -103,8 +102,6 @@ internal sealed class BpmEstimateFlyout : FAPickerFlyoutBase
             {
                 _view.ShowError(Strings.BpmEstimate_NoBeats);
             }
-
-            UpdateConfirmButton();
         }
         catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
         {
@@ -114,7 +111,6 @@ internal sealed class BpmEstimateFlyout : FAPickerFlyoutBase
             if (IsOpen)
             {
                 _view.ShowError(string.Format(Strings.BpmEstimate_Failed, ex.Message));
-                UpdateConfirmButton();
             }
         }
         finally
