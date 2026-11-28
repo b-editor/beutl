@@ -241,10 +241,13 @@ public sealed class TimelineContextMenuTests
             FAMenuFlyout menu = OpenMenu(border);
 
             FAMenuFlyoutItem bpm = FindItem(menu, Strings.EstimateBpmMenu);
+            FAMenuFlyoutItem silence = FindItem(menu, Strings.AutoSplitBySilenceMenu);
             Assert.Multiple(() =>
             {
                 Assert.That(bpm.IsVisible, Is.True);
                 Assert.That(bpm.IsEffectivelyEnabled, Is.False, "The locked clip's tempo cannot be applied.");
+                Assert.That(silence.IsVisible, Is.True, "A locked clip still has audio to split.");
+                Assert.That(silence.IsEffectivelyEnabled, Is.False, "A locked clip cannot be split.");
             });
         }
         finally
