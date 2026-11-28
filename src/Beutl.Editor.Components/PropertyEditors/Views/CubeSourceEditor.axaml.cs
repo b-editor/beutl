@@ -46,6 +46,9 @@ public partial class CubeSourceEditor : UserControl
 
     internal bool IsPickerOpen { get; private set; }
 
+    // Tests can answer the folder question without the OS dialog.
+    internal Func<Task<string?>>? FolderPickerOverride { get; set; }
+
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnDetachedFromVisualTree(e);
@@ -74,7 +77,9 @@ public partial class CubeSourceEditor : UserControl
 
         _picker?.Dispose();
         var picker = new LutLibraryPickerViewModel(
-            GetLibraryStore(viewModel), _thumbnails ??= new LutThumbnailCache());
+            GetLibraryStore(viewModel),
+            _thumbnails ??= new LutThumbnailCache(),
+            FolderPickerOverride ?? (() => LutLibraryFolderPicker.PickAsync(this)));
         _picker = picker;
         _ = picker.LoadAsync();
 

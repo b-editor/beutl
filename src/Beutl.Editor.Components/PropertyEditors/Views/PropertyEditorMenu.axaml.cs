@@ -2,7 +2,6 @@
 using Avalonia.Controls;
 using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
-using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Beutl.Animation;
@@ -194,15 +193,7 @@ public sealed partial class PropertyEditorMenu : UserControl
 
     private async Task AddLutFolderAsync(LutLibraryStore store)
     {
-        if (TopLevel.GetTopLevel(this)?.StorageProvider is not { } storage)
-            return;
-
-        IReadOnlyList<IStorageFolder> folders = await storage.OpenFolderPickerAsync(new FolderPickerOpenOptions
-        {
-            AllowMultiple = false,
-            Title = Strings.LutLibraryAddFolder
-        });
-        if (folders.Count > 0 && folders[0].TryGetLocalPath() is { } path)
+        if (await LutLibraryFolderPicker.PickAsync(this) is { } path)
         {
             store.AddFolder(path);
             RefreshLutFoldersMenu();

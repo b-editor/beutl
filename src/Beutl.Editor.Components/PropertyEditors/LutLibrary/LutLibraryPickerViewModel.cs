@@ -9,13 +9,14 @@ namespace Beutl.Editor.Components.PropertyEditors.LutLibrary;
 
 // Feeds the library item picker with the LUT files, where a pin is a favorite. The file list loads in the
 // background; thumbnails are asked for only by the tiles that show them.
-internal sealed class LutLibraryPickerViewModel : ILibraryItemPickerViewModel, IDisposable
+internal sealed class LutLibraryPickerViewModel : ILibraryItemPickerViewModel, ILutLibraryFolderPicker, IDisposable
 {
     private static readonly TimeSpan s_searchDelay = TimeSpan.FromMilliseconds(100);
     private static readonly string[] s_noCategories = [];
 
     private readonly LutLibraryStore _store;
     private readonly ILutThumbnailSource _thumbnails;
+    private readonly Func<Task<string?>>? _chooseFolder;
     private readonly CompositeDisposable _disposables = [];
     private readonly Dictionary<string, LutLibraryThumbnailSource> _sources = new(LutLibraryStore.PathComparer);
     private readonly CancellationTokenSource _thumbnailCancellation = new();
@@ -25,10 +26,14 @@ internal sealed class LutLibraryPickerViewModel : ILibraryItemPickerViewModel, I
     private bool _updating;
     private bool _disposed;
 
-    public LutLibraryPickerViewModel(LutLibraryStore store, ILutThumbnailSource thumbnails)
+    public LutLibraryPickerViewModel(
+        LutLibraryStore store,
+        ILutThumbnailSource thumbnails,
+        Func<Task<string?>>? chooseFolder = null)
     {
         _store = store;
         _thumbnails = thumbnails;
+        _chooseFolder = chooseFolder;
         ShowTiles.Value = Preferences.Default.Get(SelectLibraryItemDialogViewModel.ShowTilesKey, true);
         SearchText.Skip(1)
             .Throttle(s_searchDelay)
@@ -58,6 +63,8 @@ internal sealed class LutLibraryPickerViewModel : ILibraryItemPickerViewModel, I
     public ReactiveProperty<int> SelectedCategoryIndex { get; } = new();
 
     public ReactiveProperty<bool> ShowAll { get; } = new();
+
+    public bool CanShowAll => false;
 
     public bool HasReferencesTab => false;
 
@@ -113,6 +120,28 @@ internal sealed class LutLibraryPickerViewModel : ILibraryItemPickerViewModel, I
     public void Pin(PinnableLibraryItem item) => SetPinned(item, pinned: true);
 
     public void Unpin(PinnableLibraryItem item) => SetPinned(item, pinned: false);
+
+    public async Task AddFolderAsync()
+    {
+        if (_disposed || _chooseFolder is null)
+            return;
+
+        string? path;
+        try
+        {
+            path = await _chooseFolder();
+        }
+        catch (Exception)
+        {
+            return;
+        }
+
+        if (path is null || !_store.AddFolder(path))
+            return;
+
+        // Rescan in place so the files under the new folder appear in the open picker.
+        await LoadAsync();
+    }
 
     // Closing the picker cancels thumbnail renders still waiting for a slot; started ones finish into the cache.
     public void CancelThumbnailWork()

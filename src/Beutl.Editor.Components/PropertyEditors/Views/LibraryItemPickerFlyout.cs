@@ -1,5 +1,6 @@
 ﻿using Avalonia;
 using Beutl.Controls.PropertyEditors;
+using Beutl.Editor.Components.PropertyEditors.LutLibrary;
 using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using FluentAvalonia.Core;
 using Reactive.Bindings.Extensions;
@@ -37,6 +38,12 @@ public sealed class LibraryItemPickerFlyout : ConfirmablePickerFlyout<LibraryIte
         _viewModel.SelectedCategoryIndex.Skip(1)
             .Subscribe(v => pfp.SelectedCategoryIndex = v);
         pfp.ShowAll = _viewModel.ShowAll.Value;
+        pfp.CanShowAll = _viewModel.CanShowAll;
+        if (_viewModel is ILutLibraryFolderPicker folderPicker)
+        {
+            pfp.CanAddFolder = true;
+            pfp.AddFolderClicked += () => _ = folderPicker.AddFolderAsync();
+        }
         pfp.ShowReferencesTab = _viewModel.HasReferencesTab;
         if (_viewModel.ShowsOnlyReferences)
             pfp.ShowReferences = true;

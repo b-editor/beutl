@@ -12,6 +12,8 @@ internal interface ILibraryItemPickerViewModel : ISearchablePickerViewModel
 
     ReactiveProperty<bool> ShowAll { get; }
 
+    bool CanShowAll { get; }
+
     bool HasReferencesTab { get; }
 
     bool ShowsOnlyReferences { get; }

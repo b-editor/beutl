@@ -69,6 +69,7 @@ public sealed class LutLibraryFlyoutTests
             await HeadlessTestHelpers.WaitUntilAsync(() => editor.PickerViewModel is { Items.Count: 2 });
             LutLibraryPickerViewModel picker = editor.PickerViewModel!;
             LibraryItemPickerFlyoutPresenter presenter = FindPresenter(window);
+            AssertToolbar(presenter, showAll: false, addFolder: true);
 
             window.KeyPress(Key.F, RawInputModifiers.Control, PhysicalKey.F, "f");
             window.KeyRelease(Key.F, RawInputModifiers.Control, PhysicalKey.F, "f");
@@ -166,6 +167,84 @@ public sealed class LutLibraryFlyoutTests
                     && !ReferenceEquals(picker, first)
                     && picker.Items.Any(item => item.IsPinned),
                 message: "The reopened picker did not show the pinned LUT.");
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task The_effect_picker_keeps_show_all_and_has_no_add_folder_button()
+    {
+        var host = new Button();
+        var window = new Window { Content = host, Width = 760, Height = 520 };
+        try
+        {
+            window.Show();
+            var picker = new SelectLibraryItemDialogViewModel(
+                TestShell.FontManager,
+                TestShell.Library,
+                KnownLibraryItemFormats.FilterEffect,
+                typeof(FilterEffect));
+            _ = LibraryItemPickerHelper.ShowAsync(host, picker, KnownLibraryItemFormats.FilterEffect);
+            await picker.SearchTask;
+            HeadlessTestHelpers.Render(3);
+
+            AssertToolbar(FindPresenter(window), showAll: true, addFolder: false);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Adding_a_folder_from_the_LUT_picker_lists_its_files()
+    {
+        string library = Path.Combine(_directory, "luts");
+        Directory.CreateDirectory(library);
+        WriteCube(Path.Combine(library, "library.cube"));
+        string extra = Path.Combine(_directory, "extra");
+        Directory.CreateDirectory(extra);
+        WriteCube(Path.Combine(extra, "extra.cube"));
+
+        var effect = new LutEffect();
+        var adapter = new EnginePropertyAdapter<CubeSource?>(effect.Source, effect);
+        var (vm, control) = CreateControl(adapter);
+        using var viewModel = vm;
+        var editor = (CubeSourceEditor)control;
+        editor.LibraryFolderPathOverride = library;
+        editor.FolderPickerOverride = () => Task.FromResult<string?>(extra);
+        var window = new Window { Content = editor, Width = 760, Height = 520 };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render(3);
+            HeadlessTestHelpers.Click(LibraryButton(editor));
+            await HeadlessTestHelpers.WaitUntilAsync(
+                () => editor.PickerViewModel is { Items.Count: 1 },
+                message: "The LUT picker did not list the library folder.");
+            LutLibraryPickerViewModel picker = editor.PickerViewModel!;
+            LibraryItemPickerFlyoutPresenter presenter = FindPresenter(window);
+            ToggleButton addFolder = presenter.GetVisualDescendants().OfType<ToggleButton>()
+                .Single(button => button.Name == "AddFolderButton");
+            Assert.That(addFolder.IsEffectivelyVisible, Is.True);
+
+            HeadlessTestHelpers.Click(addFolder);
+            await HeadlessTestHelpers.WaitUntilAsync(
+                () => picker.Items.Count == 2 && picker.Items.Any(item => item.DisplayName == "extra"),
+                message: "The picker did not list the added folder's LUTs.");
+
+            LutLibraryStore store = ((CubeSourceEditorViewModel)vm).GetLibraryStore();
+            using JsonDocument json = JsonDocument.Parse(File.ReadAllText(Path.Combine(library, "library.json")));
+            Assert.Multiple(() =>
+            {
+                Assert.That(store.ExtraFolders, Does.Contain(extra));
+                Assert.That(
+                    json.RootElement.GetProperty("extraFolders").EnumerateArray().Select(element => element.GetString()),
+                    Does.Contain(extra));
+            });
         }
         finally
         {
@@ -355,6 +434,19 @@ public sealed class LutLibraryFlyoutTests
 
     private static Button LibraryButton(CubeSourceEditor editor)
         => editor.GetVisualDescendants().OfType<Button>().Single(button => button.Name == "LibraryButton");
+
+    private static void AssertToolbar(LibraryItemPickerFlyoutPresenter presenter, bool showAll, bool addFolder)
+    {
+        ToggleButton showAllButton = presenter.GetVisualDescendants().OfType<ToggleButton>()
+            .Single(button => button.Name == "ShowAllButton");
+        ToggleButton addFolderButton = presenter.GetVisualDescendants().OfType<ToggleButton>()
+            .Single(button => button.Name == "AddFolderButton");
+        Assert.Multiple(() =>
+        {
+            Assert.That(showAllButton.IsEffectivelyVisible, Is.EqualTo(showAll), "ShowAll visibility");
+            Assert.That(addFolderButton.IsEffectivelyVisible, Is.EqualTo(addFolder), "Add folder visibility");
+        });
+    }
 
     private static LibraryItemPickerFlyoutPresenter FindPresenter(Window window)
     {

@@ -125,6 +125,8 @@ public class SelectLibraryItemDialogViewModel : SearchablePickerViewModel<Librar
 
     public ReactiveProperty<bool> ShowAll { get; } = new();
 
+    public bool CanShowAll => true;
+
     public ReactiveProperty<bool> IsBusy { get; } = new();
 
     public ReactiveCollection<PinnableLibraryItem> ReferenceItems { get; } = [];
