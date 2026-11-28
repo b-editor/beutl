@@ -8,6 +8,7 @@ using Beutl.Editor.Components.ColorGradingTab;
 using Beutl.Editor.Components.ColorScopesTab;
 using Beutl.Editor.Components.CompressorProperties;
 using Beutl.Editor.Components.CurvesTab;
+using Beutl.Editor.Components.CutDetectionTab;
 using Beutl.Editor.Components.DockLayoutTab;
 using Beutl.Editor.Components.ElementPropertyTab;
 using Beutl.Editor.Components.EqualizerProperties;
@@ -81,6 +82,7 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
         HistoryTabExtension.Instance,
         TransitionTabExtension.Instance,
         SilenceSplitTabExtension.Instance,
+        CutDetectionTabExtension.Instance,
         VersionControlTabExtension.Instance,
         MissingMediaTabExtension.Instance,
         UndisplayableDataTabExtension.Instance,

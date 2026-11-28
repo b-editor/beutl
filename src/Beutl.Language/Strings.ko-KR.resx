@@ -4138,6 +4138,81 @@ GetProperty&lt;T&gt;("path", time) 또는 GetProperty&lt;T&gt;(guid, "propertyNa
   <data name="SilenceSplit_RefreshToAnalyze" xml:space="preserve">
     <value>새로 고쳐 분석</value>
   </data>
+  <data name="DetectCuts" xml:space="preserve">
+    <value>컷 감지</value>
+  </data>
+  <data name="DetectCutsMenu" xml:space="preserve">
+    <value>컷 감지…</value>
+  </data>
+  <data name="CutDetection_Threshold" xml:space="preserve">
+    <value>차이 임계값</value>
+  </data>
+  <data name="CutDetection_Minimum" xml:space="preserve">
+    <value>최소 간격 (ms)</value>
+  </data>
+  <data name="CutDetection_Linked" xml:space="preserve">
+    <value>그룹 요소에도 적용</value>
+  </data>
+  <data name="CutDetection_Split" xml:space="preserve">
+    <value>분할</value>
+  </data>
+  <data name="CutDetection_AddMarkers" xml:space="preserve">
+    <value>마커 추가</value>
+  </data>
+  <data name="CutDetection_Analyzing" xml:space="preserve">
+    <value>프레임 분석 중…</value>
+  </data>
+  <data name="CutDetection_Summary" xml:space="preserve">
+    <value>{0}개 컷</value>
+  </data>
+  <data name="CutDetection_None" xml:space="preserve">
+    <value>현재 설정에서는 컷이 없습니다.</value>
+  </data>
+  <data name="CutDetection_Failed" xml:space="preserve">
+    <value>컷을 감지할 수 없습니다: {0}</value>
+  </data>
+  <data name="CutDetection_Stale" xml:space="preserve">
+    <value>장면이 변경되었습니다. 분석을 새로 고친 후 적용하세요.</value>
+  </data>
+  <data name="CutDetection_LockedLinked" xml:space="preserve">
+    <value>그룹 요소가 잠겨 있습니다. 잠금을 해제하거나 그룹 편집을 끄세요.</value>
+  </data>
+  <data name="CutDetection_InvalidParameters" xml:space="preserve">
+    <value>임계값은 0.01~1, 최소 간격은 양수로 입력하세요.</value>
+  </data>
+  <data name="CutDetection_SelectVideo" xml:space="preserve">
+    <value>비디오 요소를 마우스 오른쪽 버튼으로 클릭하고 ‘컷 감지’를 선택하세요.</value>
+  </data>
+  <data name="CutDetection_ShortSegment" xml:space="preserve">
+    <value>감지된 위치에서 분할하면 그룹 클립에 한 프레임보다 짧은 구간이 생깁니다. 설정을 조정하거나 그룹 편집을 끄세요.</value>
+  </data>
+  <data name="CutDetection_Applying" xml:space="preserve">
+    <value>분할 적용 중…</value>
+  </data>
+  <data name="CutDetection_NoVideo" xml:space="preserve">
+    <value>선택한 요소에 분석할 수 있는 비디오 소스가 없습니다.</value>
+  </data>
+  <data name="CutDetection_NoDecoder" xml:space="preserve">
+    <value>비디오를 분석하려면 디코더가 필요합니다.</value>
+  </data>
+  <data name="CutDetection_NoFrames" xml:space="preserve">
+    <value>비디오 프레임을 읽을 수 없습니다.</value>
+  </data>
+  <data name="CutDetection_MarkerName" xml:space="preserve">
+    <value>컷</value>
+  </data>
+  <data name="CutDetection_MarkersAdded" xml:space="preserve">
+    <value>마커 {0}개 추가됨</value>
+  </data>
+  <data name="CutDetection_Apply" xml:space="preserve">
+    <value>전체 클립에 적용</value>
+  </data>
+  <data name="CutDetection_Mode" xml:space="preserve">
+    <value>적용할 작업</value>
+  </data>
+  <data name="CutDetection_RefreshToAnalyze" xml:space="preserve">
+    <value>새로 고쳐 분석</value>
+  </data>
   <data name="Clipboard_WaitingForSave" xml:space="preserve">
     <value>저장이 끝날 때까지 기다리는 중…</value>
   </data>

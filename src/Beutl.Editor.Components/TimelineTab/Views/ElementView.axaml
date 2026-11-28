@@ -128,6 +128,14 @@
                         <icons:FluentIconSource Icon="MusicNote2" />
                     </ui:FAMenuFlyoutItem.IconSource>
                 </ui:FAMenuFlyoutItem>
+                <ui:FAMenuFlyoutItem x:Name="detectCuts"
+                                     usage:UsageTracking.Feature="Timeline.DetectCuts"
+                                     Click="DetectCuts_Click"
+                                     Text="{x:Static lang:Strings.DetectCutsMenu}">
+                    <ui:FAMenuFlyoutItem.IconSource>
+                        <icons:FluentIconSource Icon="Video" />
+                    </ui:FAMenuFlyoutItem.IconSource>
+                </ui:FAMenuFlyoutItem>
                 <ui:FAMenuFlyoutSeparator />
                 <ui:FAMenuFlyoutItem x:Name="cut"
                                      usage:UsageTracking.Feature="Timeline.Cut"
