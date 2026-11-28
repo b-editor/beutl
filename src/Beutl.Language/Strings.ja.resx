@@ -1598,6 +1598,24 @@ GetProperty&lt;T&gt;("path", time) または GetProperty&lt;T&gt;(guid, "propert
   <data name="BpmOffset" xml:space="preserve">
     <value>オフセット</value>
   </data>
+  <data name="EstimateBpmMenu" xml:space="preserve">
+    <value>BPMを推定…</value>
+  </data>
+  <data name="BpmEstimate_Title" xml:space="preserve">
+    <value>推定したBPM</value>
+  </data>
+  <data name="BpmEstimate_FirstBeatOffset" xml:space="preserve">
+    <value>最初の拍のオフセット（秒）</value>
+  </data>
+  <data name="BpmEstimate_Analyzing" xml:space="preserve">
+    <value>クリップの音声を解析しています…</value>
+  </data>
+  <data name="BpmEstimate_Failed" xml:space="preserve">
+    <value>BPMを推定できませんでした：{0}</value>
+  </data>
+  <data name="BpmEstimate_NoBeats" xml:space="preserve">
+    <value>このクリップから安定した拍を検出できませんでした。</value>
+  </data>
   <data name="Preview" xml:space="preserve">
     <value>プレビュー</value>
   </data>

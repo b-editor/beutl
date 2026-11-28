@@ -1604,6 +1604,24 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="BpmOffset" xml:space="preserve">
     <value>Offset</value>
   </data>
+  <data name="EstimateBpmMenu" xml:space="preserve">
+    <value>Estimate BPM…</value>
+  </data>
+  <data name="BpmEstimate_Title" xml:space="preserve">
+    <value>Estimated BPM</value>
+  </data>
+  <data name="BpmEstimate_FirstBeatOffset" xml:space="preserve">
+    <value>First beat offset (s)</value>
+  </data>
+  <data name="BpmEstimate_Analyzing" xml:space="preserve">
+    <value>Analyzing the clip's audio…</value>
+  </data>
+  <data name="BpmEstimate_Failed" xml:space="preserve">
+    <value>Could not estimate BPM: {0}</value>
+  </data>
+  <data name="BpmEstimate_NoBeats" xml:space="preserve">
+    <value>No steady beat was found in this clip.</value>
+  </data>
   <data name="Preview" xml:space="preserve">
     <value>Preview</value>
   </data>

@@ -120,6 +120,14 @@
                         <icons:FluentIconSource Icon="Cut" />
                     </ui:FAMenuFlyoutItem.IconSource>
                 </ui:FAMenuFlyoutItem>
+                <ui:FAMenuFlyoutItem x:Name="estimateBpm"
+                                     usage:UsageTracking.Feature="Timeline.EstimateBpm"
+                                     Click="EstimateBpm_Click"
+                                     Text="{x:Static lang:Strings.EstimateBpmMenu}">
+                    <ui:FAMenuFlyoutItem.IconSource>
+                        <icons:FluentIconSource Icon="MusicNote2" />
+                    </ui:FAMenuFlyoutItem.IconSource>
+                </ui:FAMenuFlyoutItem>
                 <ui:FAMenuFlyoutSeparator />
                 <ui:FAMenuFlyoutItem x:Name="cut"
                                      usage:UsageTracking.Feature="Timeline.Cut"
