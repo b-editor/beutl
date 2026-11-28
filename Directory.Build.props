@@ -4,6 +4,11 @@
          would still see it empty below and keep Optimize=true in Debug. Default it the same way first. -->
     <Configuration Condition="'$(Configuration)' == ''">Debug</Configuration>
     <TargetFramework>net11.0</TargetFramework>
+    <!-- Desktop host projects also target Windows so releases cross-publish from any OS.
+         CI's test build passes BeutlWindowsTargets=false: those shards only run the
+         Linux binaries, and windows-publish still compiles the Windows target. -->
+    <BeutlDesktopTargetFrameworks>net11.0;net11.0-windows</BeutlDesktopTargetFrameworks>
+    <BeutlDesktopTargetFrameworks Condition="'$(BeutlWindowsTargets)' == 'false'">net11.0</BeutlDesktopTargetFrameworks>
     <LangVersion>15</LangVersion>
     <!-- .NET 11 runtime async: the runtime suspends and resumes async Task and ValueTask methods, which then get
          no compiler-generated state machine. async void methods and async iterators keep theirs. -->

@@ -27,32 +27,54 @@ def partition(groups, suffix=""):
 
 UNIT_FILTERS = partition([
     ("unit-particles", ["Beutl.UnitTests.Engine.Graphics.Particles."]),
-    ("unit-golden", ["Beutl.UnitTests.Engine.Graphics.Rendering.Golden."]),
+    # Golden is inside Rendering; it is too small to pay a shard of its own.
     ("unit-rendering", ["Beutl.UnitTests.Engine.Graphics.Rendering."]),
     ("unit-audio", ["Beutl.UnitTests.Engine.Audio."]),
+    ("unit-engine-graphics", ["Beutl.UnitTests.Engine.Graphics."]),
     ("unit-engine", ["Beutl.UnitTests.Engine."]),
     ("unit-git", ["Beutl.UnitTests.Editor.VersionControl."]),
     ("unit-other", []),
 ])
 # A prefix matching AssemblySetUp selects its entire subtree in NUnit. Matching
 # test fixture names keeps that namespace-wide SetUpFixture out of the partition.
+# The ranges follow the measured test time, not the number of letters: P alone
+# holds a quarter of the UI suite, so it is split around Player and Pa-Pe, S
+# joins Player, and the rest of P shares a range with R and U-W.
 UI_FILTERS = partition([
-    ("ui-a-d", [f"Beutl.HeadlessUITests.{letter}" for letter in "ABCD"]),
-    ("ui-e-i", [f"Beutl.HeadlessUITests.{letter}" for letter in "EFGHI"]),
-    ("ui-j-m", [f"Beutl.HeadlessUITests.{letter}" for letter in "JKLM"]),
-    ("ui-n-r", [f"Beutl.HeadlessUITests.{letter}" for letter in "NOPQR"]),
+    ("ui-a-c", [f"Beutl.HeadlessUITests.{letter}" for letter in "ABC"]),
+    ("ui-d-i", [f"Beutl.HeadlessUITests.{letter}" for letter in "DEFGHI"]),
+    ("ui-j-pe", [f"Beutl.HeadlessUITests.{letter}" for letter in "JKLMNO"]
+                + [f"Beutl.HeadlessUITests.P{letter}" for letter in "abcde"]),
+    ("ui-player-s", ["Beutl.HeadlessUITests.Player", "Beutl.HeadlessUITests.S"]),
+    ("ui-p-rest", ["Beutl.HeadlessUITests.P", "Beutl.HeadlessUITests.R",
+                   "Beutl.HeadlessUITests.U", "Beutl.HeadlessUITests.V",
+                   "Beutl.HeadlessUITests.W"]),
     ("ui-other", []),
 ], suffix=".*Tests$")
-FILTERS = UNIT_FILTERS | UI_FILTERS
-# These short validation-only groups share a runner to leave room for the
-# longer coverage shards, while still executing every test in both modes.
+# The largest Graphics3D fixtures lead A; every other fixture, including new
+# ones, lands in B. The validation job runs the same pair in parallel.
+GRAPHICS3D_FILTERS = partition([
+    ("graphics3d-a", ["Beutl.Graphics3DTests.Renderer3D",
+                      "Beutl.Graphics3DTests.ShaderGraphPartialImage",
+                      "Beutl.Graphics3DTests.ShaderGraphReview",
+                      "Beutl.Graphics3DTests.ShaderGraphOptimization"]),
+    ("graphics3d-b", []),
+], suffix=".*Tests$")
+FILTERS = UNIT_FILTERS | UI_FILTERS | GRAPHICS3D_FILTERS
+# These validation-only groups run every unit and Graphics3D suite a second time
+# with Vulkan validation. Grouping keeps the extra runners down while still
+# executing every test in both modes.
 QUICK_VALIDATION = "unit-quick-validation"
 FILTERS[QUICK_VALIDATION] = f"({UNIT_FILTERS['unit-particles']}) or ({UNIT_FILTERS['unit-audio']})"
 VALIDATION_GROUPS = {
-    "validation-core": ["unit-golden", "unit-engine", "unit-other"],
-    "validation-rendering": ["unit-rendering", QUICK_VALIDATION, "unit-git", "graphics3d"],
+    "validation-core": ["unit-rendering", "unit-engine", "unit-other"],
+    "validation-rendering": [QUICK_VALIDATION, "unit-git", "unit-engine-graphics"],
+    "validation-graphics": ["graphics3d-a", "graphics3d-b"],
 }
 SHARDED_PROJECTS = {"Beutl.UnitTests", "Beutl.HeadlessUITests", "Beutl.Graphics3DTests"}
+# FFmpeg-backed assemblies need the FFmpeg 8 libraries; keep them in their own
+# shard so the catch-all "other" suite does not pay for the install.
+OTHER_FFMPEG = ("Beutl.FFmpegIpc.Tests", "Beutl.FFmpegWorker.Tests")
 # The skip reasons FFmpeg-backed tests give when the FFmpeg 8 libraries or the worker are missing,
 # for example "FFmpeg native libraries are not available." or "FFmpeg natives unavailable (...)".
 FFMPEG_MISSING = re.compile(
@@ -97,11 +119,13 @@ def assemblies(root, suite):
         names = ["Beutl.UnitTests"]
     elif suite in UI_FILTERS:
         names = ["Beutl.HeadlessUITests"]
-    elif suite == "graphics3d":
+    elif suite in GRAPHICS3D_FILTERS:
         names = ["Beutl.Graphics3DTests"]
+    elif suite == "other-ffmpeg":
+        names = list(OTHER_FFMPEG)
     else:
         names = [project.stem for project in test_projects(root)
-                 if project.stem not in SHARDED_PROJECTS]
+                 if project.stem not in SHARDED_PROJECTS and project.stem not in OTHER_FFMPEG]
     return [root / "tests" / name / "bin" / "Debug" / "net11.0" / f"{name}.dll"
             for name in names]
 
@@ -270,7 +294,7 @@ def run_validation_group(root, suites):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("suite", nargs="?", choices=[*FILTERS, *VALIDATION_GROUPS, "graphics3d", "other"])
+    parser.add_argument("suite", nargs="?", choices=[*FILTERS, *VALIDATION_GROUPS, "other", "other-ffmpeg"])
     parser.add_argument("--validation", action="store_true")
     parser.add_argument("--check-results", type=Path, metavar="DIRECTORY",
                         help="report and check the TRX files of test runs made without this script")
@@ -281,7 +305,7 @@ if __name__ == "__main__":
         raise SystemExit(check_results(arguments.check_results))
     if arguments.suite is None:
         parser.error("a suite is required")
-    if arguments.validation and arguments.suite not in {*UNIT_FILTERS, QUICK_VALIDATION, *VALIDATION_GROUPS, "graphics3d"}:
+    if arguments.validation and arguments.suite not in {*UNIT_FILTERS, QUICK_VALIDATION, *VALIDATION_GROUPS, *GRAPHICS3D_FILTERS}:
         parser.error("Vulkan validation only applies to the unit and Graphics3D suites")
     if not arguments.validation and arguments.suite in {QUICK_VALIDATION, *VALIDATION_GROUPS}:
         parser.error("Combined suites are only used for Vulkan validation")

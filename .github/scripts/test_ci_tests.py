@@ -55,7 +55,7 @@ class CiTestsTests(unittest.TestCase):
     def test_same_assembly_has_separate_results_for_concurrent_suites(self):
         root = Path("/repo")
         assembly = root / "Beutl.UnitTests.dll"
-        first = ci_tests.test_command(root, assembly, "unit-golden", True)
+        first = ci_tests.test_command(root, assembly, "unit-rendering", True)
         second = ci_tests.test_command(root, assembly, "unit-engine", True)
         self.assertNotEqual(first[first.index("--results-directory") + 1], second[second.index("--results-directory") + 1])
         self.assertNotIn("--collect", first)
@@ -93,7 +93,8 @@ class CiTestsTests(unittest.TestCase):
             root = Path(temporary)
             tools = root / ".ci-tools"
             tools.mkdir()
-            names = ["Beutl.UnitTests", "Beutl.HeadlessUITests", "Beutl.Graphics3DTests", "NewTests"]
+            names = ["Beutl.UnitTests", "Beutl.HeadlessUITests", "Beutl.Graphics3DTests",
+                     "Beutl.FFmpegIpc.Tests", "Beutl.FFmpegWorker.Tests", "NewTests"]
             for name in names:
                 project = root / "tests" / name / f"{name}.csproj"
                 output = project.parent / "bin" / "Debug" / "net11.0"
@@ -103,8 +104,8 @@ class CiTestsTests(unittest.TestCase):
             projects = "".join(f'<Project Path="tests/{name}/{name}.csproj" />' for name in names)
             (root / "Beutl.slnx").write_text(f"<Solution>{projects}</Solution>")
             groups = {group: set(archive_ci.prepare_outputs(root, {"linux-x64"}, group))
-                      for group in ["unit", "ui", "graphics3d", "other"]}
-            for suite in [*ci_tests.FILTERS, *ci_tests.VALIDATION_GROUPS, "graphics3d", "other"]:
+                      for group in ["unit", "ui", "graphics3d", "other", "other-ffmpeg"]}
+            for suite in [*ci_tests.FILTERS, *ci_tests.VALIDATION_GROUPS, "other", "other-ffmpeg"]:
                 with self.subTest(suite=suite):
                     pattern = archive_ci.artifact_pattern(root, suite)
                     selected = pattern.removeprefix("TestBinaries-").removesuffix(".tar.zst").strip("{}").split(",")
@@ -113,8 +114,12 @@ class CiTestsTests(unittest.TestCase):
                               for assembly in ci_tests.assemblies(root, child)}
                     self.assertEqual(downloaded, needed | {tools})
             self.assertEqual(archive_ci.artifact_pattern(root, "validation-rendering"),
-                             "TestBinaries-{graphics3d,unit}.tar.zst")
+                             "TestBinaries-unit.tar.zst")
+            self.assertEqual(archive_ci.artifact_pattern(root, "validation-graphics"),
+                             "TestBinaries-graphics3d.tar.zst")
             self.assertEqual(groups["other"], {tools, root / "tests/NewTests/bin/Debug/net11.0"})
+            self.assertEqual(groups["other-ffmpeg"], {tools, root / "tests/Beutl.FFmpegIpc.Tests/bin/Debug/net11.0",
+                                                      root / "tests/Beutl.FFmpegWorker.Tests/bin/Debug/net11.0"})
 
     def test_archive_fails_when_a_selected_output_is_missing(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -138,6 +143,8 @@ class CiTestsTests(unittest.TestCase):
             "Beutl.UnitTests.Engine.Graphics.Rendering.Golden.Fixture.Test",
             "Beutl.UnitTests.Engine.Audio.Fixture.Test",
             "Beutl.UnitTests.Engine.Graphics.Fixture.Test",
+            "Beutl.UnitTests.Engine.Graphics3D.Fixture.Test",
+            "Beutl.UnitTests.Engine.Media.Fixture.Test",
             "Beutl.UnitTests.Engine.NewNamespace.Fixture.Test",
             "Beutl.UnitTests.Editor.VersionControl.Fixture.Test",
             "Beutl.UnitTests.Api.Fixture.Test",
@@ -153,15 +160,41 @@ class CiTestsTests(unittest.TestCase):
             name = f"Beutl.HeadlessUITests.{initial}Fixture.Test"
             with self.subTest(name=name):
                 self.assertEqual(sum(matches(filter_, name) for filter_ in ci_tests.UI_FILTERS.values()), 1)
-        name = "Beutl.HeadlessUITests.PlayerTests"
-        self.assertEqual(sum(matches(filter_, name) for filter_ in ci_tests.UI_FILTERS.values()), 1)
+        # P is split around Player and Pa-Pe, S joins Player, and T is the
+        # catch-all. Pin the buckets so a balance regression fails loudly.
+        expected = {
+            "Beutl.HeadlessUITests.PackageTests": "ui-j-pe",
+            "Beutl.HeadlessUITests.PlayerTests": "ui-player-s",
+            "Beutl.HeadlessUITests.ProjectTests": "ui-p-rest",
+            "Beutl.HeadlessUITests.SettingsTests": "ui-player-s",
+            "Beutl.HeadlessUITests.TimelineTests": "ui-other",
+        }
+        for name, suite in expected.items():
+            with self.subTest(name=name):
+                selected = {group for group, filter_ in ci_tests.UI_FILTERS.items()
+                            if matches(filter_, name)}
+                self.assertEqual(selected, {suite})
         for suite in ci_tests.UI_FILTERS.keys() - {"ui-other"}:
             self.assertFalse(matches(ci_tests.UI_FILTERS[suite], "Beutl.HeadlessUITests.AssemblySetUp"))
+
+    def test_graphics3d_shards_cover_each_fixture_once(self):
+        names = [
+            "Beutl.Graphics3DTests.Renderer3DTests",
+            "Beutl.Graphics3DTests.ShaderGraphPartialImageTests",
+            "Beutl.Graphics3DTests.ShaderGraphReviewTests",
+            "Beutl.Graphics3DTests.ShaderGraphOptimizationTests",
+            "Beutl.Graphics3DTests.LightRaysTests",
+            "Beutl.Graphics3DTests.NewFixtureTests",
+        ]
+        for name in names:
+            with self.subTest(name=name):
+                self.assertEqual(sum(matches(filter_, name) for filter_ in ci_tests.GRAPHICS3D_FILTERS.values()), 1)
 
     def test_other_suite_follows_solution_and_excludes_helpers_and_sharded_projects(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
-            names = ["NewTests", "SourceGeneratorTest", "Beutl.UnitTests", "Benchmarks"]
+            names = ["NewTests", "SourceGeneratorTest", "Beutl.UnitTests", "Benchmarks",
+                     "Beutl.FFmpegIpc.Tests", "Beutl.FFmpegWorker.Tests"]
             for name in names:
                 project = root / "tests" / name / f"{name}.csproj"
                 project.parent.mkdir(parents=True)
@@ -170,6 +203,8 @@ class CiTestsTests(unittest.TestCase):
             projects = "".join(f'<Project Path="tests\\{name}\\{name}.csproj" />' for name in names)
             (root / "Beutl.slnx").write_text(f"<Solution>{projects}</Solution>")
             self.assertEqual([path.stem for path in ci_tests.assemblies(root, "other")], ["NewTests", "SourceGeneratorTest"])
+            self.assertEqual([path.stem for path in ci_tests.assemblies(root, "other-ffmpeg")],
+                             ["Beutl.FFmpegIpc.Tests", "Beutl.FFmpegWorker.Tests"])
 
     def test_validation_reuses_filters_without_collecting_coverage(self):
         root = Path("/repo")
@@ -229,9 +264,9 @@ class CiTestsTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             path = Path(temporary) / "test.trx"
             path.write_text(trx(results))
-            self.assertTrue(ci_tests.report_skips("unit-golden/Beutl.UnitTests", [path]))
+            self.assertTrue(ci_tests.report_skips("unit-rendering/Beutl.UnitTests", [path]))
         self.assertEqual(self.output.getvalue().splitlines(), [
-            "unit-golden/Beutl.UnitTests: 10 of 12 tests not executed",
+            "unit-rendering/Beutl.UnitTests: 10 of 12 tests not executed",
             "      2  Needs a hardware GPU",
             "      2  No GPU device",
             "      2  Only supported on MacOSX",

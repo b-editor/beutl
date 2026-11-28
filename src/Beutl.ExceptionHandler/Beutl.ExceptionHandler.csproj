@@ -2,7 +2,7 @@
   <PropertyGroup>
     <BeutlHostLibrary>true</BeutlHostLibrary>
     <TargetFramework></TargetFramework><!-- empty so the TFMs below cross-target -->
-    <TargetFrameworks>net11.0;net11.0-windows</TargetFrameworks>
+    <TargetFrameworks>$(BeutlDesktopTargetFrameworks)</TargetFrameworks>
     <OutputType>WinExe</OutputType>
     <NeutralLanguage>en</NeutralLanguage>
     <DefineConstants>$(DefineConstants);Beutl_ExceptionHandler;BEUTL_LINKED_UI_FONTS</DefineConstants>
