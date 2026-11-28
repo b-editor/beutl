@@ -139,8 +139,13 @@ public sealed partial class ElementView : UserControl
         groupSelectedElements.InputGesture = toggleGroupAction is { IsUngroup: false } ? toggleGroupGesture : null;
         ungroupSelectedElements.InputGesture = toggleGroupAction is { IsUngroup: true } ? toggleGroupGesture : null;
         split.IsEnabled = editable;
+        // A clip with nothing for an analysis to read hides it rather than showing it disabled. A clip
+        // that only cannot be edited keeps the item visible and disabled, like the other actions.
+        autoSplitBySilence.IsVisible = SilenceWaveform.HasAnalyzableAudio(viewModel.Model);
         autoSplitBySilence.IsEnabled = editable && SilenceSplitViewModel.CanAnalyze(viewModel.Scene, viewModel.Model);
-        estimateBpm.IsEnabled = editable && BpmEstimateService.CanAnalyze(viewModel.Model);
+        estimateBpm.IsVisible = BpmEstimateService.CanAnalyze(viewModel.Model);
+        estimateBpm.IsEnabled = editable;
+        detectCuts.IsVisible = CutDetectionService.FindVideo(viewModel.Model) is not null;
         detectCuts.IsEnabled = editable && CutDetectionViewModel.CanAnalyze(viewModel.Scene, viewModel.Model);
         cut.IsEnabled = editable;
         duplicate.IsEnabled = viewModel.Timeline.CanDuplicateSelectedElements();
