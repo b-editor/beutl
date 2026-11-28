@@ -526,6 +526,360 @@ public class ProjectSessionActivationTests
         }
     }
 
+    [AvaloniaTest]
+    public async Task A_loaded_session_activates_even_after_its_file_is_gone()
+    {
+        await TestReset.ResetShellAsync();
+        try
+        {
+            string first = await CreateClosedProjectAsync("file-gone");
+            string second = await CreateClosedProjectAsync("file-kept");
+            await TestShell.Project.OpenProject(first);
+            ProjectSession session = Registry.ActiveSession.Value!;
+            await TestShell.Project.OpenProject(second);
+            HeadlessTestHelpers.Settle();
+            File.Delete(first);
+
+            ProjectSession? activated = await TestShell.Project.EnsureSessionAsync(first);
+            HeadlessTestHelpers.Settle();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(activated, Is.SameAs(session));
+                Assert.That(Registry.ActiveSession.Value, Is.SameAs(session));
+            });
+        }
+        finally
+        {
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Closing_a_session_a_running_switch_deactivates_does_not_cancel_another_open()
+    {
+        await TestReset.ResetShellAsync();
+        var deactivating = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        ProjectSession? closing = null;
+        Func<ProjectService.ProjectCloseContext, CancellationToken, Task> hold = (context, _) =>
+        {
+            if (context.Kind != ProjectService.ProjectCloseKind.Deactivate || !ReferenceEquals(context.Session, closing))
+                return Task.CompletedTask;
+            deactivating.TrySetResult();
+            return release.Task;
+        };
+        try
+        {
+            string a = await CreateClosedProjectAsync("switch-closed");
+            string b = await CreateClosedProjectAsync("switch-target");
+            string c = await CreateClosedProjectAsync("switch-later");
+            await TestShell.Project.OpenProject(a);
+            closing = Registry.ActiveSession.Value!;
+            TestShell.Project.ClosingPreparing += hold;
+
+            Task switching = TestShell.Project.OpenProject(b);
+            await deactivating.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            // Both requested while A is still the active session, which the running switch is deactivating.
+            Task<ProjectSession?> later = TestShell.Project.EnsureSessionAsync(c);
+            Task<bool> close = TestShell.Project.TryCloseProjectAsync(
+                closing.Project, ProjectService.ProjectCloseIntent.DiscardChanges);
+            release.TrySetResult();
+            await switching.WaitAsync(TimeSpan.FromSeconds(10));
+            bool closed = await close.WaitAsync(TimeSpan.FromSeconds(10));
+            ProjectSession? laterSession = await later.WaitAsync(TimeSpan.FromSeconds(10));
+            HeadlessTestHelpers.Settle();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(closed, Is.True);
+                Assert.That(Registry.Sessions, Does.Not.Contain(closing));
+                Assert.That(laterSession, Is.Not.Null, "Closing a session that was becoming inactive canceled the open.");
+                Assert.That(Registry.ActiveSession.Value, Is.SameAs(laterSession));
+            });
+        }
+        finally
+        {
+            release.TrySetResult();
+            TestShell.Project.ClosingPreparing -= hold;
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task A_project_loaded_in_the_background_shows_its_notices_when_it_first_becomes_active()
+    {
+        await TestReset.ResetShellAsync();
+        var held = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        string? holdFile = null;
+        Func<string, Task> hold = file =>
+        {
+            if (file != holdFile) return Task.CompletedTask;
+            held.TrySetResult();
+            return release.Task;
+        };
+        try
+        {
+            (string legacy, _) = LegacyNodeTreeNoticeTests.WriteLegacyProject();
+            string current = await CreateClosedProjectAsync("notice-current");
+            string newer = await CreateClosedProjectAsync("notice-newer");
+            using var notifications = new NotificationCapture(TestShell.Notifications);
+            int Notices() => notifications.All.Count(n => n.Title == Beutl.Language.MessageStrings.UnmigratedNodeTreeTitle);
+            await TestShell.Project.OpenProject(current);
+            holdFile = current;
+            TestShell.Project.Opening += hold;
+            Task running = TestShell.Project.OpenProject(current);
+            await held.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Task<ProjectSession?> background = TestShell.Project.EnsureSessionAsync(legacy);
+            Task<ProjectSession?> foreground = TestShell.Project.EnsureSessionAsync(newer);
+            release.TrySetResult();
+            await running.WaitAsync(TimeSpan.FromSeconds(10));
+            ProjectSession legacySession = (await background.WaitAsync(TimeSpan.FromSeconds(10)))!;
+            await foreground.WaitAsync(TimeSpan.FromSeconds(10));
+            HeadlessTestHelpers.Settle();
+            Assert.That(Registry.ActiveSession.Value, Is.Not.SameAs(legacySession));
+            Assert.That(Notices(), Is.Zero, "The project is not shown yet.");
+
+            await TestShell.Project.EnsureSessionAsync(legacy);
+            HeadlessTestHelpers.Settle();
+            Assert.That(Notices(), Is.EqualTo(1));
+
+            await TestShell.Project.EnsureSessionAsync(newer);
+            await TestShell.Project.EnsureSessionAsync(legacy);
+            HeadlessTestHelpers.Settle();
+            Assert.That(Notices(), Is.EqualTo(1), "A session shows its notices once.");
+        }
+        finally
+        {
+            release.TrySetResult();
+            TestShell.Project.Opening -= hold;
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task A_project_loaded_in_the_background_becomes_active_when_the_newer_request_fails()
+    {
+        await TestReset.ResetShellAsync();
+        var held = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        string? holdFile = null;
+        Func<string, Task> hold = file =>
+        {
+            if (file != holdFile) return Task.CompletedTask;
+            held.TrySetResult();
+            return release.Task;
+        };
+        try
+        {
+            string current = await CreateClosedProjectAsync("deferred-current");
+            string older = await CreateClosedProjectAsync("deferred-older");
+            string newer = Path.Combine(TestShell.NewWorkspace("deferred-broken"), "broken.bep");
+            File.WriteAllText(newer, "{ invalid json");
+            await TestShell.Project.OpenProject(current);
+            holdFile = current;
+            TestShell.Project.Opening += hold;
+            Task running = TestShell.Project.OpenProject(current);
+            await held.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+            Task<ProjectSession?> olderOpen = TestShell.Project.EnsureSessionAsync(older);
+            Task<ProjectSession?> newerOpen = TestShell.Project.EnsureSessionAsync(newer);
+            release.TrySetResult();
+            await running.WaitAsync(TimeSpan.FromSeconds(10));
+            ProjectSession? olderSession = await olderOpen.WaitAsync(TimeSpan.FromSeconds(10));
+            ProjectSession? newerSession = await newerOpen.WaitAsync(TimeSpan.FromSeconds(10));
+            HeadlessTestHelpers.Settle();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(newerSession, Is.Null);
+                Assert.That(olderSession, Is.Not.Null);
+                Assert.That(Registry.ActiveSession.Value, Is.SameAs(olderSession),
+                    "The project requested before the one that failed becomes active.");
+            });
+        }
+        finally
+        {
+            release.TrySetResult();
+            TestShell.Project.Opening -= hold;
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task An_inactive_close_aborted_after_its_handlers_keeps_the_tabs_and_unsaved_edits()
+    {
+        await TestReset.ResetShellAsync();
+        using var cancellation = new CancellationTokenSource();
+        Func<ProjectService.ProjectCloseContext, CancellationToken, Task> cancelAfterHandlers = (_, _) =>
+        {
+            cancellation.Cancel();
+            return Task.CompletedTask;
+        };
+        try
+        {
+            string first = await CreateClosedProjectAsync("abort-background");
+            string second = await CreateClosedProjectAsync("abort-foreground");
+            await TestShell.Project.OpenProject(first);
+            HeadlessTestHelpers.Settle();
+            ProjectSession background = Registry.ActiveSession.Value!;
+            var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+            Scene scene = background.Project.Items.OfType<Scene>().Single();
+            scene.Duration.Value = MediaTime.FromSeconds(37);
+            editor.HistoryManager.Commit();
+            await TestShell.Project.OpenProject(second);
+            HeadlessTestHelpers.Settle();
+            TestShell.Project.Closing += cancelAfterHandlers;
+
+            Exception? failure = null;
+            try
+            {
+                await TestShell.Project.TryCloseProjectAsync(
+                    background.Project, ProjectService.ProjectCloseIntent.DiscardChanges, cancellation.Token);
+            }
+            catch (Exception ex)
+            {
+                failure = ex;
+            }
+
+            HeadlessTestHelpers.Settle();
+            Assert.That(failure, Is.InstanceOf<OperationCanceledException>());
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(Registry.Sessions, Does.Contain(background));
+                Assert.That(TestShell.Editor.HasInactiveTabs(background.Project), Is.True);
+                Assert.That(editor.IsDisposingOrDisposed, Is.False);
+                Assert.That(editor.HasUnsavedSceneChanges, Is.True);
+                Assert.That(editor.HistoryManager.CanUndo, Is.True);
+            });
+        }
+        finally
+        {
+            TestShell.Project.Closing -= cancelAfterHandlers;
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task A_failed_save_vetoes_closing_an_inactive_session_and_keeps_its_tabs()
+    {
+        await TestReset.ResetShellAsync();
+        try
+        {
+            string first = await CreateClosedProjectAsync("veto-background");
+            string second = await CreateClosedProjectAsync("veto-foreground");
+            await TestShell.Project.OpenProject(first);
+            HeadlessTestHelpers.Settle();
+            ProjectSession background = Registry.ActiveSession.Value!;
+            var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+            background.Project.Items.OfType<Scene>().Single().Duration.Value = MediaTime.FromSeconds(19);
+            editor.HistoryManager.Commit();
+            await TestShell.Project.OpenProject(second);
+            HeadlessTestHelpers.Settle();
+
+            bool closed;
+            using (StorageWriteTransaction.InjectFaultsForTesting((_, _) => throw new IOException("Injected save failure.")))
+            {
+                closed = await TestShell.Project.TryCloseProjectAsync(
+                    background.Project, ProjectService.ProjectCloseIntent.SaveChanges);
+            }
+
+            HeadlessTestHelpers.Settle();
+            Assert.Multiple(() =>
+            {
+                Assert.That(closed, Is.False);
+                Assert.That(Registry.Sessions, Does.Contain(background));
+                Assert.That(TestShell.Editor.HasInactiveTabs(background.Project), Is.True);
+                Assert.That(editor.IsDisposingOrDisposed, Is.False);
+                Assert.That(editor.HasUnsavedSceneChanges, Is.True);
+            });
+        }
+        finally
+        {
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task A_deactivation_vetoed_after_the_tabs_were_put_aside_puts_them_back()
+    {
+        await TestReset.ResetShellAsync();
+        // Runs after the editor host, which subscribed first and has put the tabs aside by now.
+        Func<ProjectService.ProjectCloseContext, CancellationToken, Task> veto = (context, _) =>
+            context.Kind == ProjectService.ProjectCloseKind.Deactivate
+                ? throw new ProjectCloseAbortedException("Vetoed.")
+                : Task.CompletedTask;
+        try
+        {
+            string first = await CreateClosedProjectAsync("late-veto");
+            string second = await CreateClosedProjectAsync("late-veto-target");
+            await TestShell.Project.OpenProject(first);
+            HeadlessTestHelpers.Settle();
+            ProjectSession active = Registry.ActiveSession.Value!;
+            EditorTabItem[] tabs = [.. TestShell.Editor.TabItems];
+            EditorTabItem selected = TestShell.Editor.SelectedTabItem.Value!;
+            TestShell.Project.Closing += veto;
+
+            await TestShell.Project.OpenProject(second);
+            HeadlessTestHelpers.Settle();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(Registry.ActiveSession.Value, Is.SameAs(active));
+                Assert.That(Registry.Sessions, Is.EqualTo(new[] { active }));
+                Assert.That(TestShell.Editor.TabItems, Is.EqualTo(tabs));
+                Assert.That(TestShell.Editor.SelectedTabItem.Value, Is.SameAs(selected));
+                Assert.That(TestShell.Editor.HasInactiveTabs(active.Project), Is.False);
+            });
+        }
+        finally
+        {
+            TestShell.Project.Closing -= veto;
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Returning_to_a_project_closes_the_tab_of_a_scene_removed_while_it_was_inactive()
+    {
+        await TestReset.ResetShellAsync();
+        try
+        {
+            string first = await CreateClosedProjectAsync("removed-scene", extraScene: true);
+            string second = await CreateClosedProjectAsync("removed-scene-other");
+            await TestShell.Project.OpenProject(first);
+            HeadlessTestHelpers.Settle();
+            Project project = TestShell.Project.CurrentProject.Value!;
+            Scene kept = project.Items.OfType<Scene>().First(s => Path.GetFileName(s.Uri!.LocalPath) != "extra.scene");
+            Scene removed = project.Items.OfType<Scene>().Single(s => Path.GetFileName(s.Uri!.LocalPath) == "extra.scene");
+            TestShell.Editor.ActivateTabItem(kept);
+            TestShell.Editor.ActivateTabItem(removed);
+            HeadlessTestHelpers.Settle();
+            Assert.That(TestShell.Editor.TryGetTabItem(removed, out EditorTabItem? removedTab), Is.True);
+            var removedEditor = (EditViewModel)removedTab!.Context.Value;
+            await TestShell.Project.OpenProject(second);
+            HeadlessTestHelpers.Settle();
+            project.Items.Remove(removed);
+
+            await TestShell.Project.OpenProject(first);
+            HeadlessTestHelpers.Settle();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(TestShell.Editor.TabItems.Select(t => t.Context.Value.Object), Is.EqualTo(new[] { kept }));
+                Assert.That(removedEditor.IsDisposingOrDisposed, Is.True);
+                // The selected scene is gone, so the project shows the scene it has.
+                Assert.That(TestShell.Editor.SelectedTabItem.Value?.Context.Value?.Object, Is.SameAs(kept));
+            });
+        }
+        finally
+        {
+            await TestReset.ResetShellAsync();
+        }
+    }
+
     // Writes a project to disk and leaves no session loaded for it.
     private static async Task<string> CreateClosedProjectAsync(string name, bool extraScene = false)
     {

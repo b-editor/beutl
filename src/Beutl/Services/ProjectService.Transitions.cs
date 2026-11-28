@@ -13,6 +13,12 @@ public partial class ProjectService
     // The open requests that have not completed, oldest first. Each belongs to its own project file.
     private readonly List<ProjectOpenAttempt> _pendingOpenAttempts = [];
     private long _openAttemptSequence;
+    // The sequence of the newest open request that activated its session. It outlives the request, so an older
+    // request that reaches its transition later does not take the activation back.
+    private long _lastActivatedOpenSequence;
+    // A project an older request loaded without activating, because a newer request was under way. It becomes
+    // active if that newer request fails.
+    private (ProjectSession Session, long Sequence)? _deferredActivation;
     private ProjectTransitionContext? _currentTransition;
 
     internal ProjectTransitionContext? CurrentTransition
@@ -121,13 +127,111 @@ public partial class ProjectService
         return attempt;
     }
 
-    // Whether the attempt still owns the activation: no request made after it is still under way.
+    // Whether the attempt still owns the activation: no request made after it is still under way, and none made
+    // after it has activated its project already.
     private bool IsNewestOpenAttempt(ProjectOpenAttempt attempt)
     {
         lock (_openAttemptSync)
         {
-            return !_pendingOpenAttempts.Any(pending =>
-                pending.Sequence > attempt.Sequence && !pending.IsCancellationRequested);
+            return attempt.Sequence > _lastActivatedOpenSequence && !HasNewerPendingOpen_NoLock(attempt.Sequence);
+        }
+    }
+
+    private bool HasNewerPendingOpen_NoLock(long sequence)
+        => _pendingOpenAttempts.Any(pending => pending.Sequence > sequence && !pending.IsCancellationRequested);
+
+    // Records how an open request ended once it applied: its session became active, or it only loaded it.
+    private void RecordOpenOutcome(ProjectOpenAttempt attempt, ProjectSession? session)
+    {
+        lock (_openAttemptSync)
+        {
+            if (session is not null && ReferenceEquals(Sessions.ActiveSession.Value, session))
+            {
+                _lastActivatedOpenSequence = Math.Max(_lastActivatedOpenSequence, attempt.Sequence);
+                if (_deferredActivation is { } deferred && deferred.Sequence < attempt.Sequence)
+                    _deferredActivation = null;
+            }
+            else if (session is not null
+                     && attempt.Sequence > _lastActivatedOpenSequence
+                     && (_deferredActivation is not { } deferred || deferred.Sequence < attempt.Sequence))
+            {
+                _deferredActivation = (session, attempt.Sequence);
+            }
+        }
+    }
+
+    // Called when a request failed: a project an older request loaded in the background on its behalf becomes
+    // active, unless another request made after that one is still under way or activated its project already.
+    private async Task ActivateDeferredSessionAsync()
+    {
+        (ProjectSession Session, long Sequence) deferred;
+        lock (_openAttemptSync)
+        {
+            if (_deferredActivation is not { } candidate
+                || candidate.Sequence <= _lastActivatedOpenSequence
+                || HasNewerPendingOpen_NoLock(candidate.Sequence))
+            {
+                return;
+            }
+
+            deferred = candidate;
+        }
+
+        await using ProjectTransitionScope transition = await BeginTransitionAsync(
+            ProjectTransitionPurpose.Normal,
+            this,
+            CancellationToken.None,
+            cancelPendingOpens: false);
+        lock (_openAttemptSync)
+        {
+            // Decided again under the gate: a request may have taken the activation meanwhile.
+            if (_deferredActivation != deferred
+                || deferred.Sequence <= _lastActivatedOpenSequence
+                || HasNewerPendingOpen_NoLock(deferred.Sequence))
+            {
+                return;
+            }
+
+            _deferredActivation = null;
+        }
+
+        ProjectSession session = deferred.Session;
+        if (!Sessions.Sessions.Contains(session) || ReferenceEquals(Sessions.ActiveSession.Value, session))
+        {
+            return;
+        }
+
+        ProjectSession? previous = Sessions.ActiveSession.Value;
+        try
+        {
+            transition.Context.TargetSession = session;
+            if (previous is not null)
+                await DeactivateSessionCoreAsync(previous, transition.Context);
+
+            await ActivateSessionCoreAsync(session, freshlyLoaded: false);
+            lock (_openAttemptSync)
+            {
+                _lastActivatedOpenSequence = Math.Max(_lastActivatedOpenSequence, deferred.Sequence);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Unable to activate a project loaded in the background. Project: {Project}", session.Project.Uri);
+            if (previous is not null
+                && Sessions.ActiveSession.Value is null
+                && Sessions.Sessions.Contains(previous))
+            {
+                try
+                {
+                    await ActivateSessionCoreAsync(previous, freshlyLoaded: false);
+                }
+                catch (Exception recoveryFailure)
+                {
+                    _logger.LogError(recoveryFailure, "Unable to restore the previous project.");
+                }
+            }
+
+            _notifications.ShowInformation(Strings.Project, MessageStrings.FailedToOpenProject);
         }
     }
 
@@ -148,6 +252,8 @@ public partial class ProjectService
         lock (_openAttemptSync)
         {
             attempts = _pendingOpenAttempts.ToArray();
+            // A transition that cancels the open requests also ends the claim of one loaded in the background.
+            _deferredActivation = null;
         }
 
         foreach (ProjectOpenAttempt attempt in attempts)

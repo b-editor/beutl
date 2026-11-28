@@ -75,7 +75,7 @@ public class EditorHostViewModel
             {
                 // A session the editor does not show keeps its tabs aside, and only closing it releases them.
                 if (closeContext.Kind == ProjectService.ProjectCloseKind.Close)
-                    await DispatchAsync(() => CloseInactiveTabsAsync(project, saveChanges));
+                    await DispatchAsync(() => CloseInactiveTabsAsync(closeContext, saveChanges));
                 return;
             }
 
@@ -147,6 +147,10 @@ public class EditorHostViewModel
             var stale = new List<EditorTabItem>();
             foreach (EditorTabItem item in tabs.Items)
             {
+                // A tab disposed while it was aside cannot come back.
+                if (item.Context.Value is null)
+                    continue;
+
                 if (item.Context.Value?.Object is ProjectItem projectItem && !project.Items.Contains(projectItem))
                     stale.Add(item);
                 else
@@ -164,6 +168,11 @@ public class EditorHostViewModel
                      && project.Items.Contains(item))
             {
                 _editorService.ActivateTabItem(item);
+            }
+            else if (_editorService.TabItems.FirstOrDefault()?.Context.Value?.Object is { } firstObject)
+            {
+                // The selected scene left the project while it was inactive; show a tab that is still there.
+                _editorService.ActivateTabItem(firstObject);
             }
 
             await DisposeTabsAsync(stale);
@@ -192,21 +201,32 @@ public class EditorHostViewModel
         });
     }
 
-    // Closing a session the editor does not show saves its tabs, unless the close discards them, and disposes them.
-    // A failed save vetoes the close and keeps the tabs aside.
-    private async Task CloseInactiveTabsAsync(Project project, bool saveChanges)
+    // Closing a session the editor does not show saves its tabs, unless the close discards them, and disposes them
+    // once the close commits. A failed save vetoes the close; a close aborted later, by a cancellation or another
+    // handler, keeps the tabs aside with their history.
+    private async Task CloseInactiveTabsAsync(ProjectService.ProjectCloseContext closeContext, bool saveChanges)
     {
-        if (!_editorService.TryTakeInactiveTabs(project, out EditorService.InactiveTabSet? tabs))
+        Project project = closeContext.Session.Project;
+        if (!_editorService.HasInactiveTabs(project))
             return;
 
-        if (saveChanges && !await _editorService.SaveSceneEditorsBeforeCloseAsync(tabs.Items))
+        if (saveChanges
+            && _editorService.TryGetInactiveTabs(project, out EditorService.InactiveTabSet? toSave)
+            && !await _editorService.SaveSceneEditorsBeforeCloseAsync(toSave.Items))
         {
-            _editorService.ReturnInactiveTabs(project, tabs);
             throw new ProjectCloseAbortedException(MessageStrings.FileSaveException);
         }
 
-        _closedSelections.Remove(project);
-        await DisposeTabsAsync(tabs.Items);
+        closeContext.RegisterCompletion(closed => closed
+            ? QueueOperationAsync(() => DispatchAsync(async () =>
+            {
+                if (!_editorService.TryTakeInactiveTabs(project, out EditorService.InactiveTabSet? tabs))
+                    return;
+
+                _closedSelections.Remove(project);
+                await DisposeTabsAsync(tabs.Items);
+            }))
+            : Task.CompletedTask);
     }
 
     private async Task DisposeTabsAsync(IEnumerable<EditorTabItem> items)

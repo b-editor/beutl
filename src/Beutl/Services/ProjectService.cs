@@ -105,6 +105,7 @@ public sealed partial class ProjectService
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(file);
         ProjectOpenAttempt attempt = BeginOpenAttempt(file);
+        bool failed = false;
         try
         {
             try
@@ -116,10 +117,12 @@ public sealed partial class ProjectService
                 return null;
             }
 
-            // Reported before taking a transition, so a deleted project holds up no other project change.
-            if (!File.Exists(file))
+            // Reported before taking a transition, so a deleted project holds up no other project change. A loaded
+            // session needs no file to become active; the transition looks it up again.
+            if (!File.Exists(file) && Sessions.Find(file) is null)
             {
                 ReportUnavailableProjectFile(file);
+                failed = true;
                 return null;
             }
 
@@ -143,15 +146,29 @@ public sealed partial class ProjectService
                     return null;
                 }
 
-                return await OpenProjectCoreAsync(
+                ProjectSession? session = await OpenProjectCoreAsync(
                     file,
                     transition.Context,
                     activate: IsNewestOpenAttempt(attempt));
+                RecordOpenOutcome(attempt, session);
+                failed = session is null;
+                return session;
             }
         }
         finally
         {
             CompleteOpenAttempt(attempt);
+            if (failed && !attempt.IsCancellationRequested)
+            {
+                try
+                {
+                    await ActivateDeferredSessionAsync();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Unable to activate a project loaded in the background.");
+                }
+            }
         }
     }
 
@@ -226,17 +243,21 @@ public sealed partial class ProjectService
         ArgumentNullException.ThrowIfNull(expectedProject);
         try
         {
-            // Unloading a session the editor does not show must not cancel a request to open another project.
-            bool targetsActiveSession = ReferenceEquals(CurrentProject.Value, expectedProject);
+            // Unloading a session the editor does not show must not cancel a request to open another project. Which
+            // one it is can change while the close waits, as a switch running meanwhile deactivates the active
+            // session, so that is decided once the transition is held.
             await using ProjectTransitionScope transition = await BeginTransitionAsync(
                 ProjectTransitionPurpose.Normal,
                 this,
                 cancellationToken,
-                cancelPendingOpens: targetsActiveSession);
+                cancelPendingOpens: false);
             if (Sessions.Find(expectedProject) is not { } session)
             {
                 return false;
             }
+
+            if (ReferenceEquals(Sessions.ActiveSession.Value, session))
+                CancelPendingOpenAttemptExcept(this, cancelPendingOpens: true);
 
             await CloseSessionCoreAsync(session, transition.Context, cancellationToken, closeIntent);
             return true;
@@ -312,14 +333,15 @@ public sealed partial class ProjectService
                 }
             }
 
-            if (!File.Exists(file))
+            ProjectSession? target = Sessions.Find(file);
+            // A loaded session is activated as it is, even when its file has gone meanwhile.
+            if (target is null && !File.Exists(file))
             {
                 ReportUnavailableProjectFile(file);
                 usage?.Complete("skipped");
                 return null;
             }
 
-            ProjectSession? target = Sessions.Find(file);
             // Selecting the active project from Recents must not replace in-memory edits with a snapshot read from
             // its file, and neither may selecting any other loaded project: its session is reused as it is.
             if (target is not null && ReferenceEquals(target, Sessions.ActiveSession.Value))
@@ -712,9 +734,12 @@ public sealed partial class ProjectService
             throw;
         }
 
-        // The notices concern what the file held, so a session shows them once, when it is read.
-        if (freshlyLoaded)
+        // The notices concern what the file held, so a session shows them once, when it first becomes active.
+        if (!session.NoticesShown)
+        {
+            session.NoticesShown = true;
             ShowProjectNotices(project);
+        }
 
         if (session.FilePath is { } file)
             TryAddToRecentProjects(file);

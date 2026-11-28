@@ -25,8 +25,21 @@ public sealed partial class EditorService
     {
         ArgumentNullException.ThrowIfNull(project);
         Dispatcher.UIThread.VerifyAccess();
+        // Captured, cleared and kept with no await in between, so a tab opened or closed meanwhile can neither be
+        // dropped from the list unkept nor be kept after it was disposed.
         EditorTabItem[] items = [.. _tabItems];
         EditorTabItem? selected = SelectedTabItem.Value is { } tab && items.Contains(tab) ? tab : null;
+        SelectedTabItem.Value = null;
+        _tabItems.Clear();
+        if (_inactiveTabs.Remove(project, out InactiveTabSet? earlier))
+        {
+            // A session cannot be put aside twice; keep both sets rather than lose the earlier tabs.
+            items = [.. earlier.Items, .. items];
+            selected ??= earlier.Selected;
+        }
+
+        _inactiveTabs[project] = new InactiveTabSet(items, selected);
+
         foreach (EditViewModel editor in items.Select(item => item.Context.Value).OfType<EditViewModel>())
         {
             if (editor.IsDisposingOrDisposed)
@@ -41,17 +54,13 @@ public sealed partial class EditorService
                 _logger.LogWarning(ex, "Failed to pause an editor that is put aside.");
             }
         }
+    }
 
-        SelectedTabItem.Value = null;
-        _tabItems.Clear();
-        if (_inactiveTabs.Remove(project, out InactiveTabSet? earlier))
-        {
-            // A session cannot be put aside twice; keep both sets rather than lose the earlier tabs.
-            items = [.. earlier.Items, .. items];
-            selected ??= earlier.Selected;
-        }
-
-        _inactiveTabs[project] = new InactiveTabSet(items, selected);
+    // Returns the tabs put aside for project and leaves them there.
+    internal bool TryGetInactiveTabs(Project project, [NotNullWhen(true)] out InactiveTabSet? tabs)
+    {
+        ArgumentNullException.ThrowIfNull(project);
+        return _inactiveTabs.TryGetValue(project, out tabs);
     }
 
     // Removes and returns the tabs put aside for project.
@@ -59,14 +68,6 @@ public sealed partial class EditorService
     {
         ArgumentNullException.ThrowIfNull(project);
         return _inactiveTabs.Remove(project, out tabs);
-    }
-
-    // Puts back tabs taken with TryTakeInactiveTabs whose session stays inactive after all.
-    internal void ReturnInactiveTabs(Project project, InactiveTabSet tabs)
-    {
-        ArgumentNullException.ThrowIfNull(project);
-        ArgumentNullException.ThrowIfNull(tabs);
-        _inactiveTabs[project] = tabs;
     }
 
     // Removes and returns every tab put aside, for shutdown.
