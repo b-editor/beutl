@@ -1715,6 +1715,8 @@ Beutl.Utilities
   id: Beutl.Editor.Components.ColorScopesTab.ColorScopesTabExtension#<guid>
 [Beutl.Editor.Components].CurvesTab:CurvesTabExtension
   id: Beutl.Editor.Components.CurvesTab.CurvesTabExtension#<guid>
+[Beutl.Editor.Components].CutDetectionTab:CutDetectionTabExtension
+  id: Beutl.Editor.Components.CutDetectionTab.CutDetectionTabExtension
 [Beutl.Editor.Components].DockLayoutTab:DockLayoutTabExtension
   id: Beutl.Editor.Components.DockLayoutTab.DockLayoutTabExtension
 [Beutl.Editor.Components].ElementPropertyTab:ElementPropertyTabExtension
