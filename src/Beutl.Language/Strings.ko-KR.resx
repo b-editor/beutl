@@ -593,6 +593,33 @@
   <data name="NoFavorites" xml:space="preserve">
     <value>즐겨찾기 없음</value>
   </data>
+  <data name="LutLibrary" xml:space="preserve">
+    <value>LUT 라이브러리</value>
+  </data>
+  <data name="LutLibraryAddFolder" xml:space="preserve">
+    <value>폴더 추가…</value>
+  </data>
+  <data name="LutLibraryRemoveFolder" xml:space="preserve">
+    <value>폴더 제거</value>
+  </data>
+  <data name="LutLibrarySearchWatermark" xml:space="preserve">
+    <value>LUT 검색</value>
+  </data>
+  <data name="LutLibraryFavoritesOnly" xml:space="preserve">
+    <value>즐겨찾기만</value>
+  </data>
+  <data name="LutLibraryRecentlyUsed" xml:space="preserve">
+    <value>최근 사용한 LUT</value>
+  </data>
+  <data name="LutLibraryEmpty" xml:space="preserve">
+    <value>{0}에 .cube 파일을 넣으면 여기에 표시됩니다.</value>
+  </data>
+  <data name="LutLibraryNoMatches" xml:space="preserve">
+    <value>검색과 일치하는 LUT가 없습니다.</value>
+  </data>
+  <data name="LutLibraryInvalidFile" xml:space="preserve">
+    <value>이 파일을 LUT로 읽을 수 없습니다.</value>
+  </data>
   <data name="DeleteSelectedItems" xml:space="preserve">
     <value>{0}개 항목을 삭제하시겠습니까?</value>
   </data>

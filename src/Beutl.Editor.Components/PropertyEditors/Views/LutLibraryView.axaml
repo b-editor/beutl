@@ -1,0 +1,219 @@
+<UserControl x:Class="Beutl.Editor.Components.PropertyEditors.Views.LutLibraryView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:icons="using:FluentIcons.Avalonia.Fluent"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:lut="using:Beutl.Editor.Components.PropertyEditors.LutLibrary"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             Width="360"
+             d:DesignWidth="360"
+             x:CompileBindings="True"
+             x:DataType="lut:LutLibraryViewModel"
+             mc:Ignorable="d">
+    <UserControl.Resources>
+        <DataTemplate x:Key="LutEntryTemplate" x:DataType="lut:LutLibraryItemViewModel">
+            <Grid Margin="0,1" ColumnDefinitions="*,Auto">
+                <Button Grid.Column="0"
+                        Padding="4"
+                        HorizontalContentAlignment="Stretch"
+                        Classes="lut-entry"
+                        Click="Entry_Click"
+                        Tag="{Binding}"
+                        Theme="{StaticResource LiteButtonStyle}"
+                        ToolTip.Tip="{Binding Path}">
+                    <Grid ColumnDefinitions="Auto,*">
+                        <Border Width="96"
+                                Height="54"
+                                Background="{DynamicResource ControlFillColorSecondaryBrush}"
+                                BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
+                                BorderThickness="1"
+                                ClipToBounds="True"
+                                CornerRadius="3">
+                            <Panel>
+                                <Image IsVisible="{Binding Thumbnail, Converter={x:Static ObjectConverters.IsNotNull}}"
+                                       Source="{Binding Thumbnail}"
+                                       Stretch="UniformToFill" />
+                                <icons:FluentIcon HorizontalAlignment="Center"
+                                                  VerticalAlignment="Center"
+                                                  FontSize="18"
+                                                  Foreground="{DynamicResource SystemFillColorCautionBrush}"
+                                                  Icon="Warning"
+                                                  IsVisible="{Binding IsError}" />
+                            </Panel>
+                        </Border>
+                        <StackPanel Grid.Column="1"
+                                    Margin="8,0,0,0"
+                                    VerticalAlignment="Center"
+                                    Spacing="1">
+                            <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                            <TextBlock FontSize="11"
+                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                       IsVisible="{Binding !IsError}"
+                                       Text="{Binding FolderName}"
+                                       TextTrimming="CharacterEllipsis" />
+                            <TextBlock FontSize="11"
+                                       Foreground="{DynamicResource SystemFillColorCautionBrush}"
+                                       IsVisible="{Binding IsError}"
+                                       Text="{x:Static lang:Strings.LutLibraryInvalidFile}"
+                                       TextWrapping="Wrap" />
+                        </StackPanel>
+                    </Grid>
+                </Button>
+
+                <Button Grid.Column="1"
+                        Width="24"
+                        Height="24"
+                        Padding="0"
+                        VerticalAlignment="Center"
+                        Classes="size-24x24 lut-favorite"
+                        Click="Favorite_Click"
+                        Tag="{Binding}"
+                        Theme="{StaticResource TransparentButton}"
+                        ToolTip.Tip="{x:Static lang:Strings.Favorites}">
+                    <Panel>
+                        <icons:FluentIcon Icon="Star" IsVisible="{Binding !IsFavorite}" />
+                        <icons:FluentIcon Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"
+                                          Icon="Star"
+                                          IconVariant="Filled"
+                                          IsVisible="{Binding IsFavorite}" />
+                    </Panel>
+                </Button>
+            </Grid>
+        </DataTemplate>
+
+        <DataTemplate x:Key="LutRecentTemplate" x:DataType="lut:LutLibraryItemViewModel">
+            <Button Margin="0,0,4,4"
+                    Padding="2"
+                    Click="Entry_Click"
+                    Tag="{Binding}"
+                    Theme="{StaticResource LiteButtonStyle}"
+                    ToolTip.Tip="{Binding Path}">
+                <StackPanel Width="96">
+                    <Border Width="96"
+                            Height="54"
+                            Background="{DynamicResource ControlFillColorSecondaryBrush}"
+                            BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
+                            BorderThickness="1"
+                            ClipToBounds="True"
+                            CornerRadius="3">
+                        <Image IsVisible="{Binding Thumbnail, Converter={x:Static ObjectConverters.IsNotNull}}"
+                               Source="{Binding Thumbnail}"
+                               Stretch="UniformToFill" />
+                    </Border>
+                    <TextBlock Margin="1,2,1,0"
+                               FontSize="11"
+                               Text="{Binding Name}"
+                               TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+            </Button>
+        </DataTemplate>
+    </UserControl.Resources>
+
+    <Grid Margin="4" RowDefinitions="Auto,Auto,Auto,*,Auto">
+        <StackPanel Grid.Row="0" Margin="0,0,0,6" Spacing="6">
+            <TextBlock Margin="4,0,0,0"
+                       FontSize="14"
+                       FontWeight="SemiBold"
+                       Text="{x:Static lang:Strings.LutLibrary}" />
+            <Grid ColumnDefinitions="*,Auto">
+                <TextBox Grid.Column="0"
+                         PlaceholderText="{x:Static lang:Strings.LutLibrarySearchWatermark}"
+                         Text="{Binding SearchText, Mode=TwoWay}" />
+                <CheckBox Grid.Column="1"
+                          Margin="8,0,0,0"
+                          VerticalAlignment="Center"
+                          Content="{x:Static lang:Strings.LutLibraryFavoritesOnly}"
+                          IsChecked="{Binding FavoritesOnly, Mode=TwoWay}" />
+            </Grid>
+        </StackPanel>
+
+        <ItemsControl Grid.Row="1"
+                      Margin="0,0,0,6"
+                      IsVisible="{Binding HasExtraFolders}"
+                      ItemsSource="{Binding ExtraFolders}">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <WrapPanel Orientation="Horizontal" />
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="lut:LutLibraryFolderViewModel">
+                    <Border Margin="0,0,4,4"
+                            Padding="6,2"
+                            Background="{DynamicResource ControlFillColorSecondaryBrush}"
+                            CornerRadius="4">
+                        <StackPanel Orientation="Horizontal" Spacing="2">
+                            <icons:FluentIcon VerticalAlignment="Center"
+                                              FontSize="12"
+                                              Icon="Folder" />
+                            <TextBlock VerticalAlignment="Center"
+                                       FontSize="11"
+                                       MaxWidth="180"
+                                       Text="{Binding Name}"
+                                       TextTrimming="CharacterEllipsis"
+                                       ToolTip.Tip="{Binding Path}" />
+                            <Button Width="18"
+                                    Height="18"
+                                    Padding="0"
+                                    Click="RemoveFolder_Click"
+                                    Tag="{Binding}"
+                                    Theme="{StaticResource TransparentButton}"
+                                    ToolTip.Tip="{x:Static lang:Strings.LutLibraryRemoveFolder}">
+                                <icons:FluentIcon FontSize="10" Icon="Dismiss" />
+                            </Button>
+                        </StackPanel>
+                    </Border>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <ScrollViewer Grid.Row="2"
+                      HorizontalScrollBarVisibility="Disabled"
+                      MaxHeight="360"
+                      VerticalScrollBarVisibility="Auto">
+            <StackPanel>
+                <StackPanel Margin="0,0,0,6" IsVisible="{Binding HasRecent}">
+                    <TextBlock Margin="4,0,0,4"
+                               FontSize="12"
+                               FontWeight="SemiBold"
+                               Text="{x:Static lang:Strings.LutLibraryRecentlyUsed}" />
+                    <ItemsControl ItemTemplate="{StaticResource LutRecentTemplate}" ItemsSource="{Binding RecentItems}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel Orientation="Horizontal" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                    </ItemsControl>
+                </StackPanel>
+
+                <ItemsControl ItemTemplate="{StaticResource LutEntryTemplate}" ItemsSource="{Binding Items}" />
+
+                <TextBlock Margin="4,12"
+                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                           IsVisible="{Binding IsEmpty}"
+                           Text="{Binding EmptyText}"
+                           TextWrapping="Wrap" />
+                <TextBlock Margin="4,12"
+                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                           IsVisible="{Binding HasNoMatches}"
+                           Text="{x:Static lang:Strings.LutLibraryNoMatches}"
+                           TextWrapping="Wrap" />
+            </StackPanel>
+        </ScrollViewer>
+
+        <Button Grid.Row="3"
+                Margin="0,6,0,0"
+                HorizontalAlignment="Left"
+                Click="AddFolder_Click"
+                Theme="{StaticResource LiteButtonStyle}"
+                ToolTip.Tip="{x:Static lang:Strings.LutLibraryAddFolder}">
+            <StackPanel Margin="4,2" Orientation="Horizontal" Spacing="6">
+                <icons:FluentIcon VerticalAlignment="Center"
+                                  FontSize="14"
+                                  Icon="FolderAdd" />
+                <TextBlock VerticalAlignment="Center" Text="{x:Static lang:Strings.LutLibraryAddFolder}" />
+            </StackPanel>
+        </Button>
+    </Grid>
+</UserControl>

@@ -618,6 +618,33 @@
   <data name="NoFavorites" xml:space="preserve">
     <value>お気に入りはありません</value>
   </data>
+  <data name="LutLibrary" xml:space="preserve">
+    <value>LUTライブラリ</value>
+  </data>
+  <data name="LutLibraryAddFolder" xml:space="preserve">
+    <value>フォルダーを追加…</value>
+  </data>
+  <data name="LutLibraryRemoveFolder" xml:space="preserve">
+    <value>フォルダーを削除</value>
+  </data>
+  <data name="LutLibrarySearchWatermark" xml:space="preserve">
+    <value>LUTを検索</value>
+  </data>
+  <data name="LutLibraryFavoritesOnly" xml:space="preserve">
+    <value>お気に入りのみ</value>
+  </data>
+  <data name="LutLibraryRecentlyUsed" xml:space="preserve">
+    <value>最近使用したLUT</value>
+  </data>
+  <data name="LutLibraryEmpty" xml:space="preserve">
+    <value>「{0}」に .cube ファイルを置くと、ここに表示されます。</value>
+  </data>
+  <data name="LutLibraryNoMatches" xml:space="preserve">
+    <value>検索条件に一致するLUTがありません。</value>
+  </data>
+  <data name="LutLibraryInvalidFile" xml:space="preserve">
+    <value>このファイルはLUTとして読み込めませんでした。</value>
+  </data>
   <data name="DeleteSelectedItems" xml:space="preserve">
     <value>{0}個のアイテムを削除しますか？</value>
   </data>

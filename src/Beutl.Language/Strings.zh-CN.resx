@@ -593,6 +593,33 @@
   <data name="NoFavorites" xml:space="preserve">
     <value>没有收藏夹</value>
   </data>
+  <data name="LutLibrary" xml:space="preserve">
+    <value>LUT 库</value>
+  </data>
+  <data name="LutLibraryAddFolder" xml:space="preserve">
+    <value>添加文件夹…</value>
+  </data>
+  <data name="LutLibraryRemoveFolder" xml:space="preserve">
+    <value>移除文件夹</value>
+  </data>
+  <data name="LutLibrarySearchWatermark" xml:space="preserve">
+    <value>搜索 LUT</value>
+  </data>
+  <data name="LutLibraryFavoritesOnly" xml:space="preserve">
+    <value>仅收藏</value>
+  </data>
+  <data name="LutLibraryRecentlyUsed" xml:space="preserve">
+    <value>最近使用</value>
+  </data>
+  <data name="LutLibraryEmpty" xml:space="preserve">
+    <value>将 .cube 文件放入 {0} 即可在此显示。</value>
+  </data>
+  <data name="LutLibraryNoMatches" xml:space="preserve">
+    <value>没有与搜索匹配的 LUT。</value>
+  </data>
+  <data name="LutLibraryInvalidFile" xml:space="preserve">
+    <value>无法将此文件读取为 LUT。</value>
+  </data>
   <data name="DeleteSelectedItems" xml:space="preserve">
     <value>删除 {0} 个项目？</value>
   </data>
