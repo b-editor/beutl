@@ -104,7 +104,7 @@ public static class AgentToolkitMcpServer
             .AddSingleton<StillRenderer>()
             .AddSingleton<StoryboardRenderer>()
             .AddSingleton<FrameDifferenceAnalyzer>()
-            .AddSingleton<AudioRhythmAnalyzer>()
+            .AddSingleton<Beutl.AgentToolkit.Rendering.AudioRhythmAnalyzer>()
             .AddSingleton<EncoderRegistration>()
             .AddSingleton<VideoExporter>()
             .AddSingleton<RenderJobManager>();

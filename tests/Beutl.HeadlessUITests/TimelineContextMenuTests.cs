@@ -6,15 +6,18 @@ using Avalonia.Headless.NUnit;
 using Avalonia.Input;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
+using Beutl.Audio;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.SceneSettingsTab.ViewModels;
 using Beutl.Editor.Components.TimelineTab.Views;
 using Beutl.Editor.Services;
 using Beutl.Extensibility;
 using Beutl.Language;
+using Beutl.Media.Source;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.Testing.Headless;
 using FluentAvalonia.UI.Controls;
+using NAudio.Wave;
 using RectShape = Beutl.Graphics.Shapes.RectShape;
 
 namespace Beutl.HeadlessUITests;
@@ -32,7 +35,7 @@ public sealed class TimelineContextMenuTests
         Assert.That(menu.Items.Cast<object>().Select(ItemText), Is.EqualTo(new string?[]
         {
             Strings.EnableElement, Strings.Lock, Strings.EditingMode, null,
-            Strings.Split, Strings.SplitByCurrentFrame, Strings.AutoSplitBySilenceMenu, null,
+            Strings.Split, Strings.SplitByCurrentFrame, Strings.AutoSplitBySilenceMenu, Strings.EstimateBpmMenu, null,
             Strings.Cut, Strings.Copy, Strings.Duplicate, Strings.Delete, Strings.RenameMenu, Strings.ChangeToOriginalLength, null,
             Strings.BulkSelection, Strings.GroupSelectedElements, Strings.UngroupSelectedElements, null,
             Strings.ChangeColor, Strings.DisableThumbnails, null,
@@ -42,6 +45,8 @@ public sealed class TimelineContextMenuTests
         }));
         FAMenuFlyoutItem duplicate = menu.Items.OfType<FAMenuFlyoutItem>().Single(item => item.Text == Strings.Duplicate);
         Assert.That(duplicate.InputGesture, Is.EqualTo(new KeyGesture(Key.D, KeyGestureHelper.GetCommandModifier())));
+        Assert.That(FindItem(menu, Strings.EstimateBpmMenu).IsEffectivelyEnabled, Is.False,
+            "A clip with no audio has no tempo to estimate.");
         Assert.That(FindItem(menu, Strings.GroupSelectedElements).InputGesture, Is.Null);
         Assert.That(FindItem(menu, Strings.UngroupSelectedElements).InputGesture, Is.Null);
         var original = host.Scene.Children.Single();
@@ -93,6 +98,41 @@ public sealed class TimelineContextMenuTests
             Assert.That(group.InputGesture, Is.EqualTo(gesture));
             Assert.That(ungroup.InputGesture, Is.Null);
         });
+    }
+
+    [AvaloniaTest]
+    public async Task Estimate_bpm_is_enabled_for_a_clip_with_audio()
+    {
+        string path = Path.Combine(TestContext.CurrentContext.WorkDirectory, $"bpm-menu-{Guid.NewGuid():N}.wav");
+        using (var writer = new WaveFileWriter(path, WaveFormat.CreateIeeeFloatWaveFormat(44100, 1)))
+        {
+            writer.WriteSamples(new float[44100], 0, 44100);
+        }
+
+        try
+        {
+            var clips = new[]
+            {
+                new ElementDescription(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2), 0,
+                    new ElementSource.EngineObject(() => new SourceSound
+                    {
+                        Source = { Value = SoundSource.Open(path) },
+                    })),
+            };
+            using TimelineTestHost host = await TimelineTestHost.CreateAsync(
+                "timeline-context-menu-bpm", MediaTime.FromSeconds(10), clips, theme: ThemeVariant.Dark);
+            host.Window.Height = 880;
+            HeadlessTestHelpers.Render(5);
+            var border = host.View.GetVisualDescendants().OfType<ElementView>().Single()
+                .FindControl<Border>("border")!;
+            FAMenuFlyout menu = OpenMenu(border);
+
+            Assert.That(FindItem(menu, Strings.EstimateBpmMenu).IsEffectivelyEnabled, Is.True);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
     }
 
     [AvaloniaTest]
