@@ -1,6 +1,5 @@
 ﻿using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Layout;
 using Avalonia.Media;
 using Beutl.Controls;
 using Beutl.Editor.Services;
@@ -14,12 +13,10 @@ internal sealed class BpmEstimateView : UserControl
     private readonly BpmGridOptions _current;
     private readonly ProgressRing _ring;
     private readonly TextBlock _status;
-    private readonly Grid _progress;
-    private readonly StackPanel _result;
+    private readonly Grid _statusRow;
+    private readonly StackPanel _fields;
     private readonly NumericUpDown _bpm;
     private readonly NumericUpDown _offset;
-    private readonly Button _apply;
-    private readonly Button _cancel;
 
     public BpmEstimateView(BpmGridOptions current)
     {
@@ -29,16 +26,15 @@ internal sealed class BpmEstimateView : UserControl
             Width = 20,
             Height = 20,
             IsIndeterminate = true,
-            VerticalAlignment = VerticalAlignment.Center,
+            VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
         };
         _status = new TextBlock
         {
-            Text = Strings.BpmEstimate_Analyzing,
             TextWrapping = TextWrapping.Wrap,
-            VerticalAlignment = VerticalAlignment.Center,
+            VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
         };
         // A grid, not a horizontal stack, so a long error wraps within the flyout's width.
-        _progress = new Grid
+        _statusRow = new Grid
         {
             ColumnDefinitions = new ColumnDefinitions("Auto,8,*"),
             Children = { _ring, _status },
@@ -48,93 +44,72 @@ internal sealed class BpmEstimateView : UserControl
         {
             Minimum = 1,
             Maximum = 999,
-            Increment = 0.1m,
+            Value = (decimal)current.Bpm,
+            Increment = 1,
             FormatString = "F1",
-            MinWidth = 180,
+            MinWidth = 140,
         };
         _offset = new NumericUpDown
         {
             Minimum = 0,
             Maximum = 600,
-            Increment = 0.001m,
+            Value = (decimal)current.Offset.ToSeconds(),
+            Increment = 0.01m,
             FormatString = "F3",
-            MinWidth = 180,
+            MinWidth = 140,
         };
-        _apply = new Button
-        {
-            Content = Strings.Apply,
-            MinWidth = 96,
-            IsVisible = false,
-        };
-        _apply.Classes.Add("accent");
-        _apply.Click += (_, _) =>
-        {
-            if (_bpm.Value is { } bpm && _offset.Value is { } offset)
-            {
-                Applied?.Invoke(this, BpmEstimateService.ApplyTo(_current, (double)bpm, (double)offset));
-            }
-        };
-        _cancel = new Button { Content = Strings.Cancel, MinWidth = 96 };
-        _cancel.Click += (_, _) => Cancelled?.Invoke(this, EventArgs.Empty);
-        var buttons = new StackPanel
-        {
-            Orientation = Orientation.Horizontal,
-            HorizontalAlignment = HorizontalAlignment.Right,
-            Spacing = 8,
-            Children = { _apply, _cancel },
-        };
-        _result = new StackPanel
+        _fields = new StackPanel
         {
             Spacing = 8,
-            IsVisible = false,
             Children =
             {
                 new TextBlock { Text = Strings.BpmValue },
                 _bpm,
-                new TextBlock { Text = Strings.BpmEstimate_FirstBeatOffset },
+                new TextBlock { Text = Strings.BpmOffset },
                 _offset,
             },
         };
-
         Content = new StackPanel
         {
-            Spacing = 10,
+            Spacing = 8,
             Margin = new Thickness(4),
-            Children =
-            {
-                new TextBlock
-                {
-                    Text = Strings.BpmEstimate_Title,
-                    FontWeight = FontWeight.SemiBold,
-                    TextWrapping = TextWrapping.Wrap,
-                },
-                _progress,
-                _result,
-                buttons,
-            },
+            Children = { _statusRow, _fields },
         };
+        ShowAnalyzing();
     }
 
-    public event EventHandler<BpmGridOptions>? Applied;
+    internal event EventHandler? StateChanged;
 
-    public event EventHandler? Cancelled;
+    internal bool CanConfirm { get; private set; }
 
     internal NumericUpDown BpmInput => _bpm;
 
     internal NumericUpDown OffsetInput => _offset;
 
-    internal Button ApplyButton => _apply;
+    internal StackPanel Fields => _fields;
 
-    internal Button CancelButton => _cancel;
+    internal bool TryCreateOptions(out BpmGridOptions options)
+    {
+        if (!CanConfirm || _bpm.Value is not { } bpm || _offset.Value is not { } offset)
+        {
+            options = default;
+            return false;
+        }
+
+        options = BpmEstimateService.ApplyTo(_current, (double)bpm, (double)offset);
+        return true;
+    }
 
     public void ShowAnalyzing()
     {
+        CanConfirm = false;
+        _ring.IsVisible = true;
         _ring.IsIndeterminate = true;
-        _progress.IsVisible = true;
+        _statusRow.IsVisible = true;
         _status.Text = Strings.BpmEstimate_Analyzing;
-        _result.IsVisible = false;
-        _apply.IsVisible = false;
-        _cancel.Content = Strings.Cancel;
+        _fields.IsVisible = true;
+        _fields.IsEnabled = false;
+        StateChanged?.Invoke(this, EventArgs.Empty);
     }
 
     public void ShowProgress(int percent)
@@ -144,23 +119,26 @@ internal sealed class BpmEstimateView : UserControl
 
     public void ShowResult(double bpm, double firstBeatOffsetSeconds)
     {
+        CanConfirm = true;
         _ring.IsIndeterminate = false;
-        _progress.IsVisible = false;
+        _statusRow.IsVisible = false;
         _bpm.Value = (decimal)Math.Round(bpm, 1, MidpointRounding.AwayFromZero);
-        // The box shows milliseconds; keep the estimate's precision so Apply uses what was measured.
+        // The box shows milliseconds; keep the estimate's precision so confirm applies what was measured.
         _offset.Value = (decimal)firstBeatOffsetSeconds;
-        _result.IsVisible = true;
-        _apply.IsVisible = true;
-        _cancel.Content = Strings.Cancel;
+        _fields.IsVisible = true;
+        _fields.IsEnabled = true;
+        StateChanged?.Invoke(this, EventArgs.Empty);
     }
 
     public void ShowError(string message)
     {
+        CanConfirm = false;
+        _ring.IsVisible = false;
         _ring.IsIndeterminate = false;
-        _progress.IsVisible = true;
+        _statusRow.IsVisible = true;
         _status.Text = message;
-        _result.IsVisible = false;
-        _apply.IsVisible = false;
-        _cancel.Content = Strings.Close;
+        _fields.IsVisible = true;
+        _fields.IsEnabled = false;
+        StateChanged?.Invoke(this, EventArgs.Empty);
     }
 }

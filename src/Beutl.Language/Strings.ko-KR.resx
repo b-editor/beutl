@@ -1526,12 +1526,6 @@ GetProperty&lt;T&gt;("path", time) 또는 GetProperty&lt;T&gt;(guid, "propertyNa
   <data name="EstimateBpmMenu" xml:space="preserve">
     <value>BPM 추정…</value>
   </data>
-  <data name="BpmEstimate_Title" xml:space="preserve">
-    <value>추정된 BPM</value>
-  </data>
-  <data name="BpmEstimate_FirstBeatOffset" xml:space="preserve">
-    <value>첫 박자 오프셋(초)</value>
-  </data>
   <data name="BpmEstimate_Analyzing" xml:space="preserve">
     <value>클립 오디오를 분석하는 중…</value>
   </data>

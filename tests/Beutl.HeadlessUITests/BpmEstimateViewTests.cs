@@ -6,6 +6,7 @@ using Beutl.Media;
 using Beutl.Media.Source;
 using Beutl.ProjectSystem;
 using Beutl.Testing.Headless;
+using FluentAvalonia.UI.Controls;
 using NAudio.Wave;
 
 namespace Beutl.HeadlessUITests;
@@ -14,41 +15,89 @@ namespace Beutl.HeadlessUITests;
 public sealed class BpmEstimateViewTests
 {
     [AvaloniaTest]
-    public void Apply_writes_the_estimate_and_enables_the_grid()
+    public void Confirm_writes_the_estimate_and_enables_the_grid()
     {
         var current = new BpmGridOptions(90, 6, MediaTime.FromSeconds(1), false);
-        var view = new BpmEstimateView(current);
-        TimelineOptions options = new() { BpmGrid = current };
-        view.Applied += (_, grid) => options = options with { BpmGrid = grid };
-        using var host = new ControlHost(view, 360, 320);
-        view.ShowResult(128, 0.4375);
-        HeadlessTestHelpers.Render();
-
-        HeadlessTestHelpers.Click(view.ApplyButton, move: true);
-
-        Assert.Multiple(() =>
+        BpmGridOptions? applied = null;
+        var (flyout, host) = ShowEstimate(current, grid => applied = grid);
+        using (host)
         {
-            Assert.That(options.BpmGrid.Bpm, Is.EqualTo(128.0));
-            Assert.That(options.BpmGrid.Offset.ToSeconds(), Is.EqualTo(0.4375).Within(1e-9));
-            Assert.That(options.BpmGrid.IsEnabled, Is.True);
-            Assert.That(options.BpmGrid.Subdivisions, Is.EqualTo(6));
-        });
+            flyout.EstimateView.ShowResult(128, 0.4375);
+            HeadlessTestHelpers.Render(2);
+
+            Assert.That(flyout.ConfirmButton, Is.Not.Null);
+            Assert.That(flyout.ConfirmButton!.IsEnabled, Is.True);
+            HeadlessTestHelpers.Click(flyout.ConfirmButton, move: true);
+
+            Assert.That(applied, Is.Not.Null);
+            BpmGridOptions result = applied!.Value;
+            Assert.Multiple(() =>
+            {
+                Assert.That(result.Bpm, Is.EqualTo(128.0));
+                Assert.That(result.Offset.ToSeconds(), Is.EqualTo(0.4375).Within(1e-9));
+                Assert.That(result.IsEnabled, Is.True);
+                Assert.That(result.Subdivisions, Is.EqualTo(6));
+            });
+        }
     }
 
     [AvaloniaTest]
-    public void Cancel_leaves_the_grid_alone()
+    public void Dismiss_leaves_the_grid_alone()
     {
         var current = new BpmGridOptions(90, 6, MediaTime.FromSeconds(1), false);
-        var view = new BpmEstimateView(current);
-        TimelineOptions options = new() { BpmGrid = current };
-        view.Applied += (_, grid) => options = options with { BpmGrid = grid };
-        using var host = new ControlHost(view, 360, 320);
-        view.ShowResult(128, 0.4375);
-        HeadlessTestHelpers.Render();
+        BpmGridOptions? applied = null;
+        var (flyout, host) = ShowEstimate(current, grid => applied = grid);
+        using (host)
+        {
+            flyout.EstimateView.ShowResult(128, 0.4375);
+            HeadlessTestHelpers.Render(2);
 
-        HeadlessTestHelpers.Click(view.CancelButton, move: true);
+            Assert.That(flyout.DismissButton, Is.Not.Null);
+            HeadlessTestHelpers.Click(flyout.DismissButton!, move: true);
 
-        Assert.That(options.BpmGrid, Is.EqualTo(current));
+            Assert.That(applied, Is.Null);
+            Assert.That(flyout.EstimateView.CanConfirm, Is.True);
+        }
+    }
+
+    [AvaloniaTest]
+    public void Confirm_is_disabled_while_analyzing()
+    {
+        var (flyout, host) = ShowEstimate(
+            new BpmGridOptions(90, 6, MediaTime.Zero, false), _ => { });
+        using (host)
+        {
+            flyout.EstimateView.ShowAnalyzing();
+            HeadlessTestHelpers.Render(2);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(flyout.ConfirmButton, Is.Not.Null);
+                Assert.That(flyout.ConfirmButton!.IsEnabled, Is.False);
+                Assert.That(flyout.EstimateView.CanConfirm, Is.False);
+                Assert.That(flyout.EstimateView.Fields.IsEnabled, Is.False);
+            });
+        }
+    }
+
+    [AvaloniaTest]
+    public void Confirm_is_disabled_on_error()
+    {
+        var (flyout, host) = ShowEstimate(
+            new BpmGridOptions(90, 6, MediaTime.Zero, false), _ => { });
+        using (host)
+        {
+            flyout.EstimateView.ShowError(new string('x', 200));
+            HeadlessTestHelpers.Render(2);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(flyout.ConfirmButton, Is.Not.Null);
+                Assert.That(flyout.ConfirmButton!.IsEnabled, Is.False);
+                Assert.That(flyout.EstimateView.CanConfirm, Is.False);
+                Assert.That(flyout.EstimateView.Fields.IsEnabled, Is.False);
+            });
+        }
     }
 
     [AvaloniaTest]
@@ -86,38 +135,126 @@ public sealed class BpmEstimateViewTests
             });
             scene.Children.Add(element);
             BpmGridOptions? applied = null;
-            var flyout = new BpmEstimateFlyout(
-                scene, element, TestShell.FontManager, TestShell.Decoders,
-                new BpmGridOptions(90, 6, MediaTime.Zero, false),
-                grid => applied = grid);
-            var anchor = new Button { Content = "anchor" };
-            using var host = new ControlHost(anchor, 420, 420);
-            flyout.ShowAt(anchor, true);
-            HeadlessTestHelpers.Render();
-
-            await flyout.AnalyzeAsync();
-            HeadlessTestHelpers.Render(2);
-
-            Assert.That(flyout.EstimateView.ApplyButton.IsVisible, Is.True);
-            HeadlessTestHelpers.Click(flyout.EstimateView.ApplyButton, move: true);
-
-            Assert.That(applied, Is.Not.Null);
-            double beatLength = 60 / applied!.Value.Bpm;
-            double firstBeatInScene = clipStartSeconds + (beatLength - trimSeconds);
-            Assert.Multiple(() =>
+            var (flyout, host) = ShowEstimate(
+                new BpmGridOptions(90, 6, MediaTime.Zero, false), grid => applied = grid, scene, element);
+            using (host)
             {
-                Assert.That(applied.Value.Bpm, Is.EqualTo(bpm).Within(1));
-                Assert.That(
-                    Math.Abs(Math.IEEERemainder(firstBeatInScene - applied.Value.Offset.ToSeconds(), beatLength)),
-                    Is.LessThanOrEqualTo(1d / 30));
-                Assert.That(applied.Value.IsEnabled, Is.True);
-                Assert.That(applied.Value.Subdivisions, Is.EqualTo(6));
-            });
+                await flyout.AnalyzeAsync();
+                HeadlessTestHelpers.Render(2);
+
+                Assert.That(flyout.ConfirmButton!.IsEnabled, Is.True);
+                HeadlessTestHelpers.Click(flyout.ConfirmButton, move: true);
+
+                Assert.That(applied, Is.Not.Null);
+                BpmGridOptions result = applied!.Value;
+                double beatLength = 60 / result.Bpm;
+                double firstBeatInScene = clipStartSeconds + (beatLength - trimSeconds);
+                Assert.Multiple(() =>
+                {
+                    Assert.That(result.Bpm, Is.EqualTo(bpm).Within(1));
+                    Assert.That(
+                        Math.Abs(Math.IEEERemainder(firstBeatInScene - result.Offset.ToSeconds(), beatLength)),
+                        Is.LessThanOrEqualTo(1d / 30));
+                    Assert.That(result.IsEnabled, Is.True);
+                    Assert.That(result.Subdivisions, Is.EqualTo(6));
+                });
+            }
         }
         finally
         {
             File.Delete(path);
         }
+    }
+
+    [AvaloniaTest]
+    public void The_flyout_shows_the_editable_result_in_the_grid_layout()
+    {
+        var (flyout, host) = ShowEstimate(
+            new BpmGridOptions(120, 4, MediaTime.Zero, false), _ => { });
+        using (host)
+        {
+            flyout.EstimateView.ShowResult(110, 0.4375);
+            HeadlessTestHelpers.Render(2);
+
+            BpmEstimateView view = flyout.EstimateView;
+            Assert.Multiple(() =>
+            {
+                Assert.That(view.BpmInput.Value, Is.EqualTo(110m));
+                Assert.That(view.BpmInput.MinWidth, Is.EqualTo(140));
+                Assert.That(view.BpmInput.FormatString, Is.EqualTo("F1"));
+                Assert.That(view.OffsetInput.Value, Is.EqualTo(0.4375m));
+                Assert.That(view.OffsetInput.MinWidth, Is.EqualTo(140));
+                Assert.That(view.OffsetInput.FormatString, Is.EqualTo("F3"));
+                Assert.That(view.Fields.Children, Has.Count.EqualTo(4));
+                Assert.That(flyout.ConfirmButton!.IsEnabled, Is.True);
+            });
+        }
+    }
+
+    [AvaloniaTest]
+    public void The_grid_and_estimate_flyouts_share_the_same_presentation()
+    {
+        var anchor = CreateAnchor();
+        var root = new Panel { Children = { anchor } };
+        using var host = new ControlHost(root, 420, 420);
+
+        var gridFlyout = new BpmGridFlyout
+        {
+            IsEnabledChecked = true,
+            Bpm = 110m,
+            Subdivisions = 4,
+            OffsetSeconds = 0.4375m,
+        };
+        gridFlyout.ShowAt(anchor, true);
+        HeadlessTestHelpers.Render(3);
+        var gridPresenter = (FAPickerFlyoutPresenter)gridFlyout.Popup.Child!;
+        HeadlessCapture.SaveIfRequested(gridPresenter, string.Empty, "bpm-grid-flyout");
+        gridFlyout.Hide();
+        HeadlessTestHelpers.Render(2);
+
+        var (estimateFlyout, estimateHost) = ShowEstimate(
+            new BpmGridOptions(110, 4, MediaTime.Zero, false), _ => { });
+        using (estimateHost)
+        {
+            estimateFlyout.EstimateView.ShowResult(110, 0.4375);
+            HeadlessTestHelpers.Render(3);
+            var estimatePresenter = (FAPickerFlyoutPresenter)estimateFlyout.Popup.Child!;
+            HeadlessCapture.SaveIfRequested(estimatePresenter, string.Empty, "estimate-bpm");
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(estimatePresenter.Width, Is.EqualTo(gridPresenter.Width));
+                Assert.That(estimatePresenter.Padding, Is.EqualTo(gridPresenter.Padding));
+                Assert.That(estimateFlyout.ConfirmButton!.IsEnabled, Is.True);
+            });
+        }
+    }
+
+    private static (BpmEstimateFlyout Flyout, ControlHost Host) ShowEstimate(
+        BpmGridOptions current,
+        Action<BpmGridOptions> apply,
+        Scene? scene = null,
+        Element? element = null)
+    {
+        var flyout = new BpmEstimateFlyout(
+            scene ?? new Scene(), element ?? new Element(), TestShell.FontManager, TestShell.Decoders, current, apply);
+        var anchor = CreateAnchor();
+        var host = new ControlHost(new Panel { Children = { anchor } }, 420, 420);
+        flyout.ShowAt(anchor, true);
+        HeadlessTestHelpers.Render(3);
+        return (flyout, host);
+    }
+
+    private static Button CreateAnchor()
+    {
+        return new Button
+        {
+            Content = "anchor",
+            Width = 80,
+            Height = 30,
+            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left,
+            VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top,
+        };
     }
 
     private static float[] CreateClickSamples(double bpm, double durationSeconds, int sampleRate)
@@ -135,30 +272,5 @@ public sealed class BpmEstimateViewTests
         }
 
         return samples;
-    }
-
-    [AvaloniaTest]
-    public void The_flyout_shows_the_editable_result()
-    {
-        var flyout = new BpmEstimateFlyout(
-            new Scene(), new Element(), TestShell.FontManager, TestShell.Decoders,
-            new BpmGridOptions(120, 4, MediaTime.Zero, false), _ => { });
-        var anchor = new Button { Content = "anchor" };
-        using var host = new ControlHost(anchor, 420, 420);
-        flyout.ShowAt(anchor, true);
-        HeadlessTestHelpers.Render();
-        BpmEstimateView view = flyout.EstimateView;
-        view.ShowResult(110, 0.4375);
-        HeadlessTestHelpers.Render(3);
-
-        HeadlessCapture.SaveIfRequested(view, string.Empty, "estimate-bpm");
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(view.BpmInput.Value, Is.EqualTo(110m));
-            Assert.That(view.OffsetInput.Value, Is.EqualTo(0.4375m));
-            Assert.That(view.ApplyButton.IsVisible, Is.True);
-            Assert.That(view.Bounds.Width, Is.GreaterThan(200));
-        });
     }
 }

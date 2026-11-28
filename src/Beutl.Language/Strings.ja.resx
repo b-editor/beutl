@@ -1601,12 +1601,6 @@ GetProperty&lt;T&gt;("path", time) または GetProperty&lt;T&gt;(guid, "propert
   <data name="EstimateBpmMenu" xml:space="preserve">
     <value>BPMを推定…</value>
   </data>
-  <data name="BpmEstimate_Title" xml:space="preserve">
-    <value>推定したBPM</value>
-  </data>
-  <data name="BpmEstimate_FirstBeatOffset" xml:space="preserve">
-    <value>最初の拍のオフセット（秒）</value>
-  </data>
   <data name="BpmEstimate_Analyzing" xml:space="preserve">
     <value>クリップの音声を解析しています…</value>
   </data>
