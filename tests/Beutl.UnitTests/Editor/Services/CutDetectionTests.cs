@@ -4,6 +4,7 @@ using Beutl.Configuration;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Services;
 using Beutl.Graphics;
+using Beutl.Language;
 using Beutl.Media;
 using Beutl.Media.Decoding;
 using Beutl.Media.Pixel;
@@ -75,6 +76,72 @@ public class CutDetectionTests
         IReadOnlyList<MediaTime> cuts = result.GetCuts(0.3, Seconds(0.5));
 
         Assert.That(cuts, Is.EqualTo(new[] { Seconds(0.5), Seconds(1) }));
+    }
+
+    [Test]
+    [TestCase(false)]
+    [TestCase(true)]
+    public void CanAnalyze_WithAnEnabledTimeController_IsFalse(bool nested)
+    {
+        using var h = new SceneHistoryHarness("cut-detection-controller");
+        Element element = AddShots(h, Seconds(0), Seconds(3), Seconds(0));
+        var controller = new DrawableTimeController();
+        if (nested)
+        {
+            var group = new DrawableGroup();
+            group.Children.Add(controller);
+            element.Objects.Add(group);
+        }
+        else
+        {
+            element.Objects.Add(controller);
+        }
+
+        Assert.That(CutDetectionService.CanAnalyze(h.Scene, element), Is.False);
+    }
+
+    [Test]
+    public void CanAnalyze_WithADisabledTimeController_IsTrue()
+    {
+        using var h = new SceneHistoryHarness("cut-detection-controller-disabled");
+        Element element = AddShots(h, Seconds(0), Seconds(3), Seconds(0));
+        element.Objects.Add(new DrawableTimeController { IsEnabled = { Value = false } });
+
+        Assert.That(CutDetectionService.CanAnalyze(h.Scene, element), Is.True);
+    }
+
+    [Test]
+    public void GetCuts_StrongScoreAtClipEnd_DoesNotSuppressAValidCutInsideTheClip()
+    {
+        var result = new CutDetectionResult(
+            [
+                new CutFrameScore(Seconds(2.8), 0.6),
+                new CutFrameScore(Seconds(3.0), 0.95),
+            ],
+            Range(0, 3),
+            new Rational(30, 1));
+
+        IReadOnlyList<MediaTime> cuts = result.GetCuts(0.3, Seconds(0.5));
+
+        Assert.That(cuts, Is.EqualTo(new[] { Seconds(2.8) }));
+    }
+
+    [Test]
+    public async Task Analyze_FrameReadFailure_ShowsErrorAndOffersNoCandidates()
+    {
+        using var h = new SceneHistoryHarness("cut-detection-read-failure");
+        Element element = AddShots(h, Seconds(0), Seconds(3), Seconds(0));
+        _decoder.ReaderFactory = () => new CutTestReader(failAtFrame: 10);
+        using var model = new CutDetectionViewModel(h.Scene, element, h.History, new EditorConfig(), decoders: _decoders);
+
+        await model.AnalyzeAsync();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(model.CanApply.Value, Is.False);
+            Assert.That(model.Candidates, Is.Empty);
+            Assert.That(model.Status.Value, Does.Contain(Strings.CutDetection_NoFrames));
+        });
     }
 
     [Test]
@@ -249,14 +316,16 @@ public class CutDetectionTests
         ];
 
         private readonly CancellationTokenSource? _cancelAfterFirstFrame;
+        private readonly int? _failAtFrame;
         private readonly VideoStreamInfo _videoInfo = new(
             "cut-test", FramesPerShot * s_colors.Length, new PixelSize(64, 36), new Rational(30, 1));
         private readonly AudioStreamInfo _audioInfo = new("cut-test", Rational.Zero, 44100, 2);
         private bool _firstFrame = true;
 
-        public CutTestReader(CancellationTokenSource? cancelAfterFirstFrame = null)
+        public CutTestReader(CancellationTokenSource? cancelAfterFirstFrame = null, int? failAtFrame = null)
         {
             _cancelAfterFirstFrame = cancelAfterFirstFrame;
+            _failAtFrame = failAtFrame;
         }
 
         public override VideoStreamInfo VideoInfo => _videoInfo;
@@ -266,7 +335,7 @@ public class CutDetectionTests
 
         public override bool ReadVideo(int frame, [NotNullWhen(true)] out Ref<Bitmap>? image)
         {
-            if (frame < 0 || frame >= _videoInfo.NumFrames)
+            if (frame < 0 || frame >= _videoInfo.NumFrames || frame == _failAtFrame)
             {
                 image = null;
                 return false;

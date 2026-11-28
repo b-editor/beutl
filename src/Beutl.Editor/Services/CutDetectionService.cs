@@ -1,7 +1,10 @@
 ﻿using System.Collections.Immutable;
 using Beutl.Animation;
+using Beutl.Audio;
 using Beutl.Configuration;
+using Beutl.Engine;
 using Beutl.Graphics;
+using Beutl.Graphics3D;
 using Beutl.Language;
 using Beutl.Media;
 using Beutl.Media.Decoding;
@@ -31,10 +34,12 @@ internal sealed class CutDetectionService(
            && element.Length.Value > MediaTime.Zero
            && FindVideo(element) is not null;
 
-    // Detect only constant mappings. Animated speed or source switches would need a scene-time
-    // evaluation on the document thread, which the background decode must not do.
+    // Detect only constant mappings. Animated speed, source switches and time controllers would
+    // need a scene-time evaluation on the document thread, which the background decode must not do.
     internal static SourceVideo? FindVideo(Element element)
-        => element.Objects.OfType<SourceVideo>().FirstOrDefault(video =>
+    {
+        if (HasEnabledTimeController(element)) return null;
+        return element.Objects.OfType<SourceVideo>().FirstOrDefault(video =>
             video.Source.Value is { HasUri: true } source
             && source.Uri.IsFile
             && video.Speed.Value > 0
@@ -42,6 +47,25 @@ internal sealed class CutDetectionService(
             && IsConstant(video.Speed)
             && IsConstant(video.OffsetPosition)
             && IsConstant(video.IsLoop));
+    }
+
+    // Any enabled controller in the element can retime the video, including one nested in a group.
+    private static bool HasEnabledTimeController(Element element)
+        => element.Objects.Any(ContainsEnabledTimeController);
+
+    private static bool ContainsEnabledTimeController(EngineObject obj)
+    {
+        if (!obj.IsEnabled.Value) return false;
+        return obj switch
+        {
+            DrawableTimeController => true,
+            DrawableGroup group => group.Children.Any(ContainsEnabledTimeController),
+            DrawableDecorator decorator => decorator.Children.Any(ContainsEnabledTimeController),
+            DrawableObject3D object3D => object3D.Children.Any(ContainsEnabledTimeController),
+            SoundGroup soundGroup => soundGroup.Children.Any(ContainsEnabledTimeController),
+            _ => false,
+        };
+    }
 
     private static bool IsConstant(IProperty property)
         => property is not IExpressionProperty { HasExpression: true }
@@ -136,7 +160,8 @@ internal sealed class CutDetectionService(
 
             if (!reader.ReadVideo((int)frame, out Ref<Bitmap>? bitmap))
             {
-                if (frames.Count > 0) break;
+                // A dropped frame makes the remaining scores discontinuous; a partial list
+                // would look complete and offer cuts that were never verified.
                 throw new InvalidDataException(Strings.CutDetection_NoFrames);
             }
 
