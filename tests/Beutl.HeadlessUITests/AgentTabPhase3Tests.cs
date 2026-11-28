@@ -499,6 +499,201 @@ public sealed class AgentTabPhase3Tests
     }
 
     [AvaloniaTest]
+    public async Task TimelineScrollRunsToTheBottomWhileTheComposerStaysPinned()
+    {
+        using var theme = AgentTabViewTests.UseDockTheme(ThemeVariant.Dark);
+        await using var workspace = new AgentTabTestWorkspace();
+        var store = new AgentThreadStore(workspace.Root);
+        var thread = await workspace.Runtime.CreateThreadAsync(workspace.ProjectPath, workspace.GetProviders().Single(), "Opening title review");
+        for (int i = 0; i < 8; i++)
+        {
+            var turn = Guid.NewGuid();
+            var then = DateTimeOffset.UtcNow.AddMinutes(i - 8);
+            await store.AppendAsync(workspace.ProjectPath, new AgentUserMessage(thread.Id, turn, then, "Check the next title placement."));
+            await store.AppendAsync(workspace.ProjectPath, new AgentAssistantMessageCompleted(thread.Id, turn, then,
+                "The title stays within the safe area. Its fade begins with the scene and ends before the first cut."));
+            await store.AppendAsync(workspace.ProjectPath, new AgentTurnCompleted(thread.Id, turn, then, 2_190, 940, 189, 620, "GPT-6.2 Sol"));
+        }
+
+        using var model = workspace.CreateWorkspace(workspace.Editor);
+        await model.InitializeAsync();
+        var view = new AgentTabView { DataContext = model };
+        var window = AgentTabViewTests.CreateDockWindow(view, ThemeVariant.Dark, 390, 580);
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render(5);
+            var scroll = Find<ScrollViewer>(view, "TimelineScroll");
+            var deck = view.FindControl<Grid>("BottomDeck")!;
+            var composerCard = Find<Border>(view, "ComposerCard");
+            var contentInset = Find<Border>(view, "TimelineBottomInset");
+            var buttonInset = Find<Border>(view, "ScrollToBottomInset");
+
+            // The timeline owns the full height, so its scrollbar reaches the bottom of the tab.
+            double scrollBottom = scroll.TranslatePoint(new Point(0, scroll.Bounds.Height), view)!.Value.Y;
+            Assert.That(scrollBottom, Is.EqualTo(view.Bounds.Height).Within(1));
+            Assert.That(scroll.Viewport.Height, Is.GreaterThan(view.Bounds.Height * 0.8));
+            var verticalBar = scroll.GetVisualDescendants().OfType<ScrollBar>()
+                .Single(bar => bar.Bounds.Height >= scroll.Bounds.Height * 0.9);
+            Assert.That(verticalBar.TranslatePoint(new Point(0, verticalBar.Bounds.Height), view)!.Value.Y,
+                Is.EqualTo(view.Bounds.Height).Within(2));
+            Assert.That(verticalBar.TranslatePoint(new Point(verticalBar.Bounds.Width, 0), view)!.Value.X,
+                Is.EqualTo(view.Bounds.Width).Within(1));
+
+            // The composer is still pinned to the bottom and does not scroll with the timeline.
+            double composerBottom = composerCard.TranslatePoint(new Point(0, composerCard.Bounds.Height), view)!.Value.Y;
+            Assert.That(composerBottom, Is.EqualTo(view.Bounds.Height - 10).Within(1));
+
+            // Its footprint is reserved both in the scrollable content and for the scroll-to-bottom button.
+            Assert.That(contentInset.Bounds.Height, Is.EqualTo(deck.Bounds.Height).Within(1));
+            Assert.That(buttonInset.Bounds.Height, Is.EqualTo(deck.Bounds.Height).Within(1));
+
+            scroll.Offset = default;
+            HeadlessTestHelpers.Render(3);
+            Assert.That(composerCard.TranslatePoint(new Point(0, composerCard.Bounds.Height), view)!.Value.Y,
+                Is.EqualTo(composerBottom).Within(0.5));
+
+            // Scrolled to the end, the last message stays above the fixed composer.
+            scroll.ScrollToEnd();
+            HeadlessTestHelpers.Render(3);
+            var lastMessage = view.GetVisualDescendants().OfType<StackPanel>()
+                .Last(panel => panel.Classes.Contains("agent-message") && panel.IsEffectivelyVisible);
+            Assert.That(lastMessage.TranslatePoint(new Point(0, lastMessage.Bounds.Height), view)!.Value.Y,
+                Is.LessThanOrEqualTo(composerCard.TranslatePoint(default, view)!.Value.Y));
+            Capture(view, window, "phase3-composer-overlay-scroll");
+        }
+        finally
+        {
+            window.Close();
+            HeadlessTestHelpers.Settle();
+        }
+    }
+
+    [AvaloniaTest]
+    [TestCase("light")]
+    [TestCase("dark")]
+    [TestCase("dark-border")]
+    public async Task TimelineTextDoesNotShowThroughTheBottomDeckCards(string theme)
+    {
+        // "dark" is the classic dark dock; "dark-border" is the default Dark Border theme the test app installs.
+        var variant = theme == "light" ? ThemeVariant.Light : ThemeVariant.Dark;
+        using var scope = theme == "dark-border" ? ThemeVariantScope.Use(variant) : AgentTabViewTests.UseDockTheme(variant);
+        await using var workspace = new AgentTabTestWorkspace();
+        var store = new AgentThreadStore(workspace.Root);
+        var thread = await workspace.Runtime.CreateThreadAsync(workspace.ProjectPath, workspace.GetProviders().Single(), "Opening title review");
+        for (int i = 0; i < 8; i++)
+        {
+            var turn = Guid.NewGuid();
+            var then = DateTimeOffset.UtcNow.AddMinutes(i - 8);
+            await store.AppendAsync(workspace.ProjectPath, new AgentUserMessage(thread.Id, turn, then, "Check the next title placement."));
+            await store.AppendAsync(workspace.ProjectPath, new AgentAssistantMessageCompleted(thread.Id, turn, then,
+                "The title stays within the safe area. Its fade begins with the scene and ends before the first cut."));
+            await store.AppendAsync(workspace.ProjectPath, new AgentTurnCompleted(thread.Id, turn, then, 2_190, 940, 189, 620, "GPT-6.2 Sol"));
+        }
+
+        using var model = workspace.CreateWorkspace(workspace.Editor);
+        await model.InitializeAsync();
+        var view = new AgentTabView { DataContext = model };
+        var window = AgentTabViewTests.CreateDockWindow(view, variant, 390, 580);
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render(5);
+            var scroll = Find<ScrollViewer>(view, "TimelineScroll");
+            var composer = view.FindControl<AgentComposerView>("Composer")!;
+            // Report every card that lets text through, not just the first.
+            using var cards = Assert.EnterMultipleScope();
+            AssertCardIsOpaque(window, view, scroll, Find<Border>(view, "ComposerCard"), "composer");
+            scroll.Offset = new Vector(0, Math.Max(0, scroll.Extent.Height - scroll.Viewport.Height - 60));
+            Capture(view, window, $"phase3-composer-over-timeline-{theme}");
+
+            // The other deck cards normally appear only during a run; show each one on its own so
+            // the same check covers its surface. Permission and question cards replace the composer.
+            Control[] others =
+            [
+                view.GetVisualDescendants().OfType<AgentBackgroundWorkBar>().Single(),
+                view.GetVisualDescendants().OfType<AgentQueuedMessagesBar>().Single(),
+                view.FindControl<AgentPermissionCard>("ActivePermissionCard")!,
+                view.FindControl<AgentQuestionCard>("ActiveQuestionCard")!,
+            ];
+            foreach (var other in others)
+            {
+                composer.IsVisible = other is not (AgentPermissionCard or AgentQuestionCard);
+                foreach (var control in others)
+                    control.IsVisible = control == other;
+                HeadlessTestHelpers.Render(5);
+                var surface = other.GetVisualDescendants().OfType<AgentCardSurface>().Single();
+                AssertCardIsOpaque(window, view, scroll, (Border)surface.Child!, other.GetType().Name);
+            }
+        }
+        finally
+        {
+            window.Close();
+            HeadlessTestHelpers.Settle();
+        }
+    }
+
+    private static void AssertCardIsOpaque(Window window, AgentTabView view, ScrollViewer scroll, Border card, string name)
+    {
+        Assert.That(card.IsEffectivelyVisible && card.Bounds.Height > 0, Is.True, $"{name} should be shown");
+        var cardRect = new Rect(card.TranslatePoint(default, window)!.Value, card.Bounds.Size);
+        // Stay clear of the rounded corners, where the panel behind the card is meant to show.
+        var probe = cardRect.Deflate(new Thickness(card.CornerRadius.TopLeft + 1, 2));
+
+        // At the end of the timeline nothing sits behind the deck.
+        scroll.ScrollToEnd();
+        window.MouseMove(new Point(5, 5));
+        // Let control transitions in the card finish so only the background can differ.
+        HeadlessTestHelpers.Render(30);
+        int[] clear = ReadPixels(window, probe);
+
+        // Scroll back through the timeline so messages pass behind the card, and check at every step.
+        double end = scroll.Extent.Height - scroll.Viewport.Height;
+        double overlap = 0;
+        int worst = 0;
+        for (double delta = 8; delta < scroll.Viewport.Height; delta += 8)
+        {
+            scroll.Offset = new Vector(0, Math.Max(0, end - delta));
+            HeadlessTestHelpers.Render(3);
+            overlap = Math.Max(overlap, view.GetVisualDescendants().OfType<TextBlock>()
+                .Where(text => text.IsEffectivelyVisible && !string.IsNullOrWhiteSpace(text.Text) && scroll.IsVisualAncestorOf(text))
+                .Select(text => new Rect(text.TranslatePoint(default, window)!.Value, text.Bounds.Size).Intersect(probe).Height)
+                .DefaultIfEmpty(0).Max());
+            int[] covered = ReadPixels(window, probe);
+            worst = Math.Max(worst, clear.Zip(covered).Count(pair => Differs(pair.First, pair.Second)));
+        }
+
+        Assert.That(overlap, Is.GreaterThanOrEqualTo(Math.Min(12, probe.Height)), $"timeline text should be scrolled behind the {name} card");
+        Assert.That(worst, Is.Zero, $"up to {worst} pixels of the {name} card changed while timeline text was behind it");
+    }
+
+    // Antialiased control edges can shift by a few levels between frames; text showing through a card
+    // changes pixels far more than this.
+    private static bool Differs(int a, int b)
+    {
+        const int tolerance = 8;
+        for (int shift = 0; shift < 32; shift += 8)
+        {
+            if (Math.Abs(((a >> shift) & 0xFF) - ((b >> shift) & 0xFF)) > tolerance)
+                return true;
+        }
+        return false;
+    }
+
+    private static int[] ReadPixels(Window window, Rect rect)
+    {
+        using var frame = window.CaptureRenderedFrame()!;
+        using var buffer = frame.Lock();
+        var pixels = new List<int>();
+        for (int y = (int)Math.Ceiling(rect.Top); y < (int)rect.Bottom; y++)
+        {
+            for (int x = (int)Math.Ceiling(rect.Left); x < (int)rect.Right; x++)
+                pixels.Add(System.Runtime.InteropServices.Marshal.ReadInt32(buffer.Address + y * buffer.RowBytes + x * 4));
+        }
+        return [.. pixels];
+    }
+
+    [AvaloniaTest]
     public async Task CopyForkEditAndRetryUseTheSelectedTurnAndSynchronizeTheOriginalThread()
     {
         using var theme = AgentTabViewTests.UseDockTheme(ThemeVariant.Dark);

@@ -3,8 +3,10 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:conv="using:Avalonia.Data.Converters"
              xmlns:lang="using:Beutl.Language"
+             xmlns:views="using:Beutl.Editor.Components.AgentTab.Views"
              xmlns:vm="using:Beutl.Editor.Components.AgentTab.ViewModels"
              x:DataType="vm:AgentQuestionItem">
+    <views:AgentCardSurface>
     <Border Classes="agent-card" Padding="9,8">
         <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="7">
             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
@@ -73,4 +75,5 @@
             </StackPanel>
         </Grid>
     </Border>
+    </views:AgentCardSurface>
 </UserControl>

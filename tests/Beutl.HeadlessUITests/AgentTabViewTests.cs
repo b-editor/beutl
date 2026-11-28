@@ -178,6 +178,44 @@ public sealed class AgentTabViewTests
     [AvaloniaTest]
     public Task LightThemeRendersCompletedTurns() => ExerciseTurnAsync(ThemeVariant.Light);
 
+    [AvaloniaTest]
+    public async Task EmptyStateScrollReachesTheBottomAndRecentThreadsStayAboveTheComposer()
+    {
+        using var theme = UseDockTheme(ThemeVariant.Dark);
+        await using var workspace = new AgentTabTestWorkspace();
+        var provider = workspace.GetProviders().Single();
+        await workspace.Runtime.CreateThreadAsync(workspace.ProjectPath, provider, "Balance the opening title", AgentPermissionMode.Supervised);
+        using var viewModel = workspace.CreateWorkspace(workspace.Editor);
+        await viewModel.InitializeAsync();
+        await viewModel.NewThreadAsync();
+
+        var view = new AgentTabView { DataContext = viewModel };
+        var window = CreateDockWindow(view, ThemeVariant.Dark, DockWidth, DockHeight);
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render(5);
+            var emptyScroll = view.FindControl<ScrollViewer>("EmptyStateScroll")!;
+            var recent = view.FindControl<Border>("RecentThreadsPanel")!;
+            var footer = view.FindControl<Grid>("EmptyStateFooter")!;
+            var inset = view.FindControl<Border>("EmptyStateBottomInset")!;
+            var composerCard = view.GetVisualDescendants().OfType<Border>().Single(border => border.Name == "ComposerCard");
+
+            // The empty state shares the same full-height scroll area as the timeline.
+            Assert.That(emptyScroll.TranslatePoint(new Point(0, emptyScroll.Bounds.Height), view)!.Value.Y,
+                Is.EqualTo(view.Bounds.Height).Within(1));
+            Assert.That(inset.Bounds.Height, Is.EqualTo(footer.Bounds.Height).Within(1));
+            // Recent threads are lifted above the fixed composer instead of sitting behind it.
+            Assert.That(recent.TranslatePoint(new Point(0, recent.Bounds.Height), view)!.Value.Y,
+                Is.LessThanOrEqualTo(composerCard.TranslatePoint(default, view)!.Value.Y));
+        }
+        finally
+        {
+            window.Close();
+            HeadlessTestHelpers.Settle();
+        }
+    }
+
     private static async Task ExerciseTurnAsync(ThemeVariant variant)
     {
         using var theme = UseDockTheme(variant);

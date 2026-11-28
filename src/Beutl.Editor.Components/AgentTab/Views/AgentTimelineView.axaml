@@ -314,19 +314,23 @@
                         </ItemsControl>
                         <ContentControl IsVisible="{Binding ShowStandaloneLiveStatus}" Content="{Binding}"
                                         ContentTemplate="{StaticResource LiveStatusTemplate}" />
+                        <!-- Reserves the height of the fixed composer deck so the last message
+                             is not hidden behind it when the timeline is scrolled to the end. -->
+                        <Border x:Name="TimelineBottomInset" />
                     </StackPanel>
                 </Border>
             </Border>
         </ScrollViewer>
         <Border Classes="agent-wide-gutter">
-            <Panel MaxWidth="740">
+            <Grid MaxWidth="740" RowDefinitions="*,Auto">
                 <Button x:Name="ScrollToBottomButton" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,17,12"
                         IsVisible="False" Width="34" Height="34" CornerRadius="17" Padding="0" Click="OnScrollToBottom"
                         Background="{DynamicResource SolidBackgroundFillColorSecondaryBrush}"
                         ToolTip.Tip="{x:Static lang:AgentStrings.ScrollToBottom}" AutomationProperties.Name="{x:Static lang:AgentStrings.ScrollToBottom}">
                     <icons:FluentIcon Icon="ArrowDown" FontSize="16" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
                 </Button>
-            </Panel>
+                <Border x:Name="ScrollToBottomInset" Grid.Row="1" />
+            </Grid>
         </Border>
     </Grid>
 </UserControl>

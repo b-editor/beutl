@@ -8,6 +8,7 @@
              xmlns:vm="using:Beutl.Editor.Components.AgentTab.ViewModels"
              x:DataType="vm:AgentTabViewModel">
     <Panel>
+    <views:AgentCardSurface>
     <Border x:Name="ComposerCard" Classes="agent-card agent-composer" Margin="10,4,10,10" Padding="0" DragDrop.AllowDrop="True">
         <Panel>
         <StackPanel>
@@ -170,6 +171,7 @@
         </Border>
         </Panel>
     </Border>
+    </views:AgentCardSurface>
     <Popup x:Name="SuggestionsPopup" PlacementTarget="{Binding #ComposerCard}" Placement="TopEdgeAlignedLeft" VerticalOffset="-5"
            ShouldUseOverlayLayer="True" TakesFocusFromNativeControl="False">
         <Border x:Name="SuggestionsCard" CornerRadius="{DynamicResource OverlayCornerRadius}" BorderThickness="1" Padding="4"

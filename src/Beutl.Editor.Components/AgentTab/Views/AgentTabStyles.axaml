@@ -76,6 +76,12 @@
         <Setter Property="CornerRadius" Value="{DynamicResource OverlayCornerRadius}" />
         <Setter Property="Padding" Value="11,10" />
     </Style>
+    <!-- Cards in the bottom deck float over the scrolling timeline; paint the dock surface
+         behind their translucent card brush so timeline text cannot show through. -->
+    <Style Selector="views|AgentCardSurface">
+        <Setter Property="BaseBrush" Value="{DynamicResource DockSurfaceWorkbenchBrush}" />
+        <Setter Property="SurfaceBrush" Value="{DynamicResource DockSurfacePanelBrush}" />
+    </Style>
     <Style Selector="Border.agent-composer:pointerover">
         <Setter Property="BorderBrush" Value="{DynamicResource ControlStrokeColorSecondaryBrush}" />
     </Style>
