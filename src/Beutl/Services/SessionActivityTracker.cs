@@ -18,7 +18,8 @@ internal enum SessionActivityKind
     AutoSave,
     // Work of the version control tracking the project, including a save snapshot waiting for the gate.
     VersionControl,
-    // An AI generation, edit or subtitle run started from one of the project's editors.
+    // An AI generation, edit or subtitle run started from one of the project's editors, or by a generative node
+    // of one of its scenes.
     AiGeneration,
     // An agent thread running a turn on the project.
     AgentThread,
@@ -26,6 +27,8 @@ internal enum SessionActivityKind
     AgentAiJob,
     // Preview playback of one of the project's scenes, until its render loop has drained.
     Playback,
+    // A media-fingerprint scan of a scene editor, from the moment it is queued until its file is written.
+    MediaFingerprints,
 }
 
 // The work running for one session, as leases. Each source of work takes a lease when it starts and disposes it on

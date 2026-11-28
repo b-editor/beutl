@@ -2,15 +2,19 @@
 using Avalonia.Headless.NUnit;
 using Beutl.AgentHost;
 using Beutl.Agents;
+using Beutl.Api.Services;
 using Beutl.Configuration;
 using Beutl.Editor.Components.AgentTab;
+using Beutl.Editor.Components.AiWorkspaceTab.Services;
 using Beutl.Editor.Components.AiWorkspaceTab.ViewModels;
 using Beutl.Editor.Components.OutputTab;
 using Beutl.Editor.Services;
 using Beutl.Editor.VersionControl;
 using Beutl.Extensibility;
+using Beutl.NodeGraph.Generative;
 using Beutl.ProjectSystem;
 using Beutl.Services;
+using Beutl.Services.AI;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
@@ -521,7 +525,7 @@ public sealed class SessionActivityTrackerTests
             Func<string, IDisposable?> begin = host.ThreadSessions.BeginProjectActivity!;
             using (begin(Path.GetFullPath(project.Uri!.LocalPath)))
                 AssertBusyWith(editor.Workspace.Activity, SessionActivityKind.AgentThread);
-            Assert.That(editor.Workspace.Activity.HasActiveLeases, Is.False);
+            Assert.That(editor.Workspace.Activity.CountOf(SessionActivityKind.AgentThread), Is.Zero);
         }
         finally
         {
@@ -551,6 +555,124 @@ public sealed class SessionActivityTrackerTests
             AssertBusyWith(activity, SessionActivityKind.Playback);
             await HeadlessTestHelpers.WaitUntilAsync(
                 () => !editor.Player.IsPlaying.Value && activity.CountOf(SessionActivityKind.Playback) == 0, s_timeout);
+        }
+        finally
+        {
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task A_media_fingerprint_scan_keeps_the_session_busy_from_its_queueing_until_its_file_is_written()
+    {
+        try
+        {
+            (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("activity-fingerprints");
+            SessionActivityTracker activity = editor.Workspace.Activity;
+            await editor.WaitForMediaFingerprintsAsync().WaitAsync(s_timeout);
+            await HeadlessTestHelpers.WaitUntilAsync(() => !activity.HasActiveLeases, s_timeout);
+            var hashing = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            editor.CaptureMediaFingerprints = (_, token) => hashing.Task.WaitAsync(token);
+
+            editor.ScheduleMediaFingerprints();
+            Assert.That(activity.CountOf(SessionActivityKind.MediaFingerprints), Is.EqualTo(1),
+                "The scan keeps the session busy from the moment it is queued.");
+
+            // Once hashed, the scan waits for the project's files and stays busy meanwhile.
+            IProjectFileWriteLease held = editor.Workspace.TryBeginProjectFileWrite()!;
+            hashing.SetResult();
+            HeadlessTestHelpers.Settle();
+            await Task.Delay(50);
+            HeadlessTestHelpers.Settle();
+            Assert.That(activity.CountOf(SessionActivityKind.MediaFingerprints), Is.EqualTo(1),
+                "A scan waiting for the project's files keeps the session busy.");
+            held.Dispose();
+
+            await editor.WaitForMediaFingerprintsAsync().WaitAsync(s_timeout);
+            Assert.That(activity.CountOf(SessionActivityKind.MediaFingerprints), Is.Zero);
+        }
+        finally
+        {
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task A_media_fingerprint_scan_abandoned_by_closing_its_editor_ends_its_lease()
+    {
+        try
+        {
+            (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("activity-fingerprints-closed");
+            SessionActivityTracker activity = editor.Workspace.Activity;
+            await editor.WaitForMediaFingerprintsAsync().WaitAsync(s_timeout);
+            editor.CaptureMediaFingerprints = (_, token) => Task.Delay(Timeout.InfiniteTimeSpan, token);
+
+            editor.ScheduleMediaFingerprints();
+            Task scan = editor.WaitForMediaFingerprintsAsync();
+            HeadlessTestHelpers.Settle();
+            Assert.That(activity.CountOf(SessionActivityKind.MediaFingerprints), Is.EqualTo(1));
+
+            await TestShell.Editor.CloseTabItem(TestShell.Editor.SelectedTabItem.Value!, saveChanges: false);
+            await scan.WaitAsync(s_timeout);
+            Assert.That(activity.CountOf(SessionActivityKind.MediaFingerprints), Is.Zero, "A canceled scan ends its lease.");
+        }
+        finally
+        {
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task A_node_graph_generation_keeps_the_session_busy_until_it_ends()
+    {
+        var tracker = new SessionActivityTracker();
+        var catalog = new Moq.Mock<IAiModelCatalogService>();
+        var loading = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        catalog.Setup(service => service.GetAsync(Moq.It.IsAny<CancellationToken>()))
+            .Returns(async (CancellationToken token) =>
+            {
+                loading.TrySetResult();
+                await Task.Delay(Timeout.InfiniteTimeSpan, token);
+                return AiModelCatalog.Empty;
+            });
+        var executor = new AiGenerativeNodeExecutor(
+            new Scene(64, 64, "generative"),
+            new AiGenerativeModelCatalog(catalog.Object, Moq.Mock.Of<IAiEntitlementService>()),
+            Moq.Mock.Of<IAiImageGenerationService>(), Moq.Mock.Of<IAiOperationAvailabilityService>(),
+            Moq.Mock.Of<IAuthenticatedContentService>(), Moq.Mock.Of<IGenerativePromptLibrary>(),
+            Moq.Mock.Of<IAiImageEditingService>(), Moq.Mock.Of<IAiVideoService>(), Moq.Mock.Of<IAiJobKindRegistry>(),
+            TestShell.Decoders)
+        {
+            BeginActivity = () => tracker.Begin(SessionActivityKind.AiGeneration),
+        };
+        var request = new AiImageGenerationNodeRequest("image.generate")
+        {
+            Prompt = "a cat",
+            AspectRatio = "1:1",
+            RequestKeySeed = Guid.NewGuid().ToString("N"),
+            ParameterFingerprint = "p",
+        };
+
+        using var cancellation = new CancellationTokenSource();
+        Task<GenerativeExecutionResult> run = executor.ExecuteAsync(request, new Progress<GenerativeProgress>(), cancellation.Token);
+        await loading.Task.WaitAsync(s_timeout);
+        Assert.That(tracker.CountOf(SessionActivityKind.AiGeneration), Is.EqualTo(1));
+
+        await cancellation.CancelAsync();
+        await Assert.CatchAsync<OperationCanceledException>(() => run.WaitAsync(s_timeout));
+        Assert.That(tracker.HasActiveLeases, Is.False, "A canceled generation ends its lease.");
+    }
+
+    [AvaloniaTest]
+    public async Task The_app_leases_a_node_graph_generation_on_its_scenes_project()
+    {
+        try
+        {
+            (_, Scene scene, EditViewModel editor) = await TestShell.OpenNewSceneAsync("activity-node-wiring");
+            var executor = (AiGenerativeNodeExecutor)TestShell.MainViewModel.CreateGenerativeNodeExecutor(scene);
+            using (executor.BeginActivity!())
+                AssertBusyWith(editor.Workspace.Activity, SessionActivityKind.AiGeneration);
+            Assert.That(editor.Workspace.Activity.CountOf(SessionActivityKind.AiGeneration), Is.Zero);
         }
         finally
         {

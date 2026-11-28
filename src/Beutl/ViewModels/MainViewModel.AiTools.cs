@@ -43,7 +43,11 @@ public partial class MainViewModel : IAiWorkspaceHost
             _beutlClients.GetResource<IAiImageEditingService>(),
             _beutlClients.GetResource<IAiVideoService>(),
             _beutlClients.GetResource<IAiJobKindRegistry>(), AppServices.GetRequiredService<DecoderRegistry>(),
-            _aiRequestRecoveryContext, _beutlClients.GetResource<IAiJobClient>());
+            _aiRequestRecoveryContext, _beutlClients.GetResource<IAiJobClient>())
+        {
+            // The project is read when the generation starts, so a scene moved meanwhile leases where it is then.
+            BeginActivity = () => _editorService.WorkspaceFor(scene).Activity.Begin(SessionActivityKind.AiGeneration),
+        };
 
     internal Beutl.NodeGraph.Generative.IGenerativePromptLibrary CreateGenerativePromptLibrary()
         => new AiGenerativePromptLibrary(PromptLibraryProvider.For(_aiRequestRecoveryContext));
