@@ -228,7 +228,11 @@ public sealed partial class CompressorCurveEditor : AudioCanvas
         if (dx * dx + dy * dy <= HandleHitRadius * HandleHitRadius) return DragKind.Threshold;
 
         float inputDb = InputDbFromX(point.X);
-        if (inputDb <= EffectiveThreshold) return DragKind.None;
+        // The soft knee compresses below the threshold too; anywhere the shared curve reduces the gain
+        // is a place the ratio can be dragged.
+        if (ComputeGainReductionDb(
+                inputDb, EffectiveThreshold, EffectiveRatio, EffectiveKnee) <= 0f)
+            return DragKind.None;
 
         double curveY = YFromDb(OutputDb(inputDb));
         return Math.Abs(point.Y - curveY) <= CurveHitRadius ? DragKind.Ratio : DragKind.None;

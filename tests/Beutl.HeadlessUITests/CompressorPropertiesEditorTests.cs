@@ -163,6 +163,22 @@ public class CompressorPropertiesEditorTests
     }
 
     [AvaloniaTest]
+    public void DraggingTheKneeBelowTheThresholdChangesTheRatio()
+    {
+        // Threshold 0 with knee 24 compresses down to -12 dB, so the curve is visibly below the 1:1
+        // diagonal at -6 dB even though it is below the threshold. The ratio drag must start there.
+        using var host = new CompressorHost(thresholdDb: 0f, kneeDb: 24f);
+        Point start = host.Curve.PointOf(-6f);
+        Point diagonal = host.Curve.PointOf(-6f, -6f);
+        Assert.That(start.Y, Is.GreaterThan(diagonal.Y), "The knee must visibly compress at -6 dB.");
+
+        host.Drag(start, new Point(start.X, start.Y + 2));
+
+        Assert.That(host.Effect.Ratio.Value, Is.GreaterThan(4f));
+        Assert.That(host.Effect.Ratio.Value, Is.LessThanOrEqualTo(20f));
+    }
+
+    [AvaloniaTest]
     public void DraggingTheThresholdHandlePastBothEndsClampsToTheRange()
     {
         using var host = new CompressorHost();
@@ -245,12 +261,13 @@ public class CompressorPropertiesEditorTests
         private readonly Mock<IEditorClock> _clock;
 
         public CompressorHost(
-            bool animateThreshold = false, float thresholdDb = -20f, float makeupGainDb = 0f)
+            bool animateThreshold = false, float thresholdDb = -20f, float kneeDb = 6f,
+            float makeupGainDb = 0f)
         {
             Effect = new CompressorEffect();
             Effect.Threshold.Value = thresholdDb;
             Effect.Ratio.Value = 4f;
-            Effect.Knee.Value = 6f;
+            Effect.Knee.Value = kneeDb;
             Effect.MakeupGain.Value = makeupGainDb;
             if (animateThreshold)
             {
