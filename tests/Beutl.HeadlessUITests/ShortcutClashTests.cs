@@ -209,8 +209,8 @@ public sealed class ShortcutClashTests
         // clash only on macOS, where both are Cmd+Shift+Z (Windows and Linux redo with Ctrl+Y).
         new("main.undo", "graphEditor.undo", null),
         new("main.redo", "graphEditor.redo", OSPlatform.OSX),
-        // TODO(#4756): the graph nudges with every Alt+arrow combination, leaving no Alt+arrow for
-        // the macOS marker keys; choosing which one moves is a product decision.
+        // On macOS Alt+arrow nudges the selected keyframes while the graph has focus and jumps between
+        // markers elsewhere; the graph keeps precedence as it does for J/K.
         new("editor.previousMarker", "graphEditor.nudgeLeftFrame", OSPlatform.OSX),
         new("editor.nextMarker", "graphEditor.nudgeRightFrame", OSPlatform.OSX),
     ];
