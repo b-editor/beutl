@@ -101,10 +101,19 @@ internal partial class VersionControlCoordinator
                 return;
             }
 
-            if (_editorService.SelectedTabItem.Value is not { } selected
+            // The question waits while the project is in the background, or its tabs are being put aside for a switch,
+            // and is shown once restoring them selects a tab again.
+            if (TrackedProject is { } tracked
+                && (!ReferenceEquals(_projectService.CurrentProject.Value, tracked)
+                    || _editorService.HasInactiveTabs(tracked)))
+            {
+                return;
+            }
+
+            if (TrackedProject is not { } project
+                || _editorService.SelectedTabItem.Value is not { } selected
                 || !_editorService.TabItems.Contains(selected)
                 || selected.Context.Value is not EditViewModel editor
-                || _projectService.CurrentProject.Value is not { } project
                 || !project.Items.Contains(editor.Scene))
             {
                 request.Respond(false);

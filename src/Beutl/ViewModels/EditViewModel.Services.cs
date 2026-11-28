@@ -44,7 +44,7 @@ public partial class EditViewModel
         .Add<IEditorFileUsage>(() => EditorService)
         .Add<Beutl.Editor.Components.WebBrowserTab.IBrowserSettingsHost>(() => EditorService.BrowserSettingsHost)
         .Add<Beutl.Editor.Components.FileBrowserTab.FileBrowserStorageProviderRegistry>(() => EditorService.StorageProviders)
-        .Add<Beutl.Editor.Components.FileBrowserTab.IProjectAssetHost>(() => EditorService.ProjectAssets)
+        .Add<Beutl.Editor.Components.FileBrowserTab.IProjectAssetHost>(() => Workspace.ProjectAssets)
         .Add<Beutl.Editor.Components.AiWorkspaceTab.IAiWorkspaceHost>(() => EditorService.AiWorkspaceHost)
         .Add<Beutl.Editor.Components.AgentTab.IAgentWorkspaceHost>(() => EditorService.AgentWorkspaceHost)
         .Add<Scene>(() => Scene)
@@ -59,10 +59,10 @@ public partial class EditViewModel
         .Add<HistoryManager>(() => HistoryManager)
         .Add<EditedElements>(() => _unsavedElements)
         .Add<AutoSaveService>(() => _autoSaveService)
-        .Add<IProjectVersionControlService>(() => EditorService.ProjectVersionControlService.Value)
-        .Add<IReadOnlyReactiveProperty<IProjectVersionControlService?>>(() => EditorService.ProjectVersionControlService)
-        .Add<IProjectVersionControlCoordinator>(() => EditorService.ProjectVersionControlCoordinator)
-        .Add<IProjectFileWriteAdmission>(() => new ProjectFileWriteAdmission(EditorService))
+        .Add<IProjectVersionControlService>(() => Workspace.ProjectVersionControlService.Value)
+        .Add<IReadOnlyReactiveProperty<IProjectVersionControlService?>>(() => Workspace.ProjectVersionControlService)
+        .Add<IProjectVersionControlCoordinator>(() => Workspace.VersionControl)
+        .Add<IProjectFileWriteAdmission>(() => Workspace.Admission)
         .Add<ITimelineOptionsProvider>(() => _timelineOptionsProvider)
         .Add<IEditorClock>(() => _editorClock)
         .Add<IEditorSelection>(() => _editorSelection)
@@ -76,7 +76,7 @@ public partial class EditViewModel
         .Add<Beutl.Editor.Components.Helpers.IPreviewEyedropper>(() => Player)
         .Add<Beutl.Editor.Components.Helpers.IPreviewPuppetPinEditor>(() => Player)
         .Add<Beutl.Editor.Components.Helpers.IToolDockHost>(() => DockHost)
-        .Add<Beutl.Editor.Components.OutputTab.IOutputRunHost>(() => EditorService)
+        .Add<Beutl.Editor.Components.OutputTab.IOutputRunHost>(() => Workspace)
         .Add<Beutl.Editor.Components.OutputTab.IOutputPresetStore>(() => OutputPresetService.Instance)
         .Add<Beutl.Editor.Components.MissingMediaTab.IMediaRepairHost>(() => this)
         .Add<Beutl.Editor.Components.UndisplayableDataTab.IUndisplayableDataNavigator>(() => this)
@@ -110,7 +110,7 @@ public partial class EditViewModel
             _elementAdder, this.GetRequiredService<DecoderRegistry>(), this.GetRequiredService<ObjectTemplateService>(),
             this.GetRequiredService<INotificationService>(), _elementAdder.HasFileSourceOverride, editor: this))
         .AddOwned<IElementClipboardService>(() => new ProjectFileWriteClipboardService(
-            EditorService,
+            Workspace,
             new ElementClipboardService(
                 HistoryManager, this.GetRequiredService<GlobalConfiguration>().EditorConfig,
                 _clipboardGateway,

@@ -89,7 +89,8 @@ public partial class MainViewModel : IAiWorkspaceHost
     private IObservable<CaptionDraftScope?> CreateCaptionDraftScopes(EditViewModel? editViewModel)
         => _beutlClients.AuthenticatedUser.Select(user =>
         {
-            Project? project = BeutlApplication.Current.ActiveProject.Value;
+            // The drafts belong to the editor's own project, which stays loaded in the background after a switch.
+            Project? project = editViewModel?.Scene.FindHierarchicalParent<Project>();
             return user is null || project is null || editViewModel is null
                 ? null
                 : new CaptionDraftScope(user.Profile.Id, project.Id.Value, editViewModel.Scene.Id.Value);

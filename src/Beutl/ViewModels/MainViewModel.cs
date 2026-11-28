@@ -42,7 +42,7 @@ public sealed partial class MainViewModel : BasePageViewModel
     private readonly HttpClient _authHttpClient;
     private readonly ProjectService _projectService;
     private readonly EditorService _editorService;
-    private readonly VersionControlCoordinator _versionControlCoordinator;
+    private readonly VersionControlCoordinators _versionControl;
     private readonly ExtensionProvider _extensionProvider;
     private readonly CaptionCatalog _captionCatalog;
     internal CaptionDocumentSerializer CaptionSerializer => _captionCatalog.Serializer;
@@ -62,8 +62,9 @@ public sealed partial class MainViewModel : BasePageViewModel
     private Task<bool>? _closeForShutdownTask;
     private Task? _shutdownRequestTask;
     private IClassicDesktopStyleApplicationLifetime? _desktopLifetime;
-    private readonly ProjectColorPaletteHost _projectColorPalettes;
-    private readonly IDisposable _projectColorPalettesAttachment;
+    // The palettes of the active project, given to the color pickers.
+    private readonly SerialDisposable _projectColorPalettesAttachment = new();
+    private readonly IDisposable _projectColorPalettesSubscription;
 
     public MainViewModel(IServiceProvider appServices, string sessionId)
         : this(appServices, sessionId, null)
@@ -89,14 +90,17 @@ public sealed partial class MainViewModel : BasePageViewModel
         _projectService = new ProjectService(Configuration.ViewConfig, appServices.GetRequiredService<Beutl.Media.FontManager>(),
             appServices.GetRequiredService<INotificationService>(), _editorService);
         _editorService.ProjectFonts = _projectService.GetFonts;
-        _editorService.ProjectAssets = new ProjectAssetCoordinator(_projectService, _editorService,
-            appServices.GetRequiredService<DecoderRegistry>());
-        _versionControlCoordinator = new VersionControlCoordinator(_projectService, _editorService);
-        // After version control, whose preparation can refuse the close.
-        _ = new ProjectThumbnailService(_projectService, _editorService, _versionControlCoordinator);
-        _projectColorPalettes = new ProjectColorPaletteHost(_projectService, _editorService);
-        _projectColorPalettesAttachment = appServices.GetRequiredService<Beutl.Controls.PropertyEditors.ColorPaletteService>()
-            .AttachProjectHost(_projectColorPalettes);
+        DecoderRegistry decoders = appServices.GetRequiredService<DecoderRegistry>();
+        // Each loaded project has its own asset host and palettes, in its workspace.
+        _editorService.ProjectAssetsFactory = workspace => new ProjectAssetCoordinator(_projectService, workspace, decoders);
+        // One coordinator per loaded project, each tracking its own repository.
+        _versionControl = new VersionControlCoordinators(_projectService, _editorService);
+        _ = new ProjectThumbnailService(_projectService, _editorService, _versionControl);
+        var colorPalettes = appServices.GetRequiredService<Beutl.Controls.PropertyEditors.ColorPaletteService>();
+        _projectColorPalettesSubscription = _editorService.ActiveWorkspace.Subscribe(workspace =>
+            _projectColorPalettesAttachment.Disposable = workspace.ColorPalettes is { } palettes
+                ? colorPalettes.AttachProjectHost(palettes)
+                : null);
         _captionCatalog = CaptionCatalog.ComposeWithDefaultElementFactory(
             Beutl.Language.Strings.AiSubtitle_DefaultTemplate,
             _objectTemplateService.FindByBaseType(
@@ -149,8 +153,8 @@ public sealed partial class MainViewModel : BasePageViewModel
             OpenAiJobCenter,
             appServices.GetRequiredService<INotificationService>());
 
-        RepositoryClone = new RepositoryCloneWorkflow(_beutlClients, _projectService, _versionControlCoordinator, Configuration);
-        MenuBar = new MenuBarViewModel(_projectService, _editorService, _versionControlCoordinator);
+        RepositoryClone = new RepositoryCloneWorkflow(_beutlClients, _projectService, _versionControl, Configuration);
+        MenuBar = new MenuBarViewModel(_projectService, _editorService, _versionControl);
         ProjectDiskDeletion = new ProjectDiskDeletion(_projectService, _editorService);
 
         IsProjectOpened = _projectService.IsOpened;
@@ -162,8 +166,8 @@ public sealed partial class MainViewModel : BasePageViewModel
         TitleBreadcrumbBar = new TitleBreadcrumbBarViewModel(this, _editorService);
         TitleBarBranch = new TitleBarBranchViewModel(AppServices.GetRequiredService<INotificationService>(),
             _editorService.ProjectVersionControlService,
-            _versionControlCoordinator.IsGitAvailable,
-            _versionControlCoordinator,
+            _versionControl.IsGitAvailable,
+            _versionControl,
             _beutlClients);
         Status = new TitleBarStatusViewModel(
             IsRunningStartupTasks,
@@ -243,7 +247,11 @@ public sealed partial class MainViewModel : BasePageViewModel
 
     internal EditorService EditorService => _editorService;
 
-    internal VersionControlCoordinator VersionControlCoordinator => _versionControlCoordinator;
+    // The version control of the window's projects.
+    internal VersionControlCoordinators VersionControl => _versionControl;
+
+    // The coordinator of the active project, or the one that claims the next project to become active.
+    internal VersionControlCoordinator VersionControlCoordinator => _versionControl.Current;
 
     internal RepositoryCloneWorkflow RepositoryClone { get; }
 
@@ -271,10 +279,12 @@ public sealed partial class MainViewModel : BasePageViewModel
             if (!ReferenceEquals(_projectService.CurrentProject.Value, project))
                 return;
 
-            using IDisposable output = _editorService.BeginObservedOutputOperation();
-            using IDisposable suspension = _editorService.SuspendEditors();
-            using IProjectFileWriteLease fileWrite = await _editorService.BeginProjectFileWriteAsync(cancellationToken);
-            foreach (EditViewModel editor in _editorService.TabItems.Select(tab => tab.Context.Value).OfType<EditViewModel>().ToArray())
+            // The export holds and suspends only this project's files and editors.
+            EditorWorkspace workspace = _editorService.WorkspaceFor(project);
+            using IDisposable output = workspace.BeginObservedOutputOperation();
+            using IDisposable suspension = workspace.SuspendEditors();
+            using IProjectFileWriteLease fileWrite = await workspace.BeginProjectFileWriteAsync(cancellationToken);
+            foreach (EditViewModel editor in workspace.TabItems.Select(tab => tab.Context.Value).OfType<EditViewModel>().ToArray())
             {
                 editor.HistoryManager.FlushPendingMutations();
                 editor.HistoryManager.Commit();

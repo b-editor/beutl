@@ -41,6 +41,11 @@ internal partial class VersionControlCoordinator
         ProjectService.ProjectTransitionScope transition,
         CancellationToken cancellationToken)
     {
+        if (!EnsureNoOtherProjectInWorktree())
+        {
+            return false;
+        }
+
         if (!await CheckRestorePreconditionsAsync(
                 service,
                 sha,
@@ -61,7 +66,7 @@ internal partial class VersionControlCoordinator
         }
 
         // Restoring replaces the open documents, so a gesture in progress ends first.
-        await _editorService.WaitForEditSessionsAsync();
+        await Workspace.WaitForEditSessionsAsync();
         // Held until the project is closed further down: the awaits between this save
         // and the close run real Git commands, and an edit made in that window would
         // miss the safety snapshot and be discarded when the editors close.

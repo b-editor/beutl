@@ -59,6 +59,8 @@ internal partial class VersionControlCoordinator
         }
 
         _state = next;
+        // A mutation of the repository can replace files of any project inside it, so the workspace reserves them all.
+        _workspace?.SetRepositoryRoot(_state.OwnedService?.Repository?.RepoRoot);
         if (_propertiesDisposed)
         {
             return;
@@ -71,7 +73,7 @@ internal partial class VersionControlCoordinator
             () => _isTracked.Value = _state.IsTracked,
             nameof(IsTracked));
         PublishStateValue(
-            () => _editorService.PublishProjectVersionControlService(_state.VisibleService),
+            () => _workspace?.PublishProjectVersionControlService(_state.VisibleService),
             nameof(EditorService.ProjectVersionControlService));
     }
 

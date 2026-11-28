@@ -12,7 +12,7 @@ internal partial class VersionControlCoordinator
     // Reads the project's files only, so it needs no operation gate, and the disposal stops it.
     private async Task InspectProjectOpeningCoreAsync(string projectFile)
     {
-        if (_disposed)
+        if (_disposed || !InspectsOpening(projectFile))
         {
             return;
         }
@@ -27,5 +27,17 @@ internal partial class VersionControlCoordinator
             await WarnConflictMarkersAsync(markerFile);
             cancellationToken.ThrowIfCancellationRequested();
         }
+    }
+
+    // Of the coordinators of an editor service, one scans each open, so a file is warned about once: the coordinator
+    // tracking the loaded project at that file, or else the one waiting for a project.
+    private bool InspectsOpening(string projectFile)
+    {
+        EditorWorkspace? owner = _projectService.Sessions.Find(projectFile) is { } session
+            ? _editorService.WorkspaceFor(session)
+            : null;
+        return owner?.VersionControl is { } tracking
+            ? ReferenceEquals(tracking, this)
+            : _workspace is null;
     }
 }

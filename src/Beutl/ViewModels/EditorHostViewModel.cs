@@ -212,7 +212,7 @@ public class EditorHostViewModel
 
         if (saveChanges
             && _editorService.TryGetInactiveTabs(project, out EditorService.InactiveTabSet? toSave)
-            && !await _editorService.SaveSceneEditorsBeforeCloseAsync(toSave.Items))
+            && !await _editorService.WorkspaceFor(project).SaveSceneEditorsBeforeCloseAsync(toSave.Items))
         {
             throw new ProjectCloseAbortedException(MessageStrings.FileSaveException);
         }

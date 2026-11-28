@@ -84,9 +84,11 @@ public partial class EditorService
         => TabItems.Concat(InactiveTabItems).Any(item => ReferenceEquals(item.Context.Value, context));
 
     // Resolves once no open editor has an edit session, so a transition waits for the user's gesture to end.
-    internal async Task WaitForEditSessionsAsync()
+    internal Task WaitForEditSessionsAsync() => WaitForEditSessionsAsync(TabItems.ToArray());
+
+    internal static async Task WaitForEditSessionsAsync(IEnumerable<EditorTabItem> tabItems)
     {
-        Task[] waits = [.. TabItems.ToArray()
+        Task[] waits = [.. tabItems
             .Select(item => item.Context.Value?.GetService(typeof(HistoryManager)))
             .OfType<HistoryManager>()
             .Where(history => history.IsEditing)
@@ -102,19 +104,19 @@ public partial class EditorService
     }
 
     /// <summary>
-    /// Disables every open editor until the returned handle is disposed.
+    /// Disables every open editor, those of the active project, until the returned handle is disposed.
     /// </summary>
     /// <remarks>
-    /// A version-control transition holds this from before its pre-transition save until the
-    /// project is closed. Releasing it earlier would let the user edit while the cycle awaits Git,
-    /// and those edits would land after the safety snapshot and be discarded by the close.
-    /// Suspensions share a per-context reference count with output execution, so they can complete
-    /// in any order without re-enabling an editor still owned by another operation.
+    /// Work on a particular project suspends the editors of its workspace instead
+    /// (<see cref="EditorWorkspace.SuspendEditors"/>).
     /// </remarks>
-    internal IDisposable SuspendEditors()
+    internal IDisposable SuspendEditors() => SuspendEditors(TabItems.ToArray());
+
+    // Suspensions share a per-context reference count with output execution, so they can complete in any order
+    // without re-enabling an editor still owned by another operation.
+    internal IDisposable SuspendEditors(IReadOnlyCollection<EditorTabItem> tabItems)
     {
-        EditorTabItem[] tabItems = TabItems.ToArray();
-        var suspensions = new List<IDisposable>(tabItems.Length);
+        var suspensions = new List<IDisposable>(tabItems.Count);
         try
         {
             foreach (EditorTabItem item in tabItems)

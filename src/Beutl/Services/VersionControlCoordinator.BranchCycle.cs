@@ -57,6 +57,11 @@ internal partial class VersionControlCoordinator
             return false;
         }
 
+        if (!EnsureNoOtherProjectInWorktree())
+        {
+            return false;
+        }
+
         WorkspaceStatus status = await service.GetStatusAsync(cancellationToken);
         if (!EnsureRepositoryIsNotConflicted(status))
         {

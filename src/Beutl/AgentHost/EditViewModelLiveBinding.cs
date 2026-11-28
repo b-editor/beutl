@@ -193,7 +193,7 @@ public sealed class EditViewModelLiveBinding(EditViewModel editViewModel, AgentE
             using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, host.RepairCancellationToken);
             CancellationToken token = cancellation.Token;
             await RunAfterEditSessionAsync(static () => { }, editWait, token);
-            using var write = await editViewModel.EditorService.BeginProjectFileWriteAsync(token);
+            using var write = await editViewModel.Workspace.BeginProjectFileWriteAsync(token);
 
             MediaRepairSelection[] applied;
             IReadOnlyList<MissingMedia> remaining;

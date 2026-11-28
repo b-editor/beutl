@@ -13,10 +13,10 @@ internal partial class VersionControlCoordinator
     // reverse order, so a render never shows the editors disabled without the activity over them.
     private IDisposable SuspendEditorsBehindActivity(ProjectLifecycleActivity activity)
     {
-        IDisposable presentation = _editorService.BeginLifecycleActivity(activity);
+        IDisposable presentation = Workspace.BeginLifecycleActivity(activity);
         try
         {
-            return new PresentedEditorSuspension(_editorService.SuspendEditors(), presentation);
+            return new PresentedEditorSuspension(Workspace.SuspendEditors(), presentation);
         }
         catch
         {
@@ -61,7 +61,7 @@ internal partial class VersionControlCoordinator
 
     private void EnsureProjectReopened(string projectFile)
     {
-        string? reopenedPath = _projectService.CurrentProject.Value?.Uri?.LocalPath;
+        string? reopenedPath = TrackedProject?.Uri?.LocalPath;
         if (reopenedPath is null || !PathsEqual(reopenedPath, projectFile))
         {
             throw new InvalidOperationException(
@@ -91,11 +91,18 @@ internal partial class VersionControlCoordinator
             : null;
     }
 
+    // Restoring, switching branches and pulling close and reopen the project, which only the active one can.
     private Project GetOpenProject()
     {
-        return _projectService.CurrentProject.Value
-               ?? throw new VersionControlLifecycleUnavailableException("No project is open.");
+        return IsTrackedProjectActive(TrackedProject)
+            ? TrackedProject!
+            : throw new VersionControlLifecycleUnavailableException("No project is open.");
     }
+
+    private bool IsTrackedProjectActive(Project? project)
+        => project is not null
+           && ReferenceEquals(TrackedProject, project)
+           && ReferenceEquals(_projectService.CurrentProject.Value, project);
 
     private static string GetProjectFile(Project project)
     {
@@ -110,10 +117,10 @@ internal partial class VersionControlCoordinator
         // Let an in-flight save finish, then hand its reservation over without leaving a gap
         // in which another writer could start. Exports and file opens still prevent mutation.
         using IProjectFileWriteLease? fileWrite = completedWrite
-            ?? await _editorService.TryBeginProjectFileWriteAsync(cancellationToken);
+            ?? await Workspace.TryBeginProjectFileWriteAsync(cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
         IDisposable? mutation = fileWrite is not null
-            ? _editorService.TryBeginWorktreeMutation(fileWrite)
+            ? Workspace.TryBeginWorktreeMutation(fileWrite)
             : null;
         if (mutation is not null)
         {
@@ -221,6 +228,22 @@ internal partial class VersionControlCoordinator
         return originalTip;
     }
 
+    // A restore, branch switch or pull rewrites files that another loaded project in the same worktree keeps open in
+    // its editors, and that project would later save its stale copies over them; it has to be closed first.
+    private bool EnsureNoOtherProjectInWorktree()
+    {
+        if (Workspace.FindOverlappingLoadedProject() is null)
+        {
+            return true;
+        }
+
+        PublishNotification(() =>
+            _notifications.ShowWarning(
+                Strings.VersionControl,
+                Strings.VersionControl_OtherProjectInWorktree));
+        return false;
+    }
+
     private bool EnsureRepositoryIsNotConflicted(WorkspaceStatus status)
     {
         if (!status.HasConflicts)
@@ -241,7 +264,7 @@ internal partial class VersionControlCoordinator
     {
         await transition.CloseProjectAsync(cancellationToken);
 
-        if (_projectService.CurrentProject.Value is not null)
+        if (TrackedProject is not null)
         {
             throw new InvalidOperationException(
                 "The project could not be closed before changing version-controlled files.");

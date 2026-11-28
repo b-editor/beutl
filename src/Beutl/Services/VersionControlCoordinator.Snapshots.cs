@@ -32,7 +32,7 @@ internal partial class VersionControlCoordinator
             throw new InvalidOperationException(Strings.VersionControl_WorkspaceBusy);
         }
 
-        if (expectedProject is not null && !ReferenceEquals(_projectService.CurrentProject.Value, expectedProject))
+        if (expectedProject is not null && !ReferenceEquals(TrackedProject, expectedProject))
             throw new VersionControlLifecycleUnavailableException("The targeted project is no longer open.");
 
         CancellationToken operationCancellation = operation.CancellationToken;
@@ -76,7 +76,7 @@ internal partial class VersionControlCoordinator
         // enabled; the retry therefore acquires a fresh suspension and saves again.
         using IDisposable editorSuspension = SuspendEditorsBehindActivity(ProjectLifecycleActivity.CommittingVersion);
         await service.CheckManualCommitBeforeSaveAsync(interactive, cancellationToken);
-        if (_projectService.CurrentProject.Value is { } project
+        if (TrackedProject is { } project
             && !await TrySaveOpenProjectAsync(project, cancellationToken))
         {
             throw new InvalidOperationException(MessageStrings.OperationFailed);
@@ -91,6 +91,12 @@ internal partial class VersionControlCoordinator
         IProjectFileWriteLease? completedWrite,
         CancellationToken cancellationToken)
     {
+        // A coordinator without a project has no workspace the saved files could belong to.
+        if (TrackedProject is null)
+        {
+            return;
+        }
+
         using IDisposable? snapshotMutation = await TryBeginWorktreeMutationAsync(cancellationToken, completedWrite);
         if (snapshotMutation is null)
         {
@@ -100,7 +106,7 @@ internal partial class VersionControlCoordinator
             return;
         }
 
-        Project? savedProject = _projectService.CurrentProject.Value;
+        Project? savedProject = TrackedProject;
         if (savedProject is null)
         {
             return;
@@ -145,7 +151,7 @@ internal partial class VersionControlCoordinator
         }
 
         _saveSnapshotDeferred = true;
-        _ = RunDeferredSaveSnapshotAsync(_projectService.CurrentProject.Value);
+        _ = RunDeferredSaveSnapshotAsync(TrackedProject);
     }
 
     private async Task RunDeferredSaveSnapshotAsync(Project? savedProject)
@@ -171,7 +177,7 @@ internal partial class VersionControlCoordinator
             // A save from here on defers a snapshot of its own, which runs after this one.
             _saveSnapshotDeferred = false;
             if (!_config.AutoCommitOnSave.Value
-                || !ReferenceEquals(_projectService.CurrentProject.Value, savedProject))
+                || !ReferenceEquals(TrackedProject, savedProject))
             {
                 return;
             }
@@ -180,7 +186,7 @@ internal partial class VersionControlCoordinator
             {
                 // A save still writing finishes first, and none can start until the snapshot ends.
                 using IProjectFileWriteLease write =
-                    await _editorService.BeginProjectFileWriteAsync(operation.CancellationToken);
+                    await Workspace.BeginProjectFileWriteAsync(operation.CancellationToken);
                 await CommitSaveSnapshotAsync(write, operation.CancellationToken);
             }
             catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested)
@@ -214,7 +220,7 @@ internal partial class VersionControlCoordinator
         while (true)
         {
             if (_disposed
-                || !ReferenceEquals(_projectService.CurrentProject.Value, savedProject)
+                || !ReferenceEquals(TrackedProject, savedProject)
                 || _state.ProjectRoot is not { } currentRoot
                 || !PathsEqual(currentRoot, savedProjectRoot))
             {

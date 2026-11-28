@@ -7,23 +7,24 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Services;
 
-internal sealed class ProjectFileWriteAdmission(EditorService editorService)
+// Admits writes to the files of one project, through the workspace that holds them.
+internal sealed class ProjectFileWriteAdmission(EditorWorkspace workspace)
     : IProjectFileWriteAdmission
 {
     IProjectFileWriteLease? IProjectFileWriteAdmission.TryBeginProjectFileWrite()
     {
-        return editorService.TryBeginProjectFileWrite();
+        return workspace.TryBeginProjectFileWrite();
     }
 
     ValueTask<IProjectFileWriteLease> IProjectFileWriteAdmission.BeginProjectFileWriteAsync(
         CancellationToken cancellationToken)
     {
-        return editorService.BeginProjectFileWriteAsync(cancellationToken);
+        return workspace.BeginProjectFileWriteAsync(cancellationToken);
     }
 }
 
 internal sealed class ProjectFileWriteClipboardService(
-    EditorService editorService,
+    EditorWorkspace workspace,
     IElementClipboardService inner,
     CancellationToken lifetime = default) : IElementClipboardService
 {
@@ -66,14 +67,14 @@ internal sealed class ProjectFileWriteClipboardService(
         using var dismissal = new CancellationTokenSource();
         try
         {
-            ValueTask<IProjectFileWriteLease?> pending = editorService.TryBeginProjectFileWriteAsync(cancellation.Token);
+            ValueTask<IProjectFileWriteLease?> pending = workspace.TryBeginProjectFileWriteAsync(cancellation.Token);
             if (!pending.IsCompleted)
             {
                 Task<IProjectFileWriteLease?> wait = pending.AsTask();
                 await Task.WhenAny(wait, Task.Delay(TimeSpan.FromMilliseconds(500), dismissal.Token));
                 if (!wait.IsCompleted)
                 {
-                    editorService.AppServices.GetRequiredService<INotificationService>().Show(new Notification(title, Strings.Clipboard_WaitingForSave,
+                    workspace.Owner.AppServices.GetRequiredService<INotificationService>().Show(new Notification(title, Strings.Clipboard_WaitingForSave,
                         Expiration: Timeout.InfiniteTimeSpan,
                         Actions: [new NotificationAction(Strings.Cancel, cancellation.Cancel)], IsClosable: false)
                     {
