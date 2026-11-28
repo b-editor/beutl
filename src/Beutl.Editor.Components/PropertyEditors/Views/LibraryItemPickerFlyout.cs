@@ -55,6 +55,14 @@ public sealed class LibraryItemPickerFlyout : ConfirmablePickerFlyout<LibraryIte
         pfp.SelectedItem = _viewModel.SelectedItem.Value;
         pfp.GetObservable(LibraryItemPickerFlyoutPresenter.SelectedItemProperty)
             .Subscribe(v => _viewModel.SelectedItem.Value = v);
+        // The LUT picker selects its match after a search or rescan, so the selection also flows back to the list;
+        // otherwise Enter would confirm an item the list does not highlight.
+        _viewModel.SelectedItem.Skip(1)
+            .Subscribe(v =>
+            {
+                if (!ReferenceEquals(pfp.SelectedItem, v))
+                    pfp.SelectedItem = v;
+            });
         pfp.GetObservable(LibraryItemPickerFlyoutPresenter.ShowAllProperty)
             .Subscribe(v => _viewModel.ShowAll.Value = v);
         pfp.GetObservable(LibraryItemPickerFlyoutPresenter.SearchTextProperty)

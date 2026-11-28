@@ -110,6 +110,56 @@ public sealed class LutLibraryFlyoutTests
     }
 
     [AvaloniaTest]
+    public async Task A_search_highlights_the_match_it_selects()
+    {
+        string library = Path.Combine(_directory, "luts");
+        Directory.CreateDirectory(library);
+        WriteCube(Path.Combine(library, "chosen.cube"));
+        WriteCube(Path.Combine(library, "other.cube"));
+
+        var effect = new LutEffect();
+        var adapter = new EnginePropertyAdapter<CubeSource?>(effect.Source, effect);
+        var (vm, control) = CreateControl(adapter);
+        using var viewModel = vm;
+        var editor = (CubeSourceEditor)control;
+        editor.LibraryFolderPathOverride = library;
+        var window = new Window { Content = editor, Width = 760, Height = 520 };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render(3);
+
+            HeadlessTestHelpers.Click(LibraryButton(editor));
+            await HeadlessTestHelpers.WaitUntilAsync(() => editor.PickerViewModel is { Items.Count: 2 });
+            LutLibraryPickerViewModel picker = editor.PickerViewModel!;
+            LibraryItemPickerFlyoutPresenter presenter = FindPresenter(window);
+
+            window.KeyPress(Key.F, RawInputModifiers.Control, PhysicalKey.F, "f");
+            window.KeyRelease(Key.F, RawInputModifiers.Control, PhysicalKey.F, "f");
+            HeadlessTestHelpers.Render();
+            window.KeyTextInput("chosen");
+            await HeadlessTestHelpers.WaitUntilAsync(
+                () => picker.Items.Count == 1 && picker.SelectedItem.Value != null,
+                message: "The LUT picker did not select its search match.");
+            HeadlessTestHelpers.Render(2);
+
+            PinnableLibraryItem match = picker.Items[0];
+            ListBoxItem container = presenter.GetVisualDescendants().OfType<ListBoxItem>()
+                .Single(item => item.IsEffectivelyVisible && ReferenceEquals(item.DataContext, match));
+            Assert.Multiple(() =>
+            {
+                Assert.That(picker.SelectedItem.Value, Is.SameAs(match));
+                Assert.That(presenter.SelectedItem, Is.SameAs(match));
+                Assert.That(container.IsSelected, Is.True, "The list does not highlight the selected LUT.");
+            });
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaTest]
     public async Task Pinning_an_entry_persists_it_and_reopening_shows_it_pinned()
     {
         string library = Path.Combine(_directory, "luts");

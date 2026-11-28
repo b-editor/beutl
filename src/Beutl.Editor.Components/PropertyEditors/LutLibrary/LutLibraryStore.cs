@@ -42,6 +42,9 @@ internal sealed class LutLibraryStore
         return s_shared.GetOrAdd(fullPath, static path => new LutLibraryStore(path));
     }
 
+    // A store read from library.json without the shared instance, so tests can prove settings survive a restart.
+    internal static LutLibraryStore LoadUnsharedForTests(string libraryFolder) => new(libraryFolder);
+
     public string LibraryFolder { get; }
 
     public string SettingsPath => Path.Combine(LibraryFolder, SettingsFileName);

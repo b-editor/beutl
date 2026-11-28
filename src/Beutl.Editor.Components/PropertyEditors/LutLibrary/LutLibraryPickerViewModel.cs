@@ -20,9 +20,11 @@ internal sealed class LutLibraryPickerViewModel : ILibraryItemPickerViewModel, I
     private readonly CompositeDisposable _disposables = [];
     private readonly Dictionary<string, LutLibraryThumbnailSource> _sources = new(LutLibraryStore.PathComparer);
     private readonly CancellationTokenSource _thumbnailCancellation = new();
+    private readonly Func<IReadOnlyList<LutLibraryFile>> _scan;
     private IReadOnlyList<LutLibraryFile> _files = [];
     private string _appliedSearchText = string.Empty;
     private string? _highlightedPath;
+    private int _loadGeneration;
     private bool _updating;
     private bool _disposed;
 
@@ -30,10 +32,21 @@ internal sealed class LutLibraryPickerViewModel : ILibraryItemPickerViewModel, I
         LutLibraryStore store,
         ILutThumbnailSource thumbnails,
         Func<Task<string?>>? chooseFolder = null)
+        : this(store, thumbnails, chooseFolder, scan: null)
+    {
+    }
+
+    // Tests pass a scan of their own to finish scans out of order.
+    internal LutLibraryPickerViewModel(
+        LutLibraryStore store,
+        ILutThumbnailSource thumbnails,
+        Func<Task<string?>>? chooseFolder,
+        Func<IReadOnlyList<LutLibraryFile>>? scan)
     {
         _store = store;
         _thumbnails = thumbnails;
         _chooseFolder = chooseFolder;
+        _scan = scan ?? store.Scan;
         ShowTiles.Value = Preferences.Default.Get(SelectLibraryItemDialogViewModel.ShowTilesKey, true);
         SearchText.Skip(1)
             .Throttle(s_searchDelay)
@@ -83,11 +96,14 @@ internal sealed class LutLibraryPickerViewModel : ILibraryItemPickerViewModel, I
         if (_disposed)
             return;
 
+        // A folder added while an earlier scan runs starts a newer one; only the newest scan's files may land,
+        // whichever finishes last.
+        int generation = ++_loadGeneration;
         IsBusy.Value = true;
         try
         {
-            IReadOnlyList<LutLibraryFile> files = await Task.Run(_store.Scan);
-            if (_disposed)
+            IReadOnlyList<LutLibraryFile> files = await Task.Run(_scan);
+            if (_disposed || generation != _loadGeneration)
                 return;
 
             _files = files;
@@ -99,7 +115,7 @@ internal sealed class LutLibraryPickerViewModel : ILibraryItemPickerViewModel, I
         }
         finally
         {
-            if (!_disposed)
+            if (!_disposed && generation == _loadGeneration)
                 IsBusy.Value = false;
         }
     }

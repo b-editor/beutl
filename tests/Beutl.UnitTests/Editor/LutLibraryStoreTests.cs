@@ -147,6 +147,43 @@ public sealed class LutLibraryStoreTests
     }
 
     [Test]
+    public async Task An_older_scan_that_finishes_last_does_not_replace_the_newer_files()
+    {
+        LutLibraryFile[] older = [new(Path.Combine(_library, "older.cube"), "older.cube", false, null)];
+        LutLibraryFile[] newer = [new(Path.Combine(_library, "newer.cube"), "newer.cube", false, null)];
+        using var firstStarted = new ManualResetEventSlim();
+        using var releaseFirst = new ManualResetEventSlim();
+        int calls = 0;
+        using var viewModel = new LutLibraryPickerViewModel(
+            LutLibraryStore.GetShared(_library),
+            new NoThumbnails(),
+            chooseFolder: null,
+            scan: () =>
+            {
+                if (Interlocked.Increment(ref calls) > 1)
+                    return newer;
+
+                firstStarted.Set();
+                releaseFirst.Wait(TimeSpan.FromSeconds(10));
+                return older;
+            });
+
+        Task first = viewModel.LoadAsync();
+        Assert.That(firstStarted.Wait(TimeSpan.FromSeconds(10)), Is.True, "The first scan did not start.");
+        await viewModel.LoadAsync();
+        Assert.That(viewModel.Items.Select(item => item.DisplayName), Is.EqualTo(new[] { "newer" }));
+
+        releaseFirst.Set();
+        await first;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.Items.Select(item => item.DisplayName), Is.EqualTo(new[] { "newer" }));
+            Assert.That(viewModel.IsBusy.Value, Is.False);
+        });
+    }
+
+    [Test]
     public async Task An_unreadable_file_is_listed_with_its_error_and_no_thumbnail()
     {
         Directory.CreateDirectory(_library);
@@ -227,10 +264,12 @@ public sealed class LutLibraryStoreTests
 
         Assert.That(File.Exists(store.SettingsPath), Is.True);
 
-        var restored = LutLibraryStore.GetShared(_library);
+        // The shared store would hand back the same object, so read a fresh one from library.json.
+        LutLibraryStore restored = LutLibraryStore.LoadUnsharedForTests(_library);
 
         Assert.Multiple(() =>
         {
+            Assert.That(restored, Is.Not.SameAs(store));
             Assert.That(restored.ExtraFolders, Is.EqualTo(new[] { extra }));
             Assert.That(restored.IsFavorite(favorite), Is.True);
         });
