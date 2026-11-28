@@ -128,6 +128,9 @@
   <data name="CompressorEffect_MakeupGain_Description" xml:space="preserve">
     <value>压缩后施加的增益，用于补偿电平的降低。</value>
   </data>
+  <data name="CompressorEffect_Curve_ToolTip" xml:space="preserve">
+    <value>左右拖动控制柄可设置阈值，上下拖动阈值以上的曲线可设置压缩比。</value>
+  </data>
   <data name="LimiterEffect" xml:space="preserve">
     <value>限制器</value>
   </data>

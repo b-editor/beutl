@@ -6,6 +6,7 @@ using Beutl.Editor.Components.ChannelMapProperties;
 using Beutl.Editor.Components.ColorGradingProperties;
 using Beutl.Editor.Components.ColorGradingTab;
 using Beutl.Editor.Components.ColorScopesTab;
+using Beutl.Editor.Components.CompressorProperties;
 using Beutl.Editor.Components.CurvesTab;
 using Beutl.Editor.Components.DockLayoutTab;
 using Beutl.Editor.Components.ElementPropertyTab;
@@ -70,6 +71,7 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
         ColorGradingPropertiesExtension.Instance,
         Beutl.Editor.Components.NodeGraphTab.PropertyEditors.GenerativeChoicePropertyExtension.Instance,
         EqualizerPropertiesExtension.Instance,
+        CompressorPropertiesExtension.Instance,
         ChannelMapPropertiesExtension.Instance,
         SoundPannerPropertiesExtension.Instance,
         ScriptEditorExtension.Instance,

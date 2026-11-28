@@ -124,6 +124,9 @@
   <data name="CompressorEffect_MakeupGain_Description" xml:space="preserve">
     <value>圧縮で下がった出力レベルを補正するゲイン。</value>
   </data>
+  <data name="CompressorEffect_Curve_ToolTip" xml:space="preserve">
+    <value>ハンドルを左右にドラッグしてスレッショルドを、スレッショルドより上のカーブを上下にドラッグしてレシオを設定します。</value>
+  </data>
   <data name="LimiterEffect" xml:space="preserve">
     <value>リミッター</value>
   </data>

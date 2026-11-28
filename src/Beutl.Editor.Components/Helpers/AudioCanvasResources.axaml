@@ -1,5 +1,6 @@
 <ResourceDictionary xmlns="https://github.com/avaloniaui"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:compressor="using:Beutl.Editor.Components.CompressorProperties.Views"
                     xmlns:eq="using:Beutl.Editor.Components.EqualizerProperties.Views"
                     xmlns:helpers="using:Beutl.Editor.Components.Helpers"
                     xmlns:panner="using:Beutl.Editor.Components.SoundPannerProperties.Views">
@@ -23,5 +24,13 @@
         <Setter Property="GridBrush" Value="{DynamicResource ControlStrokeColorDefaultBrush}" />
         <!--  An accent foreground: high contrast paints the accent fill in the window color, which would hide the curve.  -->
         <Setter Property="CurveBrush" Value="{DynamicResource AccentTextFillColorPrimaryBrush}" />
+    </ControlTheme>
+
+    <ControlTheme x:Key="{x:Type compressor:CompressorCurveEditor}"
+                  BasedOn="{StaticResource AudioCanvasTheme}"
+                  TargetType="compressor:CompressorCurveEditor">
+        <Setter Property="LineBrush" Value="{DynamicResource ControlStrokeColorDefaultBrush}" />
+        <!--  An accent foreground: high contrast paints the accent fill in the window color, which would hide the curve.  -->
+        <Setter Property="AccentBrush" Value="{DynamicResource AccentTextFillColorPrimaryBrush}" />
     </ControlTheme>
 </ResourceDictionary>
