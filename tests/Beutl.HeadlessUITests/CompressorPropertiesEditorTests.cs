@@ -163,6 +163,56 @@ public class CompressorPropertiesEditorTests
     }
 
     [AvaloniaTest]
+    public void DraggingAboveTheThresholdRaisesTheRatioFromOneToOne()
+    {
+        using var host = new CompressorHost(thresholdDb: -20f, kneeDb: 0f);
+        host.Effect.Ratio.Value = 1f;
+        HeadlessTestHelpers.Render();
+        Assert.That(host.Curve.Ratio, Is.EqualTo(1f).Within(1e-4f));
+
+        Point start = host.Curve.PointOf(-10f);
+        host.Drag(start, new Point(start.X, start.Y + 4));
+
+        Assert.That(host.Effect.Ratio.Value, Is.GreaterThan(1f));
+        Assert.That(host.Effect.Ratio.Value, Is.LessThan(20f));
+    }
+
+    [AvaloniaTest]
+    public void ReturningThePointerToTheStartRestoresTheRatioInOneUndoStep()
+    {
+        using var host = new CompressorHost();
+        Point start = host.Curve.PointOf(-5f);
+        Point down = new(start.X, start.Y + 4);
+        Point startInWindow = host.Curve.TranslatePoint(start, host.Window)!.Value;
+        Point downInWindow = host.Curve.TranslatePoint(down, host.Window)!.Value;
+
+        host.Window.MouseMove(startInWindow);
+        host.Window.MouseDown(startInWindow, MouseButton.Left);
+        host.Window.MouseMove(downInWindow, RawInputModifiers.LeftMouseButton);
+        HeadlessTestHelpers.Render();
+        Assert.That(host.Effect.Ratio.Value, Is.GreaterThan(4f));
+        Assert.That(host.Effect.Ratio.Value, Is.LessThan(20f));
+
+        host.Window.MouseMove(startInWindow, RawInputModifiers.LeftMouseButton);
+        HeadlessTestHelpers.Render();
+        Assert.That(host.Effect.Ratio.Value, Is.EqualTo(4f).Within(1e-4f),
+            "Returning to the press height must restore the ratio the drag started from.");
+
+        // A drag that ends where it started changes nothing, so it records nothing; going down again
+        // shows the return stays inside the drag's single undo step.
+        host.Window.MouseMove(downInWindow, RawInputModifiers.LeftMouseButton);
+        host.Window.MouseUp(downInWindow, MouseButton.Left);
+        HeadlessTestHelpers.Render();
+        Assert.That(host.History.UndoCount, Is.EqualTo(1),
+            "The whole drag, including the return, is one undo step.");
+
+        host.History.Undo();
+        HeadlessTestHelpers.Render();
+        Assert.That(host.Effect.Ratio.Value, Is.EqualTo(4f).Within(1e-4f));
+        Assert.That(host.History.UndoCount, Is.Zero);
+    }
+
+    [AvaloniaTest]
     public void DraggingTheKneeBelowTheThresholdChangesTheRatio()
     {
         // Threshold 0 with knee 24 compresses down to -12 dB, so the curve is visibly below the 1:1
