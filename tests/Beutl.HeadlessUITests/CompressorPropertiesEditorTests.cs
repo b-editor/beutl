@@ -143,6 +143,26 @@ public class CompressorPropertiesEditorTests
     }
 
     [AvaloniaTest]
+    public void PressingAClippedCurveWithoutMovingKeepsTheRatioAndADragChangesItSmoothly()
+    {
+        // With threshold -10 dB and +12 dB makeup the curve above the threshold exceeds 0 dB, so the
+        // plot clips it to the top edge. The ratio drag must use the real output, not the clipped edge.
+        using var host = new CompressorHost(thresholdDb: -10f, makeupGainDb: 12f);
+        Assert.That(host.Effect.Ratio.Value, Is.EqualTo(4f));
+        Point start = host.Curve.PointOf(-4f);
+
+        host.Drag(start, start);
+        Assert.That(host.Effect.Ratio.Value, Is.EqualTo(4f).Within(1e-3f),
+            "Pressing without moving must not change the ratio.");
+
+        Point down = new(start.X, start.Y + 2);
+        host.Drag(start, down);
+        Assert.That(host.Effect.Ratio.Value, Is.GreaterThan(4f),
+            "Dragging down must compress more; the old computation jumped straight to the range end.");
+        Assert.That(host.Effect.Ratio.Value, Is.LessThan(20f));
+    }
+
+    [AvaloniaTest]
     public void DraggingTheThresholdHandlePastBothEndsClampsToTheRange()
     {
         using var host = new CompressorHost();
@@ -224,13 +244,14 @@ public class CompressorPropertiesEditorTests
         private readonly PropertyEditorTestHost.HistoryScope _history;
         private readonly Mock<IEditorClock> _clock;
 
-        public CompressorHost(bool animateThreshold = false)
+        public CompressorHost(
+            bool animateThreshold = false, float thresholdDb = -20f, float makeupGainDb = 0f)
         {
             Effect = new CompressorEffect();
-            Effect.Threshold.Value = -20f;
+            Effect.Threshold.Value = thresholdDb;
             Effect.Ratio.Value = 4f;
             Effect.Knee.Value = 6f;
-            Effect.MakeupGain.Value = 0f;
+            Effect.MakeupGain.Value = makeupGainDb;
             if (animateThreshold)
             {
                 Effect.Threshold.SetKeyFrameAnimation(new KeyFrameAnimation<float>

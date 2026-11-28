@@ -32,6 +32,8 @@ public sealed partial class CompressorCurveEditor : AudioCanvas
 
     private DragKind _dragging;
     private float _ratioInputDb;
+    private float _ratioStartOutputDb;
+    private float _ratioStartPointerDb;
     private Pen? _curvePen;
 
     static CompressorCurveEditor()
@@ -99,6 +101,10 @@ public sealed partial class CompressorCurveEditor : AudioCanvas
         if (kind == DragKind.Ratio)
         {
             _ratioInputDb = InputDbFromX(point.X);
+            // The curve may be drawn clipped by makeup, so remember the real (unclipped) output without
+            // makeup and the pointer's place; the drag applies only the pointer's delta to that output.
+            _ratioStartOutputDb = GainReducedOutputDb(_ratioInputDb);
+            _ratioStartPointerDb = OutputDbFromY(point.Y);
         }
 
         e.Pointer.Capture(this);
@@ -117,7 +123,12 @@ public sealed partial class CompressorCurveEditor : AudioCanvas
         }
         else
         {
-            editor.SetRatio(RatioFromOutputDb(_ratioInputDb, OutputDbFromY(point.Y)));
+            float pointerDelta = OutputDbFromY(point.Y) - _ratioStartPointerDb;
+            if (pointerDelta != 0f)
+            {
+                editor.SetRatio(RatioFromGainReducedOutputDb(
+                    _ratioInputDb, _ratioStartOutputDb + pointerDelta));
+            }
         }
 
         InvalidateVisual();
@@ -223,17 +234,22 @@ public sealed partial class CompressorCurveEditor : AudioCanvas
         return Math.Abs(point.Y - curveY) <= CurveHitRadius ? DragKind.Ratio : DragKind.None;
     }
 
-    // Bisects the shared curve so the dragged point lands where the pointer is. More ratio lowers the
-    // output for an input above the threshold, also through the knee and with makeup applied.
-    private float RatioFromOutputDb(float inputDb, float targetOutputDb)
+    // The curve's output without makeup: what the gain computer alone produces. The ratio drag works
+    // in this space so makeup cannot clip the value the pointer is compared against.
+    private float GainReducedOutputDb(float inputDb)
+        => inputDb - ComputeGainReductionDb(inputDb, EffectiveThreshold, EffectiveRatio, EffectiveKnee);
+
+    // Bisects the shared gain computer so the dragged point lands where the pointer is. More ratio
+    // lowers the gain-reduced output for an input above the threshold, also through the knee.
+    private float RatioFromGainReducedOutputDb(float inputDb, float targetOutputDb)
     {
         float low = MinRatio;
         float high = MaxRatio;
         for (int i = 0; i < 24; i++)
         {
             float middle = (low + high) * 0.5f;
-            float output = ComputeOutputDb(
-                inputDb, EffectiveThreshold, middle, EffectiveKnee, EffectiveMakeupGain);
+            float output = inputDb - ComputeGainReductionDb(
+                inputDb, EffectiveThreshold, middle, EffectiveKnee);
             if (output > targetOutputDb)
             {
                 low = middle;
