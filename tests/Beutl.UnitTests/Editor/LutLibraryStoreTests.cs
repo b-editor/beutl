@@ -23,7 +23,7 @@ public sealed class LutLibraryStoreTests
     [Test]
     public void Scan_creates_the_library_folder_and_lists_cube_files_from_it_and_added_folders()
     {
-        var store = new LutLibraryStore(_library);
+        var store = LutLibraryStore.GetShared(_library);
 
         IReadOnlyList<LutLibraryFile> initially = store.Scan();
 
@@ -67,7 +67,7 @@ public sealed class LutLibraryStoreTests
         Directory.CreateDirectory(_library);
         File.WriteAllText(Path.Combine(_library, "broken.cube"), "this is not a lut");
 
-        LutLibraryFile file = new LutLibraryStore(_library).Scan().Single();
+        LutLibraryFile file = LutLibraryStore.GetShared(_library).Scan().Single();
 
         Assert.Multiple(() =>
         {
@@ -85,7 +85,7 @@ public sealed class LutLibraryStoreTests
         string extra = Path.Combine(_root, "extra-folder");
         Directory.CreateDirectory(extra);
         LutTestFiles.WriteCube(Path.Combine(extra, "cool.cube"));
-        var store = new LutLibraryStore(_library);
+        var store = LutLibraryStore.GetShared(_library);
         Assert.That(store.AddFolder(extra), Is.True);
         using var viewModel = new LutLibraryPickerViewModel(store, new NoThumbnails());
 
@@ -128,7 +128,7 @@ public sealed class LutLibraryStoreTests
     {
         Directory.CreateDirectory(_library);
         LutTestFiles.WriteCube(Path.Combine(_library, "favorite.cube"));
-        var store = new LutLibraryStore(_library);
+        var store = LutLibraryStore.GetShared(_library);
 
         using (var first = new LutLibraryPickerViewModel(store, new NoThumbnails()))
         {
@@ -136,7 +136,7 @@ public sealed class LutLibraryStoreTests
             first.Pin(first.Items.Single());
         }
 
-        using var restored = new LutLibraryPickerViewModel(new LutLibraryStore(_library), new NoThumbnails());
+        using var restored = new LutLibraryPickerViewModel(LutLibraryStore.GetShared(_library), new NoThumbnails());
         await restored.LoadAsync();
 
         Assert.Multiple(() =>
@@ -151,7 +151,7 @@ public sealed class LutLibraryStoreTests
     {
         Directory.CreateDirectory(_library);
         File.WriteAllText(Path.Combine(_library, "broken.cube"), "this is not a lut");
-        using var viewModel = new LutLibraryPickerViewModel(new LutLibraryStore(_library), new NoThumbnails());
+        using var viewModel = new LutLibraryPickerViewModel(LutLibraryStore.GetShared(_library), new NoThumbnails());
 
         await viewModel.LoadAsync();
 
@@ -167,6 +167,31 @@ public sealed class LutLibraryStoreTests
     }
 
     [Test]
+    public void Stores_for_the_same_folder_share_pins_and_folders()
+    {
+        Directory.CreateDirectory(_library);
+        string favorite = Path.Combine(_library, "favorite.cube");
+        LutTestFiles.WriteCube(favorite);
+        string extra = Path.Combine(_root, "extra");
+        Directory.CreateDirectory(extra);
+
+        LutLibraryStore first = LutLibraryStore.GetShared(_library);
+        LutLibraryStore second = LutLibraryStore.GetShared(_library);
+        Assert.That(second, Is.SameAs(first));
+
+        first.SetFavorite(favorite, true);
+        Assert.That(second.AddFolder(extra), Is.True);
+
+        LutLibraryStore restored = LutLibraryStore.GetShared(_library);
+        Assert.Multiple(() =>
+        {
+            Assert.That(restored.IsFavorite(favorite), Is.True);
+            Assert.That(restored.ExtraFolders, Is.EqualTo(new[] { extra }));
+            Assert.That(File.ReadAllText(restored.SettingsPath), Does.Contain("favorite.cube"));
+        });
+    }
+
+    [Test]
     public void A_removed_folder_is_no_longer_scanned_or_persisted()
     {
         Directory.CreateDirectory(_library);
@@ -174,7 +199,7 @@ public sealed class LutLibraryStoreTests
         Directory.CreateDirectory(extra);
         string cube = Path.Combine(extra, "extra.cube");
         LutTestFiles.WriteCube(cube);
-        var store = new LutLibraryStore(_library);
+        var store = LutLibraryStore.GetShared(_library);
 
         Assert.That(store.AddFolder(extra), Is.True);
         Assert.That(store.Scan().Select(file => file.Path), Is.EqualTo(new[] { cube }));
@@ -183,7 +208,7 @@ public sealed class LutLibraryStoreTests
         Assert.Multiple(() =>
         {
             Assert.That(store.Scan(), Is.Empty);
-            Assert.That(new LutLibraryStore(_library).ExtraFolders, Is.Empty);
+            Assert.That(LutLibraryStore.GetShared(_library).ExtraFolders, Is.Empty);
         });
     }
 
@@ -195,14 +220,14 @@ public sealed class LutLibraryStoreTests
         Directory.CreateDirectory(extra);
         string favorite = Path.Combine(_library, "favorite.cube");
         LutTestFiles.WriteCube(favorite);
-        var store = new LutLibraryStore(_library);
+        var store = LutLibraryStore.GetShared(_library);
 
         Assert.That(store.AddFolder(extra), Is.True);
         store.SetFavorite(favorite, true);
 
         Assert.That(File.Exists(store.SettingsPath), Is.True);
 
-        var restored = new LutLibraryStore(_library);
+        var restored = LutLibraryStore.GetShared(_library);
 
         Assert.Multiple(() =>
         {
@@ -216,7 +241,7 @@ public sealed class LutLibraryStoreTests
     {
         Directory.CreateDirectory(_library);
         File.WriteAllText(Path.Combine(_library, "library.json"), "{ this is not json");
-        var store = new LutLibraryStore(_library);
+        var store = LutLibraryStore.GetShared(_library);
 
         Assert.That(store.ExtraFolders, Is.Empty);
 
@@ -224,7 +249,7 @@ public sealed class LutLibraryStoreTests
         Directory.CreateDirectory(extra);
         Assert.That(store.AddFolder(extra), Is.True);
 
-        var restored = new LutLibraryStore(_library);
+        var restored = LutLibraryStore.GetShared(_library);
         Assert.That(restored.ExtraFolders, Is.EqualTo(new[] { extra }));
     }
 

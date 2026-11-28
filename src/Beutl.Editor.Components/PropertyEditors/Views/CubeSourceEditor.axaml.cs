@@ -73,8 +73,10 @@ public partial class CubeSourceEditor : UserControl
         }
 
         _picker?.Dispose();
-        _picker = new LutLibraryPickerViewModel(GetLibraryStore(viewModel), _thumbnails ??= new LutThumbnailCache());
-        _ = _picker.LoadAsync();
+        var picker = new LutLibraryPickerViewModel(
+            GetLibraryStore(viewModel), _thumbnails ??= new LutThumbnailCache());
+        _picker = picker;
+        _ = picker.LoadAsync();
 
         PinnableLibraryItem? item;
         IsPickerOpen = true;
@@ -83,11 +85,12 @@ public partial class CubeSourceEditor : UserControl
             item = await PickerGuard.RunAsync<PinnableLibraryItem>(
                 this,
                 sender as Control,
-                () => LibraryItemPickerHelper.ShowItemAsync(this, _picker));
+                () => LibraryItemPickerHelper.ShowItemAsync(this, picker));
         }
         finally
         {
             IsPickerOpen = false;
+            picker.CancelThumbnailWork();
         }
 
         if (item?.UserData is LutLibraryPickerItem { IsError: false } picked)

@@ -13,7 +13,7 @@ public sealed class CubeSourceEditorViewModel(IPropertyAdapter<CubeSource?> prop
 
     internal LutLibraryStore GetLibraryStore()
     {
-        return _libraryStore ??= new LutLibraryStore(
+        return _libraryStore ??= LutLibraryStore.GetShared(
             LibraryFolderPathOverride is { Length: > 0 } path
                 ? path
                 : Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "luts"));

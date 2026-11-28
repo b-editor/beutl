@@ -6,7 +6,10 @@ namespace Beutl.Editor.Components.PropertyEditors.LutLibrary;
 
 // A still thumbnail for one LUT, rendered when the picker first shows it and kept by the cache. The picker asks
 // for it through the animated thumbnail control, so files it never shows are never read.
-internal sealed class LutLibraryThumbnailSource(string path, ILutThumbnailSource thumbnails) : IAnimatedThumbnailSource
+internal sealed class LutLibraryThumbnailSource(
+    string path,
+    ILutThumbnailSource thumbnails,
+    CancellationToken cancellationToken) : IAnimatedThumbnailSource
 {
     private bool _loading;
     private Bitmap? _still;
@@ -32,8 +35,18 @@ internal sealed class LutLibraryThumbnailSource(string path, ILutThumbnailSource
 
     private async Task LoadAsync()
     {
-        LutThumbnailResult result = await thumbnails.GetAsync(path, CancellationToken.None);
-        if (result.Image == null)
+        LutThumbnailResult result;
+        try
+        {
+            result = await thumbnails.GetAsync(path, cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            // The picker closed before this tile was drawn; its cache entry was dropped for the next open.
+            return;
+        }
+
+        if (result.Image == null || cancellationToken.IsCancellationRequested)
             return;
 
         _still = result.Image;

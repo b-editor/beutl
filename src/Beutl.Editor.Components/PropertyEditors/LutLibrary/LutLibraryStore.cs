@@ -1,10 +1,11 @@
-﻿using System.Text.Json;
+﻿using System.Collections.Concurrent;
+using System.Text.Json;
 using Beutl.Graphics;
 
 namespace Beutl.Editor.Components.PropertyEditors.LutLibrary;
 
 // The .cube files a LUT property can pick from, with the extra folders and pinned favorites kept in library.json
-// beside the files. The library folder is injected so tests do not depend on BEUTL_HOME.
+// beside the files. One store is shared per library folder, so editors cannot overwrite each other's settings.
 internal sealed class LutLibraryStore
 {
     private const string SettingsFileName = "library.json";
@@ -21,16 +22,24 @@ internal sealed class LutLibraryStore
         WriteIndented = true
     };
 
+    private static readonly ConcurrentDictionary<string, LutLibraryStore> s_shared = new(s_pathComparer);
+
     private readonly List<string> _extraFolders = [];
     private readonly HashSet<string> _favorites = new(s_pathComparer);
     private readonly Dictionary<(string Path, long Modified), string?> _validation = [];
     private readonly object _gate = new();
     private readonly object _validationGate = new();
 
-    public LutLibraryStore(string libraryFolder)
+    private LutLibraryStore(string libraryFolder)
     {
         LibraryFolder = Path.GetFullPath(libraryFolder);
         Load();
+    }
+
+    public static LutLibraryStore GetShared(string libraryFolder)
+    {
+        string fullPath = Path.GetFullPath(libraryFolder);
+        return s_shared.GetOrAdd(fullPath, static path => new LutLibraryStore(path));
     }
 
     public string LibraryFolder { get; }

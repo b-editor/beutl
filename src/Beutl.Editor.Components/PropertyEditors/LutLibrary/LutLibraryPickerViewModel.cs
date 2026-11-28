@@ -18,6 +18,7 @@ internal sealed class LutLibraryPickerViewModel : ILibraryItemPickerViewModel, I
     private readonly ILutThumbnailSource _thumbnails;
     private readonly CompositeDisposable _disposables = [];
     private readonly Dictionary<string, LutLibraryThumbnailSource> _sources = new(LutLibraryStore.PathComparer);
+    private readonly CancellationTokenSource _thumbnailCancellation = new();
     private IReadOnlyList<LutLibraryFile> _files = [];
     private string _appliedSearchText = string.Empty;
     private string? _highlightedPath;
@@ -113,12 +114,22 @@ internal sealed class LutLibraryPickerViewModel : ILibraryItemPickerViewModel, I
 
     public void Unpin(PinnableLibraryItem item) => SetPinned(item, pinned: false);
 
+    // Closing the picker cancels thumbnail renders still waiting for a slot; started ones finish into the cache.
+    public void CancelThumbnailWork()
+    {
+        if (!_thumbnailCancellation.IsCancellationRequested)
+        {
+            _thumbnailCancellation.Cancel();
+        }
+    }
+
     public void Dispose()
     {
         if (_disposed)
             return;
 
         _disposed = true;
+        CancelThumbnailWork();
         _disposables.Dispose();
     }
 
@@ -153,7 +164,8 @@ internal sealed class LutLibraryPickerViewModel : ILibraryItemPickerViewModel, I
             {
                 if (!_sources.TryGetValue(file.Path, out LutLibraryThumbnailSource? source))
                 {
-                    source = new LutLibraryThumbnailSource(file.Path, _thumbnails);
+                    source = new LutLibraryThumbnailSource(
+                        file.Path, _thumbnails, _thumbnailCancellation.Token);
                     _sources[file.Path] = source;
                 }
 
