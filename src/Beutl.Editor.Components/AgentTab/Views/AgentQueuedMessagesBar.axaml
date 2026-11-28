@@ -8,6 +8,7 @@
              xmlns:views="using:Beutl.Editor.Components.AgentTab.Views"
              xmlns:vm="using:Beutl.Editor.Components.AgentTab.ViewModels"
              x:DataType="vm:AgentTabViewModel">
+    <views:AgentCardSurface>
     <Border Classes="agent-card" Padding="7,5">
         <StackPanel Spacing="3">
             <TextBlock Text="{x:Static lang:AgentStrings.QueuedMessages}" Classes="agent-caption"
@@ -56,4 +57,5 @@
             </ScrollViewer>
         </StackPanel>
     </Border>
+    </views:AgentCardSurface>
 </UserControl>

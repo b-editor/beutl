@@ -33,6 +33,7 @@
             </StackPanel>
         </DataTemplate>
     </UserControl.Resources>
+    <views:AgentCardSurface>
     <Border x:Name="WorkCard" Classes="agent-card" Padding="0" MinHeight="34">
         <FlyoutBase.AttachedFlyout>
             <Flyout Placement="TopEdgeAlignedLeft" VerticalOffset="-5"
@@ -85,4 +86,5 @@
             </StackPanel>
         </Grid>
     </Border>
+    </views:AgentCardSurface>
 </UserControl>

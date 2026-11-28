@@ -7,6 +7,7 @@
              xmlns:views="using:Beutl.Editor.Components.AgentTab.Views"
              xmlns:vm="using:Beutl.Editor.Components.AgentTab.ViewModels"
              x:DataType="vm:AgentPermissionItem">
+    <views:AgentCardSurface>
     <Border Classes="agent-card" Padding="9,8">
         <StackPanel Spacing="7">
             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
@@ -70,4 +71,5 @@
             </Button>
         </StackPanel>
     </Border>
+    </views:AgentCardSurface>
 </UserControl>

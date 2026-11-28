@@ -1,4 +1,5 @@
-﻿using Avalonia.Controls;
+﻿using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
 using Beutl.Editor.Components.AgentTab.ViewModels;
@@ -9,11 +10,38 @@ namespace Beutl.Editor.Components.AgentTab.Views;
 
 internal sealed partial class AgentTimelineView : UserControl
 {
+    public static readonly StyledProperty<double> BottomInsetProperty =
+        AvaloniaProperty.Register<AgentTimelineView, double>(nameof(BottomInset));
+
     private static readonly ILogger s_logger = Log.CreateLogger<AgentTimelineView>();
+
+    /// <summary>
+    /// Height of the composer deck that overlays the bottom of this view. The scrollable
+    /// content and the scroll-to-bottom button reserve this much space so neither is hidden
+    /// behind the fixed composer.
+    /// </summary>
+    public double BottomInset
+    {
+        get => GetValue(BottomInsetProperty);
+        set => SetValue(BottomInsetProperty, value);
+    }
 
     public AgentTimelineView()
     {
         InitializeComponent();
+    }
+
+    protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
+    {
+        base.OnPropertyChanged(change);
+        if (change.Property != BottomInsetProperty)
+            return;
+
+        double inset = BottomInset;
+        if (TimelineBottomInset is not null)
+            TimelineBottomInset.Height = inset;
+        if (ScrollToBottomInset is not null)
+            ScrollToBottomInset.Height = inset;
     }
 
     internal Task OpenLinkAsync(AgentMarkdownLink link)
