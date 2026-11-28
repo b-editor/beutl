@@ -32,11 +32,30 @@ public partial class BeutlApplication : Hierarchical, IHierarchicalRoot
 
     public BeutlApplication()
     {
+        // The active project has to be loaded: one that is not would have no parent, and its objects no root.
+        ActiveProject = new ValueOnlyProperty<Project?>(null)
+        {
+            OwnsValue = false,
+            AffectsRender = false,
+            Coerce = (_, project) => project is null || Projects.Contains(project)
+                ? project
+                : throw new InvalidOperationException("The active project must be one of the loaded projects."),
+        };
+        // Unloading the active project leaves none active.
+        Projects.Detached += project =>
+        {
+            if (ReferenceEquals(ActiveProject.Value, project))
+                ActiveProject.Value = null;
+        };
         ScanProperties<BeutlApplication>();
     }
 
-    // The open project, which the property makes a child of the application.
-    public IProperty<Project?> Project { get; } = Property.CreateValue<Project?>(null);
+    // The loaded projects, which the list makes children of the application. Like any child, a project has one
+    // parent, so it is loaded into one application once.
+    public IListProperty<Project> Projects { get; } = new ListProperty<Project> { AffectsRender = false };
+
+    // The project the editor shows: one of Projects, or null. It does not own the project; Projects does.
+    public IProperty<Project?> ActiveProject { get; }
 
     public event EventHandler<IHierarchical>? DescendantAttached;
 

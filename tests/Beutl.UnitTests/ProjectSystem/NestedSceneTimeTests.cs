@@ -141,7 +141,7 @@ public class NestedSceneTimeTests
     {
         using var h = new SceneHistoryHarness("scene-split", duration: Seconds(30));
         var project = new Project { Items = { h.Scene } };
-        _ = new BeutlApplication { Project = { Value = project } };
+        _ = new BeutlApplication { Projects = { project } };
         Scene referenced = CreateScene("referenced", Seconds(5), Seconds(10));
         Attach(project, referenced);
         RectShape shape = CreateAnimatedShape();
@@ -207,7 +207,7 @@ public class NestedSceneTimeTests
     public void SceneDrawableEmbed_PlaysTheReferencedSceneWindowFromTheElementStart(double startSeconds)
     {
         var project = new Project();
-        _ = new BeutlApplication { Project = { Value = project } };
+        _ = new BeutlApplication { Projects = { project } };
 
         // Scene B: a shape element at B-window [0, 10), with width animated by element-local time.
         Scene sceneB = CreateScene("b", Seconds(startSeconds), Seconds(10));
@@ -238,7 +238,7 @@ public class NestedSceneTimeTests
     public void SceneDrawableEmbed_MatchesTheStandaloneSceneAtTheSameWindowTime(double startSeconds)
     {
         var project = new Project();
-        _ = new BeutlApplication { Project = { Value = project } };
+        _ = new BeutlApplication { Projects = { project } };
 
         Scene sceneB = CreateScene("b", Seconds(startSeconds), Seconds(10));
         Attach(project, sceneB);
@@ -268,7 +268,7 @@ public class NestedSceneTimeTests
     public void SceneSoundEmbed_ReusesTheNodeButRebuildsItsComposerForANewLayout()
     {
         var project = new Project();
-        _ = new BeutlApplication { Project = { Value = project } };
+        _ = new BeutlApplication { Projects = { project } };
         Scene nested = CreateScene("nested", MediaTime.Zero, Seconds(2));
         Attach(project, nested);
         nested.Children.Add(CreateElement(MediaTime.Zero, Seconds(2), new RecordingSound()));
@@ -300,7 +300,7 @@ public class NestedSceneTimeTests
     public void SceneSoundEmbed_ComposesTheReferencedSceneWindowFromTheElementStart(double startSeconds)
     {
         var project = new Project();
-        _ = new BeutlApplication { Project = { Value = project } };
+        _ = new BeutlApplication { Projects = { project } };
 
         // Scene B: a sound element at B-window [0, 10).
         Scene sceneB = CreateScene("b", Seconds(startSeconds), Seconds(10));
@@ -334,7 +334,7 @@ public class NestedSceneTimeTests
     public void SceneSoundEmbed_MatchesTheStandaloneSceneAtTheSameWindowTime(double startSeconds)
     {
         var project = new Project();
-        _ = new BeutlApplication { Project = { Value = project } };
+        _ = new BeutlApplication { Projects = { project } };
 
         Scene sceneB = CreateScene("b", Seconds(startSeconds), Seconds(10));
         Attach(project, sceneB);
@@ -370,7 +370,7 @@ public class NestedSceneTimeTests
     public void SceneSoundEmbed_ShiftsTheTailDrainLikeTheComposeWindow(double startSeconds)
     {
         var project = new Project();
-        _ = new BeutlApplication { Project = { Value = project } };
+        _ = new BeutlApplication { Projects = { project } };
 
         Scene sceneB = CreateScene("b", Seconds(startSeconds), Seconds(10));
         Attach(project, sceneB);

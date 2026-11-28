@@ -437,7 +437,7 @@ public class SilenceSplitTests
         using var h = new SceneHistoryHarness("silence-nested-cuts");
         h.Scene.SampleRate.Value = 44100;
         var project = new Project { Items = { h.Scene } };
-        _ = new BeutlApplication { Project = { Value = project } };
+        _ = new BeutlApplication { Projects = { project } };
         Element audio = h.AddElement(Seconds(10), Seconds(10));
         var source = new SourceSound
         {

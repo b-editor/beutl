@@ -210,7 +210,7 @@ public sealed class NodeGraphEdgeCaseTests
         Scene scene = TestWorkspace.CreateScene();
         var project = new Project();
         project.Items.Add(scene);
-        _ = new BeutlApplication { Project = { Value = project } };
+        _ = new BeutlApplication { Projects = { project } };
         Element element = TestWorkspace.AddElement(scene, MediaTime.Zero, MediaTime.FromSeconds(1));
         var drawable = new NodeGraphDrawable();
         element.AddObject(drawable);

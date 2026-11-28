@@ -20,13 +20,13 @@ public class ReferenceScopeTests
         _first = new Scene(64, 64, "First");
         _second = new Scene(64, 64, "Second");
         var project = new Project { Items = { _first, _second } };
-        _app = new BeutlApplication { Project = { Value = project } };
+        _app = new BeutlApplication { Projects = { project } };
     }
 
     [TearDown]
     public void TearDown()
     {
-        _app.Project.Value = null;
+        _app.Projects.Clear();
     }
 
     [Test]

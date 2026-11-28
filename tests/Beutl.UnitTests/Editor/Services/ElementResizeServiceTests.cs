@@ -921,8 +921,8 @@ public class ElementResizeServiceTests
     [TestCase(true)]
     public void Roll_NestedVideo_BoundsParentEvenWhenItsTimeAnchorIsFixed(bool fixedInnerGroup)
     {
-        var app = new BeutlApplication { Project = { Value = new Project() } };
-        app.Project.Value!.Items.Add(_scene);
+        var app = new BeutlApplication { Projects = { new Project() } };
+        app.Projects[0].Items.Add(_scene);
         const int FrontLength = 2;
         Element front = AddElement(MediaTime.Zero, MediaTime.FromSeconds(FrontLength));
         Element back = AddElement(MediaTime.FromSeconds(FrontLength), MediaTime.FromSeconds(10));

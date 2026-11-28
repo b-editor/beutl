@@ -401,7 +401,7 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
 
         try
         {
-            if (BeutlApplication.Current.Project.Value is not { } project)
+            if (BeutlApplication.Current.ActiveProject.Value is not { } project)
                 return s_noOpenProjectSources;
 
             // Each job of a Generate All batch runs this sweep, so memoize on the project to walk it once.

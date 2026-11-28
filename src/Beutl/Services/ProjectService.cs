@@ -21,7 +21,6 @@ public sealed partial class ProjectService
     internal INotificationService Notifications => _notifications;
 
     private readonly ReadOnlyReactivePropertySlim<bool> _isOpened;
-    private readonly BeutlApplication _app = BeutlApplication.Current;
     private readonly ILogger _logger = Log.CreateLogger<ProjectService>();
     // Dismisses the notices about the open project once it closes.
     private CancellationTokenSource? _projectNoticeDismissal;
@@ -31,24 +30,18 @@ public sealed partial class ProjectService
     // The host's fonts, which every project's fonts fork.
     public Media.FontManager Fonts { get; }
 
-    // A fork of Fonts with the open project's bundled fonts; null while no project is open. The editors of the
-    // project's scenes fork it in turn.
-    public Media.FontManager? ProjectFonts { get; private set; }
+    // The open project's fork of Fonts, which holds its bundled fonts; null while no project is open.
+    public Media.FontManager? ProjectFonts => Sessions.ActiveSession.Value?.ProjectFonts;
 
-    // The fonts the scenes of a project resolve: the open project's fork, or the host's for any other project.
+    // The fonts the scenes of a project resolve: the fork of its session while it is loaded, else the host's.
     internal Media.FontManager GetFonts(Project? project)
-        => project is not null && ReferenceEquals(project, _app.Project.Value) && ProjectFonts is { } projectFonts
-            ? projectFonts
+        => project is not null && Sessions.Find(project) is { } session
+            ? session.ProjectFonts
             : Fonts;
 
     public ProjectService(ViewConfig configuration, Media.FontManager fonts, INotificationService notifications)
+        : this(configuration, fonts, notifications, ProjectSessionRegistry.Current)
     {
-        _notifications = notifications;
-        Fonts = fonts;
-        _configuration = configuration;
-        CurrentProject = _app.Project.GetObservable()
-            .ToReadOnlyReactivePropertySlim();
-        _isOpened = CurrentProject.Select(v => v != null).ToReadOnlyReactivePropertySlim();
     }
 
     internal ProjectService(ViewConfig configuration, Media.FontManager fonts, INotificationService notifications,
@@ -56,6 +49,19 @@ public sealed partial class ProjectService
     {
         _editorService = editorService;
     }
+
+    internal ProjectService(ViewConfig configuration, Media.FontManager fonts, INotificationService notifications,
+        ProjectSessionRegistry sessions)
+    {
+        _notifications = notifications;
+        Fonts = fonts;
+        _configuration = configuration;
+        Sessions = sessions;
+        _isOpened = CurrentProject.Select(v => v != null).ToReadOnlyReactivePropertySlim();
+    }
+
+    // The loaded projects. Every ProjectService of the application shares them.
+    internal ProjectSessionRegistry Sessions { get; }
 
     /// <summary>
     /// Raised before <see cref="Closing"/>, while the editors are still open. Anything that has to
@@ -74,7 +80,8 @@ public sealed partial class ProjectService
 
     internal event Action<Project?>? TransitionCommitted;
 
-    public IReadOnlyReactiveProperty<Project?> CurrentProject { get; }
+    // The project of the active session.
+    public IReadOnlyReactiveProperty<Project?> CurrentProject => Sessions.ActiveProject;
 
     public IReadOnlyReactiveProperty<bool> IsOpened => _isOpened;
 
@@ -171,7 +178,7 @@ public sealed partial class ProjectService
                 ProjectTransitionPurpose.Normal,
                 this,
                 cancellationToken);
-            if (!ReferenceEquals(_app.Project.Value, expectedProject))
+            if (!ReferenceEquals(CurrentProject.Value, expectedProject))
             {
                 return false;
             }
@@ -252,7 +259,7 @@ public sealed partial class ProjectService
 
             // Selecting the active project from Recents must not replace in-memory edits
             // with a snapshot read before the close path has saved them.
-            if (_app.Project.Value?.Uri is { IsFile: true } currentUri
+            if (CurrentProject.Value?.Uri is { IsFile: true } currentUri
                 && FilePathComparison.AreSameCanonicalPath(currentUri.LocalPath, file))
             {
                 TryAddToRecentProjects(file);
@@ -261,7 +268,7 @@ public sealed partial class ProjectService
             }
 
             Uri projectUri = UriHelper.CreateFromPath(file);
-            previousProject = _app.Project.Value;
+            previousProject = CurrentProject.Value;
             if (previousProject is not null)
             {
                 // Validate before closing so an invalid project, or one that needs a newer Beutl,
@@ -298,7 +305,7 @@ public sealed partial class ProjectService
                 _logger.LogInformation("Skipping project open: {Message}", unsupported.Message);
             }
 
-            if (previousProject is not null && _app.Project.Value is null)
+            if (previousProject is not null && CurrentProject.Value is null)
             {
                 try
                 {
@@ -340,7 +347,7 @@ public sealed partial class ProjectService
         Func<Task<bool>>? beforeCommit = null)
     {
         VerifyTransition(transition);
-        if (_app.Project.Value is not { } closingProject)
+        if (CurrentProject.Value is not { } closingProject)
         {
             if (beforeCommit is not null && !await beforeCommit())
                 throw new ProjectCloseAbortedException(MessageStrings.OperationFailed);
@@ -363,20 +370,19 @@ public sealed partial class ProjectService
         }
         finally
         {
-            bool projectClosed = !ReferenceEquals(_app.Project.Value, closingProject);
+            bool projectClosed = !ReferenceEquals(CurrentProject.Value, closingProject);
             await closeContext.CompleteAsync(projectClosed, _logger);
         }
     }
 
     internal void CloseProjectImmediately()
     {
-        if (_app.Project.Value is { } project)
+        if (CurrentProject.Value is { } project)
         {
             // Every close path ends here, while the project is still whole.
             DuplicateIds.Report(project, "close");
-            _app.Project.Value = null;
+            Sessions.Remove(Sessions.ActiveSession.Value!);
             Interlocked.Exchange(ref _projectNoticeDismissal, null)?.Cancel();
-            ProjectFonts = null;
             try
             {
                 _configuration.LastOpenedProjectFile.Value = null;
@@ -502,20 +508,21 @@ public sealed partial class ProjectService
 
     private async Task ActivateProjectAsync(Project project)
     {
+        ProjectSession? session = null;
         try
         {
             Media.FontManager projectFonts = Fonts.Fork();
             projectFonts.LoadProjectFonts(project);
-            ProjectFonts = projectFonts;
-            _app.Project.Value = project;
+            session = Sessions.Add(project, projectFonts);
+            Sessions.Activate(session);
             await NotifyOpenedAsync(project);
         }
         catch
         {
             await RollBackFailedActivationAsync(project);
-            // The rollback clears the fork only while the project became current.
-            if (!ReferenceEquals(_app.Project.Value, project))
-                ProjectFonts = null;
+            // The rollback unloads the session only while it is active.
+            if (session is not null && !ReferenceEquals(CurrentProject.Value, project))
+                Sessions.Remove(session);
             throw;
         }
 
@@ -549,7 +556,7 @@ public sealed partial class ProjectService
 
     private async Task RollBackFailedActivationAsync(Project project)
     {
-        if (!ReferenceEquals(_app.Project.Value, project))
+        if (!ReferenceEquals(CurrentProject.Value, project))
         {
             return;
         }
@@ -574,15 +581,14 @@ public sealed partial class ProjectService
 
             await NotifyClosingFinalizingAsync(closeContext);
 
-            if (ReferenceEquals(_app.Project.Value, project))
+            if (ReferenceEquals(CurrentProject.Value, project) && Sessions.ActiveSession.Value is { } session)
             {
-                _app.Project.Value = null;
-                ProjectFonts = null;
+                Sessions.Remove(session);
             }
         }
         finally
         {
-            bool projectClosed = !ReferenceEquals(_app.Project.Value, project);
+            bool projectClosed = !ReferenceEquals(CurrentProject.Value, project);
             await closeContext.CompleteAsync(projectClosed, _logger);
         }
     }

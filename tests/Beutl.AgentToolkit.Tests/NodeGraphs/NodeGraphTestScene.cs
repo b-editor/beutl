@@ -26,7 +26,7 @@ internal sealed class NodeGraphTestScene : IDisposable
         };
         var project = new Project();
         project.Items.Add(Scene);
-        _ = new BeutlApplication { Project = { Value = project } };
+        _ = new BeutlApplication { Projects = { project } };
 
         Effect = new NodeGraphFilterEffect();
         Shape = new RectShape

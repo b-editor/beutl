@@ -158,7 +158,7 @@ public class JsonSerializationTest
         var elm1 = new Element { Uri = UriHelper.CreateFromPath(layerPath) };
         scene.AddChild(elm1);
         proj.Items.Add(scene);
-        app.Project.Value = proj;
+        app.Projects.Replace([proj]);
 
         CoreSerializer.StoreToUri(proj, proj.Uri, CoreSerializationMode.Write | CoreSerializationMode.SaveReferencedObjects);
 
@@ -176,7 +176,7 @@ public class JsonSerializationTest
         BeutlApplication app = BeutlApplication.Current;
 
         var proj = CoreSerializer.RestoreFromUri<Project>(UriHelper.CreateFromPath(projPath));
-        app.Project.Value = proj;
+        app.Projects.Replace([proj]);
 
         Assert.That(proj.Items.Count, Is.EqualTo(1));
         var scene = proj.Items[0] as Scene;
@@ -202,7 +202,7 @@ public class JsonSerializationTest
             var proj = new Project { Uri = UriHelper.CreateFromPath(projPath) };
             var scene = new Scene { Uri = UriHelper.CreateFromPath(scenePath) };
             proj.Items.Add(scene);
-            app.Project.Value = proj;
+            app.Projects.Replace([proj]);
 
             CoreSerializer.StoreToUri(proj, proj.Uri, CoreSerializationMode.Write | CoreSerializationMode.SaveReferencedObjects);
 
@@ -234,7 +234,7 @@ public class JsonSerializationTest
         var elm1 = new Element { Uri = UriHelper.CreateFromPath(layerPath) };
         scene.AddChild(elm1);
         proj.Items.Add(scene);
-        app.Project.Value = proj;
+        app.Projects.Replace([proj]);
 
         CoreSerializer.StoreToUri(proj, proj.Uri, CoreSerializationMode.Write | CoreSerializationMode.EmbedReferencedObjects);
 
@@ -252,7 +252,7 @@ public class JsonSerializationTest
         BeutlApplication app = BeutlApplication.Current;
 
         var proj = CoreSerializer.RestoreFromUri<Project>(UriHelper.CreateFromPath(projPath));
-        app.Project.Value = proj;
+        app.Projects.Replace([proj]);
 
         Assert.That(proj.Items.Count, Is.EqualTo(1));
         var scene = proj.Items[0] as Scene;

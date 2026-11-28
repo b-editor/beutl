@@ -49,7 +49,7 @@ public sealed class SceneSnapshotTests
         var scene = new Scene(320, 240, "Export");
         var other = new Scene(320, 240, "Other");
         var project = new Project { Name = { Value = "Project at export" }, Items = { scene, other } };
-        _ = new BeutlApplication { Project = { Value = project } };
+        _ = new BeutlApplication { Projects = { project } };
         TextBlock source = AddText(throughOtherScene ? other : scene);
         source.Text.Expression = Reference(project, nameof(Project.Name), stringExpression);
         if (throughOtherScene)
@@ -76,7 +76,7 @@ public sealed class SceneSnapshotTests
         var scene = new Scene(320, 240, "Export");
         var other = new Scene(320, 240, "Other at export");
         var project = new Project { Items = { scene, other } };
-        _ = new BeutlApplication { Project = { Value = project } };
+        _ = new BeutlApplication { Projects = { project } };
         TextBlock source = AddText(other);
         source.Text.Value = "Text at export";
         AddText(scene).Text.Expression = Reference(other, nameof(Scene.Name), stringExpression);
@@ -108,7 +108,7 @@ public sealed class SceneSnapshotTests
         var scene = new Scene(320, 240, "Export");
         var other = new Scene(320, 240, "Other at capture");
         var project = new Project { Name = { Value = "Project at capture" }, Items = { scene, other } };
-        var application = new BeutlApplication { Project = { Value = project } };
+        var application = new BeutlApplication { Projects = { project } };
         AddText(scene).Text.Expression = Reference(project, nameof(Project.Name), stringExpression: false);
         AddText(scene).Text.Expression = Reference(other, nameof(Scene.Name), stringExpression: false);
 

@@ -377,7 +377,7 @@ public partial class MissingMediaTests
         await TestReset.ResetShellAsync();
         await TestShell.Project.OpenProject(projectPath);
         Assert.That(TestShell.Project.ProjectFonts!.IsRegistered(family), Is.True);
-        Assert.That(new MissingMediaService(TestShell.Project.ProjectFonts!, TestShell.Decoders).FindMissing(BeutlApplication.Current.Project.Value!.Items.OfType<Scene>().Single()), Is.Empty);
+        Assert.That(new MissingMediaService(TestShell.Project.ProjectFonts!, TestShell.Decoders).FindMissing(BeutlApplication.Current.ActiveProject.Value!.Items.OfType<Scene>().Single()), Is.Empty);
         await TestReset.ResetShellAsync();
     }
 
@@ -415,7 +415,7 @@ public partial class MissingMediaTests
         await editor.WaitForMediaFingerprintsAsync();
         await TestReset.ResetShellAsync();
         await TestShell.Project.OpenProject(projectPath);
-        Scene reopened = BeutlApplication.Current.Project.Value!.Items.OfType<Scene>().Single(scene => scene.Id.Value == sceneId);
+        Scene reopened = BeutlApplication.Current.ActiveProject.Value!.Items.OfType<Scene>().Single(scene => scene.Id.Value == sceneId);
         Assert.That(new MissingMediaService(TestShell.FontManager, TestShell.Decoders).FindMissing(reopened), Is.Empty);
         Assert.That(reopened.Children, Has.Count.EqualTo(300));
         Assert.That(reopened.MediaFingerprints, Has.Count.EqualTo(300));

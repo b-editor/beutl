@@ -9,7 +9,7 @@ internal static class SceneReferenceTestHelper
     {
         Project project = owner.FindHierarchicalParent<Project>() ?? new Project { Items = { owner } };
         if (project.FindHierarchicalParent<BeutlApplication>() == null)
-            _ = new BeutlApplication { Project = { Value = project } };
+            _ = new BeutlApplication { Projects = { project } };
         if (!project.Items.Contains(target))
             project.Items.Add(target);
         return new ReferenceExpression<Scene?>(target.Id.Value);

@@ -72,7 +72,7 @@ public sealed class ObjectLookupTests
         var project = new Project();
         project.Items.Add(other);
         project.Items.Add(holder);
-        _ = new BeutlApplication { Project = { Value = project } };
+        _ = new BeutlApplication { Projects = { project } };
         Element inHolder = AddElement(holder);
         Element inOther = AddElement(other);
         Element repeatedInOther = AddElement(other);

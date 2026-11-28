@@ -196,7 +196,7 @@ public sealed class DecoderRegistryDeinterlaceTests
     {
         var source = new SourceVideo { Source = { Value = VideoSource.Open(_path) } };
         var project = new Project();
-        _ = new BeutlApplication { Project = { Value = project } };
+        _ = new BeutlApplication { Projects = { project } };
         var scene = new Scene();
         project.Items.Add(scene);
         var element = new Element();

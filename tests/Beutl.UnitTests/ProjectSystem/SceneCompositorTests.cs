@@ -177,8 +177,8 @@ public class SceneCompositorTests
     public void DetachedGraphicsResource_KeepsItsPathAliveUntilTheNextEvaluation(bool reattach)
     {
         Scene scene = CreateScene(_basePath);
-        var application = new BeutlApplication { Project = { Value = new Project() } };
-        application.Project.Value!.Items.Add(scene);
+        var application = new BeutlApplication { Projects = { new Project() } };
+        application.Projects[0].Items.Add(scene);
         var shape = new RectShape();
         Element element = CreateElement(_basePath, isEnabled: true, shape);
         scene.Children.Add(element);
@@ -225,8 +225,8 @@ public class SceneCompositorTests
     public void DetachedAudioResource_IsReleasedByTheNextEvaluationOrDisposal(bool disposeCompositor)
     {
         Scene scene = CreateScene(_basePath);
-        var application = new BeutlApplication { Project = { Value = new Project() } };
-        application.Project.Value!.Items.Add(scene);
+        var application = new BeutlApplication { Projects = { new Project() } };
+        application.Projects[0].Items.Add(scene);
         Element element = CreateElement(_basePath, isEnabled: true, new TestAudioObject());
         scene.Children.Add(element);
         using var compositor = new SceneCompositor(scene, RenderServices);
@@ -250,8 +250,8 @@ public class SceneCompositorTests
         for (int iteration = 0; iteration < 128; iteration++)
         {
             Scene scene = CreateScene(_basePath);
-            var application = new BeutlApplication { Project = { Value = new Project() } };
-            application.Project.Value!.Items.Add(scene);
+            var application = new BeutlApplication { Projects = { new Project() } };
+            application.Projects[0].Items.Add(scene);
             Element element = CreateElement(_basePath, isEnabled: true, new TestGraphicsObject());
             for (int index = 0; index < 127; index++)
                 element.Objects.Add(new TestGraphicsObject());
@@ -279,8 +279,8 @@ public class SceneCompositorTests
     public void DisposalCallbacks_CanDetachObjectsOnAnotherThread()
     {
         Scene scene = CreateScene(_basePath);
-        var application = new BeutlApplication { Project = { Value = new Project() } };
-        application.Project.Value!.Items.Add(scene);
+        var application = new BeutlApplication { Projects = { new Project() } };
+        application.Projects[0].Items.Add(scene);
         Element element = CreateElement(_basePath, isEnabled: true, new TestGraphicsObject());
         element.Objects.Add(new DisposalCallbackObject(() =>
             Task.Run(() => element.Objects.Clear()).WaitAsync(TimeSpan.FromSeconds(10)).GetAwaiter().GetResult()));

@@ -65,7 +65,7 @@ public class SceneMasterVolumeTests
     public void The_tail_of_an_embedded_scene_follows_the_master_volume()
     {
         var project = new Project();
-        _ = new BeutlApplication { Project = { Value = project } };
+        _ = new BeutlApplication { Projects = { project } };
         Scene inner = CreateScene();
         project.Items.Add(inner);
         var sound = new SceneSound

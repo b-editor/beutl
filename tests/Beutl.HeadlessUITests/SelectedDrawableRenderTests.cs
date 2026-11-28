@@ -327,7 +327,7 @@ public class SelectedDrawableRenderTests
         var drawable = new SceneDrawable();
         var owner = new Scene();
         owner.Children.Add(new Element { Objects = { drawable } });
-        _ = new BeutlApplication { Project = { Value = new Project { Items = { owner, innerScene } } } };
+        _ = new BeutlApplication { Projects = { new Project { Items = { owner, innerScene } } } };
         drawable.ReferencedScene.Expression = new ReferenceExpression<Scene?>(innerScene.Id.Value);
 
         using Bitmap bitmap = await editor.Player.DrawSelectedDrawable(drawable, outputScale: 2);

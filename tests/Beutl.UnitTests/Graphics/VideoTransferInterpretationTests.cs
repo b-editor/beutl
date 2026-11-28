@@ -156,7 +156,7 @@ public sealed class VideoTransferInterpretationTests
     {
         var video = new SourceVideo();
         var project = new Project();
-        _ = new BeutlApplication { Project = { Value = project } };
+        _ = new BeutlApplication { Projects = { project } };
         var scene = new Scene();
         project.Items.Add(scene);
         var element = new Element();

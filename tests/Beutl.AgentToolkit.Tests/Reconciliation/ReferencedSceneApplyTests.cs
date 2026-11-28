@@ -22,7 +22,7 @@ public sealed class ReferencedSceneApplyTests
         var project = new Project();
         project.Items.Add(parent);
         project.Items.Add(child);
-        _ = new BeutlApplication { Project = { Value = project } };
+        _ = new BeutlApplication { Projects = { project } };
 
         var drawable = new SceneDrawable();
         var element = new Element

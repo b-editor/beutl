@@ -147,8 +147,8 @@ public class VideoSourceTests
         };
         element.AddObject(video);
         var scene = new Scene(320, 180, string.Empty) { Uri = new Uri(Path.Combine(_root, "test.scene")) };
-        var application = new BeutlApplication { Project = { Value = new Project() } };
-        application.Project.Value!.Items.Add(scene);
+        var application = new BeutlApplication { Projects = { new Project() } };
+        application.Projects[0].Items.Add(scene);
         scene.Children.Add(element);
         using var compositor = new SceneCompositor(scene, new SceneRenderServices(TestFonts.Manager, _decoders))
         {

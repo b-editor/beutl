@@ -268,6 +268,6 @@ public sealed class SceneSnapshotTests
             project.Items.Add(scene);
         }
 
-        _ = new BeutlApplication { Project = { Value = project } };
+        _ = new BeutlApplication { Projects = { project } };
     }
 }

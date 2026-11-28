@@ -30,7 +30,7 @@ public sealed class FileEditingSession : IEditingSession, IDisposable
         SessionId = sessionId;
         Project = project;
         Scene = scene;
-        _hierarchyRoot.Project.Value = project;
+        _hierarchyRoot.Projects.Add(project);
         _projectLastWriteUtc = projectLastWriteUtc;
         _recording = RecordingPipeline.Create(scene);
     }
@@ -330,7 +330,7 @@ public sealed class FileEditingSession : IEditingSession, IDisposable
 
             _disposed = true;
             _recording.Dispose();
-            _hierarchyRoot.Project.Value = null;
+            _hierarchyRoot.Projects.Remove(Project);
         }
     }
 }

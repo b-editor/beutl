@@ -44,7 +44,7 @@ public sealed partial class EditorService
         IEnumerable<CoreObject> roots = _tabItems
             .Select(item => item.Context.Value?.Object)
             .OfType<CoreObject>();
-        if (BeutlApplication.Current.Project.Value is { } project)
+        if (BeutlApplication.Current.ActiveProject.Value is { } project)
             roots = roots.Concat(project.Items).Prepend(project);
 
         var filesFree = new HashSet<string>(StringComparer.Ordinal);
@@ -154,7 +154,7 @@ public sealed partial class EditorService
 
     internal IProjectVersionControlCoordinator? ProjectVersionControlCoordinator { get; set; }
 
-    // The fonts a scene editor forks: its project's fork while the project is open, else the host's.
+    // The fonts a scene editor forks: the fork of its project's session while the project is loaded, else the host's.
     internal Func<Project?, Beutl.Media.FontManager>? ProjectFonts { get; set; }
 
     internal IProjectVersionControlSession? ProjectVersionControlSession
