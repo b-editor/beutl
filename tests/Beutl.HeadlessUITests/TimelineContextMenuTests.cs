@@ -19,6 +19,7 @@ using Beutl.Testing.Headless;
 using FluentAvalonia.UI.Controls;
 using NAudio.Wave;
 using RectShape = Beutl.Graphics.Shapes.RectShape;
+using SourceVideo = Beutl.Graphics.SourceVideo;
 
 namespace Beutl.HeadlessUITests;
 
@@ -32,11 +33,10 @@ public sealed class TimelineContextMenuTests
         var border = host.View.GetVisualDescendants().OfType<ElementView>().Single().FindControl<Border>("border")!;
         FAMenuFlyout menu = OpenMenu(border, "element");
 
-        Assert.That(menu.Items.Cast<object>().Select(ItemText), Is.EqualTo(new string?[]
+        Assert.That(VisibleItemTexts(menu), Is.EqualTo(new string?[]
         {
             Strings.EnableElement, Strings.Lock, Strings.EditingMode, null,
-            Strings.Split, Strings.SplitByCurrentFrame, Strings.AutoSplitBySilenceMenu, Strings.EstimateBpmMenu,
-            Strings.DetectCutsMenu, null,
+            Strings.Split, Strings.SplitByCurrentFrame, null,
             Strings.Cut, Strings.Copy, Strings.Duplicate, Strings.Delete, Strings.RenameMenu, Strings.ChangeToOriginalLength, null,
             Strings.BulkSelection, Strings.GroupSelectedElements, Strings.UngroupSelectedElements, null,
             Strings.ChangeColor, Strings.DisableThumbnails, null,
@@ -46,7 +46,7 @@ public sealed class TimelineContextMenuTests
         }));
         FAMenuFlyoutItem duplicate = menu.Items.OfType<FAMenuFlyoutItem>().Single(item => item.Text == Strings.Duplicate);
         Assert.That(duplicate.InputGesture, Is.EqualTo(new KeyGesture(Key.D, KeyGestureHelper.GetCommandModifier())));
-        Assert.That(FindItem(menu, Strings.EstimateBpmMenu).IsEffectivelyEnabled, Is.False,
+        Assert.That(FindItem(menu, Strings.EstimateBpmMenu).IsVisible, Is.False,
             "A clip with no audio has no tempo to estimate.");
         Assert.That(FindItem(menu, Strings.GroupSelectedElements).InputGesture, Is.Null);
         Assert.That(FindItem(menu, Strings.UngroupSelectedElements).InputGesture, Is.Null);
@@ -137,6 +137,123 @@ public sealed class TimelineContextMenuTests
     }
 
     [AvaloniaTest]
+    public async Task Only_audio_analyses_are_offered_for_a_sound_clip()
+    {
+        string path = Path.Combine(TestContext.CurrentContext.WorkDirectory, $"menu-sound-{Guid.NewGuid():N}.wav");
+        using (var writer = new WaveFileWriter(path, WaveFormat.CreateIeeeFloatWaveFormat(44100, 1)))
+        {
+            writer.WriteSamples(new float[44100], 0, 44100);
+        }
+
+        try
+        {
+            using TimelineTestHost host = await CreateClipHostAsync(new ElementDescription(
+                MediaTime.FromSeconds(1), MediaTime.FromSeconds(2), 0,
+                new ElementSource.EngineObject(() => new SourceSound
+                {
+                    Source = { Value = SoundSource.Open(path) },
+                })));
+            var border = host.View.GetVisualDescendants().OfType<ElementView>().Single()
+                .FindControl<Border>("border")!;
+            FAMenuFlyout menu = OpenMenu(border, "audio-clip");
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(FindItem(menu, Strings.AutoSplitBySilenceMenu).IsVisible, Is.True);
+                Assert.That(FindItem(menu, Strings.EstimateBpmMenu).IsVisible, Is.True);
+                Assert.That(FindItem(menu, Strings.DetectCutsMenu).IsVisible, Is.False,
+                    "A sound clip has no video to detect cuts in.");
+            });
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Only_cut_detection_is_offered_for_a_video_clip()
+    {
+        string path = Path.Combine(AppContext.BaseDirectory, "Fixtures", "deinterlace-offset-tff.mp4");
+        using TimelineTestHost host = await CreateClipHostAsync(new ElementDescription(
+            MediaTime.FromSeconds(1), MediaTime.FromSeconds(2), 0,
+            new ElementSource.EngineObject(() => new SourceVideo
+            {
+                Source = { Value = VideoSource.Open(path) },
+            })));
+        var border = host.View.GetVisualDescendants().OfType<ElementView>().Single()
+            .FindControl<Border>("border")!;
+        FAMenuFlyout menu = OpenMenu(border, "video-clip");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(FindItem(menu, Strings.AutoSplitBySilenceMenu).IsVisible, Is.False,
+                "A video without sound has no audio to split by silence.");
+            Assert.That(FindItem(menu, Strings.EstimateBpmMenu).IsVisible, Is.False,
+                "A video without sound has no tempo to estimate.");
+            Assert.That(FindItem(menu, Strings.DetectCutsMenu).IsVisible, Is.True);
+        });
+    }
+
+    [AvaloniaTest]
+    public async Task Analysis_items_are_hidden_for_a_clip_with_neither_audio_nor_video()
+    {
+        using TimelineTestHost host = await CreateHostAsync();
+        var border = host.View.GetVisualDescendants().OfType<ElementView>().Single()
+            .FindControl<Border>("border")!;
+        FAMenuFlyout menu = OpenMenu(border);
+
+        string?[] texts = [.. VisibleItemTexts(menu)];
+        Assert.Multiple(() =>
+        {
+            Assert.That(texts, Does.Not.Contain(Strings.AutoSplitBySilenceMenu));
+            Assert.That(texts, Does.Not.Contain(Strings.EstimateBpmMenu));
+            Assert.That(texts, Does.Not.Contain(Strings.DetectCutsMenu));
+        });
+        // Split and Split by current frame always show, so hiding the three leaves one separator
+        // between them and Cut rather than a doubled or trailing one.
+        int split = Array.IndexOf(texts, Strings.Split);
+        int cut = Array.IndexOf(texts, Strings.Cut);
+        Assert.That(texts[split..cut], Is.EqualTo(new[] { Strings.Split, Strings.SplitByCurrentFrame, null }));
+    }
+
+    [AvaloniaTest]
+    public async Task An_analysis_item_stays_visible_but_disabled_when_the_clip_is_locked()
+    {
+        string path = Path.Combine(TestContext.CurrentContext.WorkDirectory, $"menu-locked-{Guid.NewGuid():N}.wav");
+        using (var writer = new WaveFileWriter(path, WaveFormat.CreateIeeeFloatWaveFormat(44100, 1)))
+        {
+            writer.WriteSamples(new float[44100], 0, 44100);
+        }
+
+        try
+        {
+            using TimelineTestHost host = await CreateClipHostAsync(new ElementDescription(
+                MediaTime.FromSeconds(1), MediaTime.FromSeconds(2), 0,
+                new ElementSource.EngineObject(() => new SourceSound
+                {
+                    Source = { Value = SoundSource.Open(path) },
+                })));
+            host.Scene.Children.Single().IsLocked.Value = true;
+            HeadlessTestHelpers.Render(3);
+            var border = host.View.GetVisualDescendants().OfType<ElementView>().Single()
+                .FindControl<Border>("border")!;
+            FAMenuFlyout menu = OpenMenu(border);
+
+            FAMenuFlyoutItem bpm = FindItem(menu, Strings.EstimateBpmMenu);
+            Assert.Multiple(() =>
+            {
+                Assert.That(bpm.IsVisible, Is.True);
+                Assert.That(bpm.IsEffectivelyEnabled, Is.False, "The locked clip's tempo cannot be applied.");
+            });
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [AvaloniaTest]
     public async Task Duplicate_requires_an_eligible_clip_in_the_selection_or_its_groups()
     {
         using TimelineTestHost host = await CreateHostAsync(clipCount: 3);
@@ -174,7 +291,7 @@ public sealed class TimelineContextMenuTests
         using TimelineTestHost host = await CreateHostAsync();
         FAMenuFlyout menu = OpenMenu(host.Timeline, "empty-area", new Point(600, 100));
 
-        Assert.That(menu.Items.Cast<object>().Select(ItemText), Is.EqualTo(new string?[]
+        Assert.That(VisibleItemTexts(menu), Is.EqualTo(new string?[]
         {
             Strings.AddElement, Strings.AddFromTemplate, Strings.AddAdjustmentLayer, null,
             Strings.EditingMode, null,
@@ -241,6 +358,10 @@ public sealed class TimelineContextMenuTests
     private static FAMenuFlyoutItem FindItem(FAMenuFlyout menu, string text)
         => menu.Items.OfType<FAMenuFlyoutItem>().Single(item => item.Text == text);
 
+    // A hidden item is not part of the menu a user sees, so the list leaves it out.
+    private static IEnumerable<string?> VisibleItemTexts(FAMenuFlyout menu)
+        => menu.Items.Cast<object>().Where(item => item is not Control { IsVisible: false }).Select(ItemText);
+
     private static string? ItemText(object item) => item switch
     {
         FAMenuFlyoutItem command => command.Text,
@@ -257,6 +378,15 @@ public sealed class TimelineContextMenuTests
             .ToArray();
         var host = await TimelineTestHost.CreateAsync("timeline-context-menu", MediaTime.FromSeconds(10),
             clips, theme: ThemeVariant.Dark);
+        host.Window.Height = 880;
+        HeadlessTestHelpers.Render(5);
+        return host;
+    }
+
+    private static async Task<TimelineTestHost> CreateClipHostAsync(ElementDescription clip)
+    {
+        var host = await TimelineTestHost.CreateAsync("timeline-context-menu", MediaTime.FromSeconds(10),
+            [clip], theme: ThemeVariant.Dark);
         host.Window.Height = 880;
         HeadlessTestHelpers.Render(5);
         return host;
