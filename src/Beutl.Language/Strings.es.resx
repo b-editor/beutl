@@ -4111,6 +4111,81 @@ cuando el registro del historial está activado.</value>
   <data name="SilenceSplit_RefreshToAnalyze" xml:space="preserve">
     <value>Actualizar para analizar</value>
   </data>
+  <data name="DetectCuts" xml:space="preserve">
+    <value>Detectar cortes</value>
+  </data>
+  <data name="DetectCutsMenu" xml:space="preserve">
+    <value>Detectar cortes…</value>
+  </data>
+  <data name="CutDetection_Threshold" xml:space="preserve">
+    <value>Umbral de diferencia</value>
+  </data>
+  <data name="CutDetection_Minimum" xml:space="preserve">
+    <value>Intervalo mínimo (ms)</value>
+  </data>
+  <data name="CutDetection_Linked" xml:space="preserve">
+    <value>Incluir elementos agrupados</value>
+  </data>
+  <data name="CutDetection_Split" xml:space="preserve">
+    <value>Dividir</value>
+  </data>
+  <data name="CutDetection_AddMarkers" xml:space="preserve">
+    <value>Añadir marcadores</value>
+  </data>
+  <data name="CutDetection_Analyzing" xml:space="preserve">
+    <value>Analizando fotogramas…</value>
+  </data>
+  <data name="CutDetection_Summary" xml:space="preserve">
+    <value>{0} cortes</value>
+  </data>
+  <data name="CutDetection_None" xml:space="preserve">
+    <value>No hay cortes con la configuración actual.</value>
+  </data>
+  <data name="CutDetection_Failed" xml:space="preserve">
+    <value>No se pudieron detectar cortes: {0}</value>
+  </data>
+  <data name="CutDetection_Stale" xml:space="preserve">
+    <value>La escena ha cambiado. Actualiza el análisis antes de aplicar.</value>
+  </data>
+  <data name="CutDetection_LockedLinked" xml:space="preserve">
+    <value>Un elemento agrupado está bloqueado. Desbloquéalo o desactiva la edición agrupada.</value>
+  </data>
+  <data name="CutDetection_InvalidParameters" xml:space="preserve">
+    <value>Introduce un umbral entre 0,01 y 1 y un intervalo mínimo positivo.</value>
+  </data>
+  <data name="CutDetection_SelectVideo" xml:space="preserve">
+    <value>Haz clic derecho en un elemento de vídeo y elige «Detectar cortes».</value>
+  </data>
+  <data name="CutDetection_ShortSegment" xml:space="preserve">
+    <value>Un corte detectado crearía un segmento de menos de un fotograma en un clip agrupado. Ajusta la configuración o desactiva la edición agrupada.</value>
+  </data>
+  <data name="CutDetection_Applying" xml:space="preserve">
+    <value>Dividiendo…</value>
+  </data>
+  <data name="CutDetection_NoVideo" xml:space="preserve">
+    <value>El elemento seleccionado no tiene una fuente de vídeo analizable.</value>
+  </data>
+  <data name="CutDetection_NoDecoder" xml:space="preserve">
+    <value>Se necesita un decodificador para analizar vídeo.</value>
+  </data>
+  <data name="CutDetection_NoFrames" xml:space="preserve">
+    <value>No se pudieron leer fotogramas de vídeo.</value>
+  </data>
+  <data name="CutDetection_MarkerName" xml:space="preserve">
+    <value>Corte</value>
+  </data>
+  <data name="CutDetection_MarkersAdded" xml:space="preserve">
+    <value>{0} marcadores añadidos</value>
+  </data>
+  <data name="CutDetection_Cancel" xml:space="preserve">
+    <value>Cancelar</value>
+  </data>
+  <data name="CutDetection_Canceled" xml:space="preserve">
+    <value>Análisis cancelado.</value>
+  </data>
+  <data name="CutDetection_RefreshToAnalyze" xml:space="preserve">
+    <value>Actualizar para analizar</value>
+  </data>
   <data name="Clipboard_WaitingForSave" xml:space="preserve">
     <value>Esperando a que termine el guardado…</value>
   </data>

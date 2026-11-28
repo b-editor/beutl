@@ -226,4 +226,7 @@
   <data name="AutoSplitBySilence" xml:space="preserve">
     <value>無音区間で自動分割</value>
   </data>
+  <data name="AutoSplitByCuts" xml:space="preserve">
+    <value>カットで自動分割</value>
+  </data>
 </root>

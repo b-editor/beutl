@@ -230,4 +230,7 @@
   <data name="AutoSplitBySilence" xml:space="preserve">
     <value>무음 기준 자동 분할</value>
   </data>
+  <data name="AutoSplitByCuts" xml:space="preserve">
+    <value>컷 기준 자동 분할</value>
+  </data>
 </root>

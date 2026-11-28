@@ -4109,6 +4109,81 @@ GetProperty&lt;T&gt;("path", time) または GetProperty&lt;T&gt;(guid, "propert
   <data name="SilenceSplit_RefreshToAnalyze" xml:space="preserve">
     <value>更新して解析</value>
   </data>
+  <data name="DetectCuts" xml:space="preserve">
+    <value>カットを検出</value>
+  </data>
+  <data name="DetectCutsMenu" xml:space="preserve">
+    <value>カットを検出…</value>
+  </data>
+  <data name="CutDetection_Threshold" xml:space="preserve">
+    <value>差分しきい値</value>
+  </data>
+  <data name="CutDetection_Minimum" xml:space="preserve">
+    <value>最小間隔（ms）</value>
+  </data>
+  <data name="CutDetection_Linked" xml:space="preserve">
+    <value>グループにも適用</value>
+  </data>
+  <data name="CutDetection_Split" xml:space="preserve">
+    <value>分割</value>
+  </data>
+  <data name="CutDetection_AddMarkers" xml:space="preserve">
+    <value>マーカーを追加</value>
+  </data>
+  <data name="CutDetection_Analyzing" xml:space="preserve">
+    <value>フレームを解析しています…</value>
+  </data>
+  <data name="CutDetection_Summary" xml:space="preserve">
+    <value>{0} 件のカット</value>
+  </data>
+  <data name="CutDetection_None" xml:space="preserve">
+    <value>現在の設定ではカットが見つかりません。</value>
+  </data>
+  <data name="CutDetection_Failed" xml:space="preserve">
+    <value>カットを検出できませんでした：{0}</value>
+  </data>
+  <data name="CutDetection_Stale" xml:space="preserve">
+    <value>シーンが変更されました。更新して、もう一度解析してください。</value>
+  </data>
+  <data name="CutDetection_LockedLinked" xml:space="preserve">
+    <value>グループ内にロックされた要素があります。ロックを解除するか、グループへの適用をオフにしてください。</value>
+  </data>
+  <data name="CutDetection_InvalidParameters" xml:space="preserve">
+    <value>しきい値は 0.01～1、最小間隔は正の値で入力してください。</value>
+  </data>
+  <data name="CutDetection_SelectVideo" xml:space="preserve">
+    <value>動画要素を右クリックして「カットを検出」を選択してください。</value>
+  </data>
+  <data name="CutDetection_ShortSegment" xml:space="preserve">
+    <value>検出した位置で分割すると、グループ内の要素に1フレーム未満の区間ができます。設定を調整するか、グループ編集をオフにしてください。</value>
+  </data>
+  <data name="CutDetection_Applying" xml:space="preserve">
+    <value>分割を反映中…</value>
+  </data>
+  <data name="CutDetection_NoVideo" xml:space="preserve">
+    <value>選択した要素に解析できる動画ソースがありません。</value>
+  </data>
+  <data name="CutDetection_NoDecoder" xml:space="preserve">
+    <value>動画を解析するにはデコーダーが必要です。</value>
+  </data>
+  <data name="CutDetection_NoFrames" xml:space="preserve">
+    <value>動画からフレームを読み取れませんでした。</value>
+  </data>
+  <data name="CutDetection_MarkerName" xml:space="preserve">
+    <value>カット</value>
+  </data>
+  <data name="CutDetection_MarkersAdded" xml:space="preserve">
+    <value>{0} 件のマーカーを追加しました</value>
+  </data>
+  <data name="CutDetection_Cancel" xml:space="preserve">
+    <value>キャンセル</value>
+  </data>
+  <data name="CutDetection_Canceled" xml:space="preserve">
+    <value>解析をキャンセルしました。</value>
+  </data>
+  <data name="CutDetection_RefreshToAnalyze" xml:space="preserve">
+    <value>更新して解析</value>
+  </data>
   <data name="Clipboard_WaitingForSave" xml:space="preserve">
     <value>保存完了を待っています…</value>
   </data>

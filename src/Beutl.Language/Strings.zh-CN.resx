@@ -4111,6 +4111,81 @@ GetProperty&lt;T&gt;("path", time) 或 GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="SilenceSplit_RefreshToAnalyze" xml:space="preserve">
     <value>刷新以分析</value>
   </data>
+  <data name="DetectCuts" xml:space="preserve">
+    <value>检测剪切点</value>
+  </data>
+  <data name="DetectCutsMenu" xml:space="preserve">
+    <value>检测剪切点…</value>
+  </data>
+  <data name="CutDetection_Threshold" xml:space="preserve">
+    <value>差异阈值</value>
+  </data>
+  <data name="CutDetection_Minimum" xml:space="preserve">
+    <value>最小间隔 (ms)</value>
+  </data>
+  <data name="CutDetection_Linked" xml:space="preserve">
+    <value>同时处理分组元素</value>
+  </data>
+  <data name="CutDetection_Split" xml:space="preserve">
+    <value>分割</value>
+  </data>
+  <data name="CutDetection_AddMarkers" xml:space="preserve">
+    <value>添加标记</value>
+  </data>
+  <data name="CutDetection_Analyzing" xml:space="preserve">
+    <value>正在分析帧…</value>
+  </data>
+  <data name="CutDetection_Summary" xml:space="preserve">
+    <value>{0} 个剪切点</value>
+  </data>
+  <data name="CutDetection_None" xml:space="preserve">
+    <value>当前设置下没有检测到剪切点。</value>
+  </data>
+  <data name="CutDetection_Failed" xml:space="preserve">
+    <value>无法检测剪切点：{0}</value>
+  </data>
+  <data name="CutDetection_Stale" xml:space="preserve">
+    <value>场景已更改。请刷新分析后再应用。</value>
+  </data>
+  <data name="CutDetection_LockedLinked" xml:space="preserve">
+    <value>分组中有元素被锁定。请解锁或关闭分组编辑。</value>
+  </data>
+  <data name="CutDetection_InvalidParameters" xml:space="preserve">
+    <value>请输入 0.01 至 1 的阈值和正数的最小间隔。</value>
+  </data>
+  <data name="CutDetection_SelectVideo" xml:space="preserve">
+    <value>右键单击视频元素，然后选择“检测剪切点”。</value>
+  </data>
+  <data name="CutDetection_ShortSegment" xml:space="preserve">
+    <value>在检测到的位置分割会使分组片段产生不足一帧的区间。请调整设置或关闭分组编辑。</value>
+  </data>
+  <data name="CutDetection_Applying" xml:space="preserve">
+    <value>正在分割…</value>
+  </data>
+  <data name="CutDetection_NoVideo" xml:space="preserve">
+    <value>所选元素没有可分析的视频源。</value>
+  </data>
+  <data name="CutDetection_NoDecoder" xml:space="preserve">
+    <value>分析视频需要解码器。</value>
+  </data>
+  <data name="CutDetection_NoFrames" xml:space="preserve">
+    <value>无法读取视频帧。</value>
+  </data>
+  <data name="CutDetection_MarkerName" xml:space="preserve">
+    <value>剪切点</value>
+  </data>
+  <data name="CutDetection_MarkersAdded" xml:space="preserve">
+    <value>已添加 {0} 个标记</value>
+  </data>
+  <data name="CutDetection_Cancel" xml:space="preserve">
+    <value>取消</value>
+  </data>
+  <data name="CutDetection_Canceled" xml:space="preserve">
+    <value>已取消分析。</value>
+  </data>
+  <data name="CutDetection_RefreshToAnalyze" xml:space="preserve">
+    <value>刷新以分析</value>
+  </data>
   <data name="Clipboard_WaitingForSave" xml:space="preserve">
     <value>正在等待保存完成…</value>
   </data>

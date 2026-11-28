@@ -11,6 +11,7 @@ using Avalonia.VisualTree;
 using Avalonia.Xaml.Interactivity;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.AgentTab;
+using Beutl.Editor.Components.CutDetectionTab.ViewModels;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.SilenceSplitTab.ViewModels;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
@@ -136,6 +137,7 @@ public sealed partial class ElementView : UserControl
         ungroupSelectedElements.InputGesture = toggleGroupAction is { IsUngroup: true } ? toggleGroupGesture : null;
         split.IsEnabled = editable;
         autoSplitBySilence.IsEnabled = editable && SilenceSplitViewModel.CanAnalyze(viewModel.Scene, viewModel.Model);
+        detectCuts.IsEnabled = editable && CutDetectionViewModel.CanAnalyze(viewModel.Scene, viewModel.Model);
         cut.IsEnabled = editable;
         duplicate.IsEnabled = viewModel.Timeline.CanDuplicateSelectedElements();
         // Recovery protection makes a clip read-only but still lets it be removed.
@@ -169,6 +171,12 @@ public sealed partial class ElementView : UserControl
     {
         if (DataContext is ElementViewModel { IsEditable.Value: true } viewModel)
             SilenceSplitTabViewModel.Open(viewModel.Timeline.EditorContext, viewModel.Model);
+    }
+
+    private void DetectCuts_Click(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is ElementViewModel { IsEditable.Value: true } viewModel)
+            CutDetectionTabViewModel.Open(viewModel.Timeline.EditorContext, viewModel.Model);
     }
 
     // One item per edge, which opens its transition in the property tab, adding the default one first
