@@ -10,17 +10,64 @@ public partial class ProjectService
         DiscardChanges,
     }
 
-    internal sealed class ProjectCloseContext(ProjectCloseIntent closeIntent)
+    // What the close chain does to its session once every handler has run.
+    internal enum ProjectCloseKind
+    {
+        // The session stays loaded with its edits, tabs and history, and the editor stops showing it. Handlers
+        // record what they would record on a close (selected scene, thumbnail, version-control snapshot) but
+        // release nothing the session needs to come back.
+        Deactivate,
+
+        // The session is unloaded, and handlers release what belongs to it.
+        Close,
+    }
+
+    // How the editor's sessions changed when a transition committed.
+    internal enum ProjectSessionChange
+    {
+        // The session became the one the editor shows.
+        Activated,
+
+        // The session stays loaded, and the editor no longer shows it.
+        Deactivated,
+
+        // The session was unloaded after its changes were saved or released.
+        Closed,
+
+        // The session was unloaded and its unsaved changes were thrown away.
+        Discarded,
+    }
+
+    // Published once a transition has changed a session. ActiveProject is the project the editor shows afterwards.
+    internal sealed record ProjectTransitionCommit(
+        ProjectSessionChange Change,
+        ProjectSession Session,
+        bool ActiveSessionChanged,
+        Project? ActiveProject)
+    {
+        internal Project Project => Session.Project;
+    }
+
+    internal sealed class ProjectCloseContext(
+        ProjectSession session,
+        ProjectCloseKind kind,
+        ProjectCloseIntent closeIntent)
     {
         private readonly object _gate = new();
         private readonly List<Func<bool, Task>> _completions = [];
         private bool _completed;
+
+        // The session the chain deactivates or closes, which need not be the active one when it is closed.
+        internal ProjectSession Session { get; } = session ?? throw new ArgumentNullException(nameof(session));
+
+        internal ProjectCloseKind Kind { get; } = kind;
 
         internal ProjectCloseIntent CloseIntent { get; } = closeIntent;
 
         // The snapshot phase may have saved these editors or obtained permission to discard them.
         internal EditorService? PreparedEditorService { get; set; }
 
+        // A completion learns whether the chain committed: the session was deactivated or closed as asked.
         internal void RegisterCompletion(Func<bool, Task> completion)
         {
             ArgumentNullException.ThrowIfNull(completion);
@@ -36,7 +83,7 @@ public partial class ProjectService
             }
         }
 
-        internal async Task CompleteAsync(bool projectClosed, ILogger logger)
+        internal async Task CompleteAsync(bool committed, ILogger logger)
         {
             Func<bool, Task>[] completions;
             lock (_gate)
@@ -55,7 +102,7 @@ public partial class ProjectService
             {
                 try
                 {
-                    await completion(projectClosed);
+                    await completion(committed);
                 }
                 catch (Exception ex)
                 {
@@ -85,7 +132,9 @@ public partial class ProjectService
     {
     }
 
-    internal sealed class ProjectOpenAttempt
+    // One request to open a project file. A newer request for the same file supersedes it; a newer request for
+    // another file only takes the activation from it, so both projects end up loaded.
+    internal sealed class ProjectOpenAttempt(string? file = null, long sequence = 0)
     {
         private readonly CancellationTokenSource _cancellation = new();
         private readonly object _gate = new();
@@ -96,6 +145,14 @@ public partial class ProjectService
         internal CancellationToken CancellationToken => _cancellation.Token;
 
         internal bool IsCancellationRequested => _cancellation.IsCancellationRequested;
+
+        internal string? File { get; } = file;
+
+        // Orders the attempts of one ProjectService: a larger number was requested later.
+        internal long Sequence { get; } = sequence;
+
+        internal bool IsFor(string file)
+            => File is { } own && FilePathComparison.AreSameCanonicalPath(own, file);
 
         internal bool TryBeginApply()
         {
@@ -177,11 +234,15 @@ public partial class ProjectService
 
         internal ProjectTransitionContext Context { get; }
 
+        // Closes the active session inside this transition.
         internal Task CloseProjectAsync(CancellationToken cancellationToken = default)
         {
             ProjectService owner = _owner
                                    ?? throw new ObjectDisposedException(nameof(ProjectTransitionScope));
-            return owner.CloseProjectCoreAsync(Context, cancellationToken);
+            return owner.CloseSessionCoreAsync(
+                owner.Sessions.ActiveSession.Value,
+                Context,
+                cancellationToken);
         }
 
         internal Task OpenProjectAsync(string file)
@@ -216,4 +277,8 @@ internal enum ProjectTransitionPurpose
 
 internal sealed record ProjectTransitionContext(
     ProjectTransitionPurpose Purpose,
-    object Owner);
+    object Owner)
+{
+    // The session the transition loads, activates, deactivates or closes, once it is known.
+    internal ProjectSession? TargetSession { get; set; }
+}

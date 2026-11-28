@@ -4,10 +4,15 @@ namespace Beutl.Services;
 
 public partial class ProjectService
 {
+    // Serializes every change to the loaded sessions and their files: loading, activating, deactivating and closing
+    // a session, version-control mutations and file changes. Waiting for it never cancels or closes another session;
+    // only the open requests below are superseded.
     private readonly SemaphoreSlim _transitionGate = new(1, 1);
     private readonly object _openAttemptSync = new();
     private readonly object _transitionSync = new();
-    private ProjectOpenAttempt? _currentOpenAttempt;
+    // The open requests that have not completed, oldest first. Each belongs to its own project file.
+    private readonly List<ProjectOpenAttempt> _pendingOpenAttempts = [];
+    private long _openAttemptSequence;
     private ProjectTransitionContext? _currentTransition;
 
     internal ProjectTransitionContext? CurrentTransition
@@ -62,15 +67,18 @@ public partial class ProjectService
         await action();
     }
 
+    // cancelPendingOpens is false for a transition that concerns only a session the editor does not show, such as
+    // unloading it, which must not cancel the user's request to open another project.
     private async ValueTask<ProjectTransitionScope> BeginTransitionAsync(
         ProjectTransitionPurpose purpose,
         object owner,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool cancelPendingOpens = true)
     {
-        CancelPendingOpenAttemptExcept(owner);
+        CancelPendingOpenAttemptExcept(owner, cancelPendingOpens);
         CancelCreationPreparationExcept(owner);
         await _transitionGate.WaitAsync(cancellationToken);
-        CancelPendingOpenAttemptExcept(owner);
+        CancelPendingOpenAttemptExcept(owner, cancelPendingOpens);
         if (cancellationToken.IsCancellationRequested)
         {
             _transitionGate.Release();
@@ -92,41 +100,62 @@ public partial class ProjectService
         return new ProjectTransitionScope(this, context);
     }
 
-    private ProjectOpenAttempt BeginOpenAttempt()
+    // A newer request for the same file supersedes a pending one. Requests for other files are left alone: each
+    // loads its project, and only the newest one activates it.
+    private ProjectOpenAttempt BeginOpenAttempt(string file)
     {
-        var attempt = new ProjectOpenAttempt();
-        ProjectOpenAttempt? previous;
+        ProjectOpenAttempt attempt;
+        ProjectOpenAttempt[] superseded;
         lock (_openAttemptSync)
         {
-            previous = _currentOpenAttempt;
-            _currentOpenAttempt = attempt;
+            attempt = new ProjectOpenAttempt(file, ++_openAttemptSequence);
+            superseded = _pendingOpenAttempts.Where(pending => pending.IsFor(file)).ToArray();
+            _pendingOpenAttempts.Add(attempt);
         }
 
-        CancelOpenAttempt(previous);
+        foreach (ProjectOpenAttempt previous in superseded)
+        {
+            CancelOpenAttempt(previous);
+        }
+
         return attempt;
     }
 
-    private void CancelPendingOpenAttemptExcept(object? owner)
+    // Whether the attempt still owns the activation: no request made after it is still under way.
+    private bool IsNewestOpenAttempt(ProjectOpenAttempt attempt)
     {
-        ProjectOpenAttempt? attempt;
         lock (_openAttemptSync)
         {
-            attempt = _currentOpenAttempt;
+            return !_pendingOpenAttempts.Any(pending =>
+                pending.Sequence > attempt.Sequence && !pending.IsCancellationRequested);
         }
+    }
 
-        if (owner is ProjectOpenAttempt openingAttempt)
+    private void CancelPendingOpenAttemptExcept(object? owner, bool cancelPendingOpens)
+    {
+        if (owner is ProjectOpenAttempt)
         {
-            if (!ReferenceEquals(attempt, openingAttempt))
-            {
-                CancelOpenAttempt(openingAttempt);
-            }
-
+            // An open supersedes only an earlier open of its own file, which BeginOpenAttempt already canceled.
             return;
         }
 
-        if (!ReferenceEquals(attempt, owner))
+        if (!cancelPendingOpens)
         {
-            CancelOpenAttempt(attempt);
+            return;
+        }
+
+        ProjectOpenAttempt[] attempts;
+        lock (_openAttemptSync)
+        {
+            attempts = _pendingOpenAttempts.ToArray();
+        }
+
+        foreach (ProjectOpenAttempt attempt in attempts)
+        {
+            if (!ReferenceEquals(attempt, owner))
+            {
+                CancelOpenAttempt(attempt);
+            }
         }
     }
 
@@ -171,10 +200,7 @@ public partial class ProjectService
     {
         lock (_openAttemptSync)
         {
-            if (ReferenceEquals(_currentOpenAttempt, attempt))
-            {
-                _currentOpenAttempt = null;
-            }
+            _pendingOpenAttempts.Remove(attempt);
         }
 
         attempt.Complete();

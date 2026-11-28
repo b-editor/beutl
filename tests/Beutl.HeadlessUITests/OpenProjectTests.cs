@@ -26,7 +26,7 @@ public class OpenProjectTests
         bool oldAutoSave = EditViewModel.IsAutoSaveSuppressedForTesting;
         Func<ProjectService.ProjectCloseContext, CancellationToken, Task>? corruptTarget = null;
         Func<Project, Task>? rejectTarget = null;
-        Action<Project?>? recordTransition = null;
+        Action<ProjectService.ProjectTransitionCommit>? recordTransition = null;
         try
         {
             config.AutoCommitOnClose.Value = false;
@@ -46,6 +46,8 @@ public class OpenProjectTests
             Assert.That(TestShell.Editor.SelectedTabItem.Value?.Context.Value?.Object, Is.SameAs(scene));
             string target = Path.Combine(Path.GetDirectoryName(original.Uri!.LocalPath)!, "target.bep");
             File.Copy(original.Uri.LocalPath, target);
+            EditorTabItem[] tabsBefore = [.. TestShell.Editor.TabItems];
+            EditorTabItem selectedBefore = TestShell.Editor.SelectedTabItem.Value!;
             EditViewModel.IsAutoSaveSuppressedForTesting = true;
             scene.Duration.Value = MediaTime.FromSeconds(73);
 
@@ -75,7 +77,7 @@ public class OpenProjectTests
             }
 
             var published = new List<Project?>();
-            recordTransition = published.Add;
+            recordTransition = commit => published.Add(commit.ActiveProject);
             TestShell.Project.TransitionCommitted += recordTransition;
             await TestShell.Project.OpenProject(target);
 
@@ -83,8 +85,12 @@ public class OpenProjectTests
             {
                 Assert.That(failedAtExpectedStage, Is.True);
                 Assert.That(TestShell.Project.CurrentProject.Value, Is.SameAs(original));
-                Assert.That(TestShell.Editor.TabItems, Has.Count.EqualTo(2));
+                // The session is activated again as it was: the very tabs, editors and selection.
+                Assert.That(TestShell.Editor.TabItems, Is.EqualTo(tabsBefore));
+                Assert.That(TestShell.Editor.SelectedTabItem.Value, Is.SameAs(selectedBefore));
                 Assert.That(TestShell.Editor.SelectedTabItem.Value?.Context.Value?.Object, Is.SameAs(scene));
+                Assert.That(TestShell.Project.Sessions.Sessions.Select(s => s.Project), Is.EqualTo(new[] { original }),
+                    "The target read for the failed switch is unloaded again.");
                 Assert.That(scene.Duration.Value, Is.EqualTo(MediaTime.FromSeconds(73)));
                 Assert.That(published.LastOrDefault(), Is.SameAs(original));
                 Assert.That(TestShell.Configuration.ViewConfig.LastOpenedProjectFile.Value, Is.EqualTo(original.Uri.LocalPath));

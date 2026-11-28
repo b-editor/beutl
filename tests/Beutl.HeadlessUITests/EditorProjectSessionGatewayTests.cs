@@ -235,7 +235,7 @@ public class EditorProjectSessionGatewayTests
         // Swap the open project out from under the captured session: its Root scene is no longer in
         // the live project, so add_scene must refuse rather than mutate a document the client is not
         // editing.
-        TestShell.Project.CloseProjectOrThrow();
+        TestShell.Project.CloseAllProjectsOrThrow();
         await TestShell.Project.OpenProject(secondProject);
         HeadlessTestHelpers.Settle();
 

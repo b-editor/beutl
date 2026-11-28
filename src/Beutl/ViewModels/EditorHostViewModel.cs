@@ -68,24 +68,43 @@ public class EditorHostViewModel
     {
         return QueueOperationAsync(async () =>
         {
-            Project? project = _projectService.CurrentProject.Value;
-            CoreObject? selectedObject = _editorService.SelectedTabItem.Value?.Context.Value?.Object;
-            if (project is not null)
-            {
-                // Failed activation may close the target too. Keep each model's selection
-                // separately without retaining projects after a successful switch.
-                _closedSelections.Remove(project);
-                _closedSelections.Add(project, new ClosedProjectSelection(selectedObject));
-                closeContext.RegisterCompletion(projectClosed =>
-                    RestoreAfterAbortedCloseAsync(project, selectedObject, projectClosed));
-
-                // A scene removed from the project can still have its tab open, and the project cannot open on it.
-                if (selectedObject is ProjectItem selectedItem && project.Items.Contains(selectedItem))
-                    ProjectViewState.SaveSelectedScene(project, selectedItem);
-            }
-
+            Project project = closeContext.Session.Project;
             bool saveChanges = closeContext.CloseIntent == ProjectService.ProjectCloseIntent.SaveChanges
                                && !ReferenceEquals(closeContext.PreparedEditorService, _editorService);
+            if (!ReferenceEquals(_projectService.CurrentProject.Value, project))
+            {
+                // A session the editor does not show keeps its tabs aside, and only closing it releases them.
+                if (closeContext.Kind == ProjectService.ProjectCloseKind.Close)
+                    await DispatchAsync(() => CloseInactiveTabsAsync(project, saveChanges));
+                return;
+            }
+
+            CoreObject? selectedObject = _editorService.SelectedTabItem.Value?.Context.Value?.Object;
+            // A scene removed from the project can still have its tab open, and the project cannot open on it.
+            if (selectedObject is ProjectItem selectedItem && project.Items.Contains(selectedItem))
+                ProjectViewState.SaveSelectedScene(project, selectedItem);
+
+            if (closeContext.Kind == ProjectService.ProjectCloseKind.Deactivate)
+            {
+                // The tabs, with their edits and history, wait for the session to become active again. Nothing is
+                // saved: the session is still loaded.
+                await DispatchAsync(async () =>
+                {
+                    await _editorService.PutTabsAsideAsync(project);
+                    UnsubscribeFromProject(project);
+                });
+                closeContext.RegisterCompletion(deactivated =>
+                    RestoreAfterAbortedDeactivationAsync(project, deactivated));
+                return;
+            }
+
+            // Failed activation may close the target too. Keep each model's selection
+            // separately without retaining projects after a successful switch.
+            _closedSelections.Remove(project);
+            _closedSelections.Add(project, new ClosedProjectSelection(selectedObject));
+            closeContext.RegisterCompletion(projectClosed =>
+                RestoreAfterAbortedCloseAsync(project, selectedObject, projectClosed));
+
             await DispatchAsync(() => OnProjectChangedAsync(null, project, saveChanges));
         });
     }
@@ -94,6 +113,13 @@ public class EditorHostViewModel
     {
         return QueueOperationAsync(async () =>
         {
+            // A session that was active before shows the tabs it had, as it had them.
+            if (_editorService.TryTakeInactiveTabs(project, out EditorService.InactiveTabSet? inactiveTabs))
+            {
+                await DispatchAsync(() => RestoreInactiveTabsAsync(project, inactiveTabs));
+                return;
+            }
+
             await DispatchAsync(() => OnProjectChangedAsync(project, null, saveChanges: true));
             if (_closedSelections.TryGetValue(project, out ClosedProjectSelection? selection))
                 _closedSelections.Remove(project);
@@ -111,6 +137,96 @@ public class EditorHostViewModel
                 return Task.CompletedTask;
             });
         });
+    }
+
+    // Puts the tabs of a session back into the tab list. A tab whose scene left the project meanwhile is closed.
+    private async Task RestoreInactiveTabsAsync(Project project, EditorService.InactiveTabSet tabs)
+    {
+        try
+        {
+            var stale = new List<EditorTabItem>();
+            foreach (EditorTabItem item in tabs.Items)
+            {
+                if (item.Context.Value?.Object is ProjectItem projectItem && !project.Items.Contains(projectItem))
+                    stale.Add(item);
+                else
+                    _editorService.TabItems.Add(item);
+            }
+
+            SubscribeToProject(project);
+            if (tabs.Selected is { } selected
+                && _editorService.TabItems.Contains(selected)
+                && selected.Context.Value?.Object is { } selectedObject)
+            {
+                _editorService.ActivateTabItem(selectedObject);
+            }
+            else if (ProjectViewState.FindSelectedScene(project) is ProjectItem item
+                     && project.Items.Contains(item))
+            {
+                _editorService.ActivateTabItem(item);
+            }
+
+            await DisposeTabsAsync(stale);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to restore the tabs of {Project}.", SafeLocalPath(project.Uri));
+            _editorService.AppServices.GetRequiredService<INotificationService>().ShowError(Strings.Project, MessageStrings.OperationFailed);
+        }
+    }
+
+    // A deactivation that was vetoed or failed leaves the session active, so its tabs come back.
+    private Task RestoreAfterAbortedDeactivationAsync(Project project, bool deactivated)
+    {
+        if (deactivated
+            || !ReferenceEquals(_projectService.CurrentProject.Value, project)
+            || ReferenceEquals(_subscribedProject, project))
+        {
+            return Task.CompletedTask;
+        }
+
+        return QueueOperationAsync(async () =>
+        {
+            if (_editorService.TryTakeInactiveTabs(project, out EditorService.InactiveTabSet? tabs))
+                await DispatchAsync(() => RestoreInactiveTabsAsync(project, tabs));
+        });
+    }
+
+    // Closing a session the editor does not show saves its tabs, unless the close discards them, and disposes them.
+    // A failed save vetoes the close and keeps the tabs aside.
+    private async Task CloseInactiveTabsAsync(Project project, bool saveChanges)
+    {
+        if (!_editorService.TryTakeInactiveTabs(project, out EditorService.InactiveTabSet? tabs))
+            return;
+
+        if (saveChanges && !await _editorService.SaveSceneEditorsBeforeCloseAsync(tabs.Items))
+        {
+            _editorService.ReturnInactiveTabs(project, tabs);
+            throw new ProjectCloseAbortedException(MessageStrings.FileSaveException);
+        }
+
+        _closedSelections.Remove(project);
+        await DisposeTabsAsync(tabs.Items);
+    }
+
+    private async Task DisposeTabsAsync(IEnumerable<EditorTabItem> items)
+    {
+        foreach (EditorTabItem item in items)
+        {
+            // Capture FilePath before DisposeAsync nulls out the underlying context.
+            string? filePath = item.FilePath.Value;
+            try
+            {
+                await item.DisposeAsync();
+            }
+            catch (OperationCanceledException)
+            {
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to dispose editor tab item. FilePath={FilePath}", filePath);
+            }
+        }
     }
 
     private sealed record ClosedProjectSelection(CoreObject? SelectedObject);
@@ -186,22 +302,7 @@ public class EditorHostViewModel
             }
             finally
             {
-                foreach (var item in oldItems)
-                {
-                    // Capture FilePath before DisposeAsync nulls out the underlying context.
-                    var filePath = item.FilePath.Value;
-                    try
-                    {
-                        await item.DisposeAsync();
-                    }
-                    catch (OperationCanceledException)
-                    {
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "Failed to dispose editor tab item. FilePath={FilePath}", filePath);
-                    }
-                }
+                await DisposeTabsAsync(oldItems);
             }
         }
         catch (OperationCanceledException)

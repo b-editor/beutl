@@ -17,7 +17,8 @@ internal static class TestReset
         // the tabs so those watchers are torn down.
         await DisposeOpenEditorTabsAsync();
 
-        await TestShell.Project.CloseProjectAsync();
+        // Every loaded session goes, the ones in the background too, so each test starts with none.
+        await TestShell.Project.CloseAllProjectsAsync();
         CaptionDraftStoreProvider.SetCurrentForTesting(new InMemoryCaptionDraftStore());
         HeadlessTestHelpers.Settle();
     }
@@ -31,6 +32,12 @@ internal static class TestReset
         {
             // Test teardown discards synthetic edits; persistence is asserted by each test itself.
             await TestShell.Editor.CloseTabItem(tab, saveChanges: false);
+        }
+
+        // So are the tabs of sessions in the background, which closing them would otherwise save.
+        foreach (EditorTabItem tab in TestShell.Editor.TakeAllInactiveTabs())
+        {
+            await tab.DisposeAsync();
         }
 
         HeadlessTestHelpers.Settle();

@@ -57,7 +57,7 @@ public partial class MainViewModel
             return;
         }
 
-        _projectService.CloseProjectOrThrow();
+        _projectService.CloseAllProjectsOrThrow();
         Task<bool> saveEditors = _editorService.SaveSceneEditorsBeforeCloseAsync(_editorService.TabItems.ToArray());
         WaitOnUiThread(saveEditors);
         if (!saveEditors.GetAwaiter().GetResult())
@@ -207,13 +207,13 @@ public partial class MainViewModel
         {
             if (beforeDispose is null)
             {
-                await _projectService.CloseProjectAsync();
+                await _projectService.CloseAllProjectsAsync();
                 if (!await _editorService.SaveSceneEditorsBeforeCloseAsync(_editorService.TabItems.ToArray()))
                     return false;
             }
             else
             {
-                await _projectService.CloseProjectForUpdateAsync(async () =>
+                await _projectService.CloseAllProjectsForUpdateAsync(async () =>
                     await _editorService.SaveSceneEditorsBeforeCloseAsync(_editorService.TabItems.ToArray())
                     && beforeDispose());
             }
@@ -500,6 +500,7 @@ public partial class MainViewModel
         }
     }
 
+    // Disposes the tabs of every session, the active one's and those put aside, then unloads every session.
     private async Task CloseEditorSessionAsync()
     {
         EditorTabItem[] tabs = _editorService.TabItems.ToArray();
@@ -507,6 +508,7 @@ public partial class MainViewModel
         {
             _editorService.SelectedTabItem.Value = null;
             _editorService.TabItems.Clear();
+            tabs = [.. tabs, .. _editorService.TakeAllInactiveTabs()];
         }
         catch (Exception ex)
         {
@@ -527,11 +529,11 @@ public partial class MainViewModel
 
         try
         {
-            await _projectService.CloseProjectAsync();
+            await _projectService.CloseAllProjectsAsync();
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to close the active project during shutdown.");
+            _logger.LogError(ex, "Failed to close the loaded projects during shutdown.");
         }
     }
 

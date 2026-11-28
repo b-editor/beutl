@@ -116,7 +116,7 @@ internal sealed partial class VersionControlCoordinator :
         _projectService.Opening += InspectProjectOpeningAsync;
         _projectService.ClosingPreparing += PrepareProjectClosingAsync;
         _projectService.ClosingFinalizing += NotifyProjectClosingAsync;
-        _projectService.TransitionCommitted += OnProjectChanged;
+        _projectService.TransitionCommitted += OnTransitionCommitted;
         _editorService.ProjectVersionControlCoordinator = this;
         ActivateProject(
             _projectService.CurrentProject.Value,

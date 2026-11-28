@@ -100,9 +100,12 @@ internal sealed class ProjectThumbnailService
         ProjectService.ProjectCloseContext closeContext,
         CancellationToken cancellationToken)
     {
+        // A deactivated session is pictured as a closed one is. One the editor does not show has no editor to
+        // picture it with, and kept the picture taken when it was deactivated.
         if (closeContext.CloseIntent != ProjectService.ProjectCloseIntent.SaveChanges
             || _editorService.IsWorktreeMutationActive
-            || _projectService.CurrentProject.Value is not { Uri: { IsFile: true } projectUri } project
+            || closeContext.Session.Project is not { Uri: { IsFile: true } projectUri } project
+            || !ReferenceEquals(_projectService.CurrentProject.Value, project)
             || FindSceneEditor(project) is not { } editor)
         {
             return;

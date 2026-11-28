@@ -71,18 +71,18 @@ public partial class ProjectService
         }
     }
 
-    private void PublishTransitionCommitted(Project? project)
+    private void PublishTransitionCommitted(ProjectTransitionCommit commit)
     {
         if (TransitionCommitted is not { } transitionCommitted)
         {
             return;
         }
 
-        foreach (Action<Project?> handler in transitionCommitted.GetInvocationList())
+        foreach (Action<ProjectTransitionCommit> handler in transitionCommitted.GetInvocationList())
         {
             try
             {
-                handler(project);
+                handler(commit);
             }
             catch (Exception ex)
             {

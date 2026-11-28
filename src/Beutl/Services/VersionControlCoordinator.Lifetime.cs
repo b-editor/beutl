@@ -35,7 +35,7 @@ internal partial class VersionControlCoordinator
         _projectService.Opening -= InspectProjectOpeningAsync;
         _projectService.ClosingPreparing -= PrepareProjectClosingAsync;
         _projectService.ClosingFinalizing -= NotifyProjectClosingAsync;
-        _projectService.TransitionCommitted -= OnProjectChanged;
+        _projectService.TransitionCommitted -= OnTransitionCommitted;
         if (ReferenceEquals(_editorService.ProjectVersionControlCoordinator, this))
         {
             _editorService.ProjectVersionControlCoordinator = null;
