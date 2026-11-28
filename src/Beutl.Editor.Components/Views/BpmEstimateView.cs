@@ -14,7 +14,7 @@ internal sealed class BpmEstimateView : UserControl
     private readonly BpmGridOptions _current;
     private readonly ProgressRing _ring;
     private readonly TextBlock _status;
-    private readonly StackPanel _progress;
+    private readonly Grid _progress;
     private readonly StackPanel _result;
     private readonly NumericUpDown _bpm;
     private readonly NumericUpDown _offset;
@@ -37,12 +37,13 @@ internal sealed class BpmEstimateView : UserControl
             TextWrapping = TextWrapping.Wrap,
             VerticalAlignment = VerticalAlignment.Center,
         };
-        _progress = new StackPanel
+        // A grid, not a horizontal stack, so a long error wraps within the flyout's width.
+        _progress = new Grid
         {
-            Orientation = Orientation.Horizontal,
-            Spacing = 8,
+            ColumnDefinitions = new ColumnDefinitions("Auto,8,*"),
             Children = { _ring, _status },
         };
+        Grid.SetColumn(_status, 2);
         _bpm = new NumericUpDown
         {
             Minimum = 1,
