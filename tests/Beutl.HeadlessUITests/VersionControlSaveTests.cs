@@ -993,6 +993,53 @@ public class VersionControlSaveTests
     }
 
     [AvaloniaTest]
+    public async Task A_new_project_in_a_loaded_projects_repository_waits_for_that_projects_export()
+    {
+        await using RealGitScope git = await RealGitScope.StartAsync(
+            autoCommitOnSave: false,
+            autoCommitOnClose: false,
+            useLfsWhenAvailable: false);
+        Project loaded = await git.CreateProjectAsync("enclosing-repository", "loaded");
+        string loadedRoot = Path.GetDirectoryName(loaded.Uri!.LocalPath)!;
+        int loadedCommits = int.Parse((await RunGitAsync(git.GitPath, loadedRoot, "rev-list", "--count", "HEAD")).Trim());
+        VersionControlCoordinators versionControl = TestShell.MainViewModel.VersionControl;
+        VersionControlCoordinator creator = versionControl.All.Single(c => c.TrackedProject is null);
+        creator.ConfirmUseEnclosingRepositoryAsync = (_, _) => Task.FromResult(true);
+        Func<CancellationToken, Task<GitIdentity?>> oldIdentity = creator.RequestIdentityAsync;
+        creator.RequestIdentityAsync = _ => Task.FromResult<GitIdentity?>(
+            new GitIdentity("Beutl Headless Test", "headless@example.invalid"));
+        using var notifications = new NotificationCapture(TestShell.Notifications);
+        bool? initialized = null;
+
+        // The loaded project's export reads files the enclosing repository's first commit of the new project stages.
+        using (IDisposable? export = TestShell.Editor.WorkspaceFor(loaded).TryBeginOutputOperation())
+        {
+            Assert.That(export, Is.Not.Null);
+            INewProjectVersionControlSetup setup = versionControl.BeginNewProject();
+            try
+            {
+                await TestShell.Project.CreateProject(
+                    320, 180, new Rational(30), 44100, "nested", loadedRoot,
+                    async (project, cancellationToken) => initialized = await setup.InitializeAsync(project, cancellationToken));
+            }
+            finally
+            {
+                await setup.DisposeAsync();
+                creator.RequestIdentityAsync = oldIdentity;
+            }
+        }
+
+        HeadlessTestHelpers.Settle();
+        int commitsAfter = int.Parse((await RunGitAsync(git.GitPath, loadedRoot, "rev-list", "--count", "HEAD")).Trim());
+        Assert.Multiple(() =>
+        {
+            Assert.That(initialized, Is.False, "The initialization is refused while the export holds the repository's files.");
+            Assert.That(commitsAfter, Is.EqualTo(loadedCommits));
+            Assert.That(notifications.All.Select(n => n.Message), Does.Contain(Strings.VersionControl_WorkspaceBusy));
+        });
+    }
+
+    [AvaloniaTest]
     public async Task A_save_is_snapshotted_by_the_project_it_wrote_after_another_one_became_active()
     {
         await using RealGitScope git = await RealGitScope.StartAsync(

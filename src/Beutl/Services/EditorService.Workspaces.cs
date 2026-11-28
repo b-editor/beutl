@@ -77,7 +77,8 @@ public sealed partial class EditorService
             ? WorkspaceFor(project)
             : ActiveWorkspace.Value;
 
-    private EditorWorkspace WorkspaceForFile(string file)
+    // The workspace of a project file, loaded or not, such as one of a project still being created.
+    internal EditorWorkspace WorkspaceForFile(string file)
     {
         lock (_workspacesSync)
         {
