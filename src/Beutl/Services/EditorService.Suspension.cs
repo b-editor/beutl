@@ -78,8 +78,10 @@ public partial class EditorService
         }
     }
 
+    // A tab put aside for an inactive session still owns its editor, so the editor gets its state back when the
+    // suspension ends and is enabled again when the session returns.
     private bool IsTrackedByTab(IEditorContext context)
-        => TabItems.Any(item => ReferenceEquals(item.Context.Value, context));
+        => TabItems.Concat(InactiveTabItems).Any(item => ReferenceEquals(item.Context.Value, context));
 
     // Resolves once no open editor has an edit session, so a transition waits for the user's gesture to end.
     internal async Task WaitForEditSessionsAsync()

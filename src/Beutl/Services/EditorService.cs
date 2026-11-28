@@ -121,12 +121,12 @@ public sealed partial class EditorService
         HostProjectFileWriteAdmission.RegisterHost(this);
     }
 
-    // Answers only for contexts in this service's own tab list, read at the moment of the write, so a
-    // second EditorService in the process never gates a tab that belongs to this one, and a context
-    // whose tab has closed is no longer admitted.
+    // Answers only for contexts in this service's own tabs, open or put aside with an inactive session, read at
+    // the moment of the write, so a second EditorService in the process never gates a tab that belongs to this
+    // one, and a context whose tab has closed is no longer admitted.
     IProjectFileWriteAdmission? IProjectFileWriteAdmissionHost.TryGetAdmission(IEditorContext context)
     {
-        foreach (EditorTabItem item in _tabItems)
+        foreach (EditorTabItem item in _tabItems.Concat(InactiveTabItems))
         {
             if (ReferenceEquals(item.Context.Value, context))
                 return _projectFileWriteAdmission;

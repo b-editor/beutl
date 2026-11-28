@@ -22,6 +22,10 @@ internal sealed class ProjectSession
     // A fork of the host's fonts with the project's bundled fonts. The editors of the project's scenes fork it in turn.
     public FontManager ProjectFonts { get; }
 
+    // Whether the notices about what the project file held were shown. They show once, on the first activation,
+    // which for a project loaded in the background comes after it was read.
+    internal bool NoticesShown { get; set; }
+
     public bool IsAt(string file)
         => FilePath is { } path && FilePathComparison.AreSameCanonicalPath(path, file);
 }

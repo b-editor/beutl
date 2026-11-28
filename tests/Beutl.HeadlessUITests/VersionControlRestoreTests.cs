@@ -4007,7 +4007,7 @@ public class VersionControlRestoreTests
     public async Task Exclusive_operation_started_on_the_thread_pool_suspends_editors_and_reopens_on_the_UI_thread(
         string operation)
     {
-        Action<Project?>? recordTransition = null;
+        Action<ProjectService.ProjectTransitionCommit>? recordTransition = null;
         await using var session = await FakeVersionControlSession.CreateAsync(
             $"version-control-thread-pool-{operation}");
 

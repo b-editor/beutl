@@ -54,7 +54,7 @@ public sealed class LegacyNodeTreeNoticeTests
 
     // A project, a scene and an element as Beutl 1.1.0 saved them, with the element's UseNode toggle
     // on and a node tree, and the empty operator list 1.x always wrote.
-    private static (string ProjectPath, string ElementPath) WriteLegacyProject()
+    internal static (string ProjectPath, string ElementPath) WriteLegacyProject()
     {
         string root = Path.Combine(BeutlHomeIsolation.CurrentHome!, $"legacy-node-tree-{Guid.NewGuid():N}");
         string sceneDirectory = Path.Combine(root, "Scene1");

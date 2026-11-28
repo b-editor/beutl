@@ -1206,7 +1206,7 @@ public class VersionControlSaveTests
                 Is.False);
             int commitsAfterFailedPackageSave = await CountCommitsAsync(git.GitPath, projectRoot);
             config.AutoCommitOnClose.Value = true;
-            Assert.Throws<ProjectCloseAbortedException>(TestShell.Project.CloseProjectOrThrow);
+            Assert.Throws<ProjectCloseAbortedException>(TestShell.Project.CloseAllProjectsOrThrow);
             Assert.Multiple(() =>
             {
                 Assert.That(failedCommands.SaveCalls, Is.EqualTo(3));

@@ -19,6 +19,13 @@ internal partial class VersionControlCoordinator
         ProjectService.ProjectCloseContext closeContext,
         CancellationToken cancellationToken)
     {
+        // Only the active session is tracked; a session the editor does not show had its snapshot taken when it
+        // was deactivated.
+        if (!ReferenceEquals(closeContext.Session.Project, _projectService.CurrentProject.Value))
+        {
+            return;
+        }
+
         if (IsInternalVersionControlTransition())
         {
             AdvanceProjectServiceEpoch();

@@ -7,6 +7,16 @@ namespace Beutl.Services;
 
 internal partial class VersionControlCoordinator
 {
+    // The coordinator follows the active session: a deactivated session is let go of as a closed one is, and an
+    // activated one is tracked afresh. A change to a session the editor does not show concerns it not at all.
+    private void OnTransitionCommitted(ProjectService.ProjectTransitionCommit commit)
+    {
+        if (commit.ActiveSessionChanged)
+        {
+            OnProjectChanged(commit.ActiveProject);
+        }
+    }
+
     internal void OnProjectChanged(Project? project)
     {
         // The transition is read where it is committed, since it can be over by the time a call from
