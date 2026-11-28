@@ -124,8 +124,18 @@ internal static class BpmEstimateService
 
             if (buffer is { SampleCount: > 0, ChannelCount: > 0 })
             {
+                // Mix every channel: after pan and routing, one channel alone can be silent.
                 int copied = Math.Min(count, buffer.SampleCount);
-                buffer.GetChannelData(0)[..copied].CopyTo(samples.AsSpan(destination, copied));
+                Span<float> target = samples.AsSpan(destination, copied);
+                float scale = 1f / buffer.ChannelCount;
+                for (int channel = 0; channel < buffer.ChannelCount; channel++)
+                {
+                    Span<float> source = buffer.GetChannelData(channel)[..copied];
+                    for (int i = 0; i < copied; i++)
+                    {
+                        target[i] += source[i] * scale;
+                    }
+                }
             }
         }
     }
