@@ -145,6 +145,9 @@ public sealed partial class MainViewModel : BasePageViewModel
             _agentRuntimeManager, _agentHostEndpoint, Configuration.AiAgentConfig, beutlHome, CreateSettingsDialog,
             appServices.GetService<IAgentNotificationSoundPlayer>());
         _editorService.AgentWorkspaceHost = agentWorkspaceHost;
+        // An agent thread works on the project file its tab was opened for, which keys that project's session.
+        agentWorkspaceHost.ThreadSessions.BeginProjectActivity =
+            projectFile => _editorService.ActivityOfFile(projectFile).Begin(SessionActivityKind.AgentThread);
         ContextCommandManager = _beutlClients.GetResource<ContextCommandManager>();
         _aiJobCompletionNotifier = new AiJobCompletionNotifier(
             _beutlClients.GetResource<IAiJobMonitor>().Snapshot,

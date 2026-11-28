@@ -18,6 +18,7 @@ internal sealed partial class EditorWorkspace : IOutputRunHost
     // The output also counts among the running outputs of the editor service, which shows those of every project.
     internal IDisposable TrackRunningOutput(OutputProfileItem item)
     {
+        IDisposable activity = Activity.Begin(SessionActivityKind.Output);
         lock (_runningOutputsSync)
         {
             _runningOutputs.Value = _runningOutputs.Value.Add(item);
@@ -32,6 +33,7 @@ internal sealed partial class EditorWorkspace : IOutputRunHost
             }
 
             shown.Dispose();
+            activity.Dispose();
         });
     }
 

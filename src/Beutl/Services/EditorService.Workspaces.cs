@@ -100,6 +100,15 @@ public sealed partial class EditorService
         }
     }
 
+    // The activity of the session of the project at file, for work keyed by the project file rather than by a loaded
+    // model, such as an agent thread. A lease keeps the workspace, so the project finds it again if it is reloaded
+    // while the work runs.
+    internal SessionActivityTracker ActivityOfFile(string file)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(file);
+        return WorkspaceForFile(file).Activity;
+    }
+
     // The workspaces of the projects this service has edited and still holds.
     internal EditorWorkspace[] Workspaces
     {

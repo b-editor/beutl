@@ -252,7 +252,23 @@ public partial class EditViewModel
 
     private void AutoSave(IList<ChangeOperation> list, long changeRevision)
     {
-        Dispatcher.UIThread.InvokeAsync(async () =>
+        // The session is busy from the moment the edit queues the save, through the wait for the project's files,
+        // until the save has finished or failed.
+        IDisposable activity = Workspace.Activity.Begin(SessionActivityKind.AutoSave);
+        try
+        {
+            Dispatcher.UIThread.InvokeAsync(() => AutoSaveAsync(list, changeRevision, activity));
+        }
+        catch
+        {
+            activity.Dispose();
+            throw;
+        }
+    }
+
+    private async Task AutoSaveAsync(IList<ChangeOperation> list, long changeRevision, IDisposable activity)
+    {
+        using (activity)
         {
             try
             {
@@ -287,7 +303,7 @@ public partial class EditViewModel
             {
                 _logger.LogError(ex, "An exception occurred while auto-saving the editor state.");
             }
-        });
+        }
     }
 
     private List<TimeRange> GetAffectedTimeRanges(IList<ChangeOperation> list)
