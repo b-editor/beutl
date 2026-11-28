@@ -110,17 +110,20 @@ internal partial class VersionControlCoordinator
                ?? throw new InvalidOperationException("The project has no file path.");
     }
 
+    // workspace is the one whose files the mutation replaces, the tracked project's unless given.
     private async ValueTask<IDisposable?> TryBeginWorktreeMutationAsync(
         CancellationToken cancellationToken,
-        IProjectFileWriteLease? completedWrite = null)
+        IProjectFileWriteLease? completedWrite = null,
+        EditorWorkspace? workspace = null)
     {
+        workspace ??= Workspace;
         // Let an in-flight save finish, then hand its reservation over without leaving a gap
         // in which another writer could start. Exports and file opens still prevent mutation.
         using IProjectFileWriteLease? fileWrite = completedWrite
-            ?? await Workspace.TryBeginProjectFileWriteAsync(cancellationToken);
+            ?? await workspace.TryBeginProjectFileWriteAsync(cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
         IDisposable? mutation = fileWrite is not null
-            ? Workspace.TryBeginWorktreeMutation(fileWrite)
+            ? workspace.TryBeginWorktreeMutation(fileWrite)
             : null;
         if (mutation is not null)
         {

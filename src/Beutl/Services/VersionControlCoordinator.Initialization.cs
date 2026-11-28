@@ -184,8 +184,15 @@ internal partial class VersionControlCoordinator
 
             var options = new InitOptions(targetRepository, _config.UseLfsWhenAvailable.Value);
             // Nothing can edit a project that is not open, but an export or a write that outlived the
-            // previous project still has to finish before the first revision is staged.
-            using IDisposable? initializationMutation = await TryBeginWorktreeMutationAsync(operationCancellation);
+            // previous project still has to finish before the first revision is staged. The project is not
+            // loaded yet, so the reservation is taken in the workspace of its file with the repository it joins:
+            // a loaded project whose files that repository covers, or whose repository covers the new project,
+            // holds the initialization back, and an unrelated one does not.
+            EditorWorkspace newProjectWorkspace = _editorService.WorkspaceForFile(GetProjectFile(project));
+            newProjectWorkspace.SetRepositoryRoot(targetRepository.RepoRoot);
+            using IDisposable? initializationMutation = await TryBeginWorktreeMutationAsync(
+                operationCancellation,
+                workspace: newProjectWorkspace);
             if (initializationMutation is null)
             {
                 return false;
