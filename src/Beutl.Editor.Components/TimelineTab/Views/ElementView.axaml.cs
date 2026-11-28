@@ -15,10 +15,12 @@ using Beutl.Editor.Components.CutDetectionTab.ViewModels;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.SilenceSplitTab.ViewModels;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
+using Beutl.Editor.Components.Views;
 using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.Graphics.Transitions;
 using Beutl.Logging;
+using Beutl.Media.Decoding;
 using Beutl.ProjectSystem;
 using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
@@ -26,6 +28,7 @@ using FluentAvalonia.UI.Controls;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings.Extensions;
+using ExtensionGuard = Beutl.Api.Services.ExtensionGuard;
 using Setter = Avalonia.Styling.Setter;
 
 namespace Beutl.Editor.Components.TimelineTab.Views;
@@ -137,6 +140,7 @@ public sealed partial class ElementView : UserControl
         ungroupSelectedElements.InputGesture = toggleGroupAction is { IsUngroup: true } ? toggleGroupGesture : null;
         split.IsEnabled = editable;
         autoSplitBySilence.IsEnabled = editable && SilenceSplitViewModel.CanAnalyze(viewModel.Scene, viewModel.Model);
+        estimateBpm.IsEnabled = editable && BpmEstimateService.CanAnalyze(viewModel.Model);
         detectCuts.IsEnabled = editable && CutDetectionViewModel.CanAnalyze(viewModel.Scene, viewModel.Model);
         cut.IsEnabled = editable;
         duplicate.IsEnabled = viewModel.Timeline.CanDuplicateSelectedElements();
@@ -177,6 +181,28 @@ public sealed partial class ElementView : UserControl
     {
         if (DataContext is ElementViewModel { IsEditable.Value: true } viewModel)
             CutDetectionTabViewModel.Open(viewModel.Timeline.EditorContext, viewModel.Model);
+    }
+
+    private async void EstimateBpm_Click(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not ElementViewModel { IsEditable.Value: true } viewModel
+            || !BpmEstimateService.CanAnalyze(viewModel.Model))
+        {
+            return;
+        }
+
+        IEditorContext editor = viewModel.Timeline.EditorContext;
+        var flyout = new BpmEstimateFlyout(
+            viewModel.Scene,
+            viewModel.Model,
+            editor.GetRequiredService<Beutl.Media.FontManager>(),
+            ExtensionGuard.FindService<DecoderRegistry>(editor),
+            viewModel.Timeline.Options.Value.BpmGrid,
+            // The grid flyout writes the same options; it records no history, so neither does this.
+            options => viewModel.Timeline.Options.Value = viewModel.Timeline.Options.Value with { BpmGrid = options });
+        flyout.ShowAt(border, true);
+        KeepRealizedWhileOpen(flyout);
+        await flyout.AnalyzeAsync();
     }
 
     // One item per edge, which opens its transition in the property tab, adding the default one first

@@ -1523,6 +1523,18 @@ GetProperty&lt;T&gt;("path", time) 或 GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="BpmOffset" xml:space="preserve">
     <value>偏移</value>
   </data>
+  <data name="EstimateBpmMenu" xml:space="preserve">
+    <value>估算 BPM…</value>
+  </data>
+  <data name="BpmEstimate_Analyzing" xml:space="preserve">
+    <value>正在分析剪辑的音频…</value>
+  </data>
+  <data name="BpmEstimate_Failed" xml:space="preserve">
+    <value>无法估算 BPM：{0}</value>
+  </data>
+  <data name="BpmEstimate_NoBeats" xml:space="preserve">
+    <value>此剪辑中未找到稳定的节拍。</value>
+  </data>
   <data name="Preview" xml:space="preserve">
     <value>预览</value>
   </data>

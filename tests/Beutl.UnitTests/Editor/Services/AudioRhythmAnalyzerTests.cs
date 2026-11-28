@@ -1,9 +1,9 @@
-﻿using Beutl.AgentToolkit.Rendering;
+﻿using Beutl.Editor.Services;
 using Beutl.Media.Decoding;
 using Beutl.Media.Wave;
 using NAudio.Wave;
 
-namespace Beutl.AgentToolkit.Tests.Rendering;
+namespace Beutl.UnitTests.Editor.Services;
 
 public sealed class AudioRhythmAnalyzerTests
 {
