@@ -2,11 +2,17 @@
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
+using Beutl.Controls;
 using Beutl.Controls.PropertyEditors;
+using Beutl.Editor.Components.LibraryThumbnails;
 using Beutl.Editor.Components.PropertyEditors.LutLibrary;
 using Beutl.Editor.Components.PropertyEditors.ViewModels;
+using Beutl.Media;
+using Beutl.Media.Decoding;
 using Beutl.Media.Source;
 using Beutl.Serialization;
+using Microsoft.Extensions.DependencyInjection;
+using ExtensionGuard = Beutl.Api.Services.ExtensionGuard;
 
 namespace Beutl.Editor.Components.PropertyEditors.Views;
 
@@ -75,10 +81,13 @@ public partial class CubeSourceEditor : UserControl
             return;
         }
 
+        // Each opening draws its tiles anew, on the element as it is at the playhead now.
         _picker?.Dispose();
+        _thumbnails?.Dispose();
+        _thumbnails = CreateThumbnails(viewModel);
         var picker = new LutLibraryPickerViewModel(
             GetLibraryStore(viewModel),
-            _thumbnails ??= new LutThumbnailCache(),
+            _thumbnails,
             FolderPickerOverride ?? (() => LutLibraryFolderPicker.PickAsync(this)));
         _picker = picker;
         _ = picker.LoadAsync();
@@ -117,6 +126,17 @@ public partial class CubeSourceEditor : UserControl
         var newValue = new CubeSource();
         newValue.ReadFrom(UriHelper.CreateFromPath(path));
         viewModel.SetValueAndCommit(oldValue, newValue);
+    }
+
+    // The tiles show the element the LUT is on, without the effect being edited, which each tile applies with its
+    // own file; outside an element they show the effect thumbnails' sample.
+    private LutThumbnailCache CreateThumbnails(CubeSourceEditorViewModel viewModel)
+    {
+        var renderServices = new SceneRenderServices(
+            viewModel.GetService<FontManager>() ?? ControlFonts.GetOrCreate(this),
+            ExtensionGuard.FindService<DecoderRegistry>(viewModel) ?? ControlDecoders.GetDecoders(this));
+        ICoreObject? edited = viewModel.PropertyAdapter.GetEngineProperty()?.GetOwnerObject();
+        return new LutThumbnailCache(renderServices, LibraryThumbnailCapture.ForObject(viewModel, edited));
     }
 
     private LutLibraryStore GetLibraryStore(CubeSourceEditorViewModel viewModel)

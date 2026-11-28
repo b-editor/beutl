@@ -12,7 +12,7 @@ public sealed class LutThumbnailCacheTests
         string secondPath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.cube");
         using var firstStarted = new ManualResetEventSlim();
         using var releaseFirst = new ManualResetEventSlim();
-        using var cache = new LutThumbnailCache(1, path =>
+        using var cache = new LutThumbnailCache(1, capture: null, (path, _, _) =>
         {
             if (path == firstPath)
             {
@@ -20,7 +20,7 @@ public sealed class LutThumbnailCacheTests
                 releaseFirst.Wait(TimeSpan.FromSeconds(10));
             }
 
-            return new LutThumbnailResult(null, null);
+            return Task.FromResult(new LutThumbnailResult(null, null));
         });
 
         try

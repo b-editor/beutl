@@ -9,6 +9,7 @@ using Avalonia.Media.Imaging;
 using Avalonia.VisualTree;
 using Beutl.Controls;
 using Beutl.Controls.PropertyEditors;
+using Beutl.Editor.Components.LibraryThumbnails;
 using Beutl.Editor.Components.PropertyEditors.LutLibrary;
 using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Editor.Components.PropertyEditors.Views;
@@ -376,6 +377,127 @@ public sealed class LutLibraryFlyoutTests
     }
 
     [AvaloniaTest]
+    public async Task The_tiles_show_each_LUT_on_the_elements_frame_without_the_edited_effect()
+    {
+        TestGpu.RequireAnyDevice();
+        string library = Path.Combine(_directory, "luts");
+        Directory.CreateDirectory(library);
+        WriteCube(Path.Combine(library, "identity.cube"));
+        string inverted = Path.Combine(library, "inverted.cube");
+        WriteCube(inverted, invert: true);
+
+        // The edited effect already inverts: were it captured too, the inverting tile would show the color back.
+        var effect = new LutEffect();
+        var edited = new CubeSource();
+        edited.ReadFrom(UriHelper.CreateFromPath(inverted));
+        effect.Source.Value = edited;
+        var shape = new Beutl.Graphics.Shapes.RectShape
+        {
+            Width = { Value = 400 },
+            Height = { Value = 300 },
+            Fill = { Value = new Beutl.Media.SolidColorBrush(Beutl.Media.Color.FromArgb(255, 200, 60, 30)) },
+            FilterEffect = { Value = effect },
+        };
+        var element = new Element { Length = { Value = MediaTime.FromSeconds(1) } };
+        element.AddObject(shape);
+        var adapter = new EnginePropertyAdapter<CubeSource?>(effect.Source, effect);
+        var (vm, control) = CreateControl(adapter);
+        using var viewModel = vm;
+        using var history = new HistoryScope(element);
+        vm.Accept(ServiceVisitor.For(history.History, element));
+
+        var editor = (CubeSourceEditor)control;
+        editor.LibraryFolderPathOverride = library;
+        var window = new Window { Content = editor, Width = 760, Height = 520 };
+        try
+        {
+            (WriteableBitmap identityStill, WriteableBitmap invertedStill) = await OpenTilesAsync(window, editor);
+            PixelPoint center = CenterOf(identityStill);
+            (int R, int G, int B) identityColor = HeadlessTestHelpers.ReadPixel(identityStill, center);
+            (int R, int G, int B) invertedColor = HeadlessTestHelpers.ReadPixel(invertedStill, center);
+            Assert.Multiple(() =>
+            {
+                AssertColor(identityColor, (200, 60, 30), "The identity tile does not show the element's frame.");
+                AssertColor(invertedColor, (55, 195, 225), "The inverting tile does not invert the element's frame.");
+            });
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Outside_an_element_the_tiles_show_the_LUTs_on_the_sample()
+    {
+        TestGpu.RequireAnyDevice();
+        string library = Path.Combine(_directory, "luts");
+        Directory.CreateDirectory(library);
+        WriteCube(Path.Combine(library, "identity.cube"));
+        WriteCube(Path.Combine(library, "inverted.cube"), invert: true);
+
+        var effect = new LutEffect();
+        var adapter = new EnginePropertyAdapter<CubeSource?>(effect.Source, effect);
+        var (vm, control) = CreateControl(adapter);
+        using var viewModel = vm;
+        var editor = (CubeSourceEditor)control;
+        editor.LibraryFolderPathOverride = library;
+        var window = new Window { Content = editor, Width = 760, Height = 520 };
+        try
+        {
+            (WriteableBitmap identityStill, WriteableBitmap invertedStill) = await OpenTilesAsync(window, editor);
+            PixelPoint center = CenterOf(identityStill);
+            (int R, int G, int B) sample = HeadlessTestHelpers.ReadPixel(identityStill, center);
+            (int R, int G, int B) invertedColor = HeadlessTestHelpers.ReadPixel(invertedStill, center);
+            AssertColor(invertedColor, (255 - sample.R, 255 - sample.G, 255 - sample.B),
+                "The inverting tile does not invert the sample.");
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    // Opens the picker in tile view and waits for the stills of identity.cube and inverted.cube.
+    private static async Task<(WriteableBitmap Identity, WriteableBitmap Inverted)> OpenTilesAsync(
+        Window window, CubeSourceEditor editor)
+    {
+        window.Show();
+        HeadlessTestHelpers.Render(3);
+        HeadlessTestHelpers.Click(LibraryButton(editor));
+        await HeadlessTestHelpers.WaitUntilAsync(() => editor.PickerViewModel is { Items.Count: 2 });
+        LutLibraryPickerViewModel picker = editor.PickerViewModel!;
+        picker.ShowTiles.Value = true;
+        FindPresenter(window).ShowTiles = true;
+        PinnableLibraryItem identity = picker.Items.Single(item => item.DisplayName == "identity");
+        PinnableLibraryItem inverted = picker.Items.Single(item => item.DisplayName == "inverted");
+        await HeadlessTestHelpers.WaitUntilAsync(
+            () =>
+            {
+                HeadlessTestHelpers.Render();
+                return identity.Thumbnail?.Still != null && inverted.Thumbnail?.Still != null;
+            },
+            TimeSpan.FromSeconds(60),
+            "The LUT tiles did not draw.");
+        return ((WriteableBitmap)identity.Thumbnail!.Still!, (WriteableBitmap)inverted.Thumbnail!.Still!);
+    }
+
+    private static PixelPoint CenterOf(WriteableBitmap bitmap)
+        => new(bitmap.PixelSize.Width / 2, bitmap.PixelSize.Height / 2);
+
+    // The LUT runs on 8-bit sRGB values through linear half floats, so a few levels of rounding are allowed.
+    private static void AssertColor((int R, int G, int B) actual, (int R, int G, int B) expected, string message)
+    {
+        const int tolerance = 4;
+        Assert.That(
+            Math.Abs(actual.R - expected.R) <= tolerance
+                && Math.Abs(actual.G - expected.G) <= tolerance
+                && Math.Abs(actual.B - expected.B) <= tolerance,
+            Is.True,
+            $"{message} Expected {expected}, got {actual}.");
+    }
+
+    [AvaloniaTest]
     [Explicit("Writes artifacts/pr-images for visual review.")]
     public async Task Capture_the_library_and_effect_pickers()
     {
@@ -398,10 +520,32 @@ public sealed class LutLibraryFlyoutTests
         string output = Path.Combine(root!, "artifacts", "pr-images");
         Directory.CreateDirectory(output);
 
+        WriteCube(Path.Combine(library, "warm.cube"), lut: (r, g, b) => (0.15 + (0.85 * r), 0.05 + (0.9 * g), 0.75 * b));
+
+        // A gradient shows how each LUT moves every hue, which a flat color would not.
         var effect = new LutEffect();
+        var gradient = new Beutl.Media.LinearGradientBrush
+        {
+            StartPoint = { Value = Beutl.Graphics.RelativePoint.TopLeft },
+            EndPoint = { Value = Beutl.Graphics.RelativePoint.BottomRight },
+        };
+        gradient.GradientStops.Add(new Beutl.Media.GradientStop(Beutl.Media.Color.FromUInt32(0xFF0EA5E9), 0));
+        gradient.GradientStops.Add(new Beutl.Media.GradientStop(Beutl.Media.Color.FromUInt32(0xFFFACC15), 0.5f));
+        gradient.GradientStops.Add(new Beutl.Media.GradientStop(Beutl.Media.Color.FromUInt32(0xFFBE185D), 1));
+        var shape = new Beutl.Graphics.Shapes.RectShape
+        {
+            Width = { Value = 1600 },
+            Height = { Value = 900 },
+            Fill = { Value = gradient },
+            FilterEffect = { Value = effect },
+        };
+        var element = new Element { Length = { Value = MediaTime.FromSeconds(1) } };
+        element.AddObject(shape);
         var adapter = new EnginePropertyAdapter<CubeSource?>(effect.Source, effect);
         var (vm, control) = CreateControl(adapter);
         using var viewModel = vm;
+        using var history = new HistoryScope(element);
+        vm.Accept(ServiceVisitor.For(history.History, element));
         var editor = (CubeSourceEditor)control;
         editor.LibraryFolderPathOverride = library;
 
@@ -414,7 +558,7 @@ public sealed class LutLibraryFlyoutTests
             window.Show();
             HeadlessTestHelpers.Render(3);
             HeadlessTestHelpers.Click(LibraryButton(editor));
-            await HeadlessTestHelpers.WaitUntilAsync(() => editor.PickerViewModel is { Items.Count: 3 });
+            await HeadlessTestHelpers.WaitUntilAsync(() => editor.PickerViewModel is { Items.Count: 4 });
             LutLibraryPickerViewModel picker = editor.PickerViewModel!;
             picker.ShowTiles.Value = true;
             HeadlessTestHelpers.Render(3);
@@ -424,7 +568,7 @@ public sealed class LutLibraryFlyoutTests
             HeadlessTestHelpers.Render(3);
             await HeadlessTestHelpers.WaitUntilAsync(
                 () => presenter.GetVisualDescendants().OfType<AnimatedThumbnail>()
-                    .Count(thumbnail => thumbnail.Source?.Still != null) >= 2,
+                    .Count(thumbnail => thumbnail.Source?.Still != null) >= 3,
                 message: "The LUT thumbnails were not ready for the capture.");
             Capture(presenter, "lut-library-tiles.png");
 
@@ -441,7 +585,8 @@ public sealed class LutLibraryFlyoutTests
                 TestShell.FontManager,
                 TestShell.Library,
                 KnownLibraryItemFormats.FilterEffect,
-                typeof(FilterEffect));
+                typeof(FilterEffect),
+                LibraryThumbnailCapture.ForObject(vm));
             _ = LibraryItemPickerHelper.ShowAsync(host, effectPicker, KnownLibraryItemFormats.FilterEffect);
             await effectPicker.SearchTask;
             effectPicker.ShowTiles.Value = true;
@@ -460,8 +605,9 @@ public sealed class LutLibraryFlyoutTests
             {
                 await HeadlessTestHelpers.WaitUntilAsync(
                     () => presenter.GetVisualDescendants().OfType<AnimatedThumbnail>()
-                        .Any(thumbnail => thumbnail.Source?.Still != null),
-                    message: "The effect thumbnails were not ready for the capture.");
+                        .Count(thumbnail => thumbnail.Source?.Still != null) >= 4,
+                    TimeSpan.FromSeconds(120),
+                    "The effect thumbnails were not ready for the capture.");
             }
 
             Capture(presenter, "effect-picker-tiles.png");
@@ -515,7 +661,8 @@ public sealed class LutLibraryFlyoutTests
         throw new InvalidOperationException("The picker is not open.");
     }
 
-    private static void WriteCube(string path, bool invert = false)
+    private static void WriteCube(
+        string path, bool invert = false, Func<double, double, double, (double R, double G, double B)>? lut = null)
     {
         var lines = new List<string> { "LUT_3D_SIZE 2" };
         for (int b = 0; b < 2; b++)
@@ -524,7 +671,15 @@ public sealed class LutLibraryFlyoutTests
             {
                 for (int r = 0; r < 2; r++)
                 {
-                    lines.Add(invert ? $"{1 - r} {1 - g} {1 - b}" : $"{r} {g} {b}");
+                    if (lut != null)
+                    {
+                        (double outR, double outG, double outB) = lut(r, g, b);
+                        lines.Add(FormattableString.Invariant($"{outR} {outG} {outB}"));
+                    }
+                    else
+                    {
+                        lines.Add(invert ? $"{1 - r} {1 - g} {1 - b}" : $"{r} {g} {b}");
+                    }
                 }
             }
         }

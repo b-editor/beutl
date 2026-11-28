@@ -1,6 +1,10 @@
 ﻿using Avalonia.Media.Imaging;
+using Beutl.Controls;
+using Beutl.Editor.Services.LibraryThumbnails;
 using Beutl.Graphics;
-using SkiaSharp;
+using Beutl.Graphics.Effects;
+using Beutl.Media.Source;
+using Beutl.Serialization;
 
 namespace Beutl.Editor.Components.PropertyEditors.LutLibrary;
 
@@ -11,30 +15,44 @@ internal interface ILutThumbnailSource
     Task<LutThumbnailResult> GetAsync(string path, CancellationToken cancellationToken);
 }
 
-// Renders a thumbnail once per file version and keeps it for the editor's lifetime. At most a few renders run at
-// a time; a render waiting for a slot is cancelled with its picker, and its entry is dropped so a later open
-// retries it. Dispose drops every bitmap the cache still owns.
+// The tiles of one LUT picker: each file's still, drawn as the effect picker draws a LutEffect's thumbnail, with the
+// file as the effect's LUT, on the element the picker edits, else on the effect thumbnails' sample. The element is
+// captured once, when the first tile asks, so the cache lives as long as one picker. At most a few drawings wait on
+// the render thread at a time; one waiting for a slot is cancelled with its picker, and its entry is dropped so a
+// later request retries it. Dispose drops every bitmap the cache still owns and, once no drawing reads it, the
+// captured element. GetAsync is called on the UI thread, which the capture reads the live element on.
 internal sealed class LutThumbnailCache : ILutThumbnailSource, IDisposable
 {
     private const int DefaultConcurrency = 3;
 
     private readonly SemaphoreSlim _slots;
-    private readonly Func<string, LutThumbnailResult> _load;
+    private readonly Func<CancellationToken, Task<LibraryThumbnailSubject?>>? _capture;
+    private readonly Func<string, LibraryThumbnailSubject?, CancellationToken, Task<LutThumbnailResult>> _load;
     private readonly Dictionary<(string Path, long Modified), Task<LutThumbnailResult>> _entries = [];
+    private readonly List<Task> _runs = [];
     private readonly object _gate = new();
     private readonly CancellationTokenSource _disposeCancellation = new();
+    private Task<LibraryThumbnailSubject?>? _subject;
     private bool _disposed;
 
-    public LutThumbnailCache()
-        : this(DefaultConcurrency, null)
+    /// <param name="capture">
+    /// Captures what the tiles show the LUTs on, or is <see langword="null"/> to show them on the sample.
+    /// </param>
+    public LutThumbnailCache(SceneRenderServices services, Func<CancellationToken, Task<LibraryThumbnailSubject?>>? capture)
+        : this(DefaultConcurrency, capture, (path, subject, cancellationToken) => RenderAsync(services, path, subject, cancellationToken))
     {
+        ArgumentNullException.ThrowIfNull(services);
     }
 
-    internal LutThumbnailCache(int maxConcurrent, Func<string, LutThumbnailResult>? load)
+    internal LutThumbnailCache(
+        int maxConcurrent,
+        Func<CancellationToken, Task<LibraryThumbnailSubject?>>? capture,
+        Func<string, LibraryThumbnailSubject?, CancellationToken, Task<LutThumbnailResult>> load)
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(maxConcurrent, 1);
         _slots = new SemaphoreSlim(maxConcurrent, maxConcurrent);
-        _load = load ?? LoadFromFile;
+        _capture = capture;
+        _load = load;
     }
 
     internal int EntryCount
@@ -73,17 +91,47 @@ internal sealed class LutThumbnailCache : ILutThumbnailSource, IDisposable
             if (_entries.TryGetValue(key, out Task<LutThumbnailResult>? existing))
                 return existing;
 
+            _subject ??= CaptureAsync();
             var completion = new TaskCompletionSource<LutThumbnailResult>(
                 TaskCreationOptions.RunContinuationsAsynchronously);
             _entries.Add(key, completion.Task);
-            _ = RunAsync(path, key, cancellationToken, completion);
+            Task run = RunAsync(path, key, _subject, cancellationToken, completion);
+            _runs.Add(run);
+            _ = run.ContinueWith(
+                finished =>
+                {
+                    lock (_gate)
+                    {
+                        _runs.Remove(finished);
+                    }
+                },
+                CancellationToken.None,
+                TaskContinuationOptions.ExecuteSynchronously,
+                TaskScheduler.Default);
             return completion.Task;
+        }
+    }
+
+    // Content that cannot be captured leaves the tiles on the sample.
+    private async Task<LibraryThumbnailSubject?> CaptureAsync()
+    {
+        if (_capture == null)
+            return null;
+
+        try
+        {
+            return await _capture(_disposeCancellation.Token);
+        }
+        catch (Exception)
+        {
+            return null;
         }
     }
 
     private async Task RunAsync(
         string path,
         (string Path, long Modified) key,
+        Task<LibraryThumbnailSubject?> subject,
         CancellationToken requestCancellation,
         TaskCompletionSource<LutThumbnailResult> completion)
     {
@@ -94,8 +142,10 @@ internal sealed class LutThumbnailCache : ILutThumbnailSource, IDisposable
             await _slots.WaitAsync(linked.Token).ConfigureAwait(false);
             try
             {
-                // A started render is not interrupted; only work still waiting for a slot is cancelled.
-                LutThumbnailResult result = await Task.Run(() => _load(path)).ConfigureAwait(false);
+                LibraryThumbnailSubject? captured = await subject.ConfigureAwait(false);
+                // A started drawing is not interrupted; only work still waiting for a slot is cancelled.
+                LutThumbnailResult result = await Task.Run(
+                    () => _load(path, captured, CancellationToken.None)).ConfigureAwait(false);
                 if (_disposed)
                 {
                     result.Image?.Dispose();
@@ -134,39 +184,38 @@ internal sealed class LutThumbnailCache : ILutThumbnailSource, IDisposable
         }
     }
 
-    private static LutThumbnailResult LoadFromFile(string path)
+    // The file is read here only to tell an unreadable one apart: a LutEffect without a LUT it can read draws the
+    // content unchanged, which would pass for an identity LUT.
+    private static async Task<LutThumbnailResult> RenderAsync(
+        SceneRenderServices services, string path, LibraryThumbnailSubject? subject, CancellationToken cancellationToken)
     {
         try
         {
             using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
-            CubeFile cube = CubeFile.FromStream(stream);
-            byte[] pixels = LutThumbnailRenderer.CreateImage(cube);
-            return new LutThumbnailResult(CreateBitmap(pixels), null);
+            CubeFile.FromStream(stream);
         }
         catch (Exception)
         {
             return new LutThumbnailResult(null, Strings.LutLibraryInvalidFile);
         }
-    }
 
-    private static Bitmap CreateBitmap(byte[] pixels)
-    {
-        var info = new SKImageInfo(
-            LutThumbnailRenderer.Width,
-            LutThumbnailRenderer.Height,
-            SKColorType.Rgba8888,
-            SKAlphaType.Unpremul);
-        using var skBitmap = new SKBitmap(info);
-        pixels.AsSpan().CopyTo(skBitmap.GetPixelSpan());
-        using SKImage image = SKImage.FromBitmap(skBitmap);
-        using SKData data = image.Encode(SKEncodedImageFormat.Png, 100);
-        using Stream stream = data.AsStream();
-        return new Bitmap(stream);
+        var source = new CubeSource();
+        source.ReadFrom(UriHelper.CreateFromPath(path));
+        using LibraryThumbnailSheet? sheet = await LibraryThumbnailRenderer.RenderAsync(
+            services,
+            typeof(LutEffect),
+            subject,
+            stillOnly: true,
+            effect => ((LutEffect)effect).Source.Value = source,
+            cancellationToken).ConfigureAwait(false);
+        return new LutThumbnailResult(sheet?.Bitmap.ToAvaWriteableBitmap(), null);
     }
 
     public void Dispose()
     {
         List<Task<LutThumbnailResult>> entries;
+        Task[] runs;
+        Task<LibraryThumbnailSubject?>? subject;
         lock (_gate)
         {
             if (_disposed)
@@ -175,6 +224,9 @@ internal sealed class LutThumbnailCache : ILutThumbnailSource, IDisposable
             _disposed = true;
             entries = [.. _entries.Values];
             _entries.Clear();
+            runs = [.. _runs];
+            subject = _subject;
+            _subject = null;
         }
 
         _disposeCancellation.Cancel();
@@ -198,5 +250,24 @@ internal sealed class LutThumbnailCache : ILutThumbnailSource, IDisposable
                     TaskScheduler.Default);
             }
         }
+
+        if (subject != null)
+            _ = DisposeSubjectWhenDoneAsync(subject, runs);
+    }
+
+    // A drawing may still read the captured element; it is disposed once every drawing has ended.
+    private static async Task DisposeSubjectWhenDoneAsync(Task<LibraryThumbnailSubject?> subject, Task[] runs)
+    {
+        try
+        {
+            await Task.WhenAll(runs).ConfigureAwait(false);
+        }
+        catch
+        {
+            // A failed drawing still ended.
+        }
+
+        LibraryThumbnailSubject? captured = await subject.ConfigureAwait(false);
+        captured?.Dispose();
     }
 }
