@@ -95,6 +95,8 @@ public sealed partial class EditorService
 
     internal IServiceProvider AppServices { get; }
 
+    internal TimeProvider TimeProvider { get; }
+
     public EditorService(ExtensionProvider extensionProvider, IServiceProvider appServices)
         : this(
             extensionProvider,
@@ -104,12 +106,13 @@ public sealed partial class EditorService
     }
 
     // sessions are the loaded projects whose editors this service holds, ProjectSessionRegistry.Current unless a
-    // test gives its own.
+    // test gives its own. timeProvider times the activity of each project's session.
     internal EditorService(
         ExtensionProvider extensionProvider,
         Action<Project, Uri> serializeProject,
         IServiceProvider appServices,
-        ProjectSessionRegistry? sessions = null)
+        ProjectSessionRegistry? sessions = null,
+        TimeProvider? timeProvider = null)
     {
         ArgumentNullException.ThrowIfNull(extensionProvider);
         ArgumentNullException.ThrowIfNull(serializeProject);
@@ -120,6 +123,7 @@ public sealed partial class EditorService
         _serializeProject = serializeProject;
         _tabItems = new() { ResetBehavior = ResetBehavior.Remove };
         _sessions = sessions ?? ProjectSessionRegistry.Current;
+        TimeProvider = timeProvider ?? TimeProvider.System;
         _shellWorkspace = new EditorWorkspace(this, projectFile: null);
         _activeWorkspace = new ReactivePropertySlim<EditorWorkspace>(_shellWorkspace);
         // Follows the active session from the moment it changes, so the open tabs and the workspace that owns them

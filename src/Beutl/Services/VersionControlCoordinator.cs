@@ -67,6 +67,9 @@ internal sealed partial class VersionControlCoordinator :
     private object? _latestAvailabilityProbe;
     private TaskCompletionSource? _workDrained;
     private int _runningWork;
+    // Keeps the session of _workActivityWorkspace busy while running work lasts.
+    private IDisposable? _workActivity;
+    private EditorWorkspace? _workActivityWorkspace;
     private string? _observedGitExecutablePath;
     private bool _observedUseLfsWhenAvailable;
     private bool _configurationActivationRunning;
@@ -186,6 +189,7 @@ internal sealed partial class VersionControlCoordinator :
 
         workspace.VersionControl = this;
         _workspace = workspace;
+        RetargetWorkActivity();
         ProjectClaimed?.Invoke(this, EventArgs.Empty);
         return true;
     }
@@ -201,6 +205,7 @@ internal sealed partial class VersionControlCoordinator :
         if (ReferenceEquals(workspace.VersionControl, this))
             workspace.VersionControl = null;
         _workspace = null;
+        RetargetWorkActivity();
         _editorService.ScheduleWorkspaceRelease();
         ProjectReleased?.Invoke(this, EventArgs.Empty);
     }

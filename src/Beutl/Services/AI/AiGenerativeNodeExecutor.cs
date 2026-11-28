@@ -36,12 +36,17 @@ internal sealed class AiGenerativeNodeExecutor(
 {
     private static readonly ILogger s_logger = Log.CreateLogger<AiGenerativeNodeExecutor>();
 
+    // Keeps the session of the scene's project busy while a generation or a recovery runs, until it has saved its
+    // result, failed or been canceled. Called as the run starts, before it awaits anything.
+    internal Func<IDisposable?>? BeginActivity { get; init; }
+
     public async Task<GenerativeExecutionResult> ExecuteAsync(
         GenerativeRequest request,
         IProgress<GenerativeProgress> progress,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
+        using IDisposable? activity = BeginActivity?.Invoke();
         AiAccountJobScope? account = null;
         try
         {
@@ -91,6 +96,7 @@ internal sealed class AiGenerativeNodeExecutor(
         AiAccountJobScope account,
         CancellationToken cancellationToken)
     {
+        using IDisposable? activity = BeginActivity?.Invoke();
         if (found.Job is { } running && jobKinds.GetStatus(running).ShouldPoll)
         {
             var processing = new GenerativeProgress(running.Kind == AiJobKinds.Video ? Strings.AiVideoProcessing : Strings.AiGenerating);

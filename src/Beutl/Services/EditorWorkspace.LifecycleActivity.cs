@@ -30,7 +30,7 @@ internal sealed partial class EditorWorkspace
             throw new ArgumentOutOfRangeException(nameof(activity));
         }
 
-        var lease = new LifecycleActivityLease(this, activity);
+        var lease = new LifecycleActivityLease(this, activity, Activity.Begin(SessionActivityKind.Lifecycle));
         lock (_lifecycleActivitySync)
         {
             _lifecycleActivities.Add(lease);
@@ -83,9 +83,11 @@ internal sealed partial class EditorWorkspace
         }
     }
 
+    // sessionActivity keeps the session busy until the activity has ended.
     private sealed class LifecycleActivityLease(
         EditorWorkspace owner,
-        ProjectLifecycleActivity activity) : IDisposable
+        ProjectLifecycleActivity activity,
+        IDisposable sessionActivity) : IDisposable
     {
         private int _disposed;
 
@@ -95,7 +97,14 @@ internal sealed partial class EditorWorkspace
         {
             if (Interlocked.Exchange(ref _disposed, 1) == 0)
             {
-                owner.EndLifecycleActivity(this);
+                try
+                {
+                    owner.EndLifecycleActivity(this);
+                }
+                finally
+                {
+                    sessionActivity.Dispose();
+                }
             }
         }
     }

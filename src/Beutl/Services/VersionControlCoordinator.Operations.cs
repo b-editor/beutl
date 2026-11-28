@@ -172,10 +172,13 @@ internal partial class VersionControlCoordinator
     }
 
     // Disposal waits until no coordinator work is running. Entry points, the coordinator's background tasks
-    // and a project close each count as running work for as long as they last.
+    // and a project close each count as running work for as long as they last. While any of it runs, the
+    // session of the project it works on is busy; a save snapshot deferred behind another operation counts
+    // too, since its task is running work from the moment it is deferred.
     private RunningWork BeginWork()
     {
-        _runningWork++;
+        if (_runningWork++ == 0)
+            RetargetWorkActivity();
         return new RunningWork(this);
     }
 
@@ -183,9 +186,30 @@ internal partial class VersionControlCoordinator
     {
         if (--_runningWork == 0)
         {
+            IDisposable? activity = _workActivity;
+            _workActivity = null;
+            _workActivityWorkspace = null;
+            activity?.Dispose();
             _workDrained?.TrySetResult();
             _workDrained = null;
         }
+    }
+
+    // Moves the lease of the running work to the workspace the coordinator works on now, once it claims a project or
+    // lets go of one. The new lease is taken before the old one ends, so the work is never left without one.
+    private void RetargetWorkActivity()
+    {
+        if (_runningWork == 0)
+            return;
+
+        EditorWorkspace workspace = Workspace;
+        if (_workActivity is not null && ReferenceEquals(_workActivityWorkspace, workspace))
+            return;
+
+        IDisposable? previous = _workActivity;
+        _workActivity = workspace.Activity.Begin(SessionActivityKind.VersionControl);
+        _workActivityWorkspace = workspace;
+        previous?.Dispose();
     }
 
     private Task WaitForRunningWorkAsync()

@@ -14,7 +14,7 @@ namespace Beutl.ViewModels;
 public partial class MainViewModel : IAiWorkspaceHost
 {
     internal AiImageGenerationDialogViewModel CreateAiImageGenerationToolViewModel(EditViewModel editViewModel)
-        => new(
+        => HoldSessionWhileRunning(editViewModel, new AiImageGenerationDialogViewModel(
             AppServices.GetRequiredService<INotificationService>(),
             _beutlClients.GetResource<IAiEntitlementService>(),
             _beutlClients.GetResource<IAiOperationAvailabilityService>(),
@@ -25,7 +25,7 @@ public partial class MainViewModel : IAiWorkspaceHost
             _beutlClients.GetResource<IAiJobClient>(),
             _beutlClients.GetResource<IAiJobKindRegistry>(),
             editViewModel,
-            _aiRequestRecoveryContext);
+            _aiRequestRecoveryContext), static page => page.IsGenerating);
 
     internal AiGenerativeModelCatalog CreateGenerativeModelCatalog()
         => new(
@@ -43,13 +43,17 @@ public partial class MainViewModel : IAiWorkspaceHost
             _beutlClients.GetResource<IAiImageEditingService>(),
             _beutlClients.GetResource<IAiVideoService>(),
             _beutlClients.GetResource<IAiJobKindRegistry>(), AppServices.GetRequiredService<DecoderRegistry>(),
-            _aiRequestRecoveryContext, _beutlClients.GetResource<IAiJobClient>());
+            _aiRequestRecoveryContext, _beutlClients.GetResource<IAiJobClient>())
+        {
+            // The project is read when the generation starts, so a scene moved meanwhile leases where it is then.
+            BeginActivity = () => _editorService.WorkspaceFor(scene).Activity.Begin(SessionActivityKind.AiGeneration),
+        };
 
     internal Beutl.NodeGraph.Generative.IGenerativePromptLibrary CreateGenerativePromptLibrary()
         => new AiGenerativePromptLibrary(PromptLibraryProvider.For(_aiRequestRecoveryContext));
 
     internal AiImageEditDialogViewModel CreateAiImageEditToolViewModel(EditViewModel editViewModel)
-        => new(
+        => HoldSessionWhileRunning(editViewModel, new AiImageEditDialogViewModel(
             AppServices.GetRequiredService<INotificationService>(),
             _beutlClients.GetResource<IAiEntitlementService>(),
             _beutlClients.GetResource<IAiOperationAvailabilityService>(),
@@ -60,7 +64,7 @@ public partial class MainViewModel : IAiWorkspaceHost
             _beutlClients.GetResource<IAiJobClient>(),
             _beutlClients.GetResource<IAiJobKindRegistry>(),
             editViewModel,
-            _aiRequestRecoveryContext);
+            _aiRequestRecoveryContext), static page => page.IsEditing);
 
     internal AiSubtitleDialogViewModel CreateAiSubtitleToolViewModel(EditViewModel? editViewModel)
     {
@@ -72,7 +76,7 @@ public partial class MainViewModel : IAiWorkspaceHost
             AppServices.GetRequiredService<DecoderRegistry>(),
             Configuration.EditorConfig,
             Configuration.ProxyStoreConfig);
-        return new AiSubtitleDialogViewModel(AppServices.GetRequiredService<INotificationService>(),
+        return HoldSessionWhileRunning(editViewModel, new AiSubtitleDialogViewModel(AppServices.GetRequiredService<INotificationService>(),
             renderServices,
             _beutlClients.GetResource<IAiEntitlementService>(),
             _beutlClients.GetResource<IAiOperationAvailabilityService>(),
@@ -83,7 +87,7 @@ public partial class MainViewModel : IAiWorkspaceHost
             _captionCatalog,
             CaptionDraftStoreProvider.Current,
             CreateCaptionDraftScopes(editViewModel),
-            editViewModel, _aiRequestRecoveryContext);
+            editViewModel, _aiRequestRecoveryContext), static page => page.IsSubtitleOperationActive);
     }
 
     private IObservable<CaptionDraftScope?> CreateCaptionDraftScopes(EditViewModel? editViewModel)
@@ -97,7 +101,7 @@ public partial class MainViewModel : IAiWorkspaceHost
         });
 
     internal AiVideoGenerationDialogViewModel CreateAiVideoGenerationToolViewModel(EditViewModel editViewModel, AiSourceVideoMode? sourceMode = null)
-        => new(
+        => HoldSessionWhileRunning(editViewModel, new AiVideoGenerationDialogViewModel(
             AppServices.GetRequiredService<INotificationService>(),
             AppServices.GetRequiredService<DecoderRegistry>(),
             _beutlClients.GetResource<IAiEntitlementService>(),
@@ -110,7 +114,17 @@ public partial class MainViewModel : IAiWorkspaceHost
             _beutlClients.GetResource<IAiJobMonitor>(),
             _beutlClients.GetResource<IAiJobClient>(),
             editViewModel,
-            _aiRequestRecoveryContext, sourceMode);
+            _aiRequestRecoveryContext, sourceMode), static page => page.IsGenerating);
+
+    // An AI page of an editor keeps the session of the editor's project busy while it generates, edits or runs a
+    // subtitle job, wherever the page is: the AI tabs of one editor can be many, each with its own pages. The hold
+    // ends when the flag completes, which it does when the page is disposed.
+    private static TPage HoldSessionWhileRunning<TPage>(
+        EditViewModel? editViewModel, TPage page, Func<TPage, IObservable<bool>> running)
+    {
+        editViewModel?.Workspace.Activity.HoldWhile(running(page), SessionActivityKind.AiGeneration);
+        return page;
+    }
 
     internal async void OpenAiJobCenter()
         => await OpenAiWorkspaceAsync(AiWorkspaceSection.Jobs);
