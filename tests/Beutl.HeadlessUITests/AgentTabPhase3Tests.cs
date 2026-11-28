@@ -615,6 +615,7 @@ public sealed class AgentTabPhase3Tests
                 view.GetVisualDescendants().OfType<AgentQueuedMessagesBar>().Single(),
                 view.FindControl<AgentPermissionCard>("ActivePermissionCard")!,
                 view.FindControl<AgentQuestionCard>("ActiveQuestionCard")!,
+                Find<TextBlock>(view, "EscapeStopHint").FindAncestorOfType<AgentCardSurface>()!,
             ];
             foreach (var other in others)
             {
@@ -622,9 +623,45 @@ public sealed class AgentTabPhase3Tests
                 foreach (var control in others)
                     control.IsVisible = control == other;
                 HeadlessTestHelpers.Render(5);
-                var surface = other.GetVisualDescendants().OfType<AgentCardSurface>().Single();
-                AssertCardIsOpaque(window, view, scroll, (Border)surface.Child!, other.GetType().Name);
+                var surface = other as AgentCardSurface ?? other.GetVisualDescendants().OfType<AgentCardSurface>().Single();
+                AssertCardIsOpaque(window, view, scroll, (Border)surface.Child!,
+                    other is AgentCardSurface ? "escape stop hint" : other.GetType().Name);
             }
+        }
+        finally
+        {
+            window.Close();
+            HeadlessTestHelpers.Settle();
+        }
+    }
+
+    [AvaloniaTest]
+    [TestCase("light")]
+    [TestCase("dark")]
+    [TestCase("dark-border")]
+    public async Task StarterPromptsDoNotShowThroughTheRecentThreads(string theme)
+    {
+        var variant = theme == "light" ? ThemeVariant.Light : ThemeVariant.Dark;
+        using var scope = theme == "dark-border" ? ThemeVariantScope.Use(variant) : AgentTabViewTests.UseDockTheme(variant);
+        await using var workspace = new AgentTabTestWorkspace();
+        var provider = workspace.GetProviders().Single();
+        await workspace.Runtime.CreateThreadAsync(workspace.ProjectPath, provider, "Balance the opening title", AgentPermissionMode.Supervised);
+        await workspace.Runtime.CreateThreadAsync(workspace.ProjectPath, provider, "Plan the product cutaway", AgentPermissionMode.Supervised);
+        await workspace.Runtime.CreateThreadAsync(workspace.ProjectPath, provider, "Review the end card", AgentPermissionMode.Supervised);
+        using var model = workspace.CreateWorkspace(workspace.Editor);
+        await model.InitializeAsync();
+        await model.NewThreadAsync();
+
+        var view = new AgentTabView { DataContext = model };
+        // Short enough that the empty state scrolls behind the recent threads.
+        var window = AgentTabViewTests.CreateDockWindow(view, variant, 390, 430);
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render(5);
+            var scroll = Find<ScrollViewer>(view, "EmptyStateScroll");
+            Assert.That(scroll.Extent.Height, Is.GreaterThan(scroll.Viewport.Height), "the empty state should scroll");
+            AssertCardIsOpaque(window, view, scroll, Find<Border>(view, "RecentThreadsPanel"), "recent threads");
         }
         finally
         {
