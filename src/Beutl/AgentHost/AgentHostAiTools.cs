@@ -423,20 +423,21 @@ internal sealed class AgentHostAiTools(
                 ? AiRequestKey.NewSeed()
                 : GenerativeFingerprint.Combine([account.AccountId, operation, requestKey])[..32];
             Scene? scene = null;
+            EditorWorkspace? workspace = null;
             IGenerativeNodeExecutor? executor = null;
             if (requestKey is not null && account.AccountId is { } accountId && backend.RecoveryContext is { } context
                 && AgentGenerationRecovery.FindAttempt(context, accountId, operation, seed) is { } attempt)
             {
                 // An existing service job can be collected without resolving a new model or
                 // rebuilding inputs that may have changed since the job was paid for.
-                scene = await RequireSceneAsync().ConfigureAwait(false);
+                (scene, workspace) = await RequireSceneAndWorkspaceAsync().ConfigureAwait(false);
                 executor = backend.CreateExecutor(scene);
                 if (executor is AiGenerativeNodeExecutor recoveryExecutor
                     && await recoveryExecutor.FindRecoveryAsync(attempt, account, token).ConfigureAwait(false) is { } found)
                 {
                     return new PreparedAiJob((progress, jobToken) => RunGenerationAsync(
                         (status, ct) => recoveryExecutor.RecoverAsync(attempt, found, status, account, ct),
-                        progress, jobToken), scene.Id.Value);
+                        progress, jobToken), scene.Id.Value, workspace);
                 }
             }
 
@@ -447,7 +448,8 @@ internal sealed class AgentHostAiTools(
             }
             using (account.Enter(token))
                 await RequireAvailableAsync(token).ConfigureAwait(false);
-            scene ??= await RequireSceneAsync().ConfigureAwait(false);
+            if (scene is null)
+                (scene, workspace) = await RequireSceneAndWorkspaceAsync().ConfigureAwait(false);
             // Omitted settings are chosen from what this model offers, as the AI tab's controls are.
             GenerativeModelInfo? chosen = await account.SendAsync(
                 ct => ResolveModelAsync(operation, model, ct), token).ConfigureAwait(false);
@@ -476,7 +478,7 @@ internal sealed class AgentHostAiTools(
             }
 
             return new PreparedAiJob((progress, jobToken) => RunGenerationAsync(
-                (status, ct) => executor.ExecuteAsync(request, status, ct), progress, jobToken), scene.Id.Value);
+                (status, ct) => executor.ExecuteAsync(request, status, ct), progress, jobToken), scene.Id.Value, workspace);
         });
     }
 
@@ -541,8 +543,12 @@ internal sealed class AgentHostAiTools(
                 scope.ThrowIfInvalid(preflight.Token);
                 // The queued job owns the account guard. Stopping the MCP wait is independent of the job.
                 AgentAiJobManager.Job job;
+                // The job keeps busy the project its scene belongs to, captured with the scene, from the moment it is
+                // queued until it ends.
+                EditorWorkspace? workspace = prepared.Workspace;
                 (job, queued) = jobs.GetOrStart(operation, (progress, token) => RunAccountJobAsync(scope, prepared, progress, token),
-                    prepared.SceneId, key);
+                    prepared.SceneId, key,
+                    workspace is null ? null : () => workspace.Activity.Begin(SessionActivityKind.AgentAiJob));
                 return queued
                     ? await job.WaitAsync(wait, cancellationToken).ConfigureAwait(false)
                     : await WaitForReplayAsync(job, scope, wait, preflight.Token).ConfigureAwait(false);
@@ -591,9 +597,12 @@ internal sealed class AgentHostAiTools(
         }
     }
 
+    // Workspace is the workspace of the project that owns the scene SceneId names, read when the scene was resolved;
+    // null for a job that writes to no project, such as a transcription.
     private sealed record PreparedAiJob(
         Func<IProgress<string>, CancellationToken, Task<AgentAiJobOutput>> Run,
-        Guid? SceneId = null);
+        Guid? SceneId = null,
+        EditorWorkspace? Workspace = null);
 
     private async Task<AgentAiJobSnapshot> WaitAsync(string jobId, int waitSeconds, CancellationToken cancellationToken)
     {
@@ -715,6 +724,17 @@ internal sealed class AgentHostAiTools(
             "AI results are saved next to a scene. No sceneId was given, and no scene is open in the editor.",
             null,
             "Pass sceneId from list_scenes, or open or create a project in the Beutl editor (or call create_project/open_project), then call the tool again."));
+    }
+
+    // The scene a job saves its result next to, and the workspace of the project that owns it, read on the UI thread
+    // as soon as the scene is known, so a project activated while the call goes on to look up models is not taken
+    // for the one the job writes to.
+    private async Task<(Scene Scene, EditorWorkspace Workspace)> RequireSceneAndWorkspaceAsync()
+    {
+        Scene scene = await RequireSceneAsync().ConfigureAwait(false);
+        EditorWorkspace workspace = await Dispatcher.UIThread
+            .InvokeAsync(() => editorService.WorkspaceFor(scene)).GetTask().ConfigureAwait(false);
+        return (scene, workspace);
     }
 
     // The catalog fills image capabilities for every model, video ones included, so only the

@@ -117,12 +117,14 @@ public partial class MainViewModel : IAiWorkspaceHost
             _aiRequestRecoveryContext, sourceMode), static page => page.IsGenerating);
 
     // An AI page of an editor keeps the session of the editor's project busy while it generates, edits or runs a
-    // subtitle job, wherever the page is: the AI tabs of one editor can be many, each with its own pages. The hold
-    // ends when the flag completes, which it does when the page is disposed.
-    private static TPage HoldSessionWhileRunning<TPage>(
+    // subtitle job, wherever the page is: the AI tabs of one editor can be many, each with its own pages. The page
+    // keeps the hold and ends it once its disposal has drained its operations, whatever the flag still reads.
+    internal static TPage HoldSessionWhileRunning<TPage>(
         EditViewModel? editViewModel, TPage page, Func<TPage, IObservable<bool>> running)
+        where TPage : IAiPageLifetime
     {
-        editViewModel?.Workspace.Activity.HoldWhile(running(page), SessionActivityKind.AiGeneration);
+        if (editViewModel is not null)
+            page.ReleaseWhenDrained(editViewModel.Workspace.Activity.HoldWhile(running(page), SessionActivityKind.AiGeneration));
         return page;
     }
 

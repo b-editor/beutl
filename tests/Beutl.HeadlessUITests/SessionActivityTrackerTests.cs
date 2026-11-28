@@ -440,13 +440,14 @@ public sealed class SessionActivityTrackerTests
     public async Task An_agent_ai_job_keeps_the_session_busy_until_it_finishes_fails_or_is_canceled()
     {
         var tracker = new SessionActivityTracker();
-        using var jobs = new AgentAiJobManager(() => tracker.Begin(SessionActivityKind.AgentAiJob));
+        using var jobs = new AgentAiJobManager();
+        Func<IDisposable?> lease = () => tracker.Begin(SessionActivityKind.AgentAiJob);
 
         var finish = new TaskCompletionSource<AgentAiJobOutput>(TaskCreationOptions.RunContinuationsAsynchronously);
         var key = new AgentAiRequestKey("account", "generate_image", "prompt");
-        (AgentAiJobManager.Job job, bool started) = jobs.GetOrStart("generate_image", (_, _) => finish.Task, null, key);
+        (AgentAiJobManager.Job job, bool started) = jobs.GetOrStart("generate_image", (_, _) => finish.Task, null, key, lease);
         Assert.That(started, Is.True);
-        (_, bool replayed) = jobs.GetOrStart("generate_image", (_, _) => finish.Task, null, key);
+        (_, bool replayed) = jobs.GetOrStart("generate_image", (_, _) => finish.Task, null, key, lease);
         Assert.Multiple(() =>
         {
             Assert.That(replayed, Is.False);
@@ -456,7 +457,8 @@ public sealed class SessionActivityTrackerTests
         await job.Task!.WaitAsync(s_timeout);
         Assert.That(tracker.HasActiveLeases, Is.False);
 
-        string failed = jobs.Start("generate_image", (_, _) => Task.FromException<AgentAiJobOutput>(new InvalidOperationException()));
+        string failed = jobs.Start("generate_image", (_, _) => Task.FromException<AgentAiJobOutput>(new InvalidOperationException()),
+            beginActivity: lease);
         await jobs.WaitAsync(failed, s_timeout, CancellationToken.None);
         await tracker.WaitForIdleAsync().WaitAsync(s_timeout);
 
@@ -464,13 +466,13 @@ public sealed class SessionActivityTrackerTests
         {
             await Task.Delay(Timeout.InfiniteTimeSpan, token);
             return new AgentAiJobOutput(null, null, null, null);
-        });
+        }, beginActivity: lease);
         Assert.That(tracker.HasActiveLeases, Is.True);
         Assert.That(jobs.Cancel(canceled), Is.True);
         await tracker.WaitForIdleAsync().WaitAsync(s_timeout);
 
         jobs.Dispose();
-        Assert.Throws<ObjectDisposedException>(() => jobs.Start("generate_image", (_, _) => finish.Task));
+        Assert.Throws<ObjectDisposedException>(() => jobs.Start("generate_image", (_, _) => finish.Task, beginActivity: lease));
         Assert.That(tracker.HasActiveLeases, Is.False, "A job refused after disposal ends its lease.");
     }
 
@@ -673,6 +675,38 @@ public sealed class SessionActivityTrackerTests
             using (executor.BeginActivity!())
                 AssertBusyWith(editor.Workspace.Activity, SessionActivityKind.AiGeneration);
             Assert.That(editor.Workspace.Activity.CountOf(SessionActivityKind.AiGeneration), Is.Zero);
+        }
+        finally
+        {
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task An_ai_page_disposed_mid_run_ends_its_hold_even_if_its_flag_stays_set()
+    {
+        try
+        {
+            (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("activity-ai-drained");
+            SessionActivityTracker activity = editor.Workspace.Activity;
+            AiImageEditDialogViewModel page = TestShell.MainViewModel.CreateAiImageEditToolViewModel(editor);
+            // A flag the page's disposal never completes, as one cleared only by a publication it refuses.
+            var running = new BehaviorSubject<bool>(false);
+            MainViewModel.HoldSessionWhileRunning(editor, page, _ => running);
+            running.OnNext(true);
+            Assert.That(activity.CountOf(SessionActivityKind.AiGeneration), Is.EqualTo(1));
+
+            await page.DisposeAsync();
+            Assert.Multiple(() =>
+            {
+                Assert.That(activity.CountOf(SessionActivityKind.AiGeneration), Is.Zero,
+                    "The page ends its hold once its operations have drained.");
+                Assert.That(running.HasObservers, Is.False);
+            });
+
+            // A hold given to a page already disposed ends at once.
+            MainViewModel.HoldSessionWhileRunning(editor, page, _ => new BehaviorSubject<bool>(true));
+            Assert.That(activity.CountOf(SessionActivityKind.AiGeneration), Is.Zero);
         }
         finally
         {

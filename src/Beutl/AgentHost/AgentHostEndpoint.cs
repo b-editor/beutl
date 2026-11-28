@@ -440,9 +440,7 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
             .AddSingleton<IOutputOperationLeaseProvider>(_ => _editorService)
             .AddAgentToolkitRendering()
             .AddSingleton<ProxyTools.JobHistory>()
-            // An agent works on the active project, so a job keeps the session that was active when it started busy.
-            .AddSingleton(_ => new AgentAiJobManager(
-                () => _editorService.ActiveWorkspace.Value.Activity.Begin(SessionActivityKind.AgentAiJob)))
+            .AddSingleton<AgentAiJobManager>()
             .AddSingleton(_aiBackend);
 
         builder.Services

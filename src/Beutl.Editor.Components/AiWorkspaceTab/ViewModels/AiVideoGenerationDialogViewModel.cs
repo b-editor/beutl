@@ -22,8 +22,13 @@ using Reactive.Bindings;
 namespace Beutl.Editor.Components.AiWorkspaceTab.ViewModels;
 
 internal sealed partial class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDisposable, IAiModelListConsumer,
-    IAiRecoverableForm, IAiPlanOffer, IAiResultActions
+    IAiRecoverableForm, IAiPlanOffer, IAiResultActions, IAiPageLifetime
 {
+    // Released after the disposal has drained the page's operations; see IAiPageLifetime.
+    private readonly AiPageDrainedResources _releasedWhenDrained = new();
+
+    void IAiPageLifetime.ReleaseWhenDrained(IDisposable resource) => _releasedWhenDrained.Add(resource);
+
     private readonly INotificationService _notifications;
 
     private readonly CompositeDisposable _disposables = [];
@@ -551,6 +556,18 @@ internal sealed partial class AiVideoGenerationDialogViewModel : IDisposable, IA
     private Task BeginDisposeAsync() => _disposal.Run(DisposeCoreAsync);
 
     private async Task DisposeCoreAsync()
+    {
+        try
+        {
+            await DisposeOperationsAsync();
+        }
+        finally
+        {
+            _releasedWhenDrained.Dispose();
+        }
+    }
+
+    private async Task DisposeOperationsAsync()
     {
         _identityOperations.Dispose();
         await _operations.DisposeAsync(

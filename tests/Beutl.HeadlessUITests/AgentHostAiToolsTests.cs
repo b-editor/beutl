@@ -144,6 +144,61 @@ public sealed class AgentHostAiToolsTests
     }
 
     [AvaloniaTest]
+    public async Task AJobKeepsTheProjectOfItsSceneBusyWhenAnotherProjectIsActivatedMeanwhile()
+    {
+        try
+        {
+            (Project first, _, _) = await TestShell.OpenNewSceneAsync("agent-ai-lease-first");
+            Project second = (await TestShell.Project.CreateProject(
+                320, 180, new Rational(30), 44100, "agent-ai-lease-second", TestShell.NewWorkspace("agent-ai-lease-second")))!;
+            HeadlessTestHelpers.Settle();
+            string secondFile = second.Uri!.LocalPath;
+            await TestShell.Project.OpenProject(first.Uri!.LocalPath);
+            HeadlessTestHelpers.Settle();
+            EditorWorkspace firstWorkspace = TestShell.Editor.WorkspaceFor(first);
+            EditorWorkspace secondWorkspace = TestShell.Editor.WorkspaceFor(second);
+            Assert.That(TestShell.Editor.ActiveWorkspace.Value, Is.SameAs(firstWorkspace));
+
+            // The other project is activated after the call has chosen its scene, while it looks up models.
+            bool switched = false;
+            var backend = new FakeBackend
+            {
+                Result = WritePng("result.png"),
+                Gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously),
+                BeforeGetModelsAsync = async _ =>
+                {
+                    if (switched)
+                        return;
+                    switched = true;
+                    await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(
+                        async () => await TestShell.Project.OpenProject(secondFile));
+                },
+            };
+            using var jobs = new AgentAiJobManager();
+            var tools = CreateTools(TestShell.Editor, jobs, backend);
+
+            Task<ToolResult<AgentAiJobSnapshot>> run = tools.GenerateImage("a lighthouse", waitSeconds: 30).AsTask();
+            await HeadlessTestHelpers.WaitUntilAsync(() => backend.Requests.Count == 1);
+            Assert.Multiple(() =>
+            {
+                Assert.That(switched, Is.True);
+                Assert.That(TestShell.Editor.ActiveWorkspace.Value, Is.SameAs(secondWorkspace));
+                Assert.That(firstWorkspace.Activity.CountOf(SessionActivityKind.AgentAiJob), Is.EqualTo(1),
+                    "The job writes next to the first project's scene, so that project stays busy.");
+                Assert.That(secondWorkspace.Activity.CountOf(SessionActivityKind.AgentAiJob), Is.Zero);
+            });
+
+            backend.Gate.SetResult();
+            Assert.That((await run).Value?.Status, Is.EqualTo(AgentAiJobStatus.Succeeded));
+            await HeadlessTestHelpers.WaitUntilAsync(() => firstWorkspace.Activity.CountOf(SessionActivityKind.AgentAiJob) == 0);
+        }
+        finally
+        {
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
     public async Task AGeneratedPictureIsSavedAndItsPathReturned()
     {
         (_, Scene scene, _) = await TestShell.OpenNewSceneAsync("agent-ai-image");

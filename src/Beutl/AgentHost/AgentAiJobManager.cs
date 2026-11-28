@@ -61,21 +61,14 @@ internal sealed class AgentAiJobManager : IDisposable
     private readonly Dictionary<AgentAiRequestKey, Job> _jobsByRequest = [];
     // Admission and disposal share it, so no job is added after Dispose has cancelled the others.
     private readonly object _lifetimeSync = new();
-    private readonly Func<IDisposable?>? _beginActivity;
     private bool _disposed;
-
-    // beginActivity keeps the session the agent works on busy for as long as a job it returns a lease for runs. It is
-    // called when the job starts, so the job belongs to the session that was active then.
-    internal AgentAiJobManager(Func<IDisposable?>? beginActivity = null)
-    {
-        _beginActivity = beginActivity;
-    }
 
     public string Start(
         string operation,
         Func<IProgress<string>, CancellationToken, Task<AgentAiJobOutput>> run,
-        Guid? sceneId = null)
-        => GetOrStart(operation, run, sceneId, requestKey: null).Job.Id;
+        Guid? sceneId = null,
+        Func<IDisposable?>? beginActivity = null)
+        => GetOrStart(operation, run, sceneId, requestKey: null, beginActivity).Job.Id;
 
     public Job? FindReplay(AgentAiRequestKey requestKey)
     {
@@ -87,12 +80,14 @@ internal sealed class AgentAiJobManager : IDisposable
         string operation,
         Func<IProgress<string>, CancellationToken, Task<AgentAiJobOutput>> run,
         Guid? sceneId,
-        AgentAiRequestKey? requestKey)
+        AgentAiRequestKey? requestKey,
+        Func<IDisposable?>? beginActivity = null)
     {
         ArgumentException.ThrowIfNullOrEmpty(operation);
         ArgumentNullException.ThrowIfNull(run);
-        // Taken outside the lock, and ended unless the job starts.
-        IDisposable? activity = _beginActivity?.Invoke();
+        // beginActivity keeps busy the session of the project the job writes to, for as long as the job lasts. It is
+        // taken outside the lock, and ended unless the job starts.
+        IDisposable? activity = beginActivity?.Invoke();
         bool started = false;
         try
         {
