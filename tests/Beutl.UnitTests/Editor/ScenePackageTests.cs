@@ -58,7 +58,7 @@ public class ScenePackageTests
             }
             CoreSerializer.StoreToUri(project, project.Uri);
             project = CoreSerializer.RestoreFromUri<Project>(project.Uri);
-            _ = new BeutlApplication { Project = { Value = project } };
+            _ = new BeutlApplication { Projects = { project } };
             Assert.That(GetScenes(project, topLevel).All(scene => scene.Children.Count == 1), Is.True);
             var originals = Directory.GetFiles(root, "*", SearchOption.AllDirectories).ToDictionary(path => path, File.ReadAllBytes);
             string package = Path.Combine(root, "shared.beutl");
@@ -78,7 +78,7 @@ public class ScenePackageTests
             Directory.Delete(library, recursive: true);
             Project? imported = await ProjectPackageService.Current.ImportAsync(package, Path.Combine(root, "imported"));
             Assert.That(imported, Is.Not.Null);
-            _ = new BeutlApplication { Project = { Value = imported } };
+            _ = new BeutlApplication { Projects = { imported! } };
             string importedRoot = Path.GetDirectoryName(imported!.Uri!.LocalPath)!;
             Scene[] scenes = GetScenes(imported, topLevel).ToArray();
             Assert.That(scenes.Select(scene => scene.Name.Value), Is.EquivalentTo(expected.Keys));

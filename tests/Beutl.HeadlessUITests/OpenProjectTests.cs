@@ -144,13 +144,13 @@ public class OpenProjectTests
         await TestShell.Project.CloseProjectAsync();
         HeadlessTestHelpers.Settle();
         Assert.That(TestShell.Project.IsOpened.Value, Is.False);
-        Assert.That(BeutlApplication.Current.Project.Value, Is.Null);
+        Assert.That(BeutlApplication.Current.ActiveProject.Value, Is.Null);
 
         await TestShell.Project.OpenProject(projectFile);
         HeadlessTestHelpers.Settle();
 
         Assert.That(TestShell.Project.IsOpened.Value, Is.True);
-        Project reopened = BeutlApplication.Current.Project.Value!;
+        Project reopened = BeutlApplication.Current.ActiveProject.Value!;
         Assert.That(reopened, Is.Not.Null);
         Scene reopenedScene = reopened.Items.OfType<Scene>().Single();
         Assert.Multiple(() =>
@@ -186,7 +186,7 @@ public class OpenProjectTests
         await TestShell.Project.OpenProject(projectFile);
         HeadlessTestHelpers.Settle();
         // Until the project is saved again, its file names the version that saved it last.
-        Assert.That(BeutlApplication.Current.Project.Value!.AppVersion, Is.EqualTo(LegacyAppVersion));
+        Assert.That(BeutlApplication.Current.ActiveProject.Value!.AppVersion, Is.EqualTo(LegacyAppVersion));
 
         await TestShell.MainViewModel.MenuBar.SaveAll.ExecuteAsync();
         HeadlessTestHelpers.Settle();

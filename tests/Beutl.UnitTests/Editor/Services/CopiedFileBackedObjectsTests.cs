@@ -77,7 +77,7 @@ public class CopiedFileBackedObjectsTests
         project.Items.Add(_harness.Scene);
         Scene referenced = CoreSerializer.RestoreFromUri<Scene>(scene.Uri!);
         project.Items.Add(referenced);
-        _ = new BeutlApplication { Project = { Value = project } };
+        _ = new BeutlApplication { Projects = { project } };
         Element front = _harness.AddElement(MediaTime.Zero, MediaTime.FromSeconds(10));
         var drawable = new SceneDrawable();
         drawable.ReferencedScene.Expression = new ReferenceExpression<Scene?>(referenced.Id.Value);

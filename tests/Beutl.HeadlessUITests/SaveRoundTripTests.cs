@@ -63,7 +63,7 @@ public class SaveRoundTripTests
         await TestShell.Project.OpenProject(projectFile);
         HeadlessTestHelpers.Settle();
 
-        Scene reopenedScene = BeutlApplication.Current.Project.Value!.Items.OfType<Scene>().Single();
+        Scene reopenedScene = BeutlApplication.Current.ActiveProject.Value!.Items.OfType<Scene>().Single();
         Element reopenedElement = reopenedScene.Children.Single(e => e.Id.Value == elementId);
         Assert.That(reopenedElement.Name.Value, Is.EqualTo("RoundTripRect"));
         Assert.That(reopenedElement.ZIndex.Value, Is.EqualTo(4));

@@ -30,7 +30,7 @@ public class SilenceWaveformTests
         var referenced = new Scene { Duration = { Value = MediaTime.FromSeconds(2) } };
         var unused = new Scene { Duration = { Value = referenced.Duration.Value } };
         var project = new Project { Items = { scene, referenced, unused } };
-        _ = new BeutlApplication { Project = { Value = project } };
+        _ = new BeutlApplication { Projects = { project } };
         var child = new Element { Length = { Value = referenced.Duration.Value } };
         child.Objects.Add(new SourceSound { Source = { Value = SoundSource.Open(TestMediaHelper.CreateTestAudioFile(durationSeconds: 2)) } });
         referenced.Children.Add(child);

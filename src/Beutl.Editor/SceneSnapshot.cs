@@ -37,7 +37,7 @@ internal static partial class SceneSnapshot
 
         capture.Project.Items.Add(clone);
         // A BeutlApplication of its own keeps the clone's expressions from reaching BeutlApplication.Current.
-        _ = new BeutlApplication { Project = { Value = capture.Project } };
+        _ = new BeutlApplication { Projects = { capture.Project } };
         return clone;
     }
 

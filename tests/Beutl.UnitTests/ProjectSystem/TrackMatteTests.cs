@@ -380,8 +380,8 @@ public sealed class TrackMatteTests
     public void OutputAndMatteSnapshots_AreIndependentAndReleasedAfterDetachment()
     {
         (Scene scene, Element source, _) = CreateScene(MatteMode.Alpha, Colors.White);
-        var application = new BeutlApplication { Project = { Value = new Project() } };
-        application.Project.Value!.Items.Add(scene);
+        var application = new BeutlApplication { Projects = { new Project() } };
+        application.Projects[0].Items.Add(scene);
         source.IsVisibleInOutput.Value = true;
         using var compositor = new SceneCompositor(scene, TestFonts.RenderServices);
         CompositionFrame frame = compositor.EvaluateGraphics(MediaTime.Zero);

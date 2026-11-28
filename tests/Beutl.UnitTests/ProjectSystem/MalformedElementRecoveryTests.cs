@@ -540,8 +540,8 @@ public sealed class MalformedElementRecoveryTests
                 break;
             case MalformedElementSaveRoute.AutoSave:
             case MalformedElementSaveRoute.AutoSaveAfterRemoval:
-                var app = new BeutlApplication { Project = { Value = new Project() } };
-                app.Project.Value!.Items.Add(scene);
+                var app = new BeutlApplication { Projects = { new Project() } };
+                app.Projects[0].Items.Add(scene);
                 if (route == MalformedElementSaveRoute.AutoSave)
                     recovered.Name.Value = "Recovered placeholder";
                 else
@@ -1327,7 +1327,7 @@ public sealed class MalformedElementRecoveryTests
         // scene one, as the editor and agent sessions do in production.
         var application = new BeutlApplication();
         var project = new Project();
-        application.Project.Value = project;
+        application.Projects.Add(project);
         project.Items.Add(reloaded);
         Element reloadedRepaired = reloaded.Children.Single(
             child => child.Uri!.LocalPath == elementPaths[0]);

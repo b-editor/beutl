@@ -14,8 +14,8 @@ public class ElementTimeRangeHistoryTests
     public void ElementEdit_RecordsOnlyTheElement_AndUndoRestoresTheRangesAndLayersOfItsObjects()
     {
         using var harness = new SceneHistoryHarness("beutl_element_time_range");
-        var app = new BeutlApplication { Project = { Value = new Project() } };
-        app.Project.Value!.Items.Add(harness.Scene);
+        var app = new BeutlApplication { Projects = { new Project() } };
+        app.Projects[0].Items.Add(harness.Scene);
         Element element = harness.AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2), zIndex: 1);
         var inner = new RectShape();
         var group = new DrawableGroup();

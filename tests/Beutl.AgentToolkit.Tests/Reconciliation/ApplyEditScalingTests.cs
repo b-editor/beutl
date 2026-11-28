@@ -90,7 +90,7 @@ public sealed class ApplyEditScalingTests
             var project = new Project();
             project.Items.Add(scene);
             project.Items.Add(referenced);
-            _ = new BeutlApplication { Project = { Value = project } };
+            _ = new BeutlApplication { Projects = { project } };
         }
 
         var elements = new Element[count];

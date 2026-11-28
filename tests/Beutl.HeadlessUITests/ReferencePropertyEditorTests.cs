@@ -588,7 +588,7 @@ public class ReferencePropertyEditorTests
         {
             var scene = new Scene();
             Project = new Project { Items = { scene } };
-            _app = new BeutlApplication { Project = { Value = Project } };
+            _app = new BeutlApplication { Projects = { Project } };
             Element = new Element();
             scene.Children.Add(Element);
             Owner = (EngineObject)Activator.CreateInstance(ownerType)!;
@@ -663,7 +663,7 @@ public class ReferencePropertyEditorTests
             Vm.Dispose();
             Clock.Dispose();
             History.Dispose();
-            _app.Project.Value = null;
+            _app.Projects.Clear();
         }
     }
 }

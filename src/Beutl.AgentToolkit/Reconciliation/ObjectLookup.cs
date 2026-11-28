@@ -14,7 +14,7 @@ internal sealed class ObjectLookup(CoreObject root)
     public ICoreObject? Find(Guid id) => (_objects ??= Walk(Root)).GetValueOrDefault(id);
 
     // What a reference held in this tree resolves to, in the order of ReferenceScope.Find: within its project item
-    // first, then anywhere in the project.
+    // first, then anywhere in its project.
     public ICoreObject? FindReference(Guid id)
     {
         if (Root is not IHierarchical anchor)
@@ -28,7 +28,7 @@ internal sealed class ObjectLookup(CoreObject root)
             return inItem;
         }
 
-        _projectObjects ??= Walk(anchor.FindHierarchicalRoot() as ICoreObject ?? Root);
+        _projectObjects ??= Walk(ReferenceScope.SearchScope(anchor, anchor.FindHierarchicalRoot() as ICoreObject) ?? Root);
         return _projectObjects.GetValueOrDefault(id);
     }
 

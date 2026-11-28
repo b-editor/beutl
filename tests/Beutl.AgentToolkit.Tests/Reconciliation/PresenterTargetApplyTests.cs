@@ -19,7 +19,7 @@ public sealed class PresenterTargetApplyTests
         var scene = new Scene(1920, 1080, "scene") { Uri = new Uri(Path.Combine(dir, "scene.scene")) };
         var project = new Project();
         project.Items.Add(scene);
-        _ = new BeutlApplication { Project = { Value = project } };
+        _ = new BeutlApplication { Projects = { project } };
 
         var target = new RectShape();
         var presenter = new DrawablePresenter();

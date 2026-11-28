@@ -497,8 +497,8 @@ public class CompositionEvaluationServicesTests
     private static (Scene, EvaluationCaptureDrawable) CreateScene()
     {
         var scene = new Scene(320, 240, string.Empty);
-        var application = new BeutlApplication { Project = { Value = new Project() } };
-        application.Project.Value!.Items.Add(scene);
+        var application = new BeutlApplication { Projects = { new Project() } };
+        application.Projects[0].Items.Add(scene);
         var capture = new EvaluationCaptureDrawable();
         Add(scene, capture, 0);
         return (scene, capture);

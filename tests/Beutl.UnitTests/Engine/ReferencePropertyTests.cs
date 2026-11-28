@@ -148,7 +148,7 @@ public class ReferencePropertyTests
         var target = new Scene();
         project.Items.Add(scene);
         project.Items.Add(target);
-        _ = new BeutlApplication { Project = { Value = project } };
+        _ = new BeutlApplication { Projects = { project } };
         var element = new Element();
         var drawable = new SceneDrawable();
         drawable.ReferencedScene.Expression = new ReferenceExpression<Scene?>(target.Id.Value);
