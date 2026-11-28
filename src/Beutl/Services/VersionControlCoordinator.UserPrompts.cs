@@ -101,8 +101,11 @@ internal partial class VersionControlCoordinator
                 return;
             }
 
-            // The question waits while the project is in the background, and is shown once it is active again.
-            if (TrackedProject is { } tracked && !ReferenceEquals(_projectService.CurrentProject.Value, tracked))
+            // The question waits while the project is in the background, or its tabs are being put aside for a switch,
+            // and is shown once restoring them selects a tab again.
+            if (TrackedProject is { } tracked
+                && (!ReferenceEquals(_projectService.CurrentProject.Value, tracked)
+                    || _editorService.HasInactiveTabs(tracked)))
             {
                 return;
             }

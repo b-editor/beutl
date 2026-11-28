@@ -3042,6 +3042,9 @@ Resuelve los conflictos con una herramienta externa de Git antes de editar. Es p
   <data name="VersionControl_UntrackReservedPathsConfirmation" xml:space="preserve">
     <value>Este repositorio ya registra los archivos de estado local de Beutl. Mientras sigan bajo seguimiento, cada pull indicará que el repositorio tiene cambios sin confirmar. ¿Dejar de registrarlos? Los archivos permanecerán en el disco.</value>
   </data>
+  <data name="VersionControl_OtherProjectInWorktree" xml:space="preserve">
+    <value>Hay otro proyecto abierto en la misma carpeta o repositorio Git. Ciérrelo antes de restaurar, cambiar de rama o extraer cambios, para que sus editores no guarden sobre los archivos que esto modifica.</value>
+  </data>
   <data name="VersionControl_WorkspaceBusy" xml:space="preserve">
     <value>Esta operación de control de versiones no está disponible mientras una exportación o un guardado escribe en el proyecto.</value>
   </data>

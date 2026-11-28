@@ -46,8 +46,14 @@ internal sealed partial class EditorWorkspace : IOutputOperationLeaseProvider
     // and reopens the project changes it to the reopened model.
     internal IReadOnlyReactiveProperty<Project?> Project => _project;
 
+    // The project not in a file this workspace belongs to; null for a workspace keyed by file and for the editor
+    // service's own one.
+    internal Project? UnfiledProject { get; init; }
+
     internal void RefreshProject(ProjectSessionRegistry sessions)
-        => _project.Value = ProjectFile is { } file ? sessions.Find(file)?.Project : null;
+        => _project.Value = ProjectFile is { } file
+            ? sessions.Find(file)?.Project
+            : UnfiledProject is { } project && sessions.Find(project) is not null ? project : null;
 
     private ProjectColorPaletteHost? _colorPalettes;
 

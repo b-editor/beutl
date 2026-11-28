@@ -137,6 +137,23 @@ internal sealed partial class VersionControlCoordinator :
         StartAvailabilityRefresh();
     }
 
+    // Set while the coordinator prepares the version control of a project being created: it then claims only the
+    // activation of the created project, and another coordinator claims any other project meanwhile.
+    private bool _reservedForNewProject;
+
+    internal bool IsReservedForNewProject => _reservedForNewProject;
+
+    internal void ReserveForNewProject() => _reservedForNewProject = true;
+
+    // Raised once a setup from BeginNewProject is disposed, whether or not its project opened.
+    internal event EventHandler? NewProjectSetupEnded;
+
+    private void EndNewProjectReservation()
+    {
+        _reservedForNewProject = false;
+        NewProjectSetupEnded?.Invoke(this, EventArgs.Empty);
+    }
+
     // Raised once the coordinator claims a project, and once it lets go of it because the project closed.
     internal event EventHandler? ProjectClaimed;
 
@@ -184,6 +201,7 @@ internal sealed partial class VersionControlCoordinator :
         if (ReferenceEquals(workspace.VersionControl, this))
             workspace.VersionControl = null;
         _workspace = null;
+        _editorService.ScheduleWorkspaceRelease();
         ProjectReleased?.Invoke(this, EventArgs.Empty);
     }
 

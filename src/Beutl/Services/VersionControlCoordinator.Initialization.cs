@@ -445,6 +445,7 @@ internal partial class VersionControlCoordinator
                 finally
                 {
                     presentation.Dispose();
+                    owner.EndNewProjectReservation();
                 }
 
                 return Task.CompletedTask;

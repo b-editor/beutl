@@ -60,6 +60,8 @@ public sealed class SessionScopedEditorServicesTests
                 Assert.That(backgroundWorkspace, Is.Not.SameAs(foregroundWorkspace));
                 Assert.That(TestShell.Editor.ActiveWorkspace.Value, Is.SameAs(foregroundWorkspace));
                 Assert.That(backgroundEditor.Workspace, Is.SameAs(backgroundWorkspace));
+                Assert.That(backgroundEditor.GetService(typeof(Beutl.Editor.Components.FileBrowserTab.IProjectAssetHost)),
+                    Is.SameAs(backgroundWorkspace.ProjectAssets), "A background editor's file browser shows its own project's assets.");
                 Assert.That(foregroundEditor.Workspace, Is.SameAs(foregroundWorkspace));
                 Assert.That(backgroundWorkspace.TabItems.Select(tab => tab.Context.Value), Is.EqualTo(new[] { backgroundEditor }));
                 Assert.That(foregroundWorkspace.TabItems.Select(tab => tab.Context.Value), Is.EqualTo(new[] { foregroundEditor }));
@@ -560,6 +562,111 @@ public sealed class SessionScopedEditorServicesTests
         return media;
     }
 
+    [AvaloniaTest]
+    public async Task Projects_without_a_file_keep_their_own_tabs_aside()
+    {
+        var registry = new ProjectSessionRegistry(new BeutlApplication());
+        var editors = new EditorService(
+            new Beutl.Api.Services.ExtensionProvider(new ExtensionConfig()), (_, _) => { }, TestShell.CreateEditorServices(), registry);
+        var first = new Project();
+        var second = new Project();
+        ProjectSession firstSession = registry.Add(first, TestShell.FontManager.Fork());
+        ProjectSession secondSession = registry.Add(second, TestShell.FontManager.Fork());
+        await using var firstTab = new EditorTabItem(new StubEditorContext());
+        await using var secondTab = new EditorTabItem(new StubEditorContext());
+
+        registry.Activate(firstSession);
+        editors.TabItems.Add(firstTab);
+        await editors.PutTabsAsideAsync(first);
+        registry.Activate(secondSession);
+        editors.TabItems.Add(secondTab);
+        await editors.PutTabsAsideAsync(second);
+        registry.Activate(firstSession);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(editors.WorkspaceFor(firstSession), Is.Not.SameAs(editors.WorkspaceFor(secondSession)));
+            Assert.That(editors.TryTakeInactiveTabs(first, out EditorService.InactiveTabSet? firstTabs), Is.True);
+            Assert.That(firstTabs!.Items, Is.EqualTo(new[] { firstTab }));
+            Assert.That(editors.TryGetInactiveTabs(second, out EditorService.InactiveTabSet? secondTabs), Is.True);
+            Assert.That(secondTabs!.Items, Is.EqualTo(new[] { secondTab }));
+            Assert.That(editors.TakeAllInactiveTabs(), Is.EqualTo(new[] { secondTab }));
+        });
+    }
+
+    [AvaloniaTest]
+    public async Task Closing_the_only_project_lets_its_workspace_go()
+    {
+        await TestReset.ResetShellAsync();
+        try
+        {
+            string file = await CreateClosedProjectAsync("only-project-release");
+            await TestShell.Project.OpenProject(file);
+            HeadlessTestHelpers.Settle();
+            EditorWorkspace workspace = TestShell.Editor.WorkspaceFor(Registry.ActiveSession.Value!);
+
+            Assert.That(await TestShell.Project.TryCloseProjectAsync(
+                workspace.Project.Value!, ProjectService.ProjectCloseIntent.SaveChanges), Is.True);
+            HeadlessTestHelpers.Settle();
+
+            Assert.That(TestShell.Editor.Workspaces, Does.Not.Contain(workspace));
+        }
+        finally
+        {
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task A_project_being_created_is_tracked_by_the_coordinator_that_prepared_it()
+    {
+        await TestReset.ResetShellAsync();
+        VersionControlCoordinators versionControl = TestShell.MainViewModel.VersionControl;
+        try
+        {
+            string other = await CreateClosedProjectAsync("creation-other");
+            VersionControlCoordinator creator = versionControl.Current;
+            INewProjectVersionControlSetup setup = versionControl.BeginNewProject();
+            try
+            {
+                // Another project activates while the creation still prepares its project.
+                await TestShell.Project.OpenProject(other);
+                HeadlessTestHelpers.Settle();
+                Assert.Multiple(() =>
+                {
+                    Assert.That(creator.TrackedProject, Is.Null, "The preparing coordinator waits for its project.");
+                    Assert.That(versionControl.Current.TrackedProject, Is.SameAs(TestShell.Project.CurrentProject.Value));
+                });
+
+                Project created = (await TestShell.Project.CreateProject(
+                    320, 180, new Rational(30), 44100, "creation-created", TestShell.NewWorkspace("creation-created")))!;
+                HeadlessTestHelpers.Settle();
+                Assert.That(creator.TrackedProject, Is.SameAs(created));
+            }
+            finally
+            {
+                await setup.DisposeAsync();
+            }
+
+            HeadlessTestHelpers.Settle();
+            Assert.That(versionControl.All, Does.Contain(creator));
+
+            // A creation that ends without its project lets the preparing coordinator go.
+            VersionControlCoordinator unused = versionControl.All.Single(c => c.TrackedProject is null);
+            await versionControl.BeginNewProject().DisposeAsync();
+            HeadlessTestHelpers.Settle();
+            Assert.Multiple(() =>
+            {
+                Assert.That(versionControl.All, Does.Not.Contain(unused));
+                Assert.That(versionControl.All.Count(c => c.TrackedProject is null), Is.EqualTo(1));
+            });
+        }
+        finally
+        {
+            await TestReset.ResetShellAsync();
+        }
+    }
+
     // Opens a project, then a second one, each showing its scene. The first one goes to the background.
     private static async Task<(ProjectSession Background, EditViewModel BackgroundEditor, ProjectSession Foreground, EditViewModel ForegroundEditor)>
         OpenTwoProjectsAsync(string name)
@@ -626,6 +733,33 @@ public sealed class SessionScopedEditorServicesTests
         }
 
         public void ReadFromJson(System.Text.Json.Nodes.JsonObject json)
+        {
+        }
+    }
+
+    private sealed class StubEditorContext : IEditorContext
+    {
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+
+        public CoreObject Object { get; } = new Scene { Uri = new Uri("file:///scene.scene") };
+
+        public EditorExtension Extension => Beutl.Services.PrimitiveImpls.SceneEditorExtension.Instance;
+
+        public IReactiveProperty<bool> IsEnabled { get; } = new ReactivePropertySlim<bool>(true);
+
+        public object? GetService(Type serviceType) => null;
+
+        public T? FindToolTab<T>(Func<T, bool> condition)
+            where T : IToolContext
+            => default;
+
+        public T? FindToolTab<T>()
+            where T : IToolContext
+            => default;
+
+        public bool OpenToolTab(IToolContext item) => false;
+
+        public void CloseToolTab(IToolContext item)
         {
         }
     }

@@ -182,6 +182,11 @@ internal partial class VersionControlCoordinator
         IProgress<string>? progress,
         CancellationToken cancellationToken)
     {
+        if (Workspace.FindOverlappingLoadedProject() is not null)
+        {
+            return new RemoteOpResult.Failed(Strings.VersionControl_OtherProjectInWorktree);
+        }
+
         // Held until the project is closed further down, so an edit made while the preflight and
         // the prefetch run is neither lost nor left out of the files the pull sets aside.
         using IDisposable editorSuspension = Workspace.SuspendEditors();

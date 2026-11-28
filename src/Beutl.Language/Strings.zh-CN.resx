@@ -3042,6 +3042,9 @@ GetProperty&lt;T&gt;("path", time) 或 GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="VersionControl_UntrackReservedPathsConfirmation" xml:space="preserve">
     <value>此仓库已跟踪 Beutl 的本地状态文件。在停止跟踪前，每次拉取都会报告仓库存在未提交的更改。要停止跟踪这些文件吗？文件将保留在磁盘上。</value>
   </data>
+  <data name="VersionControl_OtherProjectInWorktree" xml:space="preserve">
+    <value>同一文件夹或 Git 仓库中还有另一个已打开的项目。请在还原、切换分支或拉取之前关闭它，以免其编辑器覆盖此操作更改的文件。</value>
+  </data>
   <data name="VersionControl_WorkspaceBusy" xml:space="preserve">
     <value>导出或保存操作正在写入项目时，无法执行此版本控制操作。</value>
   </data>

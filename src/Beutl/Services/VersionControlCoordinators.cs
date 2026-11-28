@@ -21,6 +21,8 @@ internal sealed class VersionControlCoordinators :
     private readonly EditorService _editorService;
     private readonly Func<VersionControlCoordinator> _create;
     private readonly List<VersionControlCoordinator> _tracking = [];
+    // Coordinators preparing a project being created, which claim only that project once it opens.
+    private readonly List<VersionControlCoordinator> _creating = [];
     private readonly List<Task> _retirements = [];
     private readonly ReactivePropertySlim<VersionControlCoordinator> _active;
     private readonly IDisposable _activeWorkspaceSubscription;
@@ -64,7 +66,7 @@ internal sealed class VersionControlCoordinators :
             : _standby;
 
     // Every coordinator, the one waiting for a project included.
-    internal IReadOnlyList<VersionControlCoordinator> All => [.. _tracking, _standby];
+    internal IReadOnlyList<VersionControlCoordinator> All => [.. _tracking, .. _creating, _standby];
 
     public IReadOnlyReactiveProperty<bool> IsGitAvailable { get; }
 
@@ -137,14 +139,41 @@ internal sealed class VersionControlCoordinators :
     public Task<bool> InitializeCurrentProjectAsync(Project expectedProject, CancellationToken cancellationToken = default)
         => Current.InitializeCurrentProjectAsync(expectedProject, cancellationToken);
 
-    // A new project is tracked by the coordinator that claims it when it opens: the one waiting for a project.
-    public INewProjectVersionControlSetup BeginNewProject() => _standby.BeginNewProject();
+    // The coordinator waiting for a project prepares the new one and is kept for it, so a project activated before the
+    // created one opens is claimed by another coordinator rather than taking the prepared repository away.
+    public INewProjectVersionControlSetup BeginNewProject()
+    {
+        VersionControlCoordinator creator = _standby;
+        INewProjectVersionControlSetup setup = creator.BeginNewProject();
+        creator.ReserveForNewProject();
+        _creating.Add(creator);
+        _standby = Adopt(_create());
+        UpdateActive();
+        return setup;
+    }
+
+    // A creation ended; its coordinator stays only if the created project opened and it claimed it.
+    private void OnNewProjectSetupEnded(object? sender, EventArgs e)
+    {
+        if (_disposed
+            || sender is not VersionControlCoordinator coordinator
+            || coordinator.IsReservedForNewProject
+            || !_creating.Remove(coordinator)
+            || coordinator.TrackedWorkspace is not null)
+        {
+            return;
+        }
+
+        Forget(coordinator);
+        coordinator.Dispose();
+    }
 
     private VersionControlCoordinator Adopt(VersionControlCoordinator coordinator)
     {
         coordinator.ProjectClaimed += OnClaimed;
         coordinator.ProjectReleased += OnReleased;
         coordinator.PushSucceeded += OnPushSucceeded;
+        coordinator.NewProjectSetupEnded += OnNewProjectSetupEnded;
         if (_requestIdentity is { } requestIdentity)
             coordinator.RequestIdentityAsync = requestIdentity;
         return coordinator;
@@ -153,11 +182,19 @@ internal sealed class VersionControlCoordinators :
     // The coordinator waiting for a project claimed one, so another takes its place.
     private void OnClaimed(object? sender, EventArgs e)
     {
-        if (_disposed || sender is not VersionControlCoordinator coordinator || !ReferenceEquals(coordinator, _standby))
+        if (_disposed || sender is not VersionControlCoordinator coordinator)
             return;
 
-        _tracking.Add(coordinator);
-        _standby = Adopt(_create());
+        if (_creating.Remove(coordinator))
+        {
+            _tracking.Add(coordinator);
+        }
+        else if (ReferenceEquals(coordinator, _standby))
+        {
+            _tracking.Add(coordinator);
+            _standby = Adopt(_create());
+        }
+
         UpdateActive();
     }
 
@@ -193,6 +230,7 @@ internal sealed class VersionControlCoordinators :
         coordinator.ProjectClaimed -= OnClaimed;
         coordinator.ProjectReleased -= OnReleased;
         coordinator.PushSucceeded -= OnPushSucceeded;
+        coordinator.NewProjectSetupEnded -= OnNewProjectSetupEnded;
     }
 
     private void OnPushSucceeded(object? sender, VersionControlCoordinator.PushSucceededEventArgs e)

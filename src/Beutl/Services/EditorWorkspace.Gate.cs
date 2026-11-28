@@ -70,6 +70,22 @@ internal sealed partial class EditorWorkspace
             => FilePathComparison.IsSameOrDescendantCanonicalPath(scope, directory);
     }
 
+    // Another loaded project whose files a mutation of this workspace can replace, or null.
+    internal Project? FindOverlappingLoadedProject()
+    {
+        EditorWorkspace[] workspaces = Owner.Workspaces;
+        lock (_workspaceOperationSync)
+        {
+            foreach (EditorWorkspace other in workspaces)
+            {
+                if (other.Project.Value is { } project && Overlaps(other))
+                    return project;
+            }
+        }
+
+        return null;
+    }
+
     // The worktree mutation that holds back work here: this workspace's own, or one of an overlapping workspace.
     // Called holding the lock.
     private EditorWorkspace? FindBlockingMutation(EditorWorkspace[] workspaces)
@@ -294,6 +310,10 @@ internal sealed partial class EditorWorkspace
         {
             _projectFileWriteGate.Release();
         }
+
+        // The last reservation on an unloaded project's files can be what kept its workspace.
+        if (Project.Value is null)
+            Owner.ScheduleWorkspaceRelease();
     }
 
     private sealed class WorkspaceOperationLease(

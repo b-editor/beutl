@@ -228,6 +228,22 @@ internal partial class VersionControlCoordinator
         return originalTip;
     }
 
+    // A restore, branch switch or pull rewrites files that another loaded project in the same worktree keeps open in
+    // its editors, and that project would later save its stale copies over them; it has to be closed first.
+    private bool EnsureNoOtherProjectInWorktree()
+    {
+        if (Workspace.FindOverlappingLoadedProject() is null)
+        {
+            return true;
+        }
+
+        PublishNotification(() =>
+            _notifications.ShowWarning(
+                Strings.VersionControl,
+                Strings.VersionControl_OtherProjectInWorktree));
+        return false;
+    }
+
     private bool EnsureRepositoryIsNotConflicted(WorkspaceStatus status)
     {
         if (!status.HasConflicts)

@@ -31,11 +31,16 @@ public sealed partial class EditorService
         EditorTabItem? selected = SelectedTabItem.Value is { } tab && items.Contains(tab) ? tab : null;
         SelectedTabItem.Value = null;
         _tabItems.Clear();
-        if (workspace.InactiveTabs is { } earlier)
+        if (workspace.InactiveTabs is { } earlier && ReferenceEquals(earlier.Project, project))
         {
             // A session cannot be put aside twice; keep both sets rather than lose the earlier tabs.
             items = [.. earlier.Items, .. items];
             selected ??= earlier.Selected;
+        }
+        else if (workspace.InactiveTabs is { } stale)
+        {
+            // Another model of the same file left tabs behind; they are not this project's to take over.
+            _logger.LogWarning("Replaced {Count} tabs put aside for another model of {File}.", stale.Items.Length, workspace.ProjectFile);
         }
 
         workspace.InactiveTabs = new InactiveTabSet(project, items, selected);
@@ -71,6 +76,7 @@ public sealed partial class EditorService
             return false;
 
         WorkspaceOfFile(project).InactiveTabs = null;
+        ScheduleWorkspaceRelease();
         return true;
     }
 
@@ -86,6 +92,8 @@ public sealed partial class EditorService
                 items.AddRange(set.Items);
             }
         }
+
+        ScheduleWorkspaceRelease();
 
         return [.. items];
     }

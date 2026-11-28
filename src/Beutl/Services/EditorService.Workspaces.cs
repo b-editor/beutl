@@ -44,12 +44,31 @@ public sealed partial class EditorService
     // The workspace of the project's file whether or not the project is still loaded, for the tabs of a session that
     // outlive its unloading until they are disposed.
     private EditorWorkspace WorkspaceOfFile(Project project)
-        => project.Uri is { IsFile: true } uri ? WorkspaceForFile(uri.LocalPath) : _shellWorkspace;
+        => project.Uri is { IsFile: true } uri ? WorkspaceForFile(uri.LocalPath) : WorkspaceForUnfiled(project);
 
     internal EditorWorkspace WorkspaceFor(ProjectSession session)
     {
         ArgumentNullException.ThrowIfNull(session);
-        return session.FilePath is { } file ? WorkspaceForFile(file) : _shellWorkspace;
+        return session.FilePath is { } file ? WorkspaceForFile(file) : WorkspaceForUnfiled(session.Project);
+    }
+
+    // A loaded project that is not in a file has a workspace of its own, keyed by the model, so two of them never
+    // share tabs put aside.
+    private EditorWorkspace WorkspaceForUnfiled(Project project)
+    {
+        lock (_workspacesSync)
+        {
+            foreach (EditorWorkspace workspace in _workspaces)
+            {
+                if (ReferenceEquals(workspace.UnfiledProject, project))
+                    return workspace;
+            }
+
+            var created = new EditorWorkspace(this, projectFile: null) { UnfiledProject = project };
+            created.RefreshProject(_sessions);
+            _workspaces.Add(created);
+            return created;
+        }
     }
 
     // The workspace of the project an editor context edits, or the active one for an object outside any project.
@@ -125,11 +144,30 @@ public sealed partial class EditorService
         loaded.CollectionChanged += handler;
     }
 
-    // A project was loaded or unloaded, so the workspace of its file has a model again or none.
+    // A project was loaded or unloaded, so the workspace of its file has a model again or none. An unloaded
+    // project's workspace can go now, the session having left the registry after the active one changed.
     private void OnSessionsChanged()
     {
         foreach (EditorWorkspace workspace in Workspaces)
             workspace.RefreshProject(_sessions);
+        ReleaseUnusedWorkspaces();
+    }
+
+    private int _workspaceReleaseScheduled;
+
+    // Something that held a workspace let go of it, possibly from another thread: the tabs put aside, a reservation,
+    // an activity or the version control tracking the project. The release runs on the UI thread, where the
+    // sessions are.
+    internal void ScheduleWorkspaceRelease()
+    {
+        if (Interlocked.Exchange(ref _workspaceReleaseScheduled, 1) != 0)
+            return;
+
+        Dispatcher.UIThread.Post(() =>
+        {
+            Volatile.Write(ref _workspaceReleaseScheduled, 0);
+            ReleaseUnusedWorkspaces();
+        }, DispatcherPriority.Background);
     }
 
     private void OnActiveSessionChanged(ProjectSession? session)
@@ -151,8 +189,9 @@ public sealed partial class EditorService
         {
             _workspaces.RemoveAll(workspace =>
                 !ReferenceEquals(workspace, _activeWorkspace.Value)
-                && workspace.ProjectFile is { } file
-                && _sessions.Find(file) is null
+                && (workspace.ProjectFile is { } file
+                    ? _sessions.Find(file) is null
+                    : workspace.UnfiledProject is { } project && _sessions.Find(project) is null)
                 && workspace.IsIdle);
         }
     }

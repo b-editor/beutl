@@ -69,6 +69,8 @@ internal sealed partial class EditorWorkspace
     {
         _lifecycleActivity.Value = GetCurrentLifecycleActivity();
         Owner.RefreshLifecycleActivity();
+        if (Project.Value is null)
+            Owner.ScheduleWorkspaceRelease();
     }
 
     private ProjectLifecycleActivity GetCurrentLifecycleActivity()

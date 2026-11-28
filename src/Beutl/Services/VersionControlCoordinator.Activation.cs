@@ -22,6 +22,9 @@ internal partial class VersionControlCoordinator
             case ProjectService.ProjectSessionChange.Activated:
                 if (_workspace is null)
                 {
+                    if (_reservedForNewProject && !IsProjectCreationTransition(_projectService.CurrentTransition))
+                        break;
+
                     if (TryClaim(commit.Session))
                         OnProjectChanged(commit.Project);
                 }

@@ -41,6 +41,11 @@ internal partial class VersionControlCoordinator
         ProjectService.ProjectTransitionScope transition,
         CancellationToken cancellationToken)
     {
+        if (!EnsureNoOtherProjectInWorktree())
+        {
+            return false;
+        }
+
         if (!await CheckRestorePreconditionsAsync(
                 service,
                 sha,

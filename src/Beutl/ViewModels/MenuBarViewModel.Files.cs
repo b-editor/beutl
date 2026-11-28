@@ -146,6 +146,9 @@ public partial class MenuBarViewModel
             // save stays with the project whose files the lease reserves, even if another one becomes active.
             EditorWorkspace workspace = EditorWorkspace.OwnerOf(fileWrite) ?? _editorService.ActiveWorkspace.Value;
             Project? project = workspace.Project.Value;
+            // Taken before the first await: a switch while the scenes are written must not hand this save, which
+            // holds only this project's lease, the tabs of the project that became active.
+            EditorTabItem[] tabs = workspace.TabItems;
             if (project != null)
             {
                 // Every scene of the project is written, so that leaves the UI thread, as a lifecycle save does. The
@@ -167,10 +170,17 @@ public partial class MenuBarViewModel
 
             itemsCount++;
 
-            // Each SaveAsync can yield to the dispatcher, which can close a tab, so the live list is
-            // snapshotted rather than enumerated across the awaits.
-            foreach (EditorTabItem item in workspace.TabItems)
+            // Each SaveAsync can yield to the dispatcher, so the tabs are the ones captured with the lease. A tab that
+            // closes meanwhile has no context left, and a scene editor of another project is not saved through this
+            // project's reservation.
+            foreach (EditorTabItem item in tabs)
             {
+                if (item.Context.Value is EditViewModel { Workspace: var editorWorkspace }
+                    && !ReferenceEquals(editorWorkspace, workspace))
+                {
+                    continue;
+                }
+
                 if (item.Context.Value is ISavableEditorContext editor)
                 {
                     if (await EditorService.SaveEditorInReservedWorkspaceAsync(editor))
@@ -189,7 +199,7 @@ public partial class MenuBarViewModel
 
             Notifications.ShowSuccess(string.Empty, string.Format(MessageStrings.ItemsSaved, itemsCount.ToString()));
 
-            if (workspace.TabItems.All(v => v.Context.Value is ISupportAutoSaveEditorContext))
+            if (tabs.All(v => v.Context.Value is ISupportAutoSaveEditorContext))
             {
                 Notifications.ShowInformation(string.Empty, MessageStrings.FilesAutoSaved);
             }

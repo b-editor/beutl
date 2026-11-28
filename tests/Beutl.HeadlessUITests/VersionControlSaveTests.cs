@@ -960,6 +960,39 @@ public class VersionControlSaveTests
     }
 
     [AvaloniaTest]
+    public async Task Switching_branches_is_refused_while_another_project_in_the_folder_is_loaded()
+    {
+        await using RealGitScope git = await RealGitScope.StartAsync(
+            autoCommitOnSave: false,
+            autoCommitOnClose: false,
+            useLfsWhenAvailable: false);
+        Project original = await git.CreateProjectAsync("worktree-shared", "original");
+        string projectRoot = Path.GetDirectoryName(original.Uri!.LocalPath)!;
+        await RunGitAsync(git.GitPath, projectRoot, "branch", "other");
+        string alternate = Path.Combine(projectRoot, "alternate.bep");
+        File.Copy(original.Uri.LocalPath, alternate);
+        await TestShell.Project.OpenProject(alternate);
+        await TestShell.Project.OpenProject(original.Uri.LocalPath);
+        HeadlessTestHelpers.Settle();
+        Assert.That(TestShell.Project.CurrentProject.Value, Is.SameAs(original));
+        VersionControlCoordinator coordinator = TestShell.VersionControl;
+        await WaitUntilAsync(() => coordinator.CurrentService?.Repository is not null);
+        coordinator.ConfirmSwitchBranchAsync = (_, _) => Task.FromResult(true);
+        using var notifications = new NotificationCapture(TestShell.Notifications);
+
+        bool switched = await coordinator.SwitchBranchAsync("other");
+        string branch = (await RunGitAsync(git.GitPath, projectRoot, "branch", "--show-current")).Trim();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(switched, Is.False);
+            Assert.That(branch, Is.Not.EqualTo("other"));
+            Assert.That(notifications.All.Select(n => n.Message), Does.Contain(Strings.VersionControl_OtherProjectInWorktree));
+            Assert.That(TestShell.Project.Sessions.Sessions, Has.Count.EqualTo(2));
+        });
+    }
+
+    [AvaloniaTest]
     public async Task A_save_is_snapshotted_by_the_project_it_wrote_after_another_one_became_active()
     {
         await using RealGitScope git = await RealGitScope.StartAsync(
