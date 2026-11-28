@@ -406,6 +406,28 @@ public sealed class EditorServiceTests
         Assert.That(context.IsEnabled.Value, Is.True);
     }
 
+    [AvaloniaTest]
+    public async Task SuspendEditors_restores_an_editor_whose_tab_was_put_aside_during_the_suspension()
+    {
+        var editorService = new EditorService(new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), (_, _) => { }, TestShell.CreateEditorServices());
+        var context = new StubEditorContext();
+        var tab = new EditorTabItem(context);
+        editorService.TabItems.Add(tab);
+        var project = new Project();
+
+        // Deactivating a tracked project with auto-commit on close suspends its editors, then puts their tabs aside.
+        IDisposable suspension = editorService.SuspendEditors();
+        await editorService.PutTabsAsideAsync(project);
+        suspension.Dispose();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(editorService.TryTakeInactiveTabs(project, out EditorService.InactiveTabSet? tabs), Is.True);
+            Assert.That(tabs!.Items, Is.EqualTo(new[] { tab }));
+            Assert.That(context.IsEnabled.Value, Is.True);
+        });
+    }
+
     [Test]
     public void SuspendEditors_supports_out_of_order_disposal()
     {
