@@ -140,8 +140,23 @@ internal static class LibraryThumbnailRenderer
     /// <remarks>
     /// Each frame is drawn on its own at low priority on the render thread, so the preview's frames go first.
     /// </remarks>
-    public static async Task<LibraryThumbnailSheet?> RenderAsync(
+    public static Task<LibraryThumbnailSheet?> RenderAsync(
         SceneRenderServices services, Type type, LibraryThumbnailSubject? subject, bool stillOnly, CancellationToken cancellationToken = default)
+    {
+        return RenderAsync(services, type, subject, stillOnly, configureEffect: null, cancellationToken);
+    }
+
+    /// <summary>
+    /// Draws <paramref name="type"/>'s thumbnail as the overload without <paramref name="configureEffect"/> does, which
+    /// sets up the filter effect after its recipe: a LUT picker's tile gives the effect its own file.
+    /// </summary>
+    public static async Task<LibraryThumbnailSheet?> RenderAsync(
+        SceneRenderServices services,
+        Type type,
+        LibraryThumbnailSubject? subject,
+        bool stillOnly,
+        Action<FilterEffect>? configureEffect,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(services);
 
@@ -149,7 +164,9 @@ internal static class LibraryThumbnailRenderer
             return null;
 
         Session? session = await RenderThread.Dispatcher.InvokeAsync(
-            () => Session.TryCreate(services, type, layout, subject, stillOnly), DispatchPriority.Low, cancellationToken);
+            () => Session.TryCreate(services, type, layout, subject, stillOnly, configureEffect),
+            DispatchPriority.Low,
+            cancellationToken);
         if (session == null)
             return null;
 
@@ -181,7 +198,7 @@ internal static class LibraryThumbnailRenderer
         }
     }
 
-    private static Scene CreateEffectScene(Type type, LibraryThumbnailSubject? subject)
+    private static Scene CreateEffectScene(Type type, LibraryThumbnailSubject? subject, Action<FilterEffect>? configure)
     {
         var effect = (FilterEffect)Activator.CreateInstance(type)!;
         LibraryThumbnailRecipes.Recipe? recipe = LibraryThumbnailRecipes.Find(type);
@@ -205,6 +222,7 @@ internal static class LibraryThumbnailRenderer
 
         target.FilterEffect.Value = effect;
         recipe?.Apply(effect, new LibraryThumbnailContext(target, EffectLength, content));
+        configure?.Invoke(effect);
 
         return CreateScene(
             frame,
@@ -423,13 +441,18 @@ internal static class LibraryThumbnailRenderer
         }
 
         public static Session? TryCreate(
-            SceneRenderServices services, Type type, LibraryThumbnailLayout layout, LibraryThumbnailSubject? subject, bool stillOnly)
+            SceneRenderServices services,
+            Type type,
+            LibraryThumbnailLayout layout,
+            LibraryThumbnailSubject? subject,
+            bool stillOnly,
+            Action<FilterEffect>? configureEffect)
         {
             try
             {
                 (Scene scene, Func<int, MediaTime>? timeOf) = type.IsAssignableTo(typeof(ClipTransition))
                     ? CreateTransitionScene(type, subject)
-                    : (CreateEffectScene(type, subject), null);
+                    : (CreateEffectScene(type, subject, configureEffect), null);
                 return new Session(services, type, scene, timeOf, stillOnly ? LibraryThumbnailLayout.FrameSize : layout.SheetSize);
             }
             catch (Exception ex)

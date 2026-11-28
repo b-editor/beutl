@@ -1,5 +1,6 @@
 ﻿using System.Text.Json.Nodes;
 using Beutl.Composition;
+using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
@@ -108,13 +109,28 @@ internal sealed class LibraryThumbnailSubject : IDisposable
     /// <remarks>
     /// It reads its media through the readers the preview has open, so nothing is opened again for it.
     /// </remarks>
-    public static async Task<LibraryThumbnailSubject?> CaptureElementAsync(
+    public static Task<LibraryThumbnailSubject?> CaptureElementAsync(
         SceneRenderServices services, Element element, MediaTime time, CancellationToken cancellationToken = default)
+    {
+        return CaptureElementAsync(services, element, time, hiddenObjectId: null, cancellationToken);
+    }
+
+    /// <summary>
+    /// <paramref name="element"/> as the overload without <paramref name="hiddenObjectId"/> captures it, with the
+    /// object of that id inside it turned off: a LUT picker leaves out the LUT effect it edits, which its tiles
+    /// apply themselves.
+    /// </summary>
+    public static async Task<LibraryThumbnailSubject?> CaptureElementAsync(
+        SceneRenderServices services,
+        Element element,
+        MediaTime time,
+        Guid? hiddenObjectId,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(services);
 
         // The live element is read here, on the thread that edits it; the copy is drawn on the render thread.
-        if (CopyAlone(services, element, time) is not { } copy)
+        if (CopyAlone(services, element, time, hiddenObjectId) is not { } copy)
             return null;
 
         return await RenderThread.Dispatcher.InvokeAsync(
@@ -219,7 +235,7 @@ internal sealed class LibraryThumbnailSubject : IDisposable
     // copy keeps the live element out of a second scene. It drops the element's transitions, which would fade it in or
     // out at the edge it is drawn at, and keeps its times, so an animation on the scene's clock reads the time the
     // project shows.
-    private static Copy? CopyAlone(SceneRenderServices services, Element element, MediaTime time)
+    private static Copy? CopyAlone(SceneRenderServices services, Element element, MediaTime time, Guid? hiddenObjectId = null)
     {
         try
         {
@@ -231,6 +247,10 @@ internal sealed class LibraryThumbnailSubject : IDisposable
             JsonObject json = CoreSerializer.SerializeToJsonObject(element);
             if (CoreSerializer.DeserializeFromJsonObject(json, typeof(Element)) is not Element copy)
                 return null;
+
+            // The copy keeps the ids it was serialized with.
+            if (hiddenObjectId is { } hidden && copy.FindById(hidden) is EngineObject hiddenObject)
+                hiddenObject.IsEnabled.Value = false;
 
             copy.EnterTransition.Value = null;
             copy.ExitTransition.Value = null;

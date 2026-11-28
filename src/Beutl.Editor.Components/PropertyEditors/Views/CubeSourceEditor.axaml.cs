@@ -1,14 +1,27 @@
-﻿using Avalonia.Controls;
+﻿using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
+using Beutl.Controls;
 using Beutl.Controls.PropertyEditors;
+using Beutl.Editor.Components.LibraryThumbnails;
+using Beutl.Editor.Components.PropertyEditors.LutLibrary;
 using Beutl.Editor.Components.PropertyEditors.ViewModels;
+using Beutl.Media;
+using Beutl.Media.Decoding;
 using Beutl.Media.Source;
 using Beutl.Serialization;
+using Microsoft.Extensions.DependencyInjection;
+using ExtensionGuard = Beutl.Api.Services.ExtensionGuard;
 
 namespace Beutl.Editor.Components.PropertyEditors.Views;
 
 public partial class CubeSourceEditor : UserControl
 {
+    private LutLibraryPickerViewModel? _picker;
+    private LutThumbnailCache? _thumbnails;
+    private string? _libraryFolderPathOverride;
+
     public CubeSourceEditor()
     {
         InitializeComponent();
@@ -20,14 +33,119 @@ public partial class CubeSourceEditor : UserControl
         FileEditor.ValueConfirmed += FileEditorOnValueConfirmed;
     }
 
+    // Tests and hosts can point the library at a folder other than <BeutlHome>/luts before it is first used.
+    internal string? LibraryFolderPathOverride
+    {
+        get => _libraryFolderPathOverride
+            ?? (DataContext as CubeSourceEditorViewModel)?.LibraryFolderPathOverride;
+        set
+        {
+            _libraryFolderPathOverride = value;
+            if (DataContext is CubeSourceEditorViewModel viewModel)
+            {
+                viewModel.LibraryFolderPathOverride = value;
+            }
+        }
+    }
+
+    internal LutLibraryPickerViewModel? PickerViewModel => _picker;
+
+    internal bool IsPickerOpen { get; private set; }
+
+    // Tests can answer the folder question without the OS dialog.
+    internal Func<Task<string?>>? FolderPickerOverride { get; set; }
+
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnDetachedFromVisualTree(e);
+
+        _picker?.Dispose();
+        _picker = null;
+        _thumbnails?.Dispose();
+        _thumbnails = null;
+    }
+
     private void FileEditorOnValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)
     {
-        if (DataContext is not CubeSourceEditorViewModel { IsDisposed: false } vm) return;
-        if (e.NewValue is not FileInfo fi) return;
+        if (e.NewValue is not FileInfo file)
+            return;
 
-        CubeSource? oldValue = vm.PropertyAdapter.GetValue();
+        SetCubeSource(file.FullName);
+    }
+
+    private async void LibraryButton_Click(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not CubeSourceEditorViewModel { IsDisposed: false } viewModel
+            || !viewModel.CanEdit.Value)
+        {
+            return;
+        }
+
+        // Each opening draws its tiles anew, on the element as it is at the playhead now.
+        _picker?.Dispose();
+        _thumbnails?.Dispose();
+        _thumbnails = CreateThumbnails(viewModel);
+        var picker = new LutLibraryPickerViewModel(
+            GetLibraryStore(viewModel),
+            _thumbnails,
+            FolderPickerOverride ?? (() => LutLibraryFolderPicker.PickAsync(this)));
+        _picker = picker;
+        _ = picker.LoadAsync();
+
+        PinnableLibraryItem? item;
+        IsPickerOpen = true;
+        try
+        {
+            item = await PickerGuard.RunAsync<PinnableLibraryItem>(
+                this,
+                sender as Control,
+                () => LibraryItemPickerHelper.ShowItemAsync(this, picker));
+        }
+        finally
+        {
+            IsPickerOpen = false;
+            picker.CancelThumbnailWork();
+        }
+
+        if (item?.UserData is LutLibraryPickerItem { IsError: false } picked)
+        {
+            SetCubeSource(picked.Path);
+        }
+    }
+
+    // The file picker and the library both write the same kind of source, so a pick is one undo step either way.
+    private void SetCubeSource(string path)
+    {
+        if (DataContext is not CubeSourceEditorViewModel { IsDisposed: false } viewModel
+            || !viewModel.CanEdit.Value)
+        {
+            return;
+        }
+
+        CubeSource? oldValue = viewModel.PropertyAdapter.GetValue();
         var newValue = new CubeSource();
-        newValue.ReadFrom(UriHelper.CreateFromPath(fi.FullName));
-        vm.SetValueAndCommit(oldValue, newValue);
+        newValue.ReadFrom(UriHelper.CreateFromPath(path));
+        viewModel.SetValueAndCommit(oldValue, newValue);
+    }
+
+    // The tiles show the element the LUT is on, without the effect being edited, which each tile applies with its
+    // own file; outside an element they show the effect thumbnails' sample.
+    private LutThumbnailCache CreateThumbnails(CubeSourceEditorViewModel viewModel)
+    {
+        var renderServices = new SceneRenderServices(
+            viewModel.GetService<FontManager>() ?? ControlFonts.GetOrCreate(this),
+            ExtensionGuard.FindService<DecoderRegistry>(viewModel) ?? ControlDecoders.GetDecoders(this));
+        ICoreObject? edited = viewModel.PropertyAdapter.GetEngineProperty()?.GetOwnerObject();
+        return new LutThumbnailCache(renderServices, LibraryThumbnailCapture.ForObject(viewModel, edited));
+    }
+
+    private LutLibraryStore GetLibraryStore(CubeSourceEditorViewModel viewModel)
+    {
+        if (_libraryFolderPathOverride is { Length: > 0 } path)
+        {
+            viewModel.LibraryFolderPathOverride ??= path;
+        }
+
+        return viewModel.GetLibraryStore();
     }
 }

@@ -623,6 +623,21 @@
   <data name="NoFavorites" xml:space="preserve">
     <value>No favorites</value>
   </data>
+  <data name="LutLibrary" xml:space="preserve">
+    <value>LUT library</value>
+  </data>
+  <data name="LutLibraryAddFolder" xml:space="preserve">
+    <value>Add folder…</value>
+  </data>
+  <data name="LutLibraryFolders" xml:space="preserve">
+    <value>LUT folders</value>
+  </data>
+  <data name="LutLibraryRemoveFolder" xml:space="preserve">
+    <value>Remove folder</value>
+  </data>
+  <data name="LutLibraryInvalidFile" xml:space="preserve">
+    <value>This file could not be read as a LUT.</value>
+  </data>
   <data name="DeleteSelectedItems" xml:space="preserve">
     <value>Delete {0} items?</value>
   </data>

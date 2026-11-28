@@ -593,6 +593,21 @@
   <data name="NoFavorites" xml:space="preserve">
     <value>즐겨찾기 없음</value>
   </data>
+  <data name="LutLibrary" xml:space="preserve">
+    <value>LUT 라이브러리</value>
+  </data>
+  <data name="LutLibraryAddFolder" xml:space="preserve">
+    <value>폴더 추가…</value>
+  </data>
+  <data name="LutLibraryFolders" xml:space="preserve">
+    <value>LUT 폴더</value>
+  </data>
+  <data name="LutLibraryRemoveFolder" xml:space="preserve">
+    <value>폴더 제거</value>
+  </data>
+  <data name="LutLibraryInvalidFile" xml:space="preserve">
+    <value>이 파일을 LUT로 읽을 수 없습니다.</value>
+  </data>
   <data name="DeleteSelectedItems" xml:space="preserve">
     <value>{0}개 항목을 삭제하시겠습니까?</value>
   </data>

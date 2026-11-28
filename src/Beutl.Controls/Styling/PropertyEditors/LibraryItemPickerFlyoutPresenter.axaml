@@ -181,8 +181,15 @@
                                 <ToggleButton Name="ShowSearchBoxButton" IsChecked="{TemplateBinding ShowSearchBox, Mode=TwoWay}">
                                     <icons:FluentIcon Icon="Search" />
                                 </ToggleButton>
-                                <ToggleButton Name="ShowAllButton" IsChecked="{TemplateBinding ShowAll, Mode=TwoWay}">
+                                <ToggleButton Name="ShowAllButton"
+                                              IsChecked="{TemplateBinding ShowAll, Mode=TwoWay}"
+                                              IsVisible="{TemplateBinding CanShowAll}">
                                     <icons:FluentIcon Icon="MoreHorizontal" />
+                                </ToggleButton>
+                                <ToggleButton Name="AddFolderButton"
+                                              IsVisible="{TemplateBinding CanAddFolder}"
+                                              ToolTip.Tip="{x:Static lang:Strings.LutLibraryAddFolder}">
+                                    <icons:FluentIcon Icon="FolderAdd" />
                                 </ToggleButton>
                                 <ToggleButton Name="ShowReferencesButton"
                                               IsVisible="False"

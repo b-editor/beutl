@@ -593,6 +593,21 @@
   <data name="NoFavorites" xml:space="preserve">
     <value>Sin favoritos</value>
   </data>
+  <data name="LutLibrary" xml:space="preserve">
+    <value>Biblioteca de LUT</value>
+  </data>
+  <data name="LutLibraryAddFolder" xml:space="preserve">
+    <value>Añadir carpeta…</value>
+  </data>
+  <data name="LutLibraryFolders" xml:space="preserve">
+    <value>Carpetas de LUT</value>
+  </data>
+  <data name="LutLibraryRemoveFolder" xml:space="preserve">
+    <value>Quitar carpeta</value>
+  </data>
+  <data name="LutLibraryInvalidFile" xml:space="preserve">
+    <value>No se pudo leer este archivo como LUT.</value>
+  </data>
   <data name="DeleteSelectedItems" xml:space="preserve">
     <value>¿Eliminar {0} elementos?</value>
   </data>

@@ -73,6 +73,8 @@ public partial class LibraryItemPickerFlyoutPresenter : DraggablePickerFlyoutPre
 
     public event Action<PinnableLibraryItem>? Unpinned;
 
+    public event Action? AddFolderClicked;
+
     [GeneratedStyledProperty]
     public partial PinnableLibraryItem? SelectedItem { get; set; }
 
@@ -90,6 +92,15 @@ public partial class LibraryItemPickerFlyoutPresenter : DraggablePickerFlyoutPre
 
     [GeneratedStyledProperty]
     public partial bool ShowAll { get; set; }
+
+    // Whether the picker has more items than it lists, which the ShowAll button expands to. Pickers with a fixed
+    // set of items hide it instead of offering a button that would do nothing.
+    [GeneratedStyledProperty(DefaultValue = true)]
+    public partial bool CanShowAll { get; set; }
+
+    // Whether the picker adds folders of its own, which puts the folder button in the toolbar.
+    [GeneratedStyledProperty]
+    public partial bool CanAddFolder { get; set; }
 
     [GeneratedStyledProperty]
     public partial bool ShowSearchBox { get; set; }
@@ -136,6 +147,9 @@ public partial class LibraryItemPickerFlyoutPresenter : DraggablePickerFlyoutPre
         _listBox = e.NameScope.Find<ListBox>("PART_ListBox");
         _tileListBox = e.NameScope.Find<ListBox>("PART_TileListBox");
         _referenceListBox = e.NameScope.Find<ListBox>("PART_ReferenceListBox");
+        ToggleButton? addFolderButton = e.NameScope.Find<ToggleButton>("AddFolderButton");
+        addFolderButton?.AddDisposableHandler(Button.ClickEvent, OnAddFolderClick)
+            .DisposeWith(_keyboardDisposables);
 
         if (_categoryPicker is { } categoryPicker)
         {
@@ -356,6 +370,14 @@ public partial class LibraryItemPickerFlyoutPresenter : DraggablePickerFlyoutPre
         {
             UpdatePinState(item, pinButton.IsChecked == true);
         }
+    }
+
+    private void OnAddFolderClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is ToggleButton button)
+            button.IsChecked = false;
+
+        AddFolderClicked?.Invoke();
     }
 
     private void UpdatePinState(PinnableLibraryItem item, bool isPinned)

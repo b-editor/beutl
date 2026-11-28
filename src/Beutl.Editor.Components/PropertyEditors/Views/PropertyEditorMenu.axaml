@@ -71,6 +71,10 @@
                                    IsEnabled="{Binding CanRemoveAnimation.Value}"
                                    Click="RemoveAnimation_Click"
                                    Text="{x:Static lang:CommandNames.DeleteAnimation}" />
+                <ui:FAMenuFlyoutSeparator x:Name="lutFoldersSeparator" IsVisible="False" />
+                <ui:FAMenuFlyoutSubItem x:Name="lutFoldersMenu"
+                                      IsVisible="False"
+                                      Text="{x:Static lang:Strings.LutLibraryFolders}" />
                 <ui:FAToggleMenuFlyoutItem x:Name="toggleLivePreview"
                                          IsChecked="{ReflectionBinding IsLivePreviewEnabled.Value,
                                                                        Mode=TwoWay}"

@@ -618,6 +618,21 @@
   <data name="NoFavorites" xml:space="preserve">
     <value>お気に入りはありません</value>
   </data>
+  <data name="LutLibrary" xml:space="preserve">
+    <value>LUTライブラリ</value>
+  </data>
+  <data name="LutLibraryAddFolder" xml:space="preserve">
+    <value>フォルダーを追加…</value>
+  </data>
+  <data name="LutLibraryFolders" xml:space="preserve">
+    <value>LUTフォルダー</value>
+  </data>
+  <data name="LutLibraryRemoveFolder" xml:space="preserve">
+    <value>フォルダーを削除</value>
+  </data>
+  <data name="LutLibraryInvalidFile" xml:space="preserve">
+    <value>このファイルはLUTとして読み込めませんでした。</value>
+  </data>
   <data name="DeleteSelectedItems" xml:space="preserve">
     <value>{0}個のアイテムを削除しますか？</value>
   </data>

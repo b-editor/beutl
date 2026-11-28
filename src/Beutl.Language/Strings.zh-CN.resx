@@ -593,6 +593,21 @@
   <data name="NoFavorites" xml:space="preserve">
     <value>没有收藏夹</value>
   </data>
+  <data name="LutLibrary" xml:space="preserve">
+    <value>LUT 库</value>
+  </data>
+  <data name="LutLibraryAddFolder" xml:space="preserve">
+    <value>添加文件夹…</value>
+  </data>
+  <data name="LutLibraryFolders" xml:space="preserve">
+    <value>LUT 文件夹</value>
+  </data>
+  <data name="LutLibraryRemoveFolder" xml:space="preserve">
+    <value>移除文件夹</value>
+  </data>
+  <data name="LutLibraryInvalidFile" xml:space="preserve">
+    <value>无法将此文件读取为 LUT。</value>
+  </data>
   <data name="DeleteSelectedItems" xml:space="preserve">
     <value>删除 {0} 个项目？</value>
   </data>

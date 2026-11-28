@@ -3,6 +3,8 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:editor="using:Beutl.Controls.PropertyEditors"
+             xmlns:icons="using:FluentIcons.Avalonia.Fluent"
+             xmlns:lang="using:Beutl.Language"
              xmlns:local="using:Beutl.Editor.Components.PropertyEditors.Views"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="using:Beutl.Editor.Components.PropertyEditors.ViewModels"
@@ -20,7 +22,20 @@
                                   KeyFrameIndex="{Binding KeyFrameIndex.Value}"
                                   Value="{Binding FileInfo.Value}">
             <editor:StorageFileEditor.MenuContent>
-                <local:PropertyEditorMenu />
+                <StackPanel VerticalAlignment="Center" Orientation="Horizontal">
+                    <Button x:Name="LibraryButton"
+                            Width="24"
+                            Height="24"
+                            Padding="0"
+                            Classes="size-24x24"
+                            Click="LibraryButton_Click"
+                            IsEnabled="{Binding CanEdit.Value}"
+                            Theme="{StaticResource TransparentButton}"
+                            ToolTip.Tip="{x:Static lang:Strings.LutLibrary}">
+                        <icons:FluentIcon FontSize="14" Icon="Library" />
+                    </Button>
+                    <local:PropertyEditorMenu />
+                </StackPanel>
             </editor:StorageFileEditor.MenuContent>
         </editor:StorageFileEditor>
     </StackPanel>
