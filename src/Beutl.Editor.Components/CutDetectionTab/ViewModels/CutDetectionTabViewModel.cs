@@ -81,6 +81,7 @@ public sealed class CutDetectionTabViewModel : IToolContext
         {
             model.Threshold.Value = previous.Threshold.Value;
             model.MinimumMilliseconds.Value = previous.MinimumMilliseconds.Value;
+            model.ModeIndex.Value = previous.ModeIndex.Value;
             model.IncludeLinked.Value = previous.IncludeLinked.Value;
         }
 
@@ -88,27 +89,13 @@ public sealed class CutDetectionTabViewModel : IToolContext
         if (startAnalysis) _ = model.AnalyzeAsync();
     }
 
-    public async Task ApplySplitAsync()
+    public async Task ApplyAsync()
     {
         if (_disposed || IsApplying.Value || Analysis.Value is not { } model) return;
         IsApplying.Value = true;
         try
         {
-            await model.ApplySplitAsync();
-        }
-        finally
-        {
-            if (!_disposed) IsApplying.Value = false;
-        }
-    }
-
-    public async Task ApplyMarkersAsync()
-    {
-        if (_disposed || IsApplying.Value || Analysis.Value is not { } model) return;
-        IsApplying.Value = true;
-        try
-        {
-            await model.ApplyMarkersAsync();
+            await model.ApplyAsync();
         }
         finally
         {
@@ -128,6 +115,7 @@ public sealed class CutDetectionTabViewModel : IToolContext
         if (Analysis.Value is not { } model) return;
         if (json.TryGetPropertyValueAsJsonValue("threshold", out decimal threshold)) model.Threshold.Value = threshold;
         if (json.TryGetPropertyValueAsJsonValue("minimum", out decimal minimum)) model.MinimumMilliseconds.Value = minimum;
+        if (json.TryGetPropertyValueAsJsonValue("mode", out int mode)) model.ModeIndex.Value = Math.Clamp(mode, 0, 1);
         if (json.TryGetPropertyValueAsJsonValue("linked", out bool linked)) model.IncludeLinked.Value = linked;
     }
 
@@ -137,6 +125,7 @@ public sealed class CutDetectionTabViewModel : IToolContext
         json["elementId"] = element.Id.Value;
         json["threshold"] = model.Threshold.Value;
         json["minimum"] = model.MinimumMilliseconds.Value;
+        json["mode"] = model.ModeIndex.Value;
         json["linked"] = model.IncludeLinked.Value;
     }
 

@@ -4177,11 +4177,11 @@ GetProperty&lt;T&gt;("path", time) 或 GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="CutDetection_MarkersAdded" xml:space="preserve">
     <value>已添加 {0} 个标记</value>
   </data>
-  <data name="CutDetection_Cancel" xml:space="preserve">
-    <value>取消</value>
+  <data name="CutDetection_Apply" xml:space="preserve">
+    <value>应用到整个片段</value>
   </data>
-  <data name="CutDetection_Canceled" xml:space="preserve">
-    <value>已取消分析。</value>
+  <data name="CutDetection_Mode" xml:space="preserve">
+    <value>应用操作</value>
   </data>
   <data name="CutDetection_RefreshToAnalyze" xml:space="preserve">
     <value>刷新以分析</value>

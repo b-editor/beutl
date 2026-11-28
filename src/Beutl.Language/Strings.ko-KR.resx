@@ -4177,11 +4177,11 @@ GetProperty&lt;T&gt;("path", time) 또는 GetProperty&lt;T&gt;(guid, "propertyNa
   <data name="CutDetection_MarkersAdded" xml:space="preserve">
     <value>마커 {0}개 추가됨</value>
   </data>
-  <data name="CutDetection_Cancel" xml:space="preserve">
-    <value>취소</value>
+  <data name="CutDetection_Apply" xml:space="preserve">
+    <value>전체 클립에 적용</value>
   </data>
-  <data name="CutDetection_Canceled" xml:space="preserve">
-    <value>분석을 취소했습니다.</value>
+  <data name="CutDetection_Mode" xml:space="preserve">
+    <value>적용할 작업</value>
   </data>
   <data name="CutDetection_RefreshToAnalyze" xml:space="preserve">
     <value>새로 고쳐 분석</value>

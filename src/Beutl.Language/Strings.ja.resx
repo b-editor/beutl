@@ -4175,11 +4175,11 @@ GetProperty&lt;T&gt;("path", time) または GetProperty&lt;T&gt;(guid, "propert
   <data name="CutDetection_MarkersAdded" xml:space="preserve">
     <value>{0} 件のマーカーを追加しました</value>
   </data>
-  <data name="CutDetection_Cancel" xml:space="preserve">
-    <value>キャンセル</value>
+  <data name="CutDetection_Apply" xml:space="preserve">
+    <value>全体に適用</value>
   </data>
-  <data name="CutDetection_Canceled" xml:space="preserve">
-    <value>解析をキャンセルしました。</value>
+  <data name="CutDetection_Mode" xml:space="preserve">
+    <value>適用する操作</value>
   </data>
   <data name="CutDetection_RefreshToAnalyze" xml:space="preserve">
     <value>更新して解析</value>

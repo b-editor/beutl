@@ -7,30 +7,44 @@ using TimeRange = Beutl.Media.TimeRange;
 
 namespace Beutl.Editor.Components.CutDetectionTab.Views;
 
-// A compact score strip: one bar per sampled frame, with detected cuts drawn over it.
+// The silence tab's waveform, with per-frame difference scores in place of audio peaks.
 public sealed class CutPreviewControl : Control
 {
-    private static readonly Color s_fallbackAccent = Color.Parse("#F5962D");
+    private static readonly Color s_cutColor = Color.Parse("#F5962D");
+    private static readonly ImmutableSolidColorBrush s_highlightBrush =
+        new(Color.FromArgb(90, 245, 150, 45));
+    private static readonly ImmutableSolidColorBrush s_cutBrush = new(s_cutColor);
     private IReadOnlyList<CutFrameScore> _frames = [];
     private IReadOnlyList<MediaTime> _cuts = [];
     private TimeRange _clipRange;
+    private TimeRange _previewRange;
     private double _threshold = 0.3;
-    private MediaTime? _playhead;
 
-    internal void SetData(IReadOnlyList<CutFrameScore> frames, TimeRange clipRange,
+    public static readonly StyledProperty<IBrush?> ScoreBrushProperty =
+        AvaloniaProperty.Register<CutPreviewControl, IBrush?>(nameof(ScoreBrush), Brushes.White);
+
+    static CutPreviewControl()
+    {
+        AffectsRender<CutPreviewControl>(ScoreBrushProperty);
+    }
+
+    public IBrush? ScoreBrush
+    {
+        get => GetValue(ScoreBrushProperty);
+        set => SetValue(ScoreBrushProperty, value);
+    }
+
+    internal IReadOnlyList<MediaTime> Cuts => _cuts;
+    internal double Threshold => _threshold;
+
+    internal void SetData(IReadOnlyList<CutFrameScore> frames, TimeRange clipRange, TimeRange previewRange,
         IReadOnlyList<MediaTime> cuts, double threshold)
     {
         _frames = frames;
         _clipRange = clipRange;
+        _previewRange = previewRange;
         _cuts = cuts;
         _threshold = threshold;
-        InvalidateVisual();
-    }
-
-    internal void SetPlayhead(MediaTime? time)
-    {
-        if (_playhead == time) return;
-        _playhead = time;
         InvalidateVisual();
     }
 
@@ -41,61 +55,68 @@ public sealed class CutPreviewControl : Control
         double height = Bounds.Height;
         if (width <= 0 || height <= 0) return;
 
-        IBrush primary = ResolveBrush("TextFillColorPrimaryBrush", Colors.White);
-        IBrush secondary = ResolveBrush("TextFillColorSecondaryBrush", Colors.Gray);
-        IBrush divider = ResolveBrush("DividerStrokeColorDefaultBrush", Color.FromArgb(40, 255, 255, 255));
-        var accent = new ImmutableSolidColorBrush(s_fallbackAccent);
-        var accentSoft = new ImmutableSolidColorBrush(s_fallbackAccent, 0.62);
-        Color secondaryColor = secondary is ISolidColorBrush solid ? solid.Color : Colors.Gray;
-        var belowThreshold = new ImmutableSolidColorBrush(secondaryColor, 0.32);
-
-        double plotBottom = height - 12;
-        double plotHeight = Math.Max(1, plotBottom - 8);
-        var gridPen = new Pen(divider, 0.5);
-        for (int i = 1; i <= 3; i++)
+        double duration = Math.Max(0.0001, _previewRange.Duration.ToSeconds());
+        double start = _clipRange.Start.ToSeconds() + _previewRange.Start.ToSeconds();
+        int visible = 0;
+        foreach (CutFrameScore frame in _frames)
         {
-            double y = plotBottom - plotHeight * i / 4;
-            context.DrawLine(gridPen, new Point(0, y), new Point(width, y));
+            double relative = (frame.Time.ToSeconds() - start) / duration;
+            if (relative is >= 0 and <= 1) visible++;
         }
 
-        context.DrawLine(new Pen(divider, 1), new Point(0, plotBottom), new Point(width, plotBottom));
-
-        double duration = Math.Max(0.0001, _clipRange.Duration.ToSeconds());
-        if (_frames.Count > 0)
+        if (ScoreBrush is { } scoreBrush && visible > 0)
         {
-            // One bar per sample while they fit the width; a long clip keeps its strongest
-            // sample in each pixel, so a late cut is never skipped.
-            int columns = Math.Min(_frames.Count, Math.Max(1, (int)width));
+            // One bar per sample while they fit the width; a zoomed-out view keeps the strong
+            // sample in each pixel instead of skipping late cuts.
+            int columns = Math.Min(visible, Math.Max(1, (int)width));
             var scores = new double[columns];
             foreach (CutFrameScore frame in _frames)
             {
-                double relative = (frame.Time - _clipRange.Start).ToSeconds() / duration;
-                int column = (int)Math.Clamp(relative * (columns - 1), 0, columns - 1);
+                double relative = (frame.Time.ToSeconds() - start) / duration;
+                if (relative is < 0 or > 1) continue;
+                // The same mapping as the cut lines, so a cut sits on its own score bar.
+                int column = (int)Math.Clamp(relative * columns, 0, columns - 1);
                 scores[column] = Math.Max(scores[column], frame.Score);
             }
 
             double barWidth = width / columns;
-            for (int i = 0; i < columns; i++)
+            var geometry = new StreamGeometry();
+            using (StreamGeometryContext figures = geometry.Open())
             {
-                double score = Math.Clamp(scores[i], 0, 1);
-                if (score <= 0.001) continue;
-                double barHeight = Math.Max(1, score * plotHeight);
-                context.FillRectangle(score >= _threshold ? accentSoft : belowThreshold,
-                    new Rect(i * barWidth, plotBottom - barHeight, Math.Max(1, barWidth + 0.5), barHeight));
+                figures.SetFillRule(FillRule.NonZero);
+                for (int i = 0; i < columns; i++)
+                {
+                    double score = Math.Clamp(scores[i], 0, 1);
+                    if (score <= 0.001) continue;
+                    double top = height - Math.Max(1, score * height);
+                    double left = i * barWidth;
+                    figures.BeginFigure(new Point(left, top), isFilled: true);
+                    figures.LineTo(new Point(left + Math.Max(1, barWidth - 0.5), top));
+                    figures.LineTo(new Point(left + Math.Max(1, barWidth - 0.5), height));
+                    figures.LineTo(new Point(left, height));
+                    figures.EndFigure(isClosed: true);
+                }
             }
 
-            double thresholdY = plotBottom - Math.Clamp(_threshold, 0, 1) * plotHeight;
-            context.DrawLine(new Pen(new ImmutableSolidColorBrush(secondaryColor, 0.75), 1) { DashStyle = DashStyle.Dash },
-                new Point(0, thresholdY), new Point(width, thresholdY));
+            context.DrawGeometry(scoreBrush, null, geometry);
         }
 
-        var cutPen = new Pen(accent, 1.5);
+        double thresholdY = height - Math.Clamp(_threshold, 0, 1) * height;
+        IBrush thresholdBrush = this.TryFindResource("TextFillColorSecondaryBrush", ActualThemeVariant, out object? value)
+            && value is ISolidColorBrush secondary
+                ? new ImmutableSolidColorBrush(secondary.Color, 0.5)
+                : new ImmutableSolidColorBrush(Colors.Gray, 0.5);
+        context.DrawLine(new Pen(thresholdBrush, 1) { DashStyle = DashStyle.Dash },
+            new Point(0, thresholdY), new Point(width, thresholdY));
+
         foreach (MediaTime cut in _cuts)
         {
-            double relative = (cut - _clipRange.Start).ToSeconds() / duration;
+            double relative = (cut.ToSeconds() - start) / duration;
             if (relative is < 0 or > 1) continue;
             double x = relative * width;
-            context.DrawLine(cutPen, new Point(x, 0), new Point(x, plotBottom));
+            // The silence tab's region highlight, narrowed to a band around the cut.
+            context.FillRectangle(s_highlightBrush, new Rect(x - 6, 0, 12, height));
+            context.DrawLine(new Pen(s_cutBrush, 1.5), new Point(x, 0), new Point(x, height));
             var marker = new StreamGeometry();
             using (StreamGeometryContext markerContext = marker.Open())
             {
@@ -105,22 +126,7 @@ public sealed class CutPreviewControl : Control
                 markerContext.EndFigure(true);
             }
 
-            context.DrawGeometry(accent, null, marker);
-        }
-
-        if (_playhead is { } playhead)
-        {
-            double relative = (playhead - _clipRange.Start).ToSeconds() / duration;
-            if (relative is >= 0 and <= 1)
-            {
-                double x = relative * width;
-                context.DrawLine(new Pen(primary, 1), new Point(x, 0), new Point(x, height));
-            }
+            context.DrawGeometry(s_cutBrush, null, marker);
         }
     }
-
-    private IBrush ResolveBrush(string key, Color fallback)
-        => this.TryFindResource(key, ActualThemeVariant, out object? value) && value is IBrush brush
-            ? brush
-            : new ImmutableSolidColorBrush(fallback);
 }

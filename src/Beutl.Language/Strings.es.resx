@@ -4177,11 +4177,11 @@ cuando el registro del historial está activado.</value>
   <data name="CutDetection_MarkersAdded" xml:space="preserve">
     <value>{0} marcadores añadidos</value>
   </data>
-  <data name="CutDetection_Cancel" xml:space="preserve">
-    <value>Cancelar</value>
+  <data name="CutDetection_Apply" xml:space="preserve">
+    <value>Aplicar a todo el clip</value>
   </data>
-  <data name="CutDetection_Canceled" xml:space="preserve">
-    <value>Análisis cancelado.</value>
+  <data name="CutDetection_Mode" xml:space="preserve">
+    <value>Acción a aplicar</value>
   </data>
   <data name="CutDetection_RefreshToAnalyze" xml:space="preserve">
     <value>Actualizar para analizar</value>

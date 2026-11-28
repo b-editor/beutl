@@ -4180,11 +4180,11 @@ when history recording is enabled.</value>
   <data name="CutDetection_MarkersAdded" xml:space="preserve">
     <value>{0} markers added</value>
   </data>
-  <data name="CutDetection_Cancel" xml:space="preserve">
-    <value>Cancel</value>
+  <data name="CutDetection_Apply" xml:space="preserve">
+    <value>Apply to entire element</value>
   </data>
-  <data name="CutDetection_Canceled" xml:space="preserve">
-    <value>Analysis canceled.</value>
+  <data name="CutDetection_Mode" xml:space="preserve">
+    <value>Apply action</value>
   </data>
   <data name="CutDetection_RefreshToAnalyze" xml:space="preserve">
     <value>Refresh to analyze</value>
