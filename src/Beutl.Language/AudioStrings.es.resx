@@ -128,6 +128,9 @@
   <data name="CompressorEffect_MakeupGain_Description" xml:space="preserve">
     <value>Ganancia aplicada después de la compresión para compensar el nivel reducido.</value>
   </data>
+  <data name="CompressorEffect_Curve_ToolTip" xml:space="preserve">
+    <value>Arrastra el controlador horizontalmente para ajustar el umbral y la curva por encima de él verticalmente para ajustar la relación.</value>
+  </data>
   <data name="LimiterEffect" xml:space="preserve">
     <value>Limitador</value>
   </data>

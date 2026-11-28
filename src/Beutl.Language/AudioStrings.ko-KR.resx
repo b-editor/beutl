@@ -128,6 +128,9 @@
   <data name="CompressorEffect_MakeupGain_Description" xml:space="preserve">
     <value>압축 후 감소된 레벨을 보상하기 위해 적용되는 게인입니다.</value>
   </data>
+  <data name="CompressorEffect_Curve_ToolTip" xml:space="preserve">
+    <value>핸들을 좌우로 드래그하여 임계값을, 임계값 위의 곡선을 위아래로 드래그하여 비율을 설정합니다.</value>
+  </data>
   <data name="LimiterEffect" xml:space="preserve">
     <value>리미터</value>
   </data>

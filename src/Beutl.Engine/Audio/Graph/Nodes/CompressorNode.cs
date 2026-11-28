@@ -49,8 +49,7 @@ public sealed class CompressorNode : DynamicsNode
                 this,
                 ComputeCoeff(p.Attack, context.SampleRate),
                 ComputeCoeff(p.Release, context.SampleRate),
-                p,
-                1f - 1f / p.Ratio);
+                p);
 
             ApplyLinkedGain(input, output, 0, input.SampleCount, ref gain);
 
@@ -159,41 +158,15 @@ public sealed class CompressorNode : DynamicsNode
 
     // Advances the envelope follower by one sample's peak and returns the linear gain. Shared by
     // ProcessStatic and ProcessAnimated so the envelope/gain math cannot drift between the paths.
-    private float NextGain(float peak, float attackCoeff, float releaseCoeff, in EffectiveParameters p, float slope)
+    private float NextGain(float peak, float attackCoeff, float releaseCoeff, in EffectiveParameters p)
     {
         // Silence maps to MinDb; AccumulatePeak guarantees a finite envelope input.
         float inputDb = peak > 0f ? 20f * MathF.Log10(peak) : MinDb;
         float coeff = inputDb > _envelopeDb ? attackCoeff : releaseCoeff;
         _envelopeDb = inputDb + coeff * (_envelopeDb - inputDb);
 
-        float gainReductionDb = ComputeGainReductionDb(_envelopeDb, p.Threshold, p.Knee, slope);
+        float gainReductionDb = ComputeGainReductionDb(_envelopeDb, p.Threshold, p.Ratio, p.Knee);
         return AudioMath.ConvertDbToLinear(p.MakeupGain - gainReductionDb);
-    }
-
-    // Soft-knee gain computer (Reece/Giannoulis): when kneeDb > 0, a C¹-continuous quadratic blends
-    // from no compression to the full `slope * diff` line over a kneeDb-wide region around the
-    // threshold. kneeDb == 0 collapses to the hard-knee formula.
-    private static float ComputeGainReductionDb(float envelopeDb, float thresholdDb, float kneeDb, float slope)
-    {
-        if (kneeDb > 0f)
-        {
-            float halfKnee = kneeDb * 0.5f;
-            float diff = envelopeDb - thresholdDb;
-            if (diff <= -halfKnee)
-            {
-                return 0f;
-            }
-            if (diff < halfKnee)
-            {
-                // Quadratic across the knee: 0 at -halfKnee, slope * halfKnee at +halfKnee, with
-                // matching derivatives at both ends so the curve stays smooth.
-                float x = diff + halfKnee;
-                return slope * x * x / (2f * kneeDb);
-            }
-            return slope * diff;
-        }
-
-        return envelopeDb > thresholdDb ? slope * (envelopeDb - thresholdDb) : 0f;
     }
 
     protected override void ResetDspState()
@@ -202,9 +175,9 @@ public sealed class CompressorNode : DynamicsNode
     }
 
     private readonly struct StaticGain(
-        CompressorNode node, float attackCoeff, float releaseCoeff, EffectiveParameters p, float slope) : ILinkedGain
+        CompressorNode node, float attackCoeff, float releaseCoeff, EffectiveParameters p) : ILinkedGain
     {
-        public float Next(int index, float peak) => node.NextGain(peak, attackCoeff, releaseCoeff, p, slope);
+        public float Next(int index, float peak) => node.NextGain(peak, attackCoeff, releaseCoeff, p);
     }
 
     private ref struct AnimatedGain : ILinkedGain
@@ -240,9 +213,7 @@ public sealed class CompressorNode : DynamicsNode
                 ReleaseCoeff = ComputeCoeff(p.Release, SampleRate);
                 LastReleaseMs = p.Release;
             }
-            float slope = 1f - 1f / p.Ratio;
-
-            return Node.NextGain(peak, AttackCoeff, ReleaseCoeff, p, slope);
+            return Node.NextGain(peak, AttackCoeff, ReleaseCoeff, p);
         }
     }
 

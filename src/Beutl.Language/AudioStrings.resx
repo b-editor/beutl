@@ -129,6 +129,9 @@
   <data name="CompressorEffect_MakeupGain_Description" xml:space="preserve">
     <value>Gain applied after compression to compensate for the reduced level.</value>
   </data>
+  <data name="CompressorEffect_Curve_ToolTip" xml:space="preserve">
+    <value>Drag the handle horizontally to set the threshold, and the curve above it vertically to set the ratio.</value>
+  </data>
   <data name="LimiterEffect" xml:space="preserve">
     <value>Limiter</value>
   </data>
