@@ -9,6 +9,11 @@ using Reactive.Bindings;
 
 namespace Beutl.Services;
 
+// Tracks one project with Git: its repository, the backend and watcher that follow it, and the operations that
+// change it. A coordinator claims the workspace of the first project that becomes active without one, and tracks
+// that project, active or in the background, until it closes; each loaded project thus keeps its own repository
+// state and watcher while another project is active (VersionControlCoordinators keeps one per project).
+//
 // All of the coordinator's state belongs to the UI thread. Entry points called from another thread move
 // there once, and every continuation after that stays there; only the Git commands themselves run
 // elsewhere, inside the backend.
@@ -46,6 +51,7 @@ internal sealed partial class VersionControlCoordinator :
     private readonly TaskCompletionSource _disposalCompletion = new(
         TaskCreationOptions.RunContinuationsAsynchronously);
     private CoordinatorState _state = CoordinatorState.Empty;
+    private EditorWorkspace? _workspace;
     private ActivationContext? _activation;
     private PreparedClose? _close;
     // Canceled when a project close begins, which stops the operation then running and any waiting for the
@@ -117,13 +123,67 @@ internal sealed partial class VersionControlCoordinator :
         _projectService.ClosingPreparing += PrepareProjectClosingAsync;
         _projectService.ClosingFinalizing += NotifyProjectClosingAsync;
         _projectService.TransitionCommitted += OnTransitionCommitted;
-        _editorService.ProjectVersionControlCoordinator = this;
-        ActivateProject(
-            _projectService.CurrentProject.Value,
-            newProject: false,
-            preparedNewProject: null,
-            CancellationToken.None);
+        // A project already active when the coordinator starts is tracked at once, unless another coordinator of the
+        // editor service tracks it.
+        if (_projectService.Sessions.ActiveSession.Value is { } active && TryClaim(active))
+        {
+            ActivateProject(
+                TrackedProject,
+                newProject: false,
+                preparedNewProject: null,
+                CancellationToken.None);
+        }
+
         StartAvailabilityRefresh();
+    }
+
+    // Raised once the coordinator claims a project, and once it lets go of it because the project closed.
+    internal event EventHandler? ProjectClaimed;
+
+    internal event EventHandler? ProjectReleased;
+
+    // The workspace of the tracked project, or null before the coordinator claims one and after it closes.
+    internal EditorWorkspace? TrackedWorkspace => _workspace;
+
+    // The loaded model of the tracked project, or null while the coordinator tracks none or the project is closed
+    // (as it is in the middle of a restore, a branch switch or a pull).
+    internal Project? TrackedProject => _workspace?.Project.Value;
+
+    // Where the work on the tracked project happens. Before a project is claimed, only the creation of one can run,
+    // and its work concerns no loaded project.
+    private EditorWorkspace Workspace => _workspace ?? _editorService.ShellWorkspace;
+
+    private bool TracksSession(ProjectSession session)
+        => _workspace is not null && ReferenceEquals(_editorService.WorkspaceFor(session), _workspace);
+
+    // Starts tracking the project of session, unless this coordinator tracks another one or another coordinator
+    // tracks this one.
+    private bool TryClaim(ProjectSession session)
+    {
+        if (_disposed || _workspace is not null)
+            return TracksSession(session);
+
+        EditorWorkspace workspace = _editorService.WorkspaceFor(session);
+        if (workspace.ProjectFile is null || workspace.VersionControl is not null)
+            return false;
+
+        workspace.VersionControl = this;
+        _workspace = workspace;
+        ProjectClaimed?.Invoke(this, EventArgs.Empty);
+        return true;
+    }
+
+    // Lets go of the tracked project once it closed, so the coordinator can be disposed.
+    private void ReleaseProject()
+    {
+        if (_workspace is not { } workspace)
+            return;
+
+        workspace.PublishProjectVersionControlService(null);
+        if (ReferenceEquals(workspace.VersionControl, this))
+            workspace.VersionControl = null;
+        _workspace = null;
+        ProjectReleased?.Invoke(this, EventArgs.Empty);
     }
 
     public IProjectVersionControlService? CurrentService => _state.VisibleService;

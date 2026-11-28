@@ -97,8 +97,8 @@ public sealed partial class EditViewModel
                 Uri[] after = MissingMediaService.GetFileUris(_mediaReferences.GetReferences());
                 if (!before.ToHashSet().SetEquals(after)) _fingerprintScanRequested = true;
 
-                using var write = await EditorService.BeginProjectFileWriteAsync(_autoSaveCancellation.Token);
-                if (_disposed || EditorService.IsWorktreeMutationActive || scene.Uri is not { IsFile: true } uri) return;
+                using var write = await Workspace.BeginProjectFileWriteAsync(_autoSaveCancellation.Token);
+                if (_disposed || Workspace.IsWorktreeMutationActive || scene.Uri is not { IsFile: true } uri) return;
                 // A save or edit can request another scan while hashing or waiting
                 // for admission. Keep its save intent until the final stable scan.
                 if (_fingerprintScanRequested) continue;
@@ -107,7 +107,7 @@ public sealed partial class EditViewModel
                 bool changed = MediaFingerprintFile.Update(uri, scene.Id.Value, _savedMediaFingerprints);
                 bool finishSaveSnapshot = _finishFingerprintSaveSnapshot;
                 _finishFingerprintSaveSnapshot = false;
-                if (changed && finishSaveSnapshot && EditorService.ProjectVersionControlSession is { } session)
+                if (changed && finishSaveSnapshot && Workspace.VersionControlSession is { } session)
                     await session.NotifySavedAsync(write, _autoSaveCancellation.Token);
             }
             while (_fingerprintScanRequested);

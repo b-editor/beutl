@@ -36,13 +36,9 @@ internal partial class VersionControlCoordinator
         _projectService.ClosingPreparing -= PrepareProjectClosingAsync;
         _projectService.ClosingFinalizing -= NotifyProjectClosingAsync;
         _projectService.TransitionCommitted -= OnTransitionCommitted;
-        if (ReferenceEquals(_editorService.ProjectVersionControlCoordinator, this))
-        {
-            _editorService.ProjectVersionControlCoordinator = null;
-        }
-
         // Work still running may use the backend, so it is hidden now and retired once that work is over.
         SetVisibleService(null);
+        ReleaseProject();
         DisposePublishedProperties();
         _ = CompleteDisposalAsync();
     }

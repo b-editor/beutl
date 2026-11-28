@@ -2,7 +2,10 @@
 
 namespace Beutl.Services;
 
-public partial class EditorService
+// The reservation of the project's files: outputs, project-file writes and editor file opens may overlap one
+// another, and a worktree mutation runs only while none of them does. Each workspace has its own, so a save, an
+// export or a version-control operation in one project neither waits for nor blocks another.
+internal sealed partial class EditorWorkspace
 {
     private readonly object _workspaceOperationSync = new();
     private readonly SemaphoreSlim _projectFileWriteGate = new(1, 1);
@@ -146,7 +149,7 @@ public partial class EditorService
                 || !ReferenceEquals(lease.Owner, this))
             {
                 throw new ArgumentException(
-                    "The lease was not issued by this service for a project-file write.",
+                    "The lease was not issued by this workspace for a project-file write.",
                     nameof(completedWrite));
             }
 
@@ -215,12 +218,12 @@ public partial class EditorService
     }
 
     private sealed class WorkspaceOperationLease(
-        EditorService owner,
+        EditorWorkspace owner,
         WorkspaceOperationKind kind) : IProjectFileWriteLease
     {
         private int _disposed;
 
-        public EditorService Owner => owner;
+        public EditorWorkspace Owner => owner;
 
         public WorkspaceOperationKind Kind => kind;
 

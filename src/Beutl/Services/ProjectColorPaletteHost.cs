@@ -9,21 +9,23 @@ using Microsoft.Extensions.Logging;
 
 namespace Beutl.Services;
 
-// Gives the color pickers the open project's palettes and writes their edits at once to the project's palette file
+// Gives the color pickers a project's palettes and writes their edits at once to the project's palette file
 // (ProjectColorPaletteFile), which keeps them out of the project file: that file holds only what the project renders.
+// Each loaded project has its own, in its workspace; the color pickers are given the one of the active project.
 internal sealed class ProjectColorPaletteHost : IProjectColorPaletteHost, IDisposable
 {
     private readonly ILogger _logger = Log.CreateLogger<ProjectColorPaletteHost>();
     private readonly Func<IProjectFileWriteLease?> _beginWrite;
     private readonly Action<string, ImmutableArray<ColorPalette>> _store;
     private readonly IDisposable _projectSubscription;
-    // The open project's palette file, or null without a project.
+    // The project's palette file, or null while the project is not loaded.
     private string? _path;
     private readonly INotificationService _notifications;
     private ImmutableArray<ColorPalette> _palettes = [];
 
-    public ProjectColorPaletteHost(ProjectService projectService, EditorService editorService)
-        : this(projectService.CurrentProject, editorService.TryBeginProjectFileWrite, ProjectColorPaletteFile.Write, editorService.AppServices.GetRequiredService<INotificationService>())
+    // Follows the loaded model of the workspace's project, and writes under the workspace's admission.
+    public ProjectColorPaletteHost(EditorWorkspace workspace)
+        : this(workspace.Project, workspace.TryBeginProjectFileWrite, ProjectColorPaletteFile.Write, workspace.Owner.AppServices.GetRequiredService<INotificationService>())
     {
     }
 

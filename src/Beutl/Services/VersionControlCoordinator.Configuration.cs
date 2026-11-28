@@ -78,7 +78,7 @@ internal partial class VersionControlCoordinator
 
         CaptureUseLfsWhenAvailableChange();
         if (executablePathChanged
-            && _projectService.CurrentProject.Value is not null
+            && TrackedProject is not null
             && _state.OwnedService?.Repository is null)
         {
             _rediscoveryRequested = true;
@@ -182,7 +182,7 @@ internal partial class VersionControlCoordinator
         bool pending = trackedService is null ? _rediscoveryRequested : _repositoryHygieneConfigurationDirty;
         _rediscoveryRequested = false;
         _repositoryHygieneConfigurationDirty = false;
-        if (!pending || _disposed || _projectService.CurrentProject.Value is not { } project)
+        if (!pending || _disposed || TrackedProject is not { } project)
         {
             return false;
         }

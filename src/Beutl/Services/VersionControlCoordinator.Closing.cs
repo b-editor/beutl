@@ -19,9 +19,16 @@ internal partial class VersionControlCoordinator
         ProjectService.ProjectCloseContext closeContext,
         CancellationToken cancellationToken)
     {
-        // Only the active session is tracked; a session the editor does not show had its snapshot taken when it
-        // was deactivated.
-        if (!ReferenceEquals(closeContext.Session.Project, _projectService.CurrentProject.Value))
+        // Only the coordinator of the closing project takes part, whether the project is active or in the
+        // background. A deactivation leaves the project loaded and tracked, so the snapshot waits for the close,
+        // which decides it from the settings at that moment.
+        if (!TracksSession(closeContext.Session)
+            || !ReferenceEquals(closeContext.Session.Project, TrackedProject))
+        {
+            return;
+        }
+
+        if (closeContext.Kind == ProjectService.ProjectCloseKind.Deactivate && !IsInternalVersionControlTransition())
         {
             return;
         }
@@ -43,11 +50,12 @@ internal partial class VersionControlCoordinator
         try
         {
             // The close can wait on Git for a while, first for work already running and then for the
-            // close snapshot, and the editor cannot be used meanwhile. The editor area shows the close
-            // instead of an editor that looks usable, until the close completes or is aborted.
+            // close snapshot, and the project's editors cannot be used meanwhile. They show the close
+            // instead of looking usable, until the close completes or is aborted; a project in the background
+            // covers nothing the user sees.
             if (HasVersionControlWorkToFinish())
             {
-                close.Presentation = _editorService.BeginLifecycleActivity(
+                close.Presentation = Workspace.BeginLifecycleActivity(
                     ProjectLifecycleActivity.ClosingProject);
             }
 
@@ -76,9 +84,9 @@ internal partial class VersionControlCoordinator
             if (closeContext.CloseIntent == ProjectService.ProjectCloseIntent.SaveChanges
                 && _config.AutoCommitOnClose.Value
                 && _state.OwnedService?.Repository is not null
-                && _projectService.CurrentProject.Value is not null)
+                && TrackedProject is not null)
             {
-                close.EditorSuspension = _editorService.SuspendEditors();
+                close.EditorSuspension = Workspace.SuspendEditors();
             }
 
             closeContext.RegisterCompletion(projectClosed => RunOnUiThreadAsync(() =>
@@ -110,7 +118,7 @@ internal partial class VersionControlCoordinator
     {
         if (!_config.AutoCommitOnClose.Value
             || _state.OwnedService?.Repository is null
-            || _projectService.CurrentProject.Value is not { } project)
+            || TrackedProject is not { } project)
         {
             return;
         }
@@ -119,7 +127,7 @@ internal partial class VersionControlCoordinator
         // That close records no snapshot, because the half-saved project must not become the version to
         // come back to. Declining aborts the close and keeps the edits.
         using IProjectFileWriteLease closeWrite =
-            await _editorService.BeginProjectFileWriteAsync(cancellationToken);
+            await Workspace.BeginProjectFileWriteAsync(cancellationToken);
         if (!await TrySaveOpenProjectAsync(project, cancellationToken))
         {
             if (await ConfirmCloseWithoutSnapshotAsync(cancellationToken))
@@ -302,12 +310,12 @@ internal partial class VersionControlCoordinator
         }
     }
 
-    // Whether closing the open project waits on version control: an operation still running, an
+    // Whether closing the tracked project waits on version control: an operation still running, an
     // activation still deciding how the project is tracked, or a tracked backend to retire.
     private bool HasVersionControlWorkToFinish()
     {
         return !_disposed
-               && _projectService.CurrentProject.Value is not null
+               && TrackedProject is not null
                && (_operationGate.CurrentCount == 0
                    || _activation is not null
                    || _state.OwnedService?.Repository is not null);

@@ -257,7 +257,7 @@ public partial class EditViewModel
             try
             {
                 using IDisposable fileWrite =
-                    await EditorService.BeginProjectFileWriteAsync(
+                    await Workspace.BeginProjectFileWriteAsync(
                         _autoSaveCancellation.Token);
                 if (_disposed)
                 {

@@ -55,7 +55,7 @@ public sealed partial class MainViewModel
     internal async Task CommitVersionAsync(IContextCommandInteraction interaction)
     {
         Project? expectedProject = _projectService.CurrentProject.Value;
-        IProjectVersionControlService? expectedService = _versionControlCoordinator.CurrentService;
+        IProjectVersionControlService? expectedService = _versionControl.CurrentService;
         if (expectedProject is null || expectedService is null) return;
 
         string? message = await interaction.ShowInputAsync(new ContextCommandInputOptions
@@ -75,14 +75,14 @@ public sealed partial class MainViewModel
     {
         // The project or its repository may have been replaced while the message was being typed.
         if (!ReferenceEquals(expectedProject, _projectService.CurrentProject.Value)
-            || !ReferenceEquals(expectedService, _versionControlCoordinator.CurrentService))
+            || !ReferenceEquals(expectedService, _versionControl.CurrentService))
         {
             return;
         }
 
         try
         {
-            CommitResult result = await _versionControlCoordinator.CommitManualAsync(message.Trim());
+            CommitResult result = await _versionControl.CommitManualAsync(message.Trim(), CancellationToken.None);
             AppServices.GetRequiredService<INotificationService>().ShowInformation(
                 Strings.VersionControl,
                 result is CommitResult.NoChanges

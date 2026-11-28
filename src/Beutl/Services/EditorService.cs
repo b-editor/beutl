@@ -17,13 +17,14 @@ using Reactive.Bindings;
 namespace Beutl.Services;
 
 public sealed partial class EditorService
-    : IOutputOperationLeaseProvider,
+    : Beutl.Editor.Components.OutputTab.IOutputRunHost,
         Beutl.Editor.Services.IEditorFileUsage,
         IProjectFileWriteAdmissionHost
 {
     public bool IsFileInUse(string path, bool isDirectory) => IsAnyFileInUse([(path, isDirectory)]);
 
-    // The objects are walked once and each folder is listed once, however many files are asked about.
+    // Looks at every loaded project and every editor of this service, whether its project is active or in the
+    // background. The objects are walked once and each folder is listed once, however many files are asked about.
     public bool IsAnyFileInUse(IReadOnlyCollection<(string Path, bool IsDirectory)> files)
     {
         Dispatcher.UIThread.VerifyAccess();
@@ -41,10 +42,10 @@ public sealed partial class EditorService
                 exactFiles.Add(canonicalPath);
         }
 
-        IEnumerable<CoreObject> roots = _tabItems
+        IEnumerable<CoreObject> roots = _tabItems.Concat(InactiveTabItems)
             .Select(item => item.Context.Value?.Object)
             .OfType<CoreObject>();
-        if (BeutlApplication.Current.ActiveProject.Value is { } project)
+        foreach (Project project in _sessions.Sessions.Select(session => session.Project))
             roots = roots.Concat(project.Items).Prepend(project);
 
         var filesFree = new HashSet<string>(StringComparer.Ordinal);
@@ -64,7 +65,11 @@ public sealed partial class EditorService
 
     internal Beutl.Editor.Components.WebBrowserTab.IBrowserSettingsHost? BrowserSettingsHost { get; set; }
     internal Beutl.Editor.Components.FileBrowserTab.FileBrowserStorageProviderRegistry? StorageProviders { get; set; }
-    internal ProjectAssetCoordinator? ProjectAssets { get; set; }
+    // Makes the asset host of a project's workspace.
+    internal Func<EditorWorkspace, ProjectAssetCoordinator>? ProjectAssetsFactory { get; set; }
+
+    // The asset host of the active project.
+    internal ProjectAssetCoordinator? ProjectAssets => ActiveWorkspace.Value.ProjectAssets;
     internal Beutl.Editor.Components.AiWorkspaceTab.IAiWorkspaceHost? AiWorkspaceHost { get; set; }
     internal Beutl.Editor.Components.AgentTab.IAgentWorkspaceHost? AgentWorkspaceHost { get; set; }
     internal Beutl.Api.BeutlApiApplication? ApiApplication { get; set; }
@@ -73,9 +78,6 @@ public sealed partial class EditorService
     private readonly ILogger _logger = Log.CreateLogger<EditorService>();
     private readonly ExtensionProvider _extensionProvider;
     private readonly Action<Project, Uri> _serializeProject;
-    private readonly ReactivePropertySlim<IProjectVersionControlService?>
-        _projectVersionControlService = new();
-    private readonly IProjectFileWriteAdmission _projectFileWriteAdmission;
     private int _projectItemActivationSuppressionCount;
 
     internal bool ActivateAddedProjectItems => Volatile.Read(ref _projectItemActivationSuppressionCount) == 0;
@@ -101,10 +103,13 @@ public sealed partial class EditorService
     {
     }
 
+    // sessions are the loaded projects whose editors this service holds, ProjectSessionRegistry.Current unless a
+    // test gives its own.
     internal EditorService(
         ExtensionProvider extensionProvider,
         Action<Project, Uri> serializeProject,
-        IServiceProvider appServices)
+        IServiceProvider appServices,
+        ProjectSessionRegistry? sessions = null)
     {
         ArgumentNullException.ThrowIfNull(extensionProvider);
         ArgumentNullException.ThrowIfNull(serializeProject);
@@ -114,22 +119,33 @@ public sealed partial class EditorService
         _extensionProvider = extensionProvider;
         _serializeProject = serializeProject;
         _tabItems = new() { ResetBehavior = ResetBehavior.Remove };
-        ProjectVersionControlService = _projectVersionControlService
-            .ToReadOnlyReactivePropertySlim();
+        _sessions = sessions ?? ProjectSessionRegistry.Current;
+        _shellWorkspace = new EditorWorkspace(this, projectFile: null);
+        _activeWorkspace = new ReactivePropertySlim<EditorWorkspace>(_shellWorkspace);
+        // Follows the active session from the moment it changes, so the open tabs and the workspace that owns them
+        // never disagree. The registry lives as long as the process, so it holds this service only weakly.
+        FollowSessions(_sessions, this);
         LifecycleActivity = _lifecycleActivity.ToReadOnlyReactivePropertySlim();
-        _projectFileWriteAdmission = new ProjectFileWriteAdmission(this);
+        ProjectVersionControlService = _projectVersionControlService.ToReadOnlyReactivePropertySlim();
         HostProjectFileWriteAdmission.RegisterHost(this);
     }
 
     // Answers only for contexts in this service's own tabs, open or put aside with an inactive session, read at
     // the moment of the write, so a second EditorService in the process never gates a tab that belongs to this
-    // one, and a context whose tab has closed is no longer admitted.
+    // one, and a context whose tab has closed is no longer admitted. A tab is admitted by the workspace of its
+    // project, so a write in one project never waits for another.
     IProjectFileWriteAdmission? IProjectFileWriteAdmissionHost.TryGetAdmission(IEditorContext context)
     {
-        foreach (EditorTabItem item in _tabItems.Concat(InactiveTabItems))
+        foreach (EditorTabItem item in _tabItems)
         {
             if (ReferenceEquals(item.Context.Value, context))
-                return _projectFileWriteAdmission;
+                return ActiveWorkspace.Value.Admission;
+        }
+
+        foreach (EditorWorkspace workspace in Workspaces)
+        {
+            if (workspace.InactiveTabs is { } tabs && tabs.Items.Any(item => ReferenceEquals(item.Context.Value, context)))
+                return workspace.Admission;
         }
 
         return null;
@@ -148,11 +164,17 @@ public sealed partial class EditorService
             .Switch()
             .DistinctUntilChanged();
 
+    // What the version control tracking the active project shows of it.
     internal IReadOnlyReactiveProperty<IProjectVersionControlService?>
         ProjectVersionControlService
     { get; }
 
-    internal IProjectVersionControlCoordinator? ProjectVersionControlCoordinator { get; set; }
+    // The version control tracking the active project.
+    internal IProjectVersionControlCoordinator? ProjectVersionControlCoordinator
+    {
+        get => ActiveWorkspace.Value.VersionControl;
+        set => ActiveWorkspace.Value.VersionControl = value;
+    }
 
     // The fonts a scene editor forks: the fork of its project's session while the project is loaded, else the host's.
     internal Func<Project?, Beutl.Media.FontManager>? ProjectFonts { get; set; }
@@ -163,7 +185,7 @@ public sealed partial class EditorService
     internal void PublishProjectVersionControlService(
         IProjectVersionControlService? service)
     {
-        _projectVersionControlService.Value = service;
+        ActiveWorkspace.Value.PublishProjectVersionControlService(service);
     }
 
     internal static ValueTask<bool> SaveEditorInReservedWorkspaceAsync(ISavableEditorContext editor)
@@ -192,8 +214,10 @@ public sealed partial class EditorService
         Uri projectUri = project.Uri
                          ?? throw new InvalidOperationException(
                              "The project must have a file URI before it can be saved.");
-        EditorTabItem[] tabItems = TabItems.ToArray();
-        using IDisposable suspension = SuspendEditors();
+        // The project need not be the active one: its editors are those of its own workspace.
+        EditorWorkspace workspace = WorkspaceFor(project);
+        EditorTabItem[] tabItems = workspace.TabItems;
+        using IDisposable suspension = workspace.SuspendEditors();
         await Task.Run(
             () => _serializeProject(project, projectUri),
             cancellationToken);
@@ -223,12 +247,13 @@ public sealed partial class EditorService
         ProjectService projects, Project project, Scene scene, CancellationToken cancellationToken)
     {
         Dispatcher.UIThread.VerifyAccess();
-        using var write = await BeginProjectFileWriteAsync(cancellationToken);
+        using var write = await WorkspaceFor(project).BeginProjectFileWriteAsync(cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
-        if (projects.CurrentTransition is not null || !ReferenceEquals(projects.CurrentProject.Value, project))
+        // The project need not be the active one, but it must still be loaded.
+        if (projects.CurrentTransition is not null || projects.Sessions.Find(project) is null)
             return SceneRemovalResult.SceneNotFound;
 
-        bool dirty = TryGetTabItem(scene, out var tab)
+        bool dirty = WorkspaceFor(project).TabItems.FirstOrDefault(item => ReferenceEquals(item.Context.Value?.Object, scene)) is { } tab
                      && tab.Context.Value is EditViewModel editor
                      && (editor.IsDisposingOrDisposed || editor.HasUnsavedSceneChanges);
         return ProjectPersistence.RemoveScene(project, scene, dirty, persist: true);
@@ -311,49 +336,5 @@ public sealed partial class EditorService
 
         if (TabItems.Remove(item))
             await item.DisposeAsync();
-    }
-
-    internal async Task<bool> SaveSceneEditorsBeforeCloseAsync(IEnumerable<EditorTabItem> items)
-    {
-        if (!Dispatcher.UIThread.CheckAccess())
-            return await Dispatcher.UIThread.InvokeAsync(() => SaveSceneEditorsBeforeCloseAsync(items));
-
-        // Git transitions already saved or deliberately discarded these models. Writing them during
-        // teardown would overwrite the checked-out files. Disposal itself remains a discard operation.
-        if (IsWorktreeMutationActive)
-            return true;
-
-        EditViewModel[] editors = items.Select(item => item.Context.Value)
-            .OfType<EditViewModel>()
-            .Where(editor => !editor.IsDisposingOrDisposed && editor.Scene.Uri is not null)
-            .ToArray();
-        if (editors.Length == 0)
-            return true;
-
-        using IDisposable suspension = SuspendEditors();
-        try
-        {
-            using IProjectFileWriteLease fileWrite = await BeginProjectFileWriteAsync(CancellationToken.None);
-            foreach (EditViewModel editor in editors)
-            {
-                // A transition can have retired a captured editor while this writer waited.
-                if (editor.IsDisposingOrDisposed)
-                    continue;
-
-                editor.HistoryManager.FlushPendingMutations();
-                editor.HistoryManager.Commit();
-                await editor.FlushMediaFingerprintsAsync();
-                if (!await editor.SaveInReservedWorkspaceAsync())
-                    throw new IOException(MessageStrings.FileSaveException);
-            }
-
-            return true;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to save an editor before closing it.");
-            AppServices.GetRequiredService<INotificationService>().ShowError(string.Empty, MessageStrings.FileSaveException);
-            return false;
-        }
     }
 }

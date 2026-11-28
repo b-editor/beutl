@@ -7,13 +7,46 @@ namespace Beutl.Services;
 
 internal partial class VersionControlCoordinator
 {
-    // The coordinator follows the active session: a deactivated session is let go of as a closed one is, and an
-    // activated one is tracked afresh. A change to a session the editor does not show concerns it not at all.
+    // The coordinator follows its own project: it claims the first project that becomes active without a
+    // coordinator, keeps tracking it while it is deactivated, and lets go of it once it closes. A change to any
+    // other project concerns it not at all.
     private void OnTransitionCommitted(ProjectService.ProjectTransitionCommit commit)
     {
-        if (commit.ActiveSessionChanged)
+        if (_disposed)
         {
-            OnProjectChanged(commit.ActiveProject);
+            return;
+        }
+
+        switch (commit.Change)
+        {
+            case ProjectService.ProjectSessionChange.Activated:
+                if (_workspace is null)
+                {
+                    if (TryClaim(commit.Session))
+                        OnProjectChanged(commit.Project);
+                }
+                else if (TracksSession(commit.Session)
+                         && (IsInternalVersionControlTransition()
+                             || _state.OwnedService is null && _activation is null))
+                {
+                    // The project this coordinator closed for an operation came back, or a project whose tracking
+                    // ended (a failed activation, say) was activated again and is tracked afresh. A project that was
+                    // only deactivated is still tracked as it was.
+                    OnProjectChanged(commit.Project);
+                }
+
+                break;
+
+            case ProjectService.ProjectSessionChange.Closed or ProjectService.ProjectSessionChange.Discarded:
+                if (TracksSession(commit.Session))
+                {
+                    OnProjectChanged(null);
+                    // An operation of this coordinator closes the project only to reopen it.
+                    if (!IsInternalVersionControlTransition())
+                        ReleaseProject();
+                }
+
+                break;
         }
     }
 
@@ -111,7 +144,7 @@ internal partial class VersionControlCoordinator
                 return null;
             }
 
-            if (!ReferenceEquals(_projectService.CurrentProject.Value, project))
+            if (!ReferenceEquals(TrackedProject, project))
             {
                 return null;
             }
@@ -123,7 +156,7 @@ internal partial class VersionControlCoordinator
                 ?? new GitCliVersionControlService(
                     _installationLocator,
                     repository: null,
-                    () => _projectService.CurrentProject.Value is null,
+                    () => TrackedProject is null,
                     PresentPolicyNoticeAsync);
             preparedService = null;
             var activation = new ActivationContext(
@@ -177,7 +210,7 @@ internal partial class VersionControlCoordinator
                 ?? new GitCliVersionControlService(
                     _installationLocator,
                     repository,
-                    () => _projectService.CurrentProject.Value is null,
+                    () => TrackedProject is null,
                     PresentPolicyNoticeAsync,
                     RequestIdentityForSnapshotAsync);
             activation.Candidate = trackedService;

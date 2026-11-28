@@ -187,7 +187,7 @@ public sealed class EditorServiceTests
         var releasePaste = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
         var inner = new BlockingClipboardService(pasteStarted, releasePaste.Task);
-        var clipboard = new ProjectFileWriteClipboardService(editorService, inner);
+        var clipboard = new ProjectFileWriteClipboardService(editorService.ActiveWorkspace.Value, inner);
         var scene = new Scene { Uri = new Uri("file:///project/main.scene") };
 
         Task<ElementPasteOutcome> paste = clipboard.PasteAsync(scene, MediaTime.Zero, 0);
@@ -216,7 +216,7 @@ public sealed class EditorServiceTests
         var editorService = new EditorService(new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), TestShell.CreateEditorServices());
         var inner = new BlockingClipboardService(new TaskCompletionSource(), Task.CompletedTask);
         using var lifetime = new CancellationTokenSource();
-        var clipboard = new ProjectFileWriteClipboardService(editorService, inner, lifetime.Token);
+        var clipboard = new ProjectFileWriteClipboardService(editorService.ActiveWorkspace.Value, inner, lifetime.Token);
         var scene = new Scene { Uri = new Uri("file:///project/main.scene") };
         Task edit;
         using (await editorService.BeginProjectFileWriteAsync(CancellationToken.None))
@@ -248,7 +248,7 @@ public sealed class EditorServiceTests
         using var notifications = new NotificationCapture(TestShell.Notifications);
         var editorService = new EditorService(new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), TestShell.CreateEditorServices());
         var inner = new BlockingClipboardService(new TaskCompletionSource(), Task.CompletedTask);
-        var clipboard = new ProjectFileWriteClipboardService(editorService, inner);
+        var clipboard = new ProjectFileWriteClipboardService(editorService.ActiveWorkspace.Value, inner);
         var scene = new Scene();
         using (await editorService.BeginProjectFileWriteAsync(CancellationToken.None))
         {
@@ -284,7 +284,7 @@ public sealed class EditorServiceTests
         var inner = new BlockingClipboardService(
             new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously),
             Task.CompletedTask);
-        var clipboard = new ProjectFileWriteClipboardService(editorService, inner);
+        var clipboard = new ProjectFileWriteClipboardService(editorService.ActiveWorkspace.Value, inner);
         var scene = new Scene { Uri = new Uri("file:///project/main.scene") };
 
         using IDisposable mutation = editorService.TryBeginWorktreeMutation()!;
@@ -306,7 +306,7 @@ public sealed class EditorServiceTests
         var releaseCut = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
         var inner = new BlockingClipboardService(cutStarted, releaseCut.Task);
-        var clipboard = new ProjectFileWriteClipboardService(editorService, inner);
+        var clipboard = new ProjectFileWriteClipboardService(editorService.ActiveWorkspace.Value, inner);
         var scene = new Scene { Uri = new Uri("file:///project/main.scene") };
 
         Task<bool> cut = clipboard.CutAsync(scene, []);
@@ -327,7 +327,7 @@ public sealed class EditorServiceTests
         var inner = new BlockingClipboardService(
             new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously),
             Task.CompletedTask);
-        var clipboard = new ProjectFileWriteClipboardService(editorService, inner);
+        var clipboard = new ProjectFileWriteClipboardService(editorService.ActiveWorkspace.Value, inner);
         var scene = new Scene { Uri = new Uri("file:///project/main.scene") };
 
         using IDisposable mutation = editorService.TryBeginWorktreeMutation()!;

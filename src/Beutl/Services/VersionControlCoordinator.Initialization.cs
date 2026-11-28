@@ -23,7 +23,7 @@ internal partial class VersionControlCoordinator
         CancellationToken operationCancellation = operation.CancellationToken;
 
         string projectRoot = GetProjectRoot(expectedProject);
-        Project currentProject = _projectService.CurrentProject.Value
+        Project currentProject = TrackedProject
                                  ?? throw new InvalidOperationException("No project is open.");
         if (!ReferenceEquals(currentProject, expectedProject))
         {
@@ -38,7 +38,7 @@ internal partial class VersionControlCoordinator
         }
 
         ObjectDisposedException.ThrowIf(_disposed, this);
-        currentProject = _projectService.CurrentProject.Value
+        currentProject = TrackedProject
                          ?? throw new InvalidOperationException(
                              "The project was closed while version control was activating.");
         if (!ReferenceEquals(currentProject, expectedProject)
@@ -121,14 +121,14 @@ internal partial class VersionControlCoordinator
         // a repository may be sharing them on purpose, so untracking them is the user's call.
         await UntrackReservedPathsIfConfirmedAsync(service, operationCancellation);
 
-        if (_projectService.CurrentProject.Value is null)
+        if (TrackedProject is null)
         {
             throw new InvalidOperationException(
                 "The project was closed while version control was being initialized.");
         }
 
         if (_disposed
-            || !ReferenceEquals(_projectService.CurrentProject.Value, expectedProject)
+            || !ReferenceEquals(TrackedProject, expectedProject)
             || !ReferenceEquals(_state.OwnedService, service)
             || _state.ProjectRoot is not { } initializedRoot
             || !PathsEqual(initializedRoot, projectRoot))
@@ -162,7 +162,7 @@ internal partial class VersionControlCoordinator
                 "A new project can only be initialized while it is being created.");
         }
 
-        if (_projectService.CurrentProject.Value is not null)
+        if (_projectService.Sessions.Find(GetProjectFile(project)) is not null)
         {
             throw new InvalidOperationException(
                 "A new project has to be initialized before it opens.");
@@ -263,7 +263,7 @@ internal partial class VersionControlCoordinator
                ?? new GitCliVersionControlService(
                    _installationLocator,
                    repository: null,
-                   () => _projectService.CurrentProject.Value is null,
+                   () => TrackedProject is null,
                    PresentPolicyNoticeAsync,
                    RequestIdentityForSnapshotAsync);
     }
@@ -278,7 +278,7 @@ internal partial class VersionControlCoordinator
         if (_disposed
             || setup.IsDisposed
             || !ReferenceEquals(_projectService.CurrentTransition, transition)
-            || _projectService.CurrentProject.Value is not null)
+            || _projectService.Sessions.Find(GetProjectFile(project)) is not null)
         {
             return false;
         }

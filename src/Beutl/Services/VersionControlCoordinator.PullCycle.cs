@@ -151,7 +151,7 @@ internal partial class VersionControlCoordinator
 
         try
         {
-            if (!ReferenceEquals(_projectService.CurrentProject.Value, project)
+            if (!IsTrackedProjectActive(project)
                 || !ReferenceEquals(_state.OwnedService, ownedService))
             {
                 return new RemoteOpResult.Failed(PullProjectChangedMessage);
@@ -184,7 +184,7 @@ internal partial class VersionControlCoordinator
     {
         // Held until the project is closed further down, so an edit made while the preflight and
         // the prefetch run is neither lost nor left out of the files the pull sets aside.
-        using IDisposable editorSuspension = _editorService.SuspendEditors();
+        using IDisposable editorSuspension = Workspace.SuspendEditors();
         if (!await TrySaveOpenProjectAsync(project, cancellationToken))
         {
             return new RemoteOpResult.Failed(
@@ -217,7 +217,7 @@ internal partial class VersionControlCoordinator
             LfsPrefetchScope.RepositoryWide,
             cancellationToken,
             progress);
-        using IDisposable presentation = _editorService.BeginLifecycleActivity(ProjectLifecycleActivity.ApplyingPull);
+        using IDisposable presentation = Workspace.BeginLifecycleActivity(ProjectLifecycleActivity.ApplyingPull);
         try
         {
             await CloseProjectForOperationAsync(transition, CancellationToken.None);

@@ -32,13 +32,13 @@ public partial class MainView
 
     private void InitializeCommands(MainViewModel viewModel)
     {
-        viewModel.VersionControlCoordinator.RequestIdentityAsync = RequestGitIdentityAsync;
+        viewModel.VersionControl.RequestIdentityAsync = RequestGitIdentityAsync;
         viewModel.MenuBar.CreateNewProject.Subscribe(async () =>
         {
             var dialog = new CreateNewProject();
             dialog.DataContext = new CreateNewProjectViewModel(
                 viewModel.ProjectService,
-                viewModel.VersionControlCoordinator, viewModel.Configuration);
+                viewModel.VersionControl, viewModel.Configuration);
             await ShowMainDialogAsync(dialog);
         }).AddTo(_disposables);
 
@@ -104,7 +104,7 @@ public partial class MainView
     {
         try
         {
-            GitAvailability availability = await viewModel.VersionControlCoordinator.GetAvailabilityAsync();
+            GitAvailability availability = await viewModel.VersionControl.GetAvailabilityAsync();
             if (availability.State != GitAvailabilityState.Installed)
             {
                 return;
@@ -112,7 +112,7 @@ public partial class MainView
 
             Project project = viewModel.ProjectService.CurrentProject.Value
                               ?? throw new InvalidOperationException("No project is open.");
-            await viewModel.VersionControlCoordinator.InitializeCurrentProjectAsync(project);
+            await viewModel.VersionControl.InitializeCurrentProjectAsync(project);
         }
         catch (Exception ex)
         {
@@ -148,7 +148,7 @@ public partial class MainView
     {
         Project? expectedProject = viewModel.ProjectService.CurrentProject.Value;
         IProjectVersionControlService? expectedService =
-            viewModel.VersionControlCoordinator.CurrentService;
+            viewModel.VersionControl.CurrentService;
         if (expectedProject is null || expectedService is null)
         {
             return;

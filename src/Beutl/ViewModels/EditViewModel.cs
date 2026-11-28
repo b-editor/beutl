@@ -67,6 +67,9 @@ public sealed partial class EditViewModel
         Scene = scene;
         ExtensionProvider = extensionProvider;
         EditorService = editorService;
+        // The files, outputs and version control of the scene's own project, which need not be the active one by
+        // the time this editor saves or renders.
+        Workspace = editorService.WorkspaceFor(scene);
         SceneId = scene.Id.Value.ToString();
         // A fork of the open project's fonts (or the host's, for a scene outside it), which the editor's services,
         // renders and font pickers resolve with.
@@ -308,6 +311,9 @@ public sealed partial class EditViewModel
 
     public EditorService EditorService { get; }
 
+    // The workspace of the scene's project in EditorService.
+    internal EditorWorkspace Workspace { get; }
+
     public ReadOnlyReactivePropertySlim<SceneRenderer> Renderer { get; }
 
     /// <summary>Per-edit-view preview render quality. Non-persisted; rebuilds Renderer and FrameCacheManager.</summary>
@@ -381,9 +387,9 @@ public sealed partial class EditViewModel
         this.GetRequiredService<GlobalConfiguration>().EditorConfig.PropertyChanged -= OnEditorConfigPropertyChanged;
         try
         {
-            if (scene.Uri is not null && !EditorService.IsWorktreeMutationActive)
+            if (scene.Uri is not null && !Workspace.IsWorktreeMutationActive)
             {
-                using IDisposable fileWrite = await EditorService.BeginProjectFileWriteAsync(
+                using IDisposable fileWrite = await Workspace.BeginProjectFileWriteAsync(
                     CancellationToken.None);
                 SaveState();
             }
@@ -648,7 +654,7 @@ public sealed partial class EditViewModel
 
     public async ValueTask<bool> SaveAsync()
     {
-        using IDisposable fileWrite = await EditorService.BeginProjectFileWriteAsync(CancellationToken.None);
+        using IDisposable fileWrite = await Workspace.BeginProjectFileWriteAsync(CancellationToken.None);
         return await SaveInReservedWorkspaceAsync();
     }
 

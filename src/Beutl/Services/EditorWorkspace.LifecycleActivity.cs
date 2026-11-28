@@ -3,20 +3,21 @@ using Reactive.Bindings;
 
 namespace Beutl.Services;
 
-public partial class EditorService
+internal sealed partial class EditorWorkspace
 {
     private readonly ReactivePropertySlim<ProjectLifecycleActivity> _lifecycleActivity = new();
     private readonly object _lifecycleActivitySync = new();
     private readonly List<LifecycleActivityLease> _lifecycleActivities = [];
 
     /// <summary>
-    /// The slow project work shown in place of the editor area, or
-    /// <see cref="ProjectLifecycleActivity.None"/> while the editor area is available.
+    /// The slow work on this project shown in place of its editors, or
+    /// <see cref="ProjectLifecycleActivity.None"/> while they are available. The editor area shows it only while
+    /// the project is the active one, so work on a project in the background covers nothing.
     /// </summary>
     internal IReadOnlyReactiveProperty<ProjectLifecycleActivity> LifecycleActivity { get; }
 
     /// <summary>
-    /// Shows <paramref name="activity"/> in place of the editor area until the returned handle is disposed.
+    /// Shows <paramref name="activity"/> in place of this project's editors until the returned handle is disposed.
     /// </summary>
     /// <remarks>
     /// Activities can overlap, as when creating a project first closes the open one, so the most recent
@@ -53,14 +54,21 @@ public partial class EditorService
     {
         if (Dispatcher.UIThread.CheckAccess())
         {
-            _lifecycleActivity.Value = GetCurrentLifecycleActivity();
+            UpdateLifecycleActivity();
         }
         else
         {
             // The posted update reads the list when it runs, so updates arriving out of order still settle
             // on the current activity.
-            Dispatcher.UIThread.Post(() => _lifecycleActivity.Value = GetCurrentLifecycleActivity());
+            Dispatcher.UIThread.Post(UpdateLifecycleActivity);
         }
+    }
+
+    // The editor service shows the activity of the active project, so it learns of every change.
+    private void UpdateLifecycleActivity()
+    {
+        _lifecycleActivity.Value = GetCurrentLifecycleActivity();
+        Owner.RefreshLifecycleActivity();
     }
 
     private ProjectLifecycleActivity GetCurrentLifecycleActivity()
@@ -74,7 +82,7 @@ public partial class EditorService
     }
 
     private sealed class LifecycleActivityLease(
-        EditorService owner,
+        EditorWorkspace owner,
         ProjectLifecycleActivity activity) : IDisposable
     {
         private int _disposed;

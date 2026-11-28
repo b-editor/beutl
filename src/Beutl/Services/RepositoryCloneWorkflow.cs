@@ -14,7 +14,7 @@ using Microsoft.Extensions.Logging;
 namespace Beutl.Services;
 
 internal sealed class RepositoryCloneWorkflow(
-    BeutlApiApplication api, ProjectService projects, VersionControlCoordinator versionControl, GlobalConfiguration configuration)
+    BeutlApiApplication api, ProjectService projects, VersionControlCoordinators versionControl, GlobalConfiguration configuration)
 {
     private static readonly ILogger s_logger = Log.CreateLogger<RepositoryCloneWorkflow>();
     private readonly GitInstallationLocator _installation = new(configuration.VersionControlConfig);

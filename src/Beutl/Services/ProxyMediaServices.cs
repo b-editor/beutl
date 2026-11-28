@@ -381,7 +381,8 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
         }
     }
 
-    private IReadOnlySet<string> CollectOpenProjectSources()
+    // The sources of every loaded project, which eviction keeps while it can.
+    internal IReadOnlySet<string> CollectOpenProjectSources()
     {
         // Eviction sweeps run on background threads, but this walks project / element / node-graph
         // state that the UI thread mutates. Read it on the UI thread so the collected set is a
@@ -401,21 +402,31 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
 
         try
         {
-            if (BeutlApplication.Current.ActiveProject.Value is not { } project)
+            // Every loaded project keeps its proxies, the ones in the background too: switching back to one must
+            // not find its proxies evicted for the active project's sake.
+            Project[] projects = [.. BeutlApplication.Current.Projects];
+            if (projects.Length == 0)
                 return s_noOpenProjectSources;
 
-            // Each job of a Generate All batch runs this sweep, so memoize on the project to walk it once.
+            // Each job of a Generate All batch runs this sweep, so memoize on the loaded projects to walk them once.
             // The set only biases eviction, so a source added mid-batch is merely unprotected until reopen.
             lock (s_openProjectSourcesLock)
             {
-                if (ReferenceEquals(s_openProjectSourcesProject, project) && s_openProjectSources is { } cached)
+                if (s_openProjectSourcesProjects is { } loaded
+                    && loaded.AsSpan().SequenceEqual(projects, ReferenceEqualityComparer.Instance)
+                    && s_openProjectSources is { } cached)
+                {
                     return cached;
+                }
             }
 
-            IReadOnlySet<string> sources = ProxySourceEnumerator.EnumerateFileSources(project);
+            var sources = new HashSet<string>(StringComparer.Ordinal);
+            foreach (Project project in projects)
+                sources.UnionWith(ProxySourceEnumerator.EnumerateFileSources(project));
+
             lock (s_openProjectSourcesLock)
             {
-                s_openProjectSourcesProject = project;
+                s_openProjectSourcesProjects = projects;
                 s_openProjectSources = sources;
             }
 
@@ -430,7 +441,7 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
     }
 
     private static readonly object s_openProjectSourcesLock = new();
-    private static Project? s_openProjectSourcesProject;
+    private static Project[]? s_openProjectSourcesProjects;
     private static IReadOnlySet<string>? s_openProjectSources;
 
     // Runs a disk-pressure sweep synchronously in the queue's dispatch path, right before the inner

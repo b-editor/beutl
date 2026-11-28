@@ -43,7 +43,7 @@ internal sealed class ProjectThumbnailService
     public ProjectThumbnailService(
         ProjectService projectService,
         EditorService editorService,
-        VersionControlCoordinator? versionControlCoordinator = null)
+        VersionControlCoordinators? versionControlCoordinator = null)
     {
         _projectService = projectService;
         _editorService = editorService;
@@ -103,8 +103,8 @@ internal sealed class ProjectThumbnailService
         // A deactivated session is pictured as a closed one is. One the editor does not show has no editor to
         // picture it with, and kept the picture taken when it was deactivated.
         if (closeContext.CloseIntent != ProjectService.ProjectCloseIntent.SaveChanges
-            || _editorService.IsWorktreeMutationActive
             || closeContext.Session.Project is not { Uri: { IsFile: true } projectUri } project
+            || _editorService.WorkspaceFor(project).IsWorktreeMutationActive
             || !ReferenceEquals(_projectService.CurrentProject.Value, project)
             || FindSceneEditor(project) is not { } editor)
         {
@@ -116,8 +116,9 @@ internal sealed class ProjectThumbnailService
 
     private void OnPushSucceeded(object? sender, VersionControlCoordinator.PushSucceededEventArgs args)
     {
+        // The project the push came from, which may have gone to the background since.
         if (args.PushUrls.Count == 0
-            || _projectService.CurrentProject.Value is not { Uri: { IsFile: true } projectUri } project
+            || (sender as VersionControlCoordinator)?.TrackedProject is not { Uri: { IsFile: true } projectUri } project
             || _editorService.ApiApplication is not { AuthenticatedUser.Value: { } owner } api)
         {
             return;
@@ -224,7 +225,7 @@ internal sealed class ProjectThumbnailService
     {
         // Skip fresh capture during active playback so a background push never pauses preview playback.
         EditViewModel? editor = await Dispatcher.UIThread.InvokeAsync(() =>
-            !_editorService.IsWorktreeMutationActive
+            !_editorService.WorkspaceFor(project).IsWorktreeMutationActive
             && ReferenceEquals(_projectService.CurrentProject.Value, project)
             && FindSceneEditor(project) is { Player.IsPlaybackActive: false } found
                 ? found

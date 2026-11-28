@@ -71,7 +71,7 @@ internal partial class VersionControlCoordinator
             () => _isTracked.Value = _state.IsTracked,
             nameof(IsTracked));
         PublishStateValue(
-            () => _editorService.PublishProjectVersionControlService(_state.VisibleService),
+            () => _workspace?.PublishProjectVersionControlService(_state.VisibleService),
             nameof(EditorService.ProjectVersionControlService));
     }
 

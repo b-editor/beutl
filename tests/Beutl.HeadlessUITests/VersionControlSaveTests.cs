@@ -895,7 +895,7 @@ public class VersionControlSaveTests
     }
 
     [AvaloniaTest]
-    public async Task Opening_another_project_reloads_shared_scenes_saved_on_close()
+    public async Task Switching_projects_keeps_the_unsaved_edits_and_leaves_the_close_snapshot_to_the_close()
     {
         bool oldAutoSave = EditViewModel.IsAutoSaveSuppressedForTesting;
 
@@ -911,31 +911,113 @@ public class VersionControlSaveTests
                 "original",
                 width: 320,
                 height: 180);
+            string projectRoot = Path.GetDirectoryName(original.Uri!.LocalPath)!;
 
             Scene scene = original.Items.OfType<Scene>().Single();
             TestShell.Editor.ActivateTabItem(scene);
             HeadlessTestHelpers.Settle();
-            string alternate = Path.Combine(Path.GetDirectoryName(original.Uri!.LocalPath)!, "alternate.bep");
+            string alternate = Path.Combine(projectRoot, "alternate.bep");
             File.Copy(original.Uri.LocalPath, alternate);
 
             EditViewModel.IsAutoSaveSuppressedForTesting = true;
             scene.Duration.Value = MediaTime.FromSeconds(73);
-            Assert.That(CoreSerializer.RestoreFromUri<Scene>(scene.Uri!).Duration.Value, Is.Not.EqualTo(scene.Duration.Value));
+            MediaTime saved = CoreSerializer.RestoreFromUri<Scene>(scene.Uri!).Duration.Value;
+            Assert.That(saved, Is.Not.EqualTo(scene.Duration.Value));
 
             await TestShell.Project.OpenProject(alternate);
             Project opened = TestShell.Project.CurrentProject.Value!;
             Scene openedScene = opened.Items.OfType<Scene>().Single();
-            TestShell.Editor.ActivateTabItem(openedScene);
             HeadlessTestHelpers.Settle();
-            Assert.That(await ((ISavableEditorContext)TestShell.Editor.SelectedTabItem.Value!.Context.Value).SaveAsync(), Is.True);
 
             Assert.Multiple(() =>
             {
                 Assert.That(opened.Uri!.LocalPath, Is.EqualTo(alternate));
-                Assert.That(openedScene.Uri, Is.EqualTo(scene.Uri));
-                Assert.That(openedScene.Duration.Value, Is.EqualTo(MediaTime.FromSeconds(73)));
+                Assert.That(TestShell.Project.Sessions.Find(original), Is.Not.Null, "The original project stays loaded.");
+                Assert.That(scene.Duration.Value, Is.EqualTo(MediaTime.FromSeconds(73)), "Its edit stays in memory.");
+                Assert.That(openedScene.Duration.Value, Is.EqualTo(saved), "The other project reads what is on disk.");
+            });
+            Assert.That(await CountSnapshotsAsync(git.GitPath, projectRoot, "close"), Is.Zero,
+                "A deactivation records no close snapshot.");
+
+            Assert.That(
+                await TestShell.Project.TryCloseProjectAsync(original, ProjectService.ProjectCloseIntent.SaveChanges),
+                Is.True);
+            HeadlessTestHelpers.Settle();
+
+            int closeSnapshots = await CountSnapshotsAsync(git.GitPath, projectRoot, "close");
+            Assert.Multiple(() =>
+            {
+                Assert.That(TestShell.Project.CurrentProject.Value, Is.SameAs(opened));
                 Assert.That(CoreSerializer.RestoreFromUri<Scene>(scene.Uri!).Duration.Value,
-                    Is.EqualTo(MediaTime.FromSeconds(73)), "Saving the newly opened project must retain the close-time edits.");
+                    Is.EqualTo(MediaTime.FromSeconds(73)), "The close saves the edits it kept.");
+                Assert.That(closeSnapshots, Is.EqualTo(1));
+            });
+        }
+        finally
+        {
+            EditViewModel.IsAutoSaveSuppressedForTesting = oldAutoSave;
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task A_project_closed_in_the_background_takes_the_close_snapshot_the_settings_ask_for_then()
+    {
+        bool oldAutoSave = EditViewModel.IsAutoSaveSuppressedForTesting;
+        VersionControlConfig config = TestShell.Configuration.VersionControlConfig;
+
+        try
+        {
+            await using RealGitScope git = await RealGitScope.StartAsync(
+                autoCommitOnSave: false,
+                autoCommitOnClose: false,
+                useLfsWhenAvailable: false);
+            Project background = await git.CreateProjectAsync("background-close-snapshot", "background");
+            string projectRoot = Path.GetDirectoryName(background.Uri!.LocalPath)!;
+            Scene scene = background.Items.OfType<Scene>().Single();
+            TestShell.Editor.ActivateTabItem(scene);
+            HeadlessTestHelpers.Settle();
+            VersionControlCoordinator tracking = TestShell.VersionControl;
+            IProjectVersionControlService service = tracking.CurrentService!;
+            Assert.That(service.Repository, Is.Not.Null);
+
+            EditViewModel.IsAutoSaveSuppressedForTesting = true;
+            scene.Duration.Value = MediaTime.FromSeconds(37);
+            Project foreground = (await TestShell.Project.CreateProject(
+                320, 180, new Rational(30), 44100, "foreground", TestShell.NewWorkspace("background-close-foreground")))!;
+            HeadlessTestHelpers.Settle();
+            var foregroundEditor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(TestShell.Project.CurrentProject.Value, Is.SameAs(foreground));
+                Assert.That(TestShell.VersionControl, Is.Not.SameAs(tracking), "The new project has a coordinator of its own.");
+                Assert.That(tracking.TrackedProject, Is.SameAs(background), "The background project stays tracked.");
+                Assert.That(tracking.CurrentService, Is.SameAs(service), "with the backend and watcher it had.");
+            });
+
+            // Turned on while the project is in the background: the close, not the switch, decides the snapshot.
+            config.AutoCommitOnClose.Value = true;
+            var activities = new List<ProjectLifecycleActivity>();
+            var foregroundEnabled = new List<bool>();
+            using IDisposable activitySubscription = TestShell.Editor.LifecycleActivity.Subscribe(activities.Add);
+            using IDisposable enabledSubscription = foregroundEditor.IsEnabled.Subscribe(foregroundEnabled.Add);
+            Assert.That(
+                await TestShell.Project.TryCloseProjectAsync(background, ProjectService.ProjectCloseIntent.SaveChanges),
+                Is.True);
+            HeadlessTestHelpers.Settle();
+            await WaitUntilAsync(() => tracking.CurrentService is null);
+
+            int closeSnapshots = await CountSnapshotsAsync(git.GitPath, projectRoot, "close");
+            string status = await RunGitAsync(git.GitPath, projectRoot, "status", "--porcelain");
+            Assert.Multiple(() =>
+            {
+                Assert.That(closeSnapshots, Is.EqualTo(1));
+                Assert.That(CoreSerializer.RestoreFromUri<Scene>(scene.Uri!).Duration.Value, Is.EqualTo(MediaTime.FromSeconds(37)));
+                Assert.That(status.Trim(), Is.Empty);
+                Assert.That(activities, Is.All.EqualTo(ProjectLifecycleActivity.None),
+                    "Closing a project in the background covers nothing the user sees.");
+                Assert.That(foregroundEnabled, Is.All.True, "The active project's editors are never suspended.");
+                Assert.That(TestShell.Project.CurrentProject.Value, Is.SameAs(foreground));
             });
         }
         finally

@@ -30,9 +30,11 @@ internal partial class VersionControlCoordinator
 
     private void FinishInternalTransition()
     {
-        if (_projectService.CurrentProject.Value is null)
+        if (TrackedProject is null)
         {
+            // The operation could not reopen the project, so the coordinator has nothing left to track.
             ClearProjectState();
+            ReleaseProject();
         }
     }
 
