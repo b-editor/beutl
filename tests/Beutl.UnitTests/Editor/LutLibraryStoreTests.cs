@@ -1,4 +1,6 @@
-﻿using Beutl.Editor.Components.PropertyEditors.LutLibrary;
+﻿using Beutl.Controls.PropertyEditors;
+using Beutl.Editor.Components.PropertyEditors.LutLibrary;
+using Beutl.Language;
 
 namespace Beutl.UnitTests.Editor;
 
@@ -76,69 +78,91 @@ public sealed class LutLibraryStoreTests
     }
 
     [Test]
-    public async Task Search_and_favorites_filter_the_listed_files()
+    public async Task Search_filters_by_file_name_and_folder_and_pins_order_the_list()
     {
         Directory.CreateDirectory(_library);
         LutTestFiles.WriteCube(Path.Combine(_library, "Warm.cube"));
-        LutTestFiles.WriteCube(Path.Combine(_library, "cool.cube"));
+        string extra = Path.Combine(_root, "extra-folder");
+        Directory.CreateDirectory(extra);
+        LutTestFiles.WriteCube(Path.Combine(extra, "cool.cube"));
         var store = new LutLibraryStore(_library);
-        using var viewModel = new LutLibraryViewModel(store, new NoThumbnails());
+        Assert.That(store.AddFolder(extra), Is.True);
+        using var viewModel = new LutLibraryPickerViewModel(store, new NoThumbnails());
 
         await viewModel.LoadAsync();
 
-        Assert.That(viewModel.Items.Select(item => item.Name), Is.EqualTo(new[] { "cool.cube", "Warm.cube" }));
-        LutLibraryItemViewModel warm = viewModel.Items.Single(item => item.Name == "Warm.cube");
+        Assert.That(viewModel.Items.Select(item => item.DisplayName), Is.EqualTo(new[] { "cool", "Warm" }));
 
-        viewModel.SearchText = "WARM";
-        Assert.That(viewModel.Items.Select(item => item.Name), Is.EqualTo(new[] { "Warm.cube" }));
+        viewModel.SearchText.Value = "WARM";
+        viewModel.FlushSearch();
+        Assert.That(viewModel.Items.Select(item => item.DisplayName), Is.EqualTo(new[] { "Warm" }));
 
-        viewModel.SearchText = string.Empty;
-        viewModel.FavoritesOnly = true;
+        viewModel.SearchText.Value = "extra-folder";
+        viewModel.FlushSearch();
+        Assert.That(viewModel.Items.Select(item => item.DisplayName), Is.EqualTo(new[] { "cool" }));
+
+        viewModel.SearchText.Value = string.Empty;
+        viewModel.FlushSearch();
+        PinnableLibraryItem warm = viewModel.Items.Single(item => item.DisplayName == "Warm");
+
+        viewModel.Pin(warm);
+
         Assert.Multiple(() =>
         {
-            Assert.That(viewModel.Items, Is.Empty);
-            Assert.That(viewModel.HasNoMatches, Is.True);
+            Assert.That(viewModel.Items[0].DisplayName, Is.EqualTo("Warm"));
+            Assert.That(viewModel.Items[0].IsPinned, Is.True);
+            Assert.That(store.IsFavorite(((LutLibraryPickerItem)warm.UserData).Path), Is.True);
         });
 
-        viewModel.ToggleFavorite(warm);
+        viewModel.Unpin(viewModel.Items[0]);
+
         Assert.Multiple(() =>
         {
-            Assert.That(viewModel.Items, Is.EqualTo(new[] { warm }));
-            Assert.That(store.IsFavorite(warm.Path), Is.True);
+            Assert.That(viewModel.Items[0].DisplayName, Is.EqualTo("cool"));
+            Assert.That(store.IsFavorite(((LutLibraryPickerItem)warm.UserData).Path), Is.False);
         });
-
-        viewModel.FavoritesOnly = false;
-        Assert.That(viewModel.Items, Has.Count.EqualTo(2));
     }
 
     [Test]
-    public async Task Choosing_an_entry_records_it_as_recent_and_ignores_error_entries()
+    public async Task A_pinned_item_is_persisted_and_restored_as_pinned()
     {
         Directory.CreateDirectory(_library);
-        LutTestFiles.WriteCube(Path.Combine(_library, "chosen.cube"));
-        File.WriteAllText(Path.Combine(_library, "broken.cube"), "this is not a lut");
+        LutTestFiles.WriteCube(Path.Combine(_library, "favorite.cube"));
         var store = new LutLibraryStore(_library);
-        using var viewModel = new LutLibraryViewModel(store, new NoThumbnails(), () => true);
-        LutLibraryItemViewModel? chosen = null;
-        viewModel.ItemChosen += (_, item) => chosen = item;
+
+        using (var first = new LutLibraryPickerViewModel(store, new NoThumbnails()))
+        {
+            await first.LoadAsync();
+            first.Pin(first.Items.Single());
+        }
+
+        using var restored = new LutLibraryPickerViewModel(new LutLibraryStore(_library), new NoThumbnails());
+        await restored.LoadAsync();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(restored.Items.Single().IsPinned, Is.True);
+            Assert.That(File.ReadAllText(store.SettingsPath), Does.Contain("favorite.cube"));
+        });
+    }
+
+    [Test]
+    public async Task An_unreadable_file_is_listed_with_its_error_and_no_thumbnail()
+    {
+        Directory.CreateDirectory(_library);
+        File.WriteAllText(Path.Combine(_library, "broken.cube"), "this is not a lut");
+        using var viewModel = new LutLibraryPickerViewModel(new LutLibraryStore(_library), new NoThumbnails());
 
         await viewModel.LoadAsync();
-        LutLibraryItemViewModel error = viewModel.Items.Single(item => item.IsError);
-        LutLibraryItemViewModel valid = viewModel.Items.Single(item => !item.IsError);
 
-        viewModel.Choose(error);
+        PinnableLibraryItem item = viewModel.Items.Single();
+
         Assert.Multiple(() =>
         {
-            Assert.That(chosen, Is.Null);
-            Assert.That(store.RecentFiles, Is.Empty);
-        });
-
-        viewModel.Choose(valid);
-        Assert.Multiple(() =>
-        {
-            Assert.That(chosen, Is.SameAs(valid));
-            Assert.That(store.RecentFiles, Is.EqualTo(new[] { valid.Path }));
-            Assert.That(viewModel.RecentItems, Is.EqualTo(new[] { valid }));
+            Assert.That(item.DisplayName, Is.EqualTo("broken"));
+            Assert.That(item.Description, Is.EqualTo(Strings.LutLibraryInvalidFile));
+            Assert.That(item.Thumbnail, Is.Null);
+            Assert.That(item.UserData, Is.EqualTo(new LutLibraryPickerItem(Path.Combine(_library, "broken.cube"), true)));
         });
     }
 
@@ -175,17 +199,8 @@ public sealed class LutLibraryStoreTests
 
         Assert.That(store.AddFolder(extra), Is.True);
         store.SetFavorite(favorite, true);
-        for (int i = 0; i < 10; i++)
-        {
-            store.RecordRecent(Path.Combine(_library, $"recent-{i}.cube"));
-        }
 
-        Assert.Multiple(() =>
-        {
-            Assert.That(File.Exists(store.SettingsPath), Is.True);
-            Assert.That(store.RecentFiles, Has.Count.EqualTo(8));
-            Assert.That(store.RecentFiles[0], Is.EqualTo(Path.Combine(_library, "recent-9.cube")));
-        });
+        Assert.That(File.Exists(store.SettingsPath), Is.True);
 
         var restored = new LutLibraryStore(_library);
 
@@ -193,7 +208,6 @@ public sealed class LutLibraryStoreTests
         {
             Assert.That(restored.ExtraFolders, Is.EqualTo(new[] { extra }));
             Assert.That(restored.IsFavorite(favorite), Is.True);
-            Assert.That(restored.RecentFiles, Is.EqualTo(store.RecentFiles));
         });
     }
 

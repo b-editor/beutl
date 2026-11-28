@@ -6,9 +6,20 @@ using Reactive.Bindings.Extensions;
 
 namespace Beutl.Editor.Components.PropertyEditors.Views;
 
-public sealed class LibraryItemPickerFlyout(SelectLibraryItemDialogViewModel viewModel)
-    : ConfirmablePickerFlyout<LibraryItemPickerFlyout, LibraryItemPickerFlyoutPresenter>
+public sealed class LibraryItemPickerFlyout : ConfirmablePickerFlyout<LibraryItemPickerFlyout, LibraryItemPickerFlyoutPresenter>
 {
+    private readonly ILibraryItemPickerViewModel _viewModel;
+
+    public LibraryItemPickerFlyout(SelectLibraryItemDialogViewModel viewModel)
+        : this((ILibraryItemPickerViewModel)viewModel)
+    {
+    }
+
+    internal LibraryItemPickerFlyout(ILibraryItemPickerViewModel viewModel)
+    {
+        _viewModel = viewModel;
+    }
+
     public event TypedEventHandler<LibraryItemPickerFlyout, PinnableLibraryItem>? Pinned;
 
     public event TypedEventHandler<LibraryItemPickerFlyout, PinnableLibraryItem>? Unpinned;
@@ -18,33 +29,33 @@ public sealed class LibraryItemPickerFlyout(SelectLibraryItemDialogViewModel vie
         var pfp = new LibraryItemPickerFlyoutPresenter();
         pfp.Pinned += item => Pinned?.Invoke(this, item);
         pfp.Unpinned += item => Unpinned?.Invoke(this, item);
-        pfp.Items = viewModel.Items;
-        pfp.Categories = viewModel.Categories;
-        pfp.SelectedCategoryIndex = viewModel.SelectedCategoryIndex.Value;
+        pfp.Items = _viewModel.Items;
+        pfp.Categories = _viewModel.Categories;
+        pfp.SelectedCategoryIndex = _viewModel.SelectedCategoryIndex.Value;
         pfp.GetObservable(LibraryItemPickerFlyoutPresenter.SelectedCategoryIndexProperty)
-            .Subscribe(v => viewModel.SelectedCategoryIndex.Value = v);
-        viewModel.SelectedCategoryIndex.Skip(1)
+            .Subscribe(v => _viewModel.SelectedCategoryIndex.Value = v);
+        _viewModel.SelectedCategoryIndex.Skip(1)
             .Subscribe(v => pfp.SelectedCategoryIndex = v);
-        pfp.ShowAll = viewModel.ShowAll.Value;
-        pfp.ShowReferencesTab = viewModel.HasReferencesTab;
-        if (viewModel.ShowsOnlyReferences)
+        pfp.ShowAll = _viewModel.ShowAll.Value;
+        pfp.ShowReferencesTab = _viewModel.HasReferencesTab;
+        if (_viewModel.ShowsOnlyReferences)
             pfp.ShowReferences = true;
-        pfp.ReferenceItems = viewModel.ReferenceItems;
-        pfp.CanShowTiles = viewModel.HasThumbnails;
-        pfp.ShowTiles = viewModel.ShowTiles.Value;
+        pfp.ReferenceItems = _viewModel.ReferenceItems;
+        pfp.CanShowTiles = _viewModel.HasThumbnails;
+        pfp.ShowTiles = _viewModel.ShowTiles.Value;
         pfp.GetObservable(LibraryItemPickerFlyoutPresenter.ShowTilesProperty)
-            .Subscribe(v => viewModel.ShowTiles.Value = v);
-        pfp.SelectedItem = viewModel.SelectedItem.Value;
+            .Subscribe(v => _viewModel.ShowTiles.Value = v);
+        pfp.SelectedItem = _viewModel.SelectedItem.Value;
         pfp.GetObservable(LibraryItemPickerFlyoutPresenter.SelectedItemProperty)
-            .Subscribe(v => viewModel.SelectedItem.Value = v);
+            .Subscribe(v => _viewModel.SelectedItem.Value = v);
         pfp.GetObservable(LibraryItemPickerFlyoutPresenter.ShowAllProperty)
-            .Subscribe(v => viewModel.ShowAll.Value = v);
+            .Subscribe(v => _viewModel.ShowAll.Value = v);
         pfp.GetObservable(LibraryItemPickerFlyoutPresenter.SearchTextProperty)
-            .Subscribe(v => viewModel.SearchText.Value = v);
-        viewModel.IsBusy.ObserveOnUIDispatcher()
+            .Subscribe(v => _viewModel.SearchText.Value = v);
+        _viewModel.IsBusy.ObserveOnUIDispatcher()
             .Subscribe(v => pfp.IsBusy = v);
         return pfp;
     }
 
-    protected override void FlushPendingSearch() => viewModel.FlushSearch();
+    protected override void FlushPendingSearch() => _viewModel.FlushSearch();
 }

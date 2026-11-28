@@ -15,10 +15,10 @@ using Reactive.Bindings.Extensions;
 
 namespace Beutl.Editor.Components.PropertyEditors.ViewModels;
 
-public class SelectLibraryItemDialogViewModel : SearchablePickerViewModel<LibraryItem>
+public class SelectLibraryItemDialogViewModel : SearchablePickerViewModel<LibraryItem>, ILibraryItemPickerViewModel
 {
     private const string PinnedItemsKey = "LibraryService.PinnedItems";
-    private const string ShowTilesKey = "LibraryItemPicker.ShowTiles";
+    internal const string ShowTilesKey = "LibraryItemPicker.ShowTiles";
     private static readonly TimeSpan s_searchDelay = TimeSpan.FromMilliseconds(100);
 
     private readonly LibraryService _libraryService = null!;

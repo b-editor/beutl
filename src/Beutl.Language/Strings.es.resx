@@ -599,23 +599,11 @@
   <data name="LutLibraryAddFolder" xml:space="preserve">
     <value>Añadir carpeta…</value>
   </data>
+  <data name="LutLibraryFolders" xml:space="preserve">
+    <value>Carpetas de LUT</value>
+  </data>
   <data name="LutLibraryRemoveFolder" xml:space="preserve">
     <value>Quitar carpeta</value>
-  </data>
-  <data name="LutLibrarySearchWatermark" xml:space="preserve">
-    <value>Buscar LUT</value>
-  </data>
-  <data name="LutLibraryFavoritesOnly" xml:space="preserve">
-    <value>Solo favoritos</value>
-  </data>
-  <data name="LutLibraryRecentlyUsed" xml:space="preserve">
-    <value>Usados recientemente</value>
-  </data>
-  <data name="LutLibraryEmpty" xml:space="preserve">
-    <value>Coloca archivos .cube en {0} para verlos aquí.</value>
-  </data>
-  <data name="LutLibraryNoMatches" xml:space="preserve">
-    <value>Ningún LUT coincide con la búsqueda.</value>
   </data>
   <data name="LutLibraryInvalidFile" xml:space="preserve">
     <value>No se pudo leer este archivo como LUT.</value>

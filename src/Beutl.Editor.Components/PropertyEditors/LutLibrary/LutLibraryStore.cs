@@ -3,11 +3,10 @@ using Beutl.Graphics;
 
 namespace Beutl.Editor.Components.PropertyEditors.LutLibrary;
 
-// The .cube files a LUT property can pick from, with the extra folders, favorites and recent picks kept in
-// library.json beside the files. The library folder is injected so tests do not depend on BEUTL_HOME.
+// The .cube files a LUT property can pick from, with the extra folders and pinned favorites kept in library.json
+// beside the files. The library folder is injected so tests do not depend on BEUTL_HOME.
 internal sealed class LutLibraryStore
 {
-    private const int MaxRecent = 8;
     private const string SettingsFileName = "library.json";
 
     private static readonly StringComparer s_pathComparer =
@@ -24,7 +23,6 @@ internal sealed class LutLibraryStore
 
     private readonly List<string> _extraFolders = [];
     private readonly HashSet<string> _favorites = new(s_pathComparer);
-    private readonly List<string> _recent = [];
     private readonly Dictionary<(string Path, long Modified), string?> _validation = [];
     private readonly object _gate = new();
     private readonly object _validationGate = new();
@@ -39,7 +37,7 @@ internal sealed class LutLibraryStore
 
     public string SettingsPath => Path.Combine(LibraryFolder, SettingsFileName);
 
-    // The comparer the store treats paths with, so views resolve recent files the same way.
+    // The comparer the store treats paths with, so pickers resolve the same file the same way.
     public static StringComparer PathComparer => s_pathComparer;
 
     public IReadOnlyList<string> ExtraFolders
@@ -49,17 +47,6 @@ internal sealed class LutLibraryStore
             lock (_gate)
             {
                 return [.. _extraFolders];
-            }
-        }
-    }
-
-    public IReadOnlyList<string> RecentFiles
-    {
-        get
-        {
-            lock (_gate)
-            {
-                return [.. _recent];
             }
         }
     }
@@ -178,25 +165,6 @@ internal sealed class LutLibraryStore
             Save();
     }
 
-    public void RecordRecent(string path)
-    {
-        string? full = NormalizeOrNull(path);
-        if (full is null)
-            return;
-
-        lock (_gate)
-        {
-            _recent.RemoveAll(recent => s_pathComparer.Equals(recent, full));
-            _recent.Insert(0, full);
-            if (_recent.Count > MaxRecent)
-            {
-                _recent.RemoveRange(MaxRecent, _recent.Count - MaxRecent);
-            }
-        }
-
-        Save();
-    }
-
     private static void CollectFiles(string folder, List<string> paths, HashSet<string> seen)
     {
         try
@@ -312,17 +280,6 @@ internal sealed class LutLibraryStore
                         _favorites.Add(full);
                     }
                 }
-
-                foreach (string recent in settings.Recent ?? [])
-                {
-                    if (NormalizeOrNull(recent) is { } full
-                        && !_recent.Any(existing => s_pathComparer.Equals(existing, full)))
-                    {
-                        _recent.Add(full);
-                        if (_recent.Count == MaxRecent)
-                            break;
-                    }
-                }
             }
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException or JsonException or NotSupportedException or ArgumentException)
@@ -343,8 +300,7 @@ internal sealed class LutLibraryStore
                 settings = new LibrarySettings
                 {
                     ExtraFolders = [.. _extraFolders],
-                    Favorites = [.. _favorites],
-                    Recent = [.. _recent]
+                    Favorites = [.. _favorites]
                 };
             }
 
@@ -364,7 +320,5 @@ internal sealed class LutLibraryStore
         public List<string>? ExtraFolders { get; set; }
 
         public List<string>? Favorites { get; set; }
-
-        public List<string>? Recent { get; set; }
     }
 }

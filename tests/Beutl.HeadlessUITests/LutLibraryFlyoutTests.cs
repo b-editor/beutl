@@ -1,18 +1,26 @@
 ﻿using System.Text.Json;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
+using Avalonia.Input;
 using Avalonia.Media.Imaging;
 using Avalonia.VisualTree;
+using Beutl.Controls;
+using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.PropertyEditors.LutLibrary;
+using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Editor.Components.PropertyEditors.Views;
 using Beutl.Graphics.Effects;
+using Beutl.Language;
 using Beutl.Media.Source;
 using Beutl.ProjectSystem;
 using Beutl.PropertyAdapters;
 using Beutl.Serialization;
+using Beutl.Services;
 using Beutl.Testing.Headless;
+using FluentAvalonia.UI.Controls;
 using static Beutl.HeadlessUITests.PropertyEditorTestHost;
 
 namespace Beutl.HeadlessUITests;
@@ -29,7 +37,7 @@ public sealed class LutLibraryFlyoutTests
     public void TearDown() => Directory.Delete(_directory, recursive: true);
 
     [AvaloniaTest]
-    public async Task Choosing_an_entry_writes_the_file_picker_uri_and_undo_restores_the_previous_source()
+    public async Task Searching_and_confirming_an_entry_writes_the_file_picker_uri_and_undo_restores()
     {
         string library = Path.Combine(_directory, "luts");
         Directory.CreateDirectory(library);
@@ -51,31 +59,37 @@ public sealed class LutLibraryFlyoutTests
 
         var editor = (CubeSourceEditor)control;
         editor.LibraryFolderPathOverride = library;
-        var window = new Window { Content = editor, Width = 760, Height = 260 };
+        var window = new Window { Content = editor, Width = 760, Height = 520 };
         try
         {
             window.Show();
             HeadlessTestHelpers.Render(3);
 
-            Button button = LibraryButton(editor);
-            HeadlessTestHelpers.Click(button);
-            HeadlessTestHelpers.Render(3);
+            HeadlessTestHelpers.Click(LibraryButton(editor));
+            await HeadlessTestHelpers.WaitUntilAsync(() => editor.PickerViewModel is { Items.Count: 2 });
+            LutLibraryPickerViewModel picker = editor.PickerViewModel!;
+            LibraryItemPickerFlyoutPresenter presenter = FindPresenter(window);
 
-            Assert.That(button.Flyout, Is.Not.Null);
-            Assert.That(button.Flyout!.IsOpen, Is.True);
-            LutLibraryViewModel flyout = editor.LibraryViewModel!;
+            window.KeyPress(Key.F, RawInputModifiers.Control, PhysicalKey.F, "f");
+            window.KeyRelease(Key.F, RawInputModifiers.Control, PhysicalKey.F, "f");
+            HeadlessTestHelpers.Render();
+            window.KeyTextInput("chosen");
             await HeadlessTestHelpers.WaitUntilAsync(
-                () => flyout.Items.Count == 2
-                    && flyout.Items.Any(item => item.IsError)
-                    && flyout.Items.Any(item => !item.IsError && item.Thumbnail != null),
-                message: "The library did not list and thumbnail its files.");
-
-            LutLibraryItemViewModel entry = flyout.Items.Single(item => item.Name == "chosen.cube");
-            Button entryButton = editor.LibraryViewControl.GetVisualDescendants().OfType<Button>()
-                .Single(candidate => candidate.Classes.Contains("lut-entry")
-                    && ReferenceEquals(candidate.Tag, entry));
-            HeadlessTestHelpers.Click(entryButton);
+                () => picker.SearchText.Value == "chosen" && picker.Items.Count == 1,
+                message: "The LUT picker did not search the files.");
             HeadlessTestHelpers.Render(2);
+
+            window.KeyPress(Key.Down, RawInputModifiers.None, PhysicalKey.ArrowDown, null);
+            window.KeyRelease(Key.Down, RawInputModifiers.None, PhysicalKey.ArrowDown, null);
+            HeadlessTestHelpers.Render();
+            Assert.That(presenter.SelectedItem, Is.SameAs(picker.Items[0]));
+
+            window.KeyPress(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, "\r");
+            window.KeyRelease(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, "\r");
+            await HeadlessTestHelpers.WaitUntilAsync(
+                () => effect.Source.Value is { } source
+                    && source.Uri == UriHelper.CreateFromPath(chosenPath),
+                message: "The picker did not apply the chosen LUT.");
 
             CubeSource source = effect.Source.Value!;
             Assert.Multiple(() =>
@@ -83,11 +97,75 @@ public sealed class LutLibraryFlyoutTests
                 Assert.That(source, Is.Not.SameAs(oldSource));
                 Assert.That(source.Uri, Is.EqualTo(UriHelper.CreateFromPath(chosenPath)));
                 Assert.That(history.History.UndoCount, Is.EqualTo(1));
-                Assert.That(button.Flyout!.IsOpen, Is.False);
             });
 
             Assert.That(history.History.Undo(), Is.True);
             Assert.That(effect.Source.Value, Is.SameAs(oldSource));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Pinning_an_entry_persists_it_and_reopening_shows_it_pinned()
+    {
+        string library = Path.Combine(_directory, "luts");
+        Directory.CreateDirectory(library);
+        string pinnedPath = Path.Combine(library, "favorite.cube");
+        WriteCube(pinnedPath);
+        WriteCube(Path.Combine(library, "other.cube"));
+
+        var effect = new LutEffect();
+        var adapter = new EnginePropertyAdapter<CubeSource?>(effect.Source, effect);
+        var (vm, control) = CreateControl(adapter);
+        using var viewModel = vm;
+        var editor = (CubeSourceEditor)control;
+        editor.LibraryFolderPathOverride = library;
+        var window = new Window { Content = editor, Width = 760, Height = 520 };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render(3);
+
+            HeadlessTestHelpers.Click(LibraryButton(editor));
+            await HeadlessTestHelpers.WaitUntilAsync(() => editor.PickerViewModel is { Items.Count: 2 });
+            LutLibraryPickerViewModel first = editor.PickerViewModel!;
+            PinnableLibraryItem favorite = first.Items.Single(item => item.DisplayName == "favorite");
+            LibraryItemPickerFlyoutPresenter presenter = FindPresenter(window);
+
+            ListBoxItem container = presenter.GetVisualDescendants().OfType<ListBoxItem>()
+                .Single(item => ReferenceEquals(item.DataContext, favorite));
+            HeadlessTestHelpers.Click(container, move: true);
+            ToggleButton pin = container.GetVisualDescendants().OfType<ToggleButton>()
+                .Single(toggle => toggle.Name == "ToggleButton");
+            HeadlessTestHelpers.Click(pin, move: true);
+            await HeadlessTestHelpers.WaitUntilAsync(
+                () => first.Items.Any(item => item.IsPinned),
+                message: "Clicking the pin did not pin the LUT.");
+
+            using (JsonDocument json = JsonDocument.Parse(File.ReadAllText(Path.Combine(library, "library.json"))))
+            {
+                string[] favorites = json.RootElement.GetProperty("favorites")
+                    .EnumerateArray()
+                    .Select(element => element.GetString()!)
+                    .ToArray();
+                Assert.That(favorites, Does.Contain(pinnedPath));
+            }
+
+            HeadlessTestHelpers.Click(presenter.GetVisualDescendants().OfType<Button>()
+                .Single(button => button.Name == "DismissButton"));
+            await HeadlessTestHelpers.WaitUntilAsync(
+                () => !editor.IsPickerOpen,
+                message: "The picker did not close.");
+
+            HeadlessTestHelpers.Click(LibraryButton(editor));
+            await HeadlessTestHelpers.WaitUntilAsync(
+                () => editor.PickerViewModel is { Items.Count: 2 } picker
+                    && !ReferenceEquals(picker, first)
+                    && picker.Items.Any(item => item.IsPinned),
+                message: "The reopened picker did not show the pinned LUT.");
         }
         finally
         {
@@ -123,8 +201,54 @@ public sealed class LutLibraryFlyoutTests
     }
 
     [AvaloniaTest]
-    [Explicit("Writes artifacts/pr-images/lut-library.png for visual review.")]
-    public async Task Capture_the_open_library()
+    public void The_property_menu_lists_the_extra_LUT_folders()
+    {
+        string library = Path.Combine(_directory, "luts");
+        Directory.CreateDirectory(library);
+        string extra = Path.Combine(_directory, "extra-luts");
+        Directory.CreateDirectory(extra);
+
+        var effect = new LutEffect();
+        var adapter = new EnginePropertyAdapter<CubeSource?>(effect.Source, effect);
+        var (vm, control) = CreateControl(adapter);
+        using var viewModel = vm;
+        var editor = (CubeSourceEditor)control;
+        editor.LibraryFolderPathOverride = library;
+        Assert.That(((CubeSourceEditorViewModel)vm).GetLibraryStore().AddFolder(extra), Is.True);
+
+        var window = new Window { Content = editor, Width = 760, Height = 160 };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render(3);
+
+            PropertyEditorMenu menu = editor.GetVisualDescendants().OfType<PropertyEditorMenu>().Single();
+            Button button = menu.GetVisualDescendants().OfType<Button>()
+                .First(candidate => candidate.ContextFlyout is FAMenuFlyout);
+            HeadlessTestHelpers.Click(button);
+            HeadlessTestHelpers.Render(2);
+
+            var flyout = (FAMenuFlyout)button.ContextFlyout!;
+            FAMenuFlyoutSubItem folders = flyout.Items.OfType<FAMenuFlyoutSubItem>()
+                .Single(item => Equals(item.Text, Strings.LutLibraryFolders));
+            Assert.Multiple(() =>
+            {
+                Assert.That(folders.IsVisible, Is.True);
+                Assert.That(folders.Items.OfType<FAMenuFlyoutSubItem>().Select(item => item.Text),
+                    Does.Contain(extra));
+                Assert.That(folders.Items.OfType<FAMenuFlyoutItem>().Select(item => item.Text),
+                    Does.Contain(Strings.LutLibraryAddFolder));
+            });
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaTest]
+    [Explicit("Writes artifacts/pr-images for visual review.")]
+    public async Task Capture_the_library_and_effect_pickers()
     {
         string library = Path.Combine(_directory, "luts");
         Directory.CreateDirectory(library);
@@ -137,14 +261,15 @@ public sealed class LutLibraryFlyoutTests
             JsonSerializer.Serialize(new
             {
                 extraFolders = Array.Empty<string>(),
-                favorites = new[] { favorite },
-                recent = Array.Empty<string>()
+                favorites = new[] { favorite }
             }));
 
+        string? root = FindRepositoryRoot();
+        Assert.That(root, Is.Not.Null, "The repository root was not found.");
+        string output = Path.Combine(root!, "artifacts", "pr-images");
+        Directory.CreateDirectory(output);
+
         var effect = new LutEffect();
-        var source = new CubeSource();
-        source.ReadFrom(UriHelper.CreateFromPath(Path.Combine(library, "identity.cube")));
-        effect.Source.Value = source;
         var adapter = new EnginePropertyAdapter<CubeSource?>(effect.Source, effect);
         var (vm, control) = CreateControl(adapter);
         using var viewModel = vm;
@@ -153,39 +278,100 @@ public sealed class LutLibraryFlyoutTests
 
         bool previousOverlays = TestAppBuilder.HeadlessOptions.OverlayPopups;
         var window = new Window { Content = editor, Width = 760, Height = 520 };
+        var effectWindow = new Window { Content = new Button { Content = "Pick" }, Width = 760, Height = 520 };
         try
         {
-            TestAppBuilder.HeadlessOptions.OverlayPopups = true;
+            TestAppBuilder.HeadlessOptions.OverlayPopups = false;
             window.Show();
             HeadlessTestHelpers.Render(3);
             HeadlessTestHelpers.Click(LibraryButton(editor));
+            await HeadlessTestHelpers.WaitUntilAsync(() => editor.PickerViewModel is { Items.Count: 3 });
+            LutLibraryPickerViewModel picker = editor.PickerViewModel!;
+            picker.ShowTiles.Value = true;
             HeadlessTestHelpers.Render(3);
 
-            LutLibraryViewModel flyout = editor.LibraryViewModel!;
+            LibraryItemPickerFlyoutPresenter presenter = FindPresenter(window);
+            presenter.ShowTiles = true;
+            HeadlessTestHelpers.Render(3);
             await HeadlessTestHelpers.WaitUntilAsync(
-                () => flyout.Items.Count == 3
-                    && flyout.Items.Where(item => !item.IsError).All(item => item.Thumbnail != null),
-                message: "The library thumbnails were not ready for the capture.");
+                () => presenter.GetVisualDescendants().OfType<AnimatedThumbnail>()
+                    .Count(thumbnail => thumbnail.Source?.Still != null) >= 2,
+                message: "The LUT thumbnails were not ready for the capture.");
+            Capture(presenter, "lut-library-tiles.png");
 
+            picker.ShowTiles.Value = false;
+            presenter.ShowTiles = false;
             HeadlessTestHelpers.Render(3);
-            using WriteableBitmap frame = window.CaptureRenderedFrame()
-                ?? throw new AssertionException("No headless frame was rendered.");
+            Capture(presenter, "lut-library-list.png");
 
-            string? root = FindRepositoryRoot();
-            Assert.That(root, Is.Not.Null, "The repository root was not found.");
-            string output = Path.Combine(root!, "artifacts", "pr-images");
-            Directory.CreateDirectory(output);
-            frame.Save(Path.Combine(output, "lut-library.png"), PngBitmapEncoderOptions.Default);
+            window.Close();
+
+            var host = (Button)effectWindow.Content!;
+            effectWindow.Show();
+            var effectPicker = new SelectLibraryItemDialogViewModel(
+                TestShell.FontManager,
+                TestShell.Library,
+                KnownLibraryItemFormats.FilterEffect,
+                typeof(FilterEffect));
+            _ = LibraryItemPickerHelper.ShowAsync(host, effectPicker, KnownLibraryItemFormats.FilterEffect);
+            await effectPicker.SearchTask;
+            effectPicker.ShowTiles.Value = true;
+            HeadlessTestHelpers.Render(3);
+
+            presenter = FindPresenter(effectWindow);
+            presenter.CanShowTiles = true;
+            presenter.ShowTiles = true;
+            HeadlessTestHelpers.Render(3);
+            ListBox tiles = presenter.GetVisualDescendants().OfType<ListBox>()
+                .Single(list => list.Name == "PART_TileListBox");
+            await HeadlessTestHelpers.WaitUntilAsync(
+                () => tiles.IsEffectivelyVisible && tiles.ItemCount > 0,
+                message: "The effect picker did not show its tiles.");
+            if (TestGpu.IsAvailable)
+            {
+                await HeadlessTestHelpers.WaitUntilAsync(
+                    () => presenter.GetVisualDescendants().OfType<AnimatedThumbnail>()
+                        .Any(thumbnail => thumbnail.Source?.Still != null),
+                    message: "The effect thumbnails were not ready for the capture.");
+            }
+
+            Capture(presenter, "effect-picker-tiles.png");
         }
         finally
         {
             window.Close();
+            effectWindow.Close();
             TestAppBuilder.HeadlessOptions.OverlayPopups = previousOverlays;
+        }
+
+        void Capture(Control presenter, string name)
+        {
+            HeadlessTestHelpers.Render(3);
+            using WriteableBitmap frame = TopLevel.GetTopLevel(presenter)!.CaptureRenderedFrame()
+                ?? throw new AssertionException("No headless frame was rendered.");
+            frame.Save(Path.Combine(output, name), PngBitmapEncoderOptions.Default);
         }
     }
 
     private static Button LibraryButton(CubeSourceEditor editor)
         => editor.GetVisualDescendants().OfType<Button>().Single(button => button.Name == "LibraryButton");
+
+    private static LibraryItemPickerFlyoutPresenter FindPresenter(Window window)
+    {
+        LibraryItemPickerFlyoutPresenter? presenter = window.GetVisualDescendants()
+            .OfType<LibraryItemPickerFlyoutPresenter>()
+            .LastOrDefault();
+        if (presenter != null)
+            return presenter;
+
+        foreach (Popup popup in window.OpenedPopups)
+        {
+            if (popup.IsOpen && popup.Child is LibraryItemPickerFlyoutPresenter child)
+                return child;
+        }
+
+        throw new InvalidOperationException("The picker is not open.");
+    }
 
     private static void WriteCube(string path, bool invert = false)
     {

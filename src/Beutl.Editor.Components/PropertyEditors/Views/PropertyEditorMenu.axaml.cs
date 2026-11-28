@@ -2,6 +2,7 @@
 using Avalonia.Controls;
 using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
+using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Beutl.Animation;
@@ -9,6 +10,7 @@ using Beutl.Configuration;
 using Beutl.Controls;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.GraphEditorTab.ViewModels;
+using Beutl.Editor.Components.PropertyEditors.LutLibrary;
 using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.PropertyEditors;
@@ -20,6 +22,8 @@ using Beutl.ProjectSystem;
 using FluentAvalonia.UI.Controls;
 using Microsoft.Extensions.DependencyInjection;
 using ExtensionGuard = Beutl.Api.Services.ExtensionGuard;
+using FluentIconSource = FluentIcons.Avalonia.Fluent.FluentIconSource;
+using Icon = FluentIcons.Common.Icon;
 
 namespace Beutl.Editor.Components.PropertyEditors.Views;
 
@@ -58,6 +62,9 @@ public sealed partial class PropertyEditorMenu : UserControl
         toggleLivePreview.IsVisible = DataContext is IConfigureLivePreview;
         transferInterpretationMenu.IsVisible = DataContext is VideoSourceEditorViewModel { HasTransferInterpretation: true };
         deinterlaceMenu.IsVisible = DataContext is VideoSourceEditorViewModel { HasDeinterlace: true };
+        bool isLutEditor = DataContext is CubeSourceEditorViewModel;
+        lutFoldersMenu.IsVisible = isLutEditor;
+        lutFoldersSeparator.IsVisible = isLutEditor;
         _deinterlaceProbeVersion++;
         FillCopySubItem(copyPropertyPathSubItem, CopyPropertyPath_Click);
         FillCopySubItem(copyGetPropertyCodeSubItem, CopyGetPropertyCode_Click);
@@ -87,6 +94,7 @@ public sealed partial class PropertyEditorMenu : UserControl
 
     private async void Menu_Opening(object? sender, EventArgs e)
     {
+        RefreshLutFoldersMenu();
         int probeVersion = ++_deinterlaceProbeVersion;
         deinterlaceStatusItem.IsVisible = false;
         if (DataContext is not VideoSourceEditorViewModel { HasTransferInterpretation: true } model)
@@ -144,6 +152,61 @@ public sealed partial class PropertyEditorMenu : UserControl
             DeinterlaceApplicationStatus.UnsupportedByBackend => GraphicsStrings.VideoDeinterlace_Unsupported,
             _ => order,
         };
+    }
+
+    private void RefreshLutFoldersMenu()
+    {
+        lutFoldersMenu.Items.Clear();
+        if (DataContext is not CubeSourceEditorViewModel { IsDisposed: false } viewModel)
+            return;
+
+        LutLibraryStore store = viewModel.GetLibraryStore();
+        foreach (string folder in store.ExtraFolders)
+        {
+            var removeItem = new FAMenuFlyoutItem
+            {
+                Text = Strings.LutLibraryRemoveFolder,
+                IconSource = new FluentIconSource { Icon = Icon.Delete }
+            };
+            removeItem.Click += (_, _) =>
+            {
+                store.RemoveFolder(folder);
+                RefreshLutFoldersMenu();
+            };
+
+            var folderItem = new FAMenuFlyoutSubItem
+            {
+                Text = folder,
+                IconSource = new FluentIconSource { Icon = Icon.Folder }
+            };
+            folderItem.Items.Add(removeItem);
+            lutFoldersMenu.Items.Add(folderItem);
+        }
+
+        var addItem = new FAMenuFlyoutItem
+        {
+            Text = Strings.LutLibraryAddFolder,
+            IconSource = new FluentIconSource { Icon = Icon.FolderAdd }
+        };
+        addItem.Click += async (_, _) => await AddLutFolderAsync(store);
+        lutFoldersMenu.Items.Add(addItem);
+    }
+
+    private async Task AddLutFolderAsync(LutLibraryStore store)
+    {
+        if (TopLevel.GetTopLevel(this)?.StorageProvider is not { } storage)
+            return;
+
+        IReadOnlyList<IStorageFolder> folders = await storage.OpenFolderPickerAsync(new FolderPickerOpenOptions
+        {
+            AllowMultiple = false,
+            Title = Strings.LutLibraryAddFolder
+        });
+        if (folders.Count > 0 && folders[0].TryGetLocalPath() is { } path)
+        {
+            store.AddFolder(path);
+            RefreshLutFoldersMenu();
+        }
     }
 
     private void DeinterlaceOption_Click(object? sender, RoutedEventArgs e)

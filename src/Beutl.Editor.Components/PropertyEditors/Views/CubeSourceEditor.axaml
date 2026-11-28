@@ -28,15 +28,10 @@
                             Height="24"
                             Padding="0"
                             Classes="size-24x24"
+                            Click="LibraryButton_Click"
                             IsEnabled="{Binding CanEdit.Value}"
                             Theme="{StaticResource TransparentButton}"
                             ToolTip.Tip="{x:Static lang:Strings.LutLibrary}">
-                        <Button.Flyout>
-                            <Flyout Placement="BottomEdgeAlignedRight"
-                                    Opened="LibraryFlyout_Opened">
-                                <local:LutLibraryView x:Name="LibraryView" />
-                            </Flyout>
-                        </Button.Flyout>
                         <icons:FluentIcon FontSize="14" Icon="Library" />
                     </Button>
                     <local:PropertyEditorMenu />
