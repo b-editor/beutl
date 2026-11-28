@@ -20,9 +20,12 @@ internal sealed class CutDetectionService(
     EditorConfig configuration,
     DecoderRegistry? decoders = null)
 {
-    // Upper bound on decoded frames. A stride keeps long clips bounded, and the minimum interval
+    // Upper bound on scored samples. A stride keeps long clips bounded, and the minimum interval
     // still separates neighbouring cuts at the resulting sample spacing.
     private const int MaxSamples = 9000;
+    // The lowest threshold the panel accepts. Strided pairs at or above it are decoded frame by
+    // frame, so every selectable threshold gets cuts on the exact frame.
+    private const double RefineFloor = 0.01;
     private const int HistogramBins = 32;
     private const int MaxSampleWidth = 160;
     private const int MaxSampleHeight = 90;
@@ -39,8 +42,10 @@ internal sealed class CutDetectionService(
     internal static SourceVideo? FindVideo(Element element)
     {
         if (HasEnabledTimeController(element)) return null;
+        // A disabled video is hidden, so its cuts would not match what the element shows.
         return element.Objects.OfType<SourceVideo>().FirstOrDefault(video =>
-            video.Source.Value is { HasUri: true } source
+            video.IsEnabled.Value
+            && video.Source.Value is { HasUri: true } source
             && source.Uri.IsFile
             && video.Speed.Value > 0
             && IsConstant(video.Source)
@@ -154,31 +159,16 @@ internal sealed class CutDetectionService(
         for (int i = 0; i < count; i++)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            long frame = startFrame + (long)i * stride;
-            if (capture.Loop) frame = Wrap(frame, frameCount);
-            else if (frame >= frameCount) frame = frameCount - 1;
-
-            if (!reader.ReadVideo((int)frame, out Ref<Bitmap>? bitmap))
-            {
-                // A dropped frame makes the remaining scores discontinuous; a partial list
-                // would look complete and offer cuts that were never verified.
-                throw new InvalidDataException(Strings.CutDetection_NoFrames);
-            }
-
-            using (bitmap)
-            {
-                double[] histogram = ComputeHistogram(bitmap.Value);
-                // The sample's scene time advances with source time; for a loop it keeps moving
-                // forward even though the decoded frame index wraps.
-                MediaTime sceneTime = capture.Loop
-                    ? SceneTimeOf(capture, i * stride, rate, speed)
-                    : capture.ClipRange.Start + new MediaTime((long)Math.Round(
-                        (MediaTime.FromFrames(frame, rate) - capture.Offset).Flicks / speed,
-                        MidpointRounding.AwayFromZero));
-                double score = previous == null ? 0 : HistogramDistance(previous, histogram);
-                frames.Add(new CutFrameScore(sceneTime, score));
-                previous = histogram;
-            }
+            long offset = (long)i * stride;
+            double[] histogram = ReadHistogram(offset);
+            double score = previous == null ? 0 : HistogramDistance(previous, histogram);
+            // A strided pair only says a change happened somewhere in between; decode the skipped
+            // frames and keep the sharpest consecutive change, so the cut lands on its real frame.
+            long cutOffset = stride > 1 && previous != null && score >= RefineFloor
+                ? Refine(offset - stride, previous, histogram)
+                : offset;
+            frames.Add(new CutFrameScore(SceneTimeAt(cutOffset), score));
+            previous = histogram;
 
             int percent = (int)((long)(i + 1) * 100 / count);
             if (percent > reported)
@@ -190,10 +180,57 @@ internal sealed class CutDetectionService(
 
         return new CutDetectionResult(frames, capture.ClipRange, capture.SceneFrameRate);
 
-        static MediaTime SceneTimeOf(VideoCapture capture, long sourceFrameOffset, Rational rate, double speed)
+        // Returns the offset of the later frame of the most different consecutive pair.
+        long Refine(long fromOffset, double[] fromHistogram, double[] toHistogram)
         {
-            MediaTime elapsed = MediaTime.FromFrames(sourceFrameOffset, rate);
-            return capture.ClipRange.Start + new MediaTime((long)Math.Round(elapsed.Flicks / speed, MidpointRounding.AwayFromZero));
+            long best = fromOffset + stride;
+            double bestScore = -1;
+            double[] before = fromHistogram;
+            for (long offset = fromOffset + 1; offset <= fromOffset + stride; offset++)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                double[] current = offset == fromOffset + stride ? toHistogram : ReadHistogram(offset);
+                double distance = HistogramDistance(before, current);
+                if (distance > bestScore)
+                {
+                    bestScore = distance;
+                    best = offset;
+                }
+
+                before = current;
+            }
+
+            return best;
+        }
+
+        long FrameAt(long offset)
+        {
+            long frame = startFrame + offset;
+            if (capture.Loop) return Wrap(frame, frameCount);
+            return Math.Min(frame, frameCount - 1);
+        }
+
+        double[] ReadHistogram(long offset)
+        {
+            if (!reader.ReadVideo((int)FrameAt(offset), out Ref<Bitmap>? bitmap))
+            {
+                // A dropped frame makes the remaining scores discontinuous; a partial list
+                // would look complete and offer cuts that were never verified.
+                throw new InvalidDataException(Strings.CutDetection_NoFrames);
+            }
+
+            using (bitmap) return ComputeHistogram(bitmap.Value);
+        }
+
+        // Scene time advances with source time; for a loop it keeps moving forward even though
+        // the decoded frame index wraps.
+        MediaTime SceneTimeAt(long offset)
+        {
+            MediaTime elapsed = capture.Loop
+                ? MediaTime.FromFrames(offset, rate)
+                : MediaTime.FromFrames(FrameAt(offset), rate) - capture.Offset;
+            return capture.ClipRange.Start + new MediaTime((long)Math.Round(elapsed.Flicks / speed,
+                MidpointRounding.AwayFromZero));
         }
     }
 

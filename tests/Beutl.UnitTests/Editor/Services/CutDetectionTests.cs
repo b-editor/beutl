@@ -267,35 +267,88 @@ public class CutDetectionTests
         Assert.That(h.Scene.Markers, Is.Empty);
     }
 
+    [Test]
+    public async Task Detect_LongClipWithAStride_PlacesCutsOnTheExactFrame()
+    {
+        // 36,000 frames sample every 5th frame; none of these boundaries is a multiple of 5.
+        int[] boundaries = [10_003, 20_007, 30_001];
+        _decoder.ReaderFactory = () => new CutTestReader(frameCount: 36_000, shotStarts: boundaries);
+        using var h = new SceneHistoryHarness("cut-detection-long");
+        Element element = AddShots(h, Seconds(0), Seconds(1200), Seconds(0));
+        var service = new CutDetectionService(h.History, new EditorConfig(), _decoders);
+
+        CutDetectionResult result = await service.AnalyzeAsync(h.Scene, element, CancellationToken.None);
+        IReadOnlyList<MediaTime> cuts = result.GetCuts(0.3, Seconds(0.5));
+
+        Assert.That(cuts.Select(cut => cut.ToSeconds()),
+            Is.EqualTo(boundaries.Select(frame => frame / 30.0)).Within(1.0 / 30));
+    }
+
+    [Test]
+    public async Task Analyze_WithADisabledAndAnEnabledVideo_AnalyzesTheEnabledOne()
+    {
+        using var h = new SceneHistoryHarness("cut-detection-disabled-video");
+        Element element = h.AddElement(Seconds(0), Seconds(3));
+        // Created in reverse so a decoder open during setup cannot leave the expected file last.
+        SourceVideo shown = CreateVideo(h, "shots.testcuts", MediaTime.Zero, 100);
+        element.Objects.Add(CreateVideo(h, "hidden.testcuts", MediaTime.Zero, 100, enabled: false));
+        element.Objects.Add(shown);
+        h.History.Commit("Setup");
+        var service = new CutDetectionService(h.History, new EditorConfig(), _decoders);
+
+        await service.AnalyzeAsync(h.Scene, element, CancellationToken.None);
+
+        Assert.That(Path.GetFileName(_decoder.LastFile), Is.EqualTo("shots.testcuts"));
+    }
+
+    [Test]
+    public void CanAnalyze_WithOnlyADisabledVideo_IsFalse()
+    {
+        using var h = new SceneHistoryHarness("cut-detection-only-disabled");
+        Element element = h.AddElement(Seconds(0), Seconds(3));
+        element.Objects.Add(CreateVideo(h, "shots.testcuts", MediaTime.Zero, 100, enabled: false));
+        h.History.Commit("Setup");
+
+        Assert.That(CutDetectionService.CanAnalyze(h.Scene, element), Is.False);
+    }
+
     private static Element AddShots(SceneHistoryHarness h, MediaTime start, MediaTime length, MediaTime offset,
         float speed = 100)
     {
-        string path = Path.Combine(h.BasePath, "shots.testcuts");
+        Element element = h.AddElement(start, length);
+        element.Objects.Add(CreateVideo(h, "shots.testcuts", offset, speed));
+        h.History.Commit("Setup");
+        return element;
+    }
+
+    private static SourceVideo CreateVideo(SceneHistoryHarness h, string fileName, MediaTime offset, float speed,
+        bool enabled = true)
+    {
+        string path = Path.Combine(h.BasePath, fileName);
         File.WriteAllBytes(path, []);
         var source = new VideoSource();
         source.ReadFrom(new Uri(path));
-        var video = new SourceVideo
+        return new SourceVideo
         {
+            IsEnabled = { Value = enabled },
             Source = { Value = source },
             OffsetPosition = { Value = offset },
             Speed = { Value = speed },
         };
-        Element element = h.AddElement(start, length);
-        element.Objects.Add(video);
-        h.History.Commit("Setup");
-        return element;
     }
 
     private sealed class CutTestDecoderInfo : IDecoderInfo
     {
         public string Name => "Cut Test Decoder";
         public int OpenCount { get; private set; }
+        public string? LastFile { get; private set; }
         public Func<MediaReader>? ReaderFactory { get; set; }
 
         public MediaReader? Open(string file, MediaOptions options)
         {
             if (!Path.GetExtension(file).Equals(".testcuts", StringComparison.OrdinalIgnoreCase)) return null;
             OpenCount++;
+            LastFile = file;
             return ReaderFactory?.Invoke() ?? new CutTestReader();
         }
 
@@ -304,28 +357,31 @@ public class CutDetectionTests
         public IEnumerable<string> AudioExtensions() => [];
     }
 
-    // Three one-second solid shots at 30 fps, so a correct detector reports the two boundaries.
+    // By default three one-second solid shots at 30 fps, so a correct detector reports the two boundaries.
     private sealed class CutTestReader : MediaReader
     {
-        private const int FramesPerShot = 30;
         private static readonly (byte R, byte G, byte B)[] s_colors =
         [
             (255, 0, 0),
             (0, 255, 0),
             (0, 0, 255),
+            (255, 255, 255),
         ];
 
         private readonly CancellationTokenSource? _cancelAfterFirstFrame;
         private readonly int? _failAtFrame;
-        private readonly VideoStreamInfo _videoInfo = new(
-            "cut-test", FramesPerShot * s_colors.Length, new PixelSize(64, 36), new Rational(30, 1));
+        private readonly int[] _shotStarts;
+        private readonly VideoStreamInfo _videoInfo;
         private readonly AudioStreamInfo _audioInfo = new("cut-test", Rational.Zero, 44100, 2);
         private bool _firstFrame = true;
 
-        public CutTestReader(CancellationTokenSource? cancelAfterFirstFrame = null, int? failAtFrame = null)
+        public CutTestReader(CancellationTokenSource? cancelAfterFirstFrame = null, int? failAtFrame = null,
+            int frameCount = 90, int[]? shotStarts = null)
         {
             _cancelAfterFirstFrame = cancelAfterFirstFrame;
             _failAtFrame = failAtFrame;
+            _shotStarts = shotStarts ?? [30, 60];
+            _videoInfo = new VideoStreamInfo("cut-test", frameCount, new PixelSize(16, 9), new Rational(30, 1));
         }
 
         public override VideoStreamInfo VideoInfo => _videoInfo;
@@ -341,7 +397,7 @@ public class CutDetectionTests
                 return false;
             }
 
-            (byte r, byte g, byte b) = s_colors[frame / FramesPerShot];
+            (byte r, byte g, byte b) = s_colors[_shotStarts.Count(start => frame >= start)];
             var bitmap = new Bitmap(_videoInfo.FrameSize.Width, _videoInfo.FrameSize.Height);
             bitmap.GetPixelSpan<Bgra8888>().Fill(new Bgra8888(r, g, b, 255));
             image = Ref<Bitmap>.Create(bitmap);
